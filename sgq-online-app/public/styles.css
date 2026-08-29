@@ -507,8 +507,14 @@
 
 .qp-form select option,
 select.input-basic option {
-  background: #0b1526;
-  color: #f5f7fa;
+  background: #f8fcff;
+  color: #0f172a;
+}
+
+.qp-form select option:checked,
+select.input-basic option:checked {
+  background: #d8eafe;
+  color: #0b1526;
 }
 
 .qp-form textarea {
