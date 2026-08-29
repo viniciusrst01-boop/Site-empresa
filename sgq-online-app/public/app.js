@@ -367,9 +367,6 @@ function renderOnboarding() {
           </article>
         </div>
 
-        <div class="onboarding-note">
-          Esses dados também aparecem automaticamente na tela de gerenciamento do administrador.
-        </div>
       </div>
 
       <form class="qp-card qp-form onboarding-form" id="onboardingForm">

@@ -325,15 +325,6 @@
     line-height: 1.55;
   }
 
-  .onboarding-note {
-    border-left: 3px solid var(--accent-amber);
-    color: var(--text-secondary);
-    font-size: 13px;
-    line-height: 1.55;
-    margin-top: 18px;
-    padding: 2px 0 2px 12px;
-  }
-
   .onboarding-form {
     grid-template-columns: 1fr 1fr;
   }
