@@ -230,6 +230,35 @@ async function loadRemoteData() {
     if (!response.ok) throw new Error("Falha ao carregar dados do servidor.");
 
     const payload = await response.json();
+    const localState = state;
+    const localCompany = localState?.company || {};
+    const localPlan = localState?.settings?.companyAccess;
+    const hasLocalCompany =
+      localCompany.name &&
+      localCompany.name !== seedState.company.name &&
+      localCompany.name !== payload.company?.name;
+
+    if (!payload.state && hasLocalCompany) {
+      const syncResponse = await fetch("/api/company", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: localCompany.name,
+          cnpj: localCompany.cnpj || "",
+          certification: localCompany.certification || "",
+          scope: localCompany.scope || "",
+          plan: localPlan || payload.company?.plan || "",
+        }),
+      });
+
+      if (syncResponse.ok) {
+        const synced = await syncResponse.json();
+        payload.company = synced.company || payload.company;
+        payload.state = synced.state || payload.state;
+        payload.needsOnboarding = false;
+      }
+    }
+
     currentUser = payload.user || null;
     state = normalizeState(payload.state, payload.company, payload.user);
     riskData = payload.risk || loadLocalRiskData();
@@ -2527,6 +2556,7 @@ function renderEmpresa() {
     } else {
       state.company = company;
     }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     toast("Dados da empresa salvos.");
   });
 }
