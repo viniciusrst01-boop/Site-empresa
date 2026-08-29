@@ -332,7 +332,7 @@ function updateAdminNav() {
 
 function renderOnboarding() {
   setActiveNav("");
-  setTopbar("Cadastro inicial", "Complete os dados para iniciar o SGQ Online");
+  setTopbar("Boas-vindas", "Primeiro acesso ao SGQ Online");
   pageContent.classList.remove("risk-page-content");
   pageContent.classList.remove("context-page-content");
   pageContent.innerHTML = `
@@ -340,41 +340,73 @@ function renderOnboarding() {
     <section class="onboarding-shell">
       <div class="onboarding-copy">
         <div class="welcome-eyebrow">PRIMEIRO ACESSO</div>
-        <h1 class="welcome-title">Finalize seu cadastro</h1>
-        <p class="welcome-sub">Essas informações criam o ambiente da sua empresa e deixam os dados separados dos outros usuários.</p>
+        <h1 class="welcome-title">Bem-vindo ao SGQ Online</h1>
+        <p class="welcome-sub">Antes de entrar no painel, vamos preparar o ambiente da sua empresa e mostrar o caminho básico de uso.</p>
+
+        <div class="onboarding-tour">
+          <article>
+            <span>1</span>
+            <div>
+              <strong>Cadastre a empresa</strong>
+              <p>Informe razão social, escopo, certificação e plano para separar seus dados no banco.</p>
+            </div>
+          </article>
+          <article>
+            <span>2</span>
+            <div>
+              <strong>Acesse os módulos</strong>
+              <p>Use “Meus módulos” para registrar contexto, riscos, oportunidades e demais rotinas do SGQ.</p>
+            </div>
+          </article>
+          <article>
+            <span>3</span>
+            <div>
+              <strong>Acompanhe o resumo</strong>
+              <p>A página inicial consolida os registros cadastrados nos módulos da sua empresa.</p>
+            </div>
+          </article>
+        </div>
+
+        <div class="onboarding-note">
+          Esses dados também aparecem automaticamente na tela de gerenciamento do administrador.
+        </div>
       </div>
 
       <form class="qp-card qp-form onboarding-form" id="onboardingForm">
+        <div class="onboarding-form-head full">
+          <strong>Configuração inicial</strong>
+          <span>Leva menos de um minuto e pode ser ajustado depois.</span>
+        </div>
         <div class="form-section-title">Dados do usuário</div>
         <label>
           <span>Nome completo</span>
-          <input name="userName" value="${escapeHtml(currentUser?.name || "")}" required />
+          <input name="userName" value="${escapeHtml(currentUser?.name || "")}" autocomplete="name" required />
         </label>
         <label>
           <span>Cargo/perfil</span>
-          <input name="userRole" value="${escapeHtml(currentUser?.role || "Administrador")}" required />
+          <input name="userRole" value="${escapeHtml(currentUser?.role || "Administrador")}" placeholder="Ex.: Gestor da qualidade" required />
         </label>
 
         <div class="form-section-title full">Dados da empresa</div>
         <label>
           <span>Razão social</span>
-          <input name="companyName" value="${escapeHtml(state.company.name)}" required />
+          <input name="companyName" value="${escapeHtml(state.company.name)}" autocomplete="organization" required />
         </label>
         <label>
           <span>CNPJ</span>
-          <input name="companyCnpj" value="${escapeHtml(state.company.cnpj)}" />
+          <input name="companyCnpj" value="${escapeHtml(state.company.cnpj)}" inputmode="numeric" placeholder="00.000.000/0001-00" />
         </label>
         <label>
           <span>Certificação</span>
-          <input name="companyCertification" value="${escapeHtml(state.company.certification)}" />
+          <input name="companyCertification" value="${escapeHtml(state.company.certification)}" placeholder="Ex.: ISO 9001:2015" />
         </label>
         <label>
           <span>Plano</span>
-          <input name="companyPlan" value="${escapeHtml(state.settings.companyAccess)}" />
+          <input name="companyPlan" value="${escapeHtml(state.settings.companyAccess)}" placeholder="Ex.: Plano Profissional" />
         </label>
         <label class="full">
           <span>Escopo do SGQ</span>
-          <textarea name="companyScope" rows="4">${escapeHtml(state.company.scope)}</textarea>
+          <textarea name="companyScope" rows="4" placeholder="Descreva o escopo do Sistema de Gestão da Qualidade">${escapeHtml(state.company.scope)}</textarea>
         </label>
 
         <div class="onboarding-actions full">
