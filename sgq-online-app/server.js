@@ -355,6 +355,7 @@ async function handleApiRequest(req, res, url, session) {
     const savedState = await getCompanyData(companyId, "state");
     const savedContext = await getCompanyData(companyId, "context");
     const savedRisk = await getCompanyData(companyId, "risk");
+    const savedLeadership = await getCompanyData(companyId, "leadership");
     let company = await getCompany(companyId);
 
     if (savedState?.company?.name && savedState.company.name !== company?.name) {
@@ -381,6 +382,7 @@ async function handleApiRequest(req, res, url, session) {
       state: savedState,
       context: savedContext,
       risk: savedRisk,
+      leadership: savedLeadership,
     });
     return;
   }
@@ -407,6 +409,7 @@ async function handleApiRequest(req, res, url, session) {
     await setCompanyData(companyId, "state", body.state);
     await setCompanyData(companyId, "context", body.context);
     await setCompanyData(companyId, "risk", body.risk);
+    await setCompanyData(companyId, "leadership", body.leadership);
 
     sendJson(res, 200, { ok: true, user, company });
     return;
@@ -624,7 +627,7 @@ async function handleApiRequest(req, res, url, session) {
       return;
     }
 
-    if (!["state", "context", "risk"].includes(body.key)) {
+    if (!["state", "context", "risk", "leadership"].includes(body.key)) {
       sendJson(res, 400, { error: "invalid_key" });
       return;
     }

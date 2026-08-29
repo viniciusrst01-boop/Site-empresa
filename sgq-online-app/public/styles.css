@@ -2170,10 +2170,76 @@ body.theme-light textarea.input-basic {
   color-scheme: light;
 }
 
+.doc-card,
+.indicator-panel {
+  background: var(--bg-panel);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  padding: 22px;
+}
+
+.plain-head {
+  margin: -22px -22px 18px;
+}
+
+.doc-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 14px 0 18px;
+}
+
+.doc-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 13px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.doc-pill.approved {
+  border-color: rgba(52, 211, 153, 0.35);
+  color: var(--accent-green);
+}
+
+.doc-text-box {
+  margin-bottom: 16px;
+  padding: 18px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-primary);
+  line-height: 1.7;
+}
+
+.valores-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.indicator-panel .context-kpi-row {
+  margin-top: 18px;
+  margin-bottom: 0;
+}
+
 body.theme-light .qp-form select option,
 body.theme-light select.input-basic option {
   background: #f8fcff;
   color: #0f172a;
+}
+
+body.theme-light .doc-card,
+body.theme-light .indicator-panel,
+body.theme-light .doc-text-box {
+  background: rgba(245, 251, 255, 0.94);
+  box-shadow: 0 18px 42px rgba(15, 81, 130, 0.12);
 }
 
 @media (max-width: 1200px) {

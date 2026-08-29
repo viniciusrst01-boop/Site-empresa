@@ -186,6 +186,86 @@ const contextSeeds = {
 };
 
 let currentContextTab = "swot";
+const leadershipStorageKey = "qps_lc_data";
+const leadershipSeeds = {
+  acoes: [
+    { id: "AD-0001", data: "2026-07-15", tipo: "Reunião Estratégica", descricao: "Reunião mensal com análise dos indicadores e resultados do SGQ.", participantes: "Hugo Melo, Marina Souza, Carlos Andrade", evidencia: "Ata_15072026.pdf", responsavel: "Hugo Melo", status: "Concluída" },
+    { id: "AD-0002", data: "2026-06-30", tipo: "Análise de Indicadores", descricao: "Análise crítica dos indicadores do SGQ - Junho/2026.", participantes: "Hugo Melo, Rafael Costa", evidencia: "Relatorio_Indicadores_0626.pdf", responsavel: "Hugo Melo", status: "Concluída" },
+    { id: "AD-0003", data: "2026-05-20", tipo: "Alocação de Recursos", descricao: "Aprovação de investimento em equipamentos de medição.", participantes: "Hugo Melo, Rafael Costa", evidencia: "Aprovacao_Investimento.pdf", responsavel: "Hugo Melo", status: "Concluída" },
+  ],
+  posicionamento: {
+    missao: "Entregar soluções de qualidade que gerem valor e confiança para nossos clientes.",
+    visao: "Ser referência em excelência e inovação em gestão da qualidade.",
+    valores: ["Ética", "Comprometimento", "Foco no Cliente", "Melhoria Contínua", "Trabalho em Equipe"],
+    dataAtualizacao: "2026-07-20",
+    aprovadoPor: "Hugo Melo",
+  },
+  plano: [
+    { id: "P5W2H-0001", oQue: "Implementar o QualityPro Cloud em 100% dos clientes ativos", porQue: "Padronizar e digitalizar o acompanhamento do SGQ dos clientes.", onde: "Clientes Ativos", quando: "2026-09-30", quem: "Hugo Melo", como: "Migração gradual dos dados de cada cliente para a plataforma.", quanto: 15000, status: "Em Andamento" },
+    { id: "P5W2H-0002", oQue: "Expandir a carteira de clientes PME em 30%", porQue: "Aumentar a receita recorrente e diversificar a base de clientes.", onde: "Comercial", quando: "2026-12-31", quem: "Beatriz Santos", como: "Campanhas de marketing direcionadas e parcerias comerciais.", quanto: 8000, status: "Em Andamento" },
+    { id: "P5W2H-0003", oQue: "Certificar processos críticos em conformidade com a ISO 9001", porQue: "Garantir credibilidade e diferenciação competitiva.", onde: "Processos Operacionais", quando: "2026-06-30", quem: "Carlos Andrade", como: "Auditorias internas e plano de ação corretiva.", quanto: 5000, status: "Concluído" },
+  ],
+  politica: {
+    texto: "A QualityPro Solutions fornece soluções em consultoria e sistemas de gestão da qualidade, buscando a satisfação dos clientes, a melhoria contínua dos processos e o desenvolvimento das pessoas, atendendo aos requisitos legais e aplicáveis.",
+    status: "Vigente",
+    revisao: "03",
+    dataAprovacao: "2026-01-02",
+    aprovador: "Hugo Melo",
+    aprovadorCargo: "Diretor",
+    proximaRevisao: "2027-01-02",
+    historico: [
+      { revisao: "01", data: "2024-01-10", descricao: "Versão inicial da Política da Qualidade." },
+      { revisao: "02", data: "2025-01-05", descricao: "Inclusão de referência à melhoria contínua." },
+      { revisao: "03", data: "2026-01-02", descricao: "Atualização para incluir desenvolvimento das pessoas." },
+    ],
+  },
+  comunicacao: [
+    { id: "COMPOL-0001", data: "2026-07-10", forma: "Reunião de Equipe", setor: "Toda a organização", qtdPessoas: 7, evidencia: "Ata_reuniao_qualidade_0710.pdf" },
+    { id: "COMPOL-0002", data: "2026-06-15", forma: "E-mail", setor: "Todos os Setores", qtdPessoas: 7, evidencia: "Comprovante_email_0615.pdf" },
+  ],
+  cargos: [
+    { id: "CARGO-0001", nome: "Hugo Melo", cargo: "Diretor Geral", departamento: "Direção", substituto: "-", status: "Ativo", descricao: "Responsável pelo direcionamento estratégico e liderança geral da organização.", responsabilidades: ["Definir a política e os objetivos da qualidade", "Garantir os recursos necessários ao SGQ"], autoridades: ["Aprovar documentos estratégicos", "Aprovar investimentos e contratações"] },
+    { id: "CARGO-0002", nome: "Carlos Andrade", cargo: "Gerente da Qualidade", departamento: "Qualidade", substituto: "João Pereira", status: "Ativo", descricao: "Responsável por planejar, implementar e manter o SGQ.", responsabilidades: ["Garantir a conformidade do SGQ", "Reportar desempenho à Direção"], autoridades: ["Requisitar recursos para melhoria", "Emitir ações corretivas"] },
+  ],
+  raci: [
+    { id: "RACI-0001", atividade: "Definir Política da Qualidade", diretorGeral: "A", qualidade: "R", comercial: "I", financeiro: "I" },
+    { id: "RACI-0002", atividade: "Gerenciar Não Conformidades", diretorGeral: "I", qualidade: "R", comercial: "C", financeiro: "I" },
+  ],
+  delegacoes: [
+    { id: "DEL-0001", titular: "Hugo Melo", substituto: "Carlos Andrade", cargo: "Diretor Geral", periodoIni: "2026-08-01", periodoFim: "2026-08-08", motivo: "Férias", status: "Agendada" },
+  ],
+  aprovacoes: [
+    { id: "APR-0001", tipo: "Procedimentos", aprovador: "Hugo Melo", substituto: "Carlos Andrade", revisao: "01" },
+    { id: "APR-0002", tipo: "Objetivos da Qualidade", aprovador: "Hugo Melo", substituto: "Carlos Andrade", revisao: "01" },
+  ],
+  compromissos: [
+    { id: "COMP-0001", compromisso: "Aprovar Política da Qualidade", responsavel: "Hugo Melo", status: "Concluído" },
+    { id: "COMP-0002", compromisso: "Promover melhoria contínua", responsavel: "Hugo Melo", status: "Em Andamento" },
+  ],
+};
+const leadershipTabs = {
+  lideranca: [
+    ["acoes", "Comprometimento da Direção"],
+    ["posicionamento", "Posicionamento Estratégico"],
+    ["plano", "Plano Estratégico"],
+    ["indicadores", "Indicadores"],
+  ],
+  politica: [
+    ["politica", "Política da Qualidade"],
+    ["comunicacao", "Comunicação da Política"],
+  ],
+  papeis: [
+    ["cargos", "Cargos e Funções"],
+    ["raci", "Matriz RACI"],
+    ["delegacoes", "Delegação de Autoridade"],
+    ["aprovacoes", "Aprovações"],
+    ["compromissos", "Compromissos da Direção"],
+    ["indicadoresPapeis", "Indicadores da Liderança"],
+  ],
+};
+let leadershipData = null;
+let currentLeadershipMainTab = "lideranca";
+let currentLeadershipSubTab = "acoes";
 
 let state = loadState();
 let riskData = null;
@@ -263,6 +343,7 @@ async function loadRemoteData() {
     state = normalizeState(payload.state, payload.company, payload.user);
     riskData = payload.risk || loadLocalRiskData();
     contextData = payload.context || loadLocalContextData();
+    leadershipData = payload.leadership || loadLocalLeadershipData();
 
     applyTheme();
     applyUserProfile();
@@ -487,6 +568,7 @@ async function saveOnboarding(event) {
       state,
       context: contextData || loadLocalContextData(),
       risk: riskData || loadLocalRiskData(),
+      leadership: leadershipData || loadLocalLeadershipData(),
     }),
   });
 
@@ -580,6 +662,7 @@ function render(view = "inicio") {
   setActiveNav(view);
   pageContent.classList.remove("risk-page-content");
   pageContent.classList.remove("context-page-content");
+  pageContent.classList.remove("leadership-page-content");
 
   const views = {
     inicio: renderInicio,
@@ -745,6 +828,9 @@ function dashboardSummary() {
   const audits = state.audits || [];
   const ncs = state.ncs || [];
   const users = state.users || [];
+  const leadership = leadershipGetAll();
+  const leadershipOpenPlans = leadership.plano.filter((item) => !isClosedStatus(item.status)).length;
+  const leadershipActiveRoles = leadership.cargos.filter((item) => item.status === "Ativo").length;
   const openSwotPlans = swot.filter((item) => item.planoNecessario === "Sim" && item.status !== "Concluído").length;
   const highRisks = riscos.filter((item) => riskLevel(item.probabilidade, item.impacto).value >= 10).length;
   const activeRisks = riscos.filter((item) => !isClosedStatus(item.status)).length;
@@ -765,8 +851,8 @@ function dashboardSummary() {
         caption: `${swot.length} SWOT · ${partes.length} partes · ${processos.length} processos · ${escopoStatus}`,
       },
       lideranca: {
-        value: `${users.length} usuários`,
-        caption: `${state.company.certification} · ${state.settings.companyAccess}`,
+        value: `${leadership.acoes.length + leadership.plano.length + leadership.cargos.length} registros`,
+        caption: `${leadershipOpenPlans} planos abertos · ${leadershipActiveRoles} cargos ativos · ${leadership.politica.status}`,
       },
       riscos: {
         value: `${riscos.length} itens`,
@@ -976,6 +1062,11 @@ function renderModuleDetail(moduleId) {
     return;
   }
 
+  if (moduleId === "lideranca") {
+    renderLeadershipModule();
+    return;
+  }
+
   if (moduleId === "riscos") {
     renderRiskOpportunityModule();
     return;
@@ -1010,6 +1101,500 @@ function renderModuleDetail(moduleId) {
     ${renderOperationalTable(moduleId)}
   `;
   scrollPageToTop();
+}
+
+function ensureLeadershipData() {
+  if (!leadershipData) leadershipData = loadLocalLeadershipData();
+  Object.keys(leadershipSeeds).forEach((key) => {
+    if (leadershipData[key] === undefined || leadershipData[key] === null) {
+      leadershipData[key] = structuredClone(leadershipSeeds[key]);
+    }
+  });
+}
+
+function leadershipGetAll() {
+  ensureLeadershipData();
+  return structuredClone(leadershipData);
+}
+
+function leadershipGet(key) {
+  ensureLeadershipData();
+  return structuredClone(leadershipData[key] ?? leadershipSeeds[key]);
+}
+
+function leadershipSet(key, value) {
+  ensureLeadershipData();
+  leadershipData[key] = structuredClone(value);
+  localStorage.setItem(leadershipStorageKey, JSON.stringify(leadershipData));
+  saveRemoteData("leadership", leadershipData);
+}
+
+function loadLocalLeadershipData() {
+  try {
+    return {
+      ...structuredClone(leadershipSeeds),
+      ...JSON.parse(localStorage.getItem(leadershipStorageKey) || "{}"),
+    };
+  } catch {
+    return structuredClone(leadershipSeeds);
+  }
+}
+
+function renderLeadershipModule() {
+  ensureLeadershipData();
+  setActiveNav("modulos");
+  setTopbar("Liderança e Comprometimento", "Módulo do QualityPro Cloud · ISO 9001:2015, cláusula 5");
+  pageContent.classList.remove("risk-page-content");
+  pageContent.classList.remove("context-page-content");
+  pageContent.classList.add("leadership-page-content");
+  pageContent.innerHTML = `
+    <div class="breadcrumb">
+      <button type="button" data-view-target="modulos">Meus módulos</button>
+      <span class="sep">›</span>
+      <span class="cur">Liderança e Comprometimento</span>
+    </div>
+
+    <div class="page-toolbar context-toolbar">
+      <div>
+        <div class="welcome-eyebrow">LIDERANÇA</div>
+        <h1 class="welcome-title">Liderança e Comprometimento</h1>
+        <p class="welcome-sub">Comprometimento da Alta Direção, política da qualidade e papéis, responsabilidades e autoridades do SGQ.</p>
+      </div>
+    </div>
+
+    <div class="context-kpi-row" id="leadershipKpis"></div>
+
+    <div class="ctx-tabs" id="leadershipMainTabs">
+      <button class="ctx-tab active" data-leadership-main="lideranca" type="button">Liderança e Comprometimento</button>
+      <button class="ctx-tab" data-leadership-main="politica" type="button">Política da Qualidade</button>
+      <button class="ctx-tab" data-leadership-main="papeis" type="button">Papéis e Responsabilidades</button>
+    </div>
+    <div class="subfilter-row" id="leadershipSubTabs"></div>
+    <div id="leadershipTabContent"></div>
+    <div id="leadershipModalMount"></div>
+  `;
+  bindViewTargetButtons();
+  bindLeadershipStaticActions();
+  renderLeadershipTabs();
+  renderLeadershipKpis();
+  scrollPageToTop();
+}
+
+function bindLeadershipStaticActions() {
+  document.querySelectorAll("[data-leadership-main]").forEach((button) => {
+    button.addEventListener("click", () => {
+      currentLeadershipMainTab = button.dataset.leadershipMain;
+      currentLeadershipSubTab = leadershipTabs[currentLeadershipMainTab][0][0];
+      renderLeadershipTabs();
+    });
+  });
+
+  if (document.body.dataset.leadershipActionsBound === "true") return;
+  document.body.dataset.leadershipActionsBound = "true";
+  document.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-lc-action]");
+    if (!button) return;
+    event.preventDefault();
+    handleLeadershipAction(button.dataset.lcAction, button.dataset.id);
+  });
+}
+
+function renderLeadershipTabs() {
+  document.querySelectorAll("[data-leadership-main]").forEach((button) => {
+    button.classList.toggle("active", button.dataset.leadershipMain === currentLeadershipMainTab);
+  });
+  const subTabs = document.querySelector("#leadershipSubTabs");
+  if (subTabs) {
+    subTabs.innerHTML = leadershipTabs[currentLeadershipMainTab]
+      .map(([key, label]) => `<button class="subfilter-pill ${currentLeadershipSubTab === key ? "active" : ""}" data-lc-action="switch-tab" data-id="${key}" type="button">${escapeHtml(label)}</button>`)
+      .join("");
+  }
+  renderLeadershipTabContent();
+  renderLeadershipKpis();
+}
+
+function renderLeadershipKpis() {
+  const data = leadershipGetAll();
+  const completeActions = data.acoes.filter((item) => item.status === "Concluída").length;
+  const reachedPeople = data.comunicacao.reduce((sum, item) => sum + (Number(item.qtdPessoas) || 0), 0);
+  const activeRoles = data.cargos.filter((item) => item.status === "Ativo").length;
+  const target = document.querySelector("#leadershipKpis");
+  if (!target) return;
+  target.innerHTML = `
+    ${leadershipKpi("Comprometimento da direção", data.acoes.length, `${completeActions} concluídas`, "#F2B705", "lideranca")}
+    ${leadershipKpi("Política da qualidade", `Rev. ${data.politica.revisao || "-"}`, data.politica.status || "-", "#46D9F5", "documentos")}
+    ${leadershipKpi("Comunicações da política", data.comunicacao.length, `${reachedPeople} pessoas alcançadas`, "#34D399", "contexto")}
+    ${leadershipKpi("Cargos mapeados", data.cargos.length, `${activeRoles} ativos`, "#A78BFA", "modulos")}
+  `;
+}
+
+function leadershipKpi(label, value, caption, color, icon) {
+  return `
+    <article class="kpi-card" style="--accent-line:${color};">
+      <div class="kpi-top">
+        <div class="kpi-icon" style="border-color:${hexToRgba(color, 0.4)}; color:${color};">${moduleIcon(icon)}</div>
+        <div><div class="kpi-label">${escapeHtml(label)}</div><div class="kpi-value big">${escapeHtml(value)}</div></div>
+      </div>
+      <div class="kpi-caption">${escapeHtml(caption)}</div>
+    </article>`;
+}
+
+function renderLeadershipTabContent() {
+  const target = document.querySelector("#leadershipTabContent");
+  if (!target) return;
+  const renderers = {
+    acoes: leadershipActionsHtml,
+    posicionamento: leadershipPositionHtml,
+    plano: leadershipPlanHtml,
+    indicadores: leadershipIndicatorsHtml,
+    politica: leadershipPolicyHtml,
+    comunicacao: leadershipCommunicationHtml,
+    cargos: leadershipRolesHtml,
+    raci: leadershipRaciHtml,
+    delegacoes: leadershipDelegationsHtml,
+    aprovacoes: leadershipApprovalsHtml,
+    compromissos: leadershipCommitmentsHtml,
+    indicadoresPapeis: leadershipRoleIndicatorsHtml,
+  };
+  target.innerHTML = (renderers[currentLeadershipSubTab] || leadershipActionsHtml)();
+}
+
+function leadershipCard(title, subtitle, buttonLabel, action, table) {
+  return `
+    <section class="dcc">
+      <div class="dcc-hd">
+        <div><div class="dcc-title">${escapeHtml(title)}</div><div class="dcc-sub">${escapeHtml(subtitle)}</div></div>
+        ${buttonLabel ? `<button class="btn-grad" data-lc-action="${action}" type="button">${moduleIcon("plus")}${escapeHtml(buttonLabel)}</button>` : ""}
+      </div>
+      <div class="risk-table-wrap">${table}</div>
+    </section>`;
+}
+
+function leadershipActionsHtml() {
+  const rows = leadershipGet("acoes").sort((a, b) => new Date(b.data) - new Date(a.data));
+  const body = rows.length ? rows.map((item) => `
+    <tr>
+      <td class="mono">${formatDate(item.data)}</td><td>${chip(item.tipo, "mchip-gold")}</td>
+      <td class="desc-cell">${escapeHtml(item.descricao)}</td><td class="desc-cell">${escapeHtml(item.participantes)}</td>
+      <td>${escapeHtml(item.evidencia || "-")}</td><td><span class="status-pill ${statusClass(item.status)}"><span class="status-dot2"></span>${escapeHtml(item.status)}</span></td>
+      <td>${leadershipActions("acao", item.id)}</td>
+    </tr>`).join("") : `<tr><td colspan="7"><div class="empty-state">Nenhuma ação registrada.</div></td></tr>`;
+  return leadershipCard("Ações da Direção", "Evidências do comprometimento da Alta Direção com o SGQ · 5.1", "Nova ação", "new-acao", `
+    <table class="ctxtbl"><colgroup><col style="width:10%"><col style="width:14%"><col style="width:25%"><col style="width:18%"><col style="width:13%"><col style="width:10%"><col style="width:10%"></colgroup>
+    <thead><tr><th>Data</th><th>Tipo</th><th>Descrição</th><th>Participantes</th><th>Evidência</th><th>Status</th><th>Ações</th></tr></thead><tbody>${body}</tbody></table>`);
+}
+
+function leadershipPositionHtml() {
+  const item = leadershipGet("posicionamento");
+  return `
+    <section class="doc-card">
+      <div class="dcc-hd plain-head">
+        <div><div class="dcc-title">Posicionamento Estratégico</div><div class="dcc-sub">Missão, visão e valores da organização · 5.1</div></div>
+        <button class="btn-grad" data-lc-action="save-position" type="button">${moduleIcon("check-circle")}Salvar alterações</button>
+      </div>
+      <div class="field"><label>Missão</label><textarea class="input-basic" id="lcPosMissao">${escapeHtml(item.missao)}</textarea></div>
+      <div class="field"><label>Visão</label><textarea class="input-basic" id="lcPosVisao">${escapeHtml(item.visao)}</textarea></div>
+      <div class="field"><label>Valores, um por linha</label><textarea class="input-basic" id="lcPosValores">${escapeHtml((item.valores || []).join("\n"))}</textarea></div>
+      <div class="valores-chips">${(item.valores || []).map((value) => chip(value, "mchip-gold")).join("")}</div>
+    </section>`;
+}
+
+function leadershipPlanHtml() {
+  const rows = leadershipGet("plano");
+  const body = rows.length ? rows.map((item) => `
+    <tr>
+      <td class="desc-cell strong-cell">${escapeHtml(item.oQue)}</td><td class="mono">${formatDate(item.quando)}</td><td>${personCell(item.quem)}</td>
+      <td class="mono strong-cell">${formatMoney(item.quanto)}</td><td><span class="status-pill ${statusClass(item.status)}"><span class="status-dot2"></span>${escapeHtml(item.status)}</span></td>
+      <td>${leadershipActions("plano", item.id, true)}</td>
+    </tr>`).join("") : `<tr><td colspan="6"><div class="empty-state">Nenhum item cadastrado.</div></td></tr>`;
+  return leadershipCard("Plano Estratégico (5W2H)", "O quê, por quê, onde, quando, quem, como, quanto e status · 5.1", "Novo item", "new-plano", `
+    <table class="ctxtbl"><colgroup><col style="width:34%"><col style="width:12%"><col style="width:18%"><col style="width:13%"><col style="width:13%"><col style="width:10%"></colgroup>
+    <thead><tr><th>O quê</th><th>Quando</th><th>Quem</th><th>Quanto</th><th>Status</th><th>Ações</th></tr></thead><tbody>${body}</tbody></table>`);
+}
+
+function leadershipPolicyHtml() {
+  const item = leadershipGet("politica");
+  return `
+    <section class="doc-card">
+      <div class="dcc-hd plain-head">
+        <div><div class="dcc-title">Política da Qualidade</div><div class="dcc-sub">Compromisso da Alta Direção com o SGQ · 5.2</div></div>
+        <button class="btn-grad" data-lc-action="edit-politica" type="button">${moduleIcon("edit")}Editar</button>
+      </div>
+      <div class="doc-meta-row">
+        <div class="doc-pill approved">Status: <strong>${escapeHtml(item.status)}</strong></div>
+        <div class="doc-pill">Revisão <strong>${escapeHtml(item.revisao)}</strong></div>
+        <div class="doc-pill">Aprovada em <strong>${formatDate(item.dataAprovacao)}</strong></div>
+        <div class="doc-pill">Próxima revisão <strong>${formatDate(item.proximaRevisao)}</strong></div>
+      </div>
+      <div class="doc-text-box">${escapeHtml(item.texto)}</div>
+      <div class="detail-item"><div class="l">Aprovador</div><div class="v">${escapeHtml(item.aprovador)} · ${escapeHtml(item.aprovadorCargo)}</div></div>
+      <div class="detail-block"><h5>Histórico de revisões</h5>${(item.historico || []).map((row) => `<p><strong>Rev. ${escapeHtml(row.revisao)}</strong> - ${formatDate(row.data)} · ${escapeHtml(row.descricao)}</p>`).join("")}</div>
+    </section>`;
+}
+
+function leadershipCommunicationHtml() {
+  const rows = leadershipGet("comunicacao").sort((a, b) => new Date(b.data) - new Date(a.data));
+  const body = rows.length ? rows.map((item) => `
+    <tr><td class="mono">${formatDate(item.data)}</td><td>${chip(item.forma, "mchip-blue")}</td><td class="desc-cell">${escapeHtml(item.setor)}</td><td class="mono strong-cell">${escapeHtml(item.qtdPessoas)}</td><td>${escapeHtml(item.evidencia || "-")}</td><td>${leadershipActions("comunicacao", item.id)}</td></tr>
+  `).join("") : `<tr><td colspan="6"><div class="empty-state">Nenhum registro de comunicação.</div></td></tr>`;
+  return leadershipCard("Comunicação da Política", "Registro de como a política foi comunicada · 5.2", "Novo registro", "new-comunicacao", `
+    <table class="ctxtbl"><thead><tr><th>Data</th><th>Forma</th><th>Setor</th><th>Qtd. pessoas</th><th>Evidência</th><th>Ações</th></tr></thead><tbody>${body}</tbody></table>`);
+}
+
+function leadershipRolesHtml() {
+  const rows = leadershipGet("cargos");
+  const body = rows.length ? rows.map((item) => `
+    <tr><td>${personCell(item.nome, item.cargo)}</td><td>${chip(item.departamento, "mchip-purple")}</td><td class="desc-cell">${escapeHtml(item.descricao)}</td><td>${escapeHtml(item.substituto || "-")}</td><td><span class="status-pill ${statusClass(item.status)}"><span class="status-dot2"></span>${escapeHtml(item.status)}</span></td><td>${leadershipActions("cargo", item.id, true)}</td></tr>
+  `).join("") : `<tr><td colspan="6"><div class="empty-state">Nenhum cargo cadastrado.</div></td></tr>`;
+  return leadershipCard("Cargos e Funções", "Papéis, responsabilidades e autoridades · 5.3", "Novo cargo", "new-cargo", `
+    <table class="ctxtbl"><colgroup><col style="width:18%"><col style="width:13%"><col style="width:31%"><col style="width:14%"><col style="width:12%"><col style="width:12%"></colgroup><thead><tr><th>Nome/Cargo</th><th>Departamento</th><th>Descrição</th><th>Substituto</th><th>Status</th><th>Ações</th></tr></thead><tbody>${body}</tbody></table>`);
+}
+
+function leadershipRaciHtml() {
+  const rows = leadershipGet("raci");
+  const body = rows.length ? rows.map((item) => `
+    <tr><td class="desc-cell strong-cell">${escapeHtml(item.atividade)}</td><td>${raciChip(item.diretorGeral)}</td><td>${raciChip(item.qualidade)}</td><td>${raciChip(item.comercial)}</td><td>${raciChip(item.financeiro)}</td><td>${leadershipActions("raci", item.id)}</td></tr>
+  `).join("") : `<tr><td colspan="6"><div class="empty-state">Nenhuma atividade cadastrada.</div></td></tr>`;
+  return leadershipCard("Matriz RACI", "Responsável, Aprovador, Consultado e Informado · 5.3", "Nova atividade", "new-raci", `
+    <table class="ctxtbl"><thead><tr><th>Atividade</th><th>Diretor Geral</th><th>Qualidade</th><th>Comercial</th><th>Financeiro</th><th>Ações</th></tr></thead><tbody>${body}</tbody></table>`);
+}
+
+function leadershipDelegationsHtml() {
+  const rows = leadershipGet("delegacoes");
+  const body = rows.length ? rows.map((item) => `
+    <tr><td>${personCell(item.titular, item.cargo)}</td><td>${personCell(item.substituto)}</td><td class="mono">${formatDate(item.periodoIni)} - ${formatDate(item.periodoFim)}</td><td class="desc-cell">${escapeHtml(item.motivo)}</td><td><span class="status-pill ${statusClass(item.status)}"><span class="status-dot2"></span>${escapeHtml(item.status)}</span></td><td>${leadershipActions("delegacao", item.id)}</td></tr>
+  `).join("") : `<tr><td colspan="6"><div class="empty-state">Nenhuma delegação cadastrada.</div></td></tr>`;
+  return leadershipCard("Delegação de Autoridade", "Substituições temporárias e autoridades delegadas · 5.3", "Nova delegação", "new-delegacao", `
+    <table class="ctxtbl"><thead><tr><th>Titular</th><th>Substituto</th><th>Período</th><th>Motivo</th><th>Status</th><th>Ações</th></tr></thead><tbody>${body}</tbody></table>`);
+}
+
+function leadershipApprovalsHtml() {
+  const rows = leadershipGet("aprovacoes");
+  const body = rows.length ? rows.map((item) => `
+    <tr><td class="strong-cell">${escapeHtml(item.tipo)}</td><td>${personCell(item.aprovador)}</td><td>${escapeHtml(item.substituto || "-")}</td><td class="mono">${escapeHtml(item.revisao)}</td><td>${leadershipActions("aprovacao", item.id)}</td></tr>
+  `).join("") : `<tr><td colspan="5"><div class="empty-state">Nenhuma aprovação cadastrada.</div></td></tr>`;
+  return leadershipCard("Aprovações", "Responsáveis pela aprovação de cada tipo de documento · 5.3", "Nova aprovação", "new-aprovacao", `
+    <table class="ctxtbl"><thead><tr><th>Tipo</th><th>Aprovador</th><th>Substituto</th><th>Revisão</th><th>Ações</th></tr></thead><tbody>${body}</tbody></table>`);
+}
+
+function leadershipCommitmentsHtml() {
+  const rows = leadershipGet("compromissos");
+  const body = rows.length ? rows.map((item) => `
+    <tr><td class="strong-cell">${escapeHtml(item.compromisso)}</td><td>${personCell(item.responsavel)}</td><td><span class="status-pill ${statusClass(item.status)}"><span class="status-dot2"></span>${escapeHtml(item.status)}</span></td><td>${leadershipActions("compromisso", item.id)}</td></tr>
+  `).join("") : `<tr><td colspan="4"><div class="empty-state">Nenhum compromisso cadastrado.</div></td></tr>`;
+  return leadershipCard("Compromissos da Direção", "Evidências do papel ativo da Alta Direção no SGQ · 5.3", "Novo compromisso", "new-compromisso", `
+    <table class="ctxtbl"><thead><tr><th>Compromisso</th><th>Responsável</th><th>Status</th><th>Ações</th></tr></thead><tbody>${body}</tbody></table>`);
+}
+
+function leadershipIndicatorsHtml() {
+  const data = leadershipGetAll();
+  const completeActions = data.acoes.filter((item) => item.status === "Concluída").length;
+  const completePlan = data.plano.filter((item) => item.status === "Concluído").length;
+  const totalInvestment = data.plano.reduce((sum, item) => sum + (Number(item.quanto) || 0), 0);
+  return `
+    <section class="dcc indicator-panel">
+      <div class="dcc-title">Indicadores de Liderança e Comprometimento</div>
+      <div class="dcc-sub">Resumo calculado a partir das ações da direção e plano estratégico</div>
+      <div class="context-kpi-row">
+        ${leadershipKpi("Ações concluídas", `${percent(completeActions, data.acoes.length)}%`, `${completeActions} de ${data.acoes.length} ações`, "#F2B705", "check-circle")}
+        ${leadershipKpi("Plano concluído", `${percent(completePlan, data.plano.length)}%`, `${completePlan} de ${data.plano.length} itens`, "#4fa3ff", "plano")}
+        ${leadershipKpi("Investimento planejado", formatMoney(totalInvestment), "soma do campo Quanto", "#34D399", "documentos")}
+      </div>
+    </section>`;
+}
+
+function leadershipRoleIndicatorsHtml() {
+  const data = leadershipGetAll();
+  const activeRoles = data.cargos.filter((item) => item.status === "Ativo").length;
+  const activeDelegations = data.delegacoes.filter((item) => item.status === "Ativa" || item.status === "Agendada").length;
+  const departments = new Set(data.cargos.map((item) => item.departamento).filter(Boolean));
+  return `
+    <section class="dcc indicator-panel">
+      <div class="dcc-title">Indicadores de Papéis e Responsabilidades</div>
+      <div class="dcc-sub">Resumo calculado a partir de cargos, delegações e aprovações</div>
+      <div class="context-kpi-row">
+        ${leadershipKpi("Cargos ativos", activeRoles, `${data.cargos.length} cargos mapeados`, "#34D399", "contexto")}
+        ${leadershipKpi("Departamentos", departments.size, "com responsáveis definidos", "#A78BFA", "modulos")}
+        ${leadershipKpi("Delegações ativas/agendadas", activeDelegations, `${data.delegacoes.length} delegações cadastradas`, "#F2B705", "calendar")}
+        ${leadershipKpi("Aprovações", data.aprovacoes.length, "tipos documentais definidos", "#46D9F5", "check-circle")}
+      </div>
+    </section>`;
+}
+
+function leadershipActions(type, id, canView = false) {
+  return `
+    <div class="row-actions">
+      ${canView ? `<button class="abtn" data-lc-action="view-${type}" data-id="${id}" type="button" title="Ver detalhes">${moduleIcon("eye")}</button>` : ""}
+      <button class="abtn" data-lc-action="edit-${type}" data-id="${id}" type="button" title="Editar">${moduleIcon("edit")}</button>
+      <button class="abtn danger" data-lc-action="delete-${type}" data-id="${id}" type="button" title="Excluir">${moduleIcon("trash")}</button>
+    </div>`;
+}
+
+function raciChip(value) {
+  const classes = { R: "mchip-blue", A: "mchip-gold", C: "mchip-cyan", I: "mchip-gray" };
+  return chip(value, classes[value] || "mchip-gray");
+}
+
+function percent(value, total) {
+  return total ? Math.round((Number(value) / Number(total)) * 100) : 0;
+}
+
+function handleLeadershipAction(action, id) {
+  if (action === "close-modal") {
+    closeLeadershipModal();
+    return;
+  }
+  if (action === "save-record") {
+    saveLeadershipRecord();
+    return;
+  }
+  if (action === "switch-tab") {
+    currentLeadershipSubTab = id;
+    renderLeadershipTabs();
+    return;
+  }
+  if (action === "save-position") {
+    leadershipSet("posicionamento", {
+      missao: inputValue("lcPosMissao"),
+      visao: inputValue("lcPosVisao"),
+      valores: linesToArray(inputValue("lcPosValores")),
+      dataAtualizacao: new Date().toISOString().slice(0, 10),
+      aprovadoPor: currentUser?.name || "Hugo Melo",
+    });
+    refreshLeadershipScreen("Posicionamento salvo.");
+    return;
+  }
+  if (action.startsWith("new-")) openLeadershipForm(action.replace("new-", ""));
+  if (action.startsWith("edit-")) openLeadershipForm(action.replace("edit-", ""), id);
+  if (action.startsWith("delete-")) deleteLeadershipRecord(action.replace("delete-", ""), id);
+  if (action.startsWith("view-")) viewLeadershipRecord(action.replace("view-", ""), id);
+}
+
+const leadershipCollections = {
+  acao: { key: "acoes", prefix: "AD", fields: [["data", "Data", "date"], ["tipo", "Tipo", "select", ["Reunião Estratégica", "Análise de Indicadores", "Decisão Estratégica", "Alocação de Recursos"]], ["descricao", "Descrição", "textarea"], ["participantes", "Participantes", "textarea"], ["evidencia", "Evidência"], ["responsavel", "Responsável", "people"], ["status", "Status", "select", ["Programada", "Concluída", "Não Realizada"]]] },
+  plano: { key: "plano", prefix: "P5W2H", fields: [["oQue", "O quê", "textarea"], ["porQue", "Por quê", "textarea"], ["onde", "Onde"], ["quando", "Quando", "date"], ["quem", "Quem", "people"], ["como", "Como", "textarea"], ["quanto", "Quanto", "number"], ["status", "Status", "select", ["Não Iniciado", "Em Andamento", "Atrasado", "Concluído"]]] },
+  comunicacao: { key: "comunicacao", prefix: "COMPOL", fields: [["data", "Data", "date"], ["forma", "Forma", "select", ["Reunião de Equipe", "E-mail", "Treinamento", "Integração", "Mural/Comunicado Interno"]], ["setor", "Setor"], ["qtdPessoas", "Qtd. pessoas", "number"], ["evidencia", "Evidência"]] },
+  cargo: { key: "cargos", prefix: "CARGO", fields: [["nome", "Nome"], ["cargo", "Cargo"], ["departamento", "Departamento"], ["substituto", "Substituto"], ["status", "Status", "select", ["Ativo", "Inativo"]], ["descricao", "Descrição", "textarea"], ["responsabilidades", "Responsabilidades, uma por linha", "lines"], ["autoridades", "Autoridades, uma por linha", "lines"]] },
+  raci: { key: "raci", prefix: "RACI", fields: [["atividade", "Atividade"], ["diretorGeral", "Diretor Geral", "select", ["R", "A", "C", "I"]], ["qualidade", "Qualidade", "select", ["R", "A", "C", "I"]], ["comercial", "Comercial", "select", ["R", "A", "C", "I"]], ["financeiro", "Financeiro", "select", ["R", "A", "C", "I"]]] },
+  delegacao: { key: "delegacoes", prefix: "DEL", fields: [["titular", "Titular", "people"], ["substituto", "Substituto", "people"], ["cargo", "Cargo"], ["periodoIni", "Início", "date"], ["periodoFim", "Fim", "date"], ["motivo", "Motivo"], ["status", "Status", "select", ["Agendada", "Ativa", "Encerrada"]]] },
+  aprovacao: { key: "aprovacoes", prefix: "APR", fields: [["tipo", "Tipo"], ["aprovador", "Aprovador", "people"], ["substituto", "Substituto", "people"], ["revisao", "Revisão"]] },
+  compromisso: { key: "compromissos", prefix: "COMP", fields: [["compromisso", "Compromisso"], ["responsavel", "Responsável", "people"], ["status", "Status", "select", ["Concluído", "Em Andamento", "Pendente"]]] },
+  politica: { key: "politica", singleton: true, fields: [["texto", "Texto da política", "textarea"], ["revisao", "Revisão"], ["status", "Status", "select", ["Vigente", "Em revisão"]], ["dataAprovacao", "Data de aprovação", "date"], ["proximaRevisao", "Próxima revisão", "date"], ["aprovador", "Aprovador", "people"], ["aprovadorCargo", "Cargo do aprovador"]] },
+};
+
+function openLeadershipForm(type, id = "") {
+  const config = leadershipCollections[type];
+  if (!config) return;
+  const rows = config.singleton ? [] : leadershipGet(config.key);
+  const item = config.singleton ? leadershipGet(config.key) : rows.find((row) => row.id === id);
+  const title = `${id || config.singleton ? "Editar" : "Novo"} ${leadershipTypeLabel(type)}`;
+  document.querySelector("#leadershipModalMount").innerHTML = `
+    <div class="modal-overlay show" id="leadershipRecordModal">
+      <div class="modal-box wide">
+        <div class="modal-hd">
+          <div><h3>${escapeHtml(title)}</h3><p>Liderança e Comprometimento · cláusula 5</p></div>
+          <button class="modal-close" data-lc-action="close-modal" type="button">${moduleIcon("close")}</button>
+        </div>
+        <input type="hidden" id="lcRecordType" value="${type}">
+        <input type="hidden" id="lcRecordId" value="${escapeHtml(id)}">
+        <div class="field-row2">${config.fields.map(([key, label, fieldType, options]) => leadershipFieldHtml(key, label, fieldType, options, item?.[key])).join("")}</div>
+        <div class="modal-actions">
+          <button class="btn-ghost" data-lc-action="close-modal" type="button">Cancelar</button>
+          <button class="btn-primary" data-lc-action="save-record" type="button">Salvar</button>
+        </div>
+      </div>
+    </div>`;
+  document.querySelector("#leadershipRecordModal")?.addEventListener("click", (event) => {
+    if (event.target.id === "leadershipRecordModal") closeLeadershipModal();
+  });
+}
+
+function leadershipFieldHtml(key, label, fieldType = "text", options = [], value = "") {
+  const displayValue = Array.isArray(value) ? value.join("\n") : value || "";
+  if (fieldType === "textarea" || fieldType === "lines") {
+    return `<div class="field full"><label>${escapeHtml(label)}</label><textarea class="input-basic" data-lc-field="${key}" data-lc-field-type="${fieldType}">${escapeHtml(displayValue)}</textarea></div>`;
+  }
+  if (fieldType === "select" || fieldType === "people") {
+    const choices = fieldType === "people" ? ["Hugo Melo", "Marina Souza", "Carlos Andrade", "Beatriz Santos", "Rafael Costa", "João Pereira", "Eduardo Lima"] : options;
+    return `<div class="field"><label>${escapeHtml(label)}</label><select class="input-basic" data-lc-field="${key}">${choices.map((option) => `<option ${option === displayValue ? "selected" : ""}>${escapeHtml(option)}</option>`).join("")}</select></div>`;
+  }
+  return `<div class="field"><label>${escapeHtml(label)}</label><input class="input-basic" data-lc-field="${key}" type="${fieldType}" value="${escapeHtml(displayValue)}"></div>`;
+}
+
+function saveLeadershipRecord() {
+  const type = inputValue("lcRecordType");
+  const id = inputValue("lcRecordId");
+  const config = leadershipCollections[type];
+  if (!config) return;
+  const record = {};
+  document.querySelectorAll("[data-lc-field]").forEach((field) => {
+    const key = field.dataset.lcField;
+    const value = field.dataset.lcFieldType === "lines" ? linesToArray(field.value) : field.value;
+    record[key] = field.type === "number" ? Number(value) || 0 : value;
+  });
+  if (config.singleton) {
+    const previous = leadershipGet(config.key);
+    leadershipSet(config.key, { ...previous, ...record });
+  } else {
+    const rows = leadershipGet(config.key);
+    const nextRecord = { ...record, id: id || nextId(config.prefix, rows) };
+    const index = rows.findIndex((item) => item.id === id);
+    if (index >= 0) rows[index] = nextRecord;
+    else rows.push(nextRecord);
+    leadershipSet(config.key, rows);
+  }
+  closeLeadershipModal();
+  refreshLeadershipScreen(`${leadershipTypeLabel(type)} salvo.`);
+}
+
+function deleteLeadershipRecord(type, id) {
+  const config = leadershipCollections[type];
+  if (!config || config.singleton) return;
+  if (!window.confirm("Excluir este registro?")) return;
+  leadershipSet(config.key, leadershipGet(config.key).filter((item) => item.id !== id));
+  refreshLeadershipScreen("Registro excluído.");
+}
+
+function viewLeadershipRecord(type, id) {
+  const config = leadershipCollections[type];
+  const item = leadershipGet(config.key).find((row) => row.id === id);
+  if (!item) return;
+  document.querySelector("#leadershipModalMount").innerHTML = `
+    <div class="modal-overlay show" id="leadershipRecordModal">
+      <div class="modal-box">
+        <div class="modal-hd">
+          <div><h3>${escapeHtml(leadershipTypeLabel(type))}</h3><p>Detalhes do registro</p></div>
+          <button class="modal-close" data-lc-action="close-modal" type="button">${moduleIcon("close")}</button>
+        </div>
+        <div class="detail-block">${Object.entries(item).map(([key, value]) => `<p><strong>${escapeHtml(key)}:</strong> ${escapeHtml(Array.isArray(value) ? value.join(", ") : value)}</p>`).join("")}</div>
+        <div class="modal-actions"><button class="btn-ghost" data-lc-action="close-modal" type="button">Fechar</button></div>
+      </div>
+    </div>`;
+}
+
+function closeLeadershipModal() {
+  const mount = document.querySelector("#leadershipModalMount");
+  if (mount) mount.innerHTML = "";
+}
+
+function leadershipTypeLabel(type) {
+  const labels = {
+    acao: "ação",
+    plano: "item do plano",
+    politica: "política",
+    comunicacao: "comunicação",
+    cargo: "cargo",
+    raci: "atividade RACI",
+    delegacao: "delegação",
+    aprovacao: "aprovação",
+    compromisso: "compromisso",
+  };
+  return labels[type] || "registro";
+}
+
+function refreshLeadershipScreen(message) {
+  renderLeadershipTabs();
+  toast(message);
 }
 
 function renderRiskOpportunityModule() {
