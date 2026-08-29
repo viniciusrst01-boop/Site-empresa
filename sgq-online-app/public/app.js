@@ -262,8 +262,199 @@ function scrollPageToTop() {
 
 function renderInicio() {
   setTopbar("Página inicial", "Bem-vindo ao QualityPro Cloud");
-  pageContent.innerHTML = dashboardTemplate;
+  ensureRiskData();
+  ensureContextData();
+  pageContent.innerHTML = renderDashboardHtml();
   bindDashboardActions();
+}
+
+function renderDashboardHtml() {
+  const summary = dashboardSummary();
+  const moduleCards = modules
+    .map((module) => dashboardModuleCard(module, summary.modules[module.id]))
+    .join("");
+
+  return `
+    ${pageDecorHtml()}
+    <div class="welcome-block">
+      <div class="welcome-eyebrow">PAINEL · SISTEMA DE GESTÃO DA QUALIDADE</div>
+      <h1 class="welcome-title">Olá, Hugo!</h1>
+      <p class="welcome-sub">Aqui está um resumo do seu Sistema de Gestão.</p>
+    </div>
+
+    <div class="kpi-row">
+      <article class="kpi-card" style="--accent-line:#2f8ff0;">
+        <div class="kpi-top">
+          <div class="kpi-icon" style="border-color:rgba(47,143,240,0.4); color:#4fa3ff;">${moduleIcon("home")}</div>
+          <div>
+            <div class="kpi-label">Empresa</div>
+            <div class="kpi-value">${escapeHtml(state.company.name)}</div>
+          </div>
+        </div>
+        <button class="kpi-link" type="button" data-view-target="empresa">Ver dados da empresa ${moduleIcon("arrow")}</button>
+      </article>
+
+      <article class="kpi-card" style="--accent-line:#46D9F5;">
+        <div class="kpi-top">
+          <div class="kpi-icon" style="border-color:rgba(70,217,245,0.4); color:#46D9F5;">${moduleIcon("modulos")}</div>
+          <div>
+            <div class="kpi-label">Registros do SGQ</div>
+            <div class="kpi-value big">${summary.totalRecords}</div>
+          </div>
+        </div>
+        <div class="kpi-caption">${summary.openActions} ações ou itens em acompanhamento</div>
+      </article>
+
+      <article class="kpi-card" style="--accent-line:#F2B705;">
+        <div class="kpi-top">
+          <div class="kpi-icon" style="border-color:rgba(242,183,5,0.4); color:#F2B705;">${moduleIcon("plano")}</div>
+          <div>
+            <div class="kpi-label">Plano contratado</div>
+            <div class="kpi-value">${escapeHtml(state.settings.companyAccess)}</div>
+          </div>
+        </div>
+        <button class="kpi-link" type="button" data-view-target="configuracoes">Ver detalhes do plano ${moduleIcon("arrow")}</button>
+      </article>
+
+      <article class="kpi-card" style="--accent-line:#34D399;">
+        <div class="kpi-top">
+          <div class="kpi-icon" style="border-color:rgba(52,211,153,0.4); color:#34D399;">${moduleIcon("check-circle")}</div>
+          <div>
+            <div class="kpi-label">Certificação</div>
+            <div class="kpi-value">${escapeHtml(state.company.certification)}</div>
+          </div>
+        </div>
+        <div class="kpi-caption">Escopo: ${escapeHtml(shortText(state.company.scope, 54))}</div>
+      </article>
+    </div>
+
+    <div class="modules-section">
+      <div class="section-hd">
+        <h2 class="section-title">Meus módulos</h2>
+        <p class="section-sub">Os cartões abaixo refletem os dados cadastrados nos módulos do QualityPro Cloud.</p>
+      </div>
+      <div class="modules-grid">
+        ${moduleCards}
+      </div>
+    </div>
+  `;
+}
+
+function pageDecorHtml() {
+  return `
+    <div class="page-decor">
+      <svg width="420" height="420" style="top:-140px; right:-120px;" viewBox="0 0 420 420">
+        <defs><pattern id="dotgrid2" width="30" height="30" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="1.6" fill="#2f8ff0"/></pattern></defs>
+        <rect width="420" height="420" fill="url(#dotgrid2)"/>
+      </svg>
+      <svg width="300" height="180" style="bottom:70px; right:6%;" viewBox="0 0 300 180" fill="none">
+        <polyline points="10,140 60,110 110,125 160,70 210,90 260,30" stroke="#4fa3ff" stroke-width="3" fill="none"/>
+        <circle cx="160" cy="70" r="5" fill="#4fa3ff"/><circle cx="260" cy="30" r="5" fill="#4fa3ff"/>
+        <line x1="0" y1="160" x2="300" y2="160" stroke="#4fa3ff" stroke-width="1.5"/>
+      </svg>
+      <svg width="200" height="200" style="top:38%; right:26%;" viewBox="0 0 200 200" fill="none">
+        <circle cx="100" cy="90" r="62" stroke="#4fa3ff" stroke-width="2.5"/>
+        <circle cx="100" cy="90" r="46" stroke="#4fa3ff" stroke-width="2"/>
+        <path d="M76 90l16 16 34-34" stroke="#4fa3ff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <svg width="230" height="230" style="bottom:-60px; left:2%;" viewBox="0 0 230 230" fill="none">
+        <circle cx="115" cy="115" r="16" stroke="#4fa3ff" stroke-width="3"/>
+        <path d="M115 55v14M115 176v14M55 115h14M176 115h14M74 74l10 10M156 156l10 10M156 74l-10 10M74 156l10 10" stroke="#4fa3ff" stroke-width="3" stroke-linecap="round"/>
+      </svg>
+      <svg width="260" height="200" style="top:60%; left:32%;" viewBox="0 0 260 200" fill="none">
+        <line x1="30" y1="30" x2="120" y2="80" stroke="#4fa3ff" stroke-width="1.5"/>
+        <line x1="120" y1="80" x2="220" y2="50" stroke="#4fa3ff" stroke-width="1.5"/>
+        <line x1="120" y1="80" x2="160" y2="160" stroke="#4fa3ff" stroke-width="1.5"/>
+        <circle cx="30" cy="30" r="5" fill="#4fa3ff"/><circle cx="120" cy="80" r="7" fill="#4fa3ff"/>
+        <circle cx="220" cy="50" r="5" fill="#4fa3ff"/><circle cx="160" cy="160" r="5" fill="#4fa3ff"/>
+      </svg>
+    </div>
+  `;
+}
+
+function dashboardModuleCard(module, info) {
+  const meta = info || { value: "0 registros", caption: "Aguardando dados cadastrados" };
+  return `
+    <article class="module-card" data-module-card="${module.id}" role="button" tabindex="0" style="--accent-line:${module.accent};">
+      <div class="module-icon" style="border-color:${hexToRgba(module.accent, 0.4)}; color:${module.accent};">
+        ${moduleIcon(module.id)}
+      </div>
+      <h3 class="module-title">${escapeHtml(module.title)}</h3>
+      <p class="module-desc">${escapeHtml(module.desc)}</p>
+      <div class="module-live">
+        <strong>${escapeHtml(meta.value)}</strong>
+        <span>${escapeHtml(meta.caption)}</span>
+      </div>
+      <button class="module-cta" data-module="${module.id}" type="button">Acessar módulo ${moduleIcon("arrow")}</button>
+    </article>
+  `;
+}
+
+function dashboardSummary() {
+  const swot = contextGet("swot");
+  const partes = contextGet("partes");
+  const escopo = contextGet("escopo");
+  const processos = contextGet("processos");
+  const riscos = riskGet("riscos");
+  const objetivos = riskGet("objetivos");
+  const mudancas = riskGet("mudancas");
+  const docs = state.documents || [];
+  const audits = state.audits || [];
+  const ncs = state.ncs || [];
+  const users = state.users || [];
+  const openSwotPlans = swot.filter((item) => item.planoNecessario === "Sim" && item.status !== "Concluído").length;
+  const highRisks = riscos.filter((item) => riskLevel(item.probabilidade, item.impacto).value >= 10).length;
+  const activeRisks = riscos.filter((item) => !isClosedStatus(item.status)).length;
+  const activeGoals = objetivos.filter((item) => item.status !== "Atingido").length;
+  const activeChanges = mudancas.filter((item) => !isClosedStatus(item.status)).length;
+  const openNcs = ncs.filter((item) => !isClosedStatus(item.status)).length;
+  const pendingDocs = docs.filter((item) => item.status !== "Aprovado").length;
+  const plannedAudits = audits.filter((item) => !isClosedStatus(item.status)).length;
+  const totalRecords = swot.length + partes.length + processos.length + riscos.length + objetivos.length + mudancas.length + docs.length + audits.length + ncs.length + users.length;
+
+  return {
+    totalRecords,
+    openActions: openSwotPlans + activeRisks + activeGoals + activeChanges + openNcs + pendingDocs + plannedAudits,
+    modules: {
+      contexto: {
+        value: `${swot.length + partes.length + processos.length} registros`,
+        caption: `${swot.length} SWOT · ${partes.length} partes · ${processos.length} processos · escopo ${escopo.statusAprovacao || "sem status"}`,
+      },
+      lideranca: {
+        value: `${users.length} usuários`,
+        caption: `${state.company.certification} · ${state.settings.companyAccess}`,
+      },
+      riscos: {
+        value: `${riscos.length} itens`,
+        caption: `${highRisks} críticos/altos · ${objetivos.length} objetivos · ${activeChanges} mudanças abertas`,
+      },
+      documentos: {
+        value: `${docs.length} documentos`,
+        caption: `${pendingDocs} em revisão/pendentes · ${docs.length - pendingDocs} aprovados`,
+      },
+      auditorias: {
+        value: `${audits.length} auditorias`,
+        caption: `${plannedAudits} planejadas/em preparação`,
+      },
+      "nao-conformidades": {
+        value: `${ncs.length} registros`,
+        caption: `${openNcs} abertas/em tratamento`,
+      },
+      equipamentos: {
+        value: "Disponível",
+        caption: "Pronto para receber calibrações e manutenções",
+      },
+    },
+  };
+}
+
+function isClosedStatus(status) {
+  return ["Aprovado", "Atingido", "Concluído", "Concluída", "Fechado", "Fechada", "Resolvido", "Resolvida"].includes(status);
+}
+
+function shortText(value, maxLength) {
+  const text = String(value || "").trim();
+  return text.length > maxLength ? `${text.slice(0, maxLength - 3)}...` : text;
 }
 
 function renderModulos() {
@@ -545,17 +736,6 @@ function ensureRiskData() {
   Object.entries(riskStorageKeys).forEach(([key, storageKey]) => {
     if (localStorage.getItem(storageKey) === null) {
       localStorage.setItem(storageKey, JSON.stringify(riskSeeds[key]));
-      return;
-    }
-    try {
-      const currentRows = JSON.parse(localStorage.getItem(storageKey) || "[]");
-      const currentIds = new Set(currentRows.map((item) => item.id));
-      const missingRows = riskSeeds[key].filter((item) => !currentIds.has(item.id));
-      if (missingRows.length) {
-        localStorage.setItem(storageKey, JSON.stringify([...currentRows, ...missingRows]));
-      }
-    } catch {
-      localStorage.setItem(storageKey, JSON.stringify(riskSeeds[key]));
     }
   });
 }
@@ -752,7 +932,7 @@ function renderContextModule() {
           <div class="kpi-icon" style="border-color:rgba(47,143,240,0.4); color:#4fa3ff;">${moduleIcon("contexto")}</div>
           <div><div class="kpi-label">Partes interessadas</div><div class="kpi-value big" id="ctxKpiPartes">-</div></div>
         </div>
-        <div class="kpi-caption">mapeadas e monitoradas</div>
+        <div class="kpi-caption" id="ctxKpiPartesCaption">mapeadas e monitoradas</div>
       </article>
       <article class="kpi-card" style="--accent-line:#34D399;">
         <div class="kpi-top">
@@ -766,7 +946,7 @@ function renderContextModule() {
           <div class="kpi-icon" style="border-color:rgba(242,183,5,0.4); color:#F2B705;">${moduleIcon("home")}</div>
           <div><div class="kpi-label">Processos mapeados</div><div class="kpi-value big" id="ctxKpiProcessos">-</div></div>
         </div>
-        <div class="kpi-caption">estratégicos, operacionais e de suporte</div>
+        <div class="kpi-caption" id="ctxKpiProcessosCaption">estratégicos, operacionais e de suporte</div>
       </article>
     </div>
 
@@ -793,17 +973,6 @@ function ensureContextData() {
   Object.entries(contextStorageKeys).forEach(([key, storageKey]) => {
     if (localStorage.getItem(storageKey) === null) {
       localStorage.setItem(storageKey, JSON.stringify(contextSeeds[key]));
-      return;
-    }
-    if (Array.isArray(contextSeeds[key])) {
-      try {
-        const currentRows = JSON.parse(localStorage.getItem(storageKey) || "[]");
-        const currentIds = new Set(currentRows.map((item) => item.id));
-        const missingRows = contextSeeds[key].filter((item) => !currentIds.has(item.id));
-        if (missingRows.length) localStorage.setItem(storageKey, JSON.stringify([...currentRows, ...missingRows]));
-      } catch {
-        localStorage.setItem(storageKey, JSON.stringify(contextSeeds[key]));
-      }
     }
   });
 }
@@ -847,12 +1016,19 @@ function renderContextKpis() {
   const escopo = contextGet("escopo");
   const processos = contextGet("processos");
   const pendingPlans = swot.filter((item) => item.planoNecessario === "Sim" && item.status !== "Concluído").length;
+  const highPriority = swot.filter((item) => item.prioridade === "Alta").length;
+  const monitoredPartes = partes.filter((item) => item.monitoramento && item.monitoramento.trim()).length;
+  const strategicProcesses = processos.filter((item) => item.categoria === "Estratégico").length;
+  const operationalProcesses = processos.filter((item) => item.categoria === "Operacional").length;
+  const supportProcesses = processos.filter((item) => item.categoria === "Suporte").length;
   setText("#ctxKpiSwot", swot.length);
-  setText("#ctxKpiSwotCaption", pendingPlans ? `${pendingPlans} com plano de ação em aberto` : "todos os planos concluídos");
+  setText("#ctxKpiSwotCaption", `${pendingPlans} planos abertos · ${highPriority} alta prioridade`);
   setText("#ctxKpiPartes", partes.length);
+  setText("#ctxKpiPartesCaption", `${monitoredPartes} com monitoramento definido`);
   setText("#ctxKpiEscopo", escopo.statusAprovacao || "-");
   setText("#ctxKpiEscopoCaption", `atualizado em ${formatDate(escopo.dataAtualizacao)}`);
   setText("#ctxKpiProcessos", processos.length);
+  setText("#ctxKpiProcessosCaption", `${strategicProcesses} estratégicos · ${operationalProcesses} operacionais · ${supportProcesses} suporte`);
 }
 
 function contextSwotHtml() {
@@ -1587,16 +1763,18 @@ function bindRiskActions() {
       renderRiskTab();
     });
   });
-
-  tabContent.querySelectorAll("[data-risk-action]").forEach((button) => {
-    button.addEventListener("click", () => handleRiskAction(button.dataset.riskAction, button.dataset.id));
-  });
 }
 
 function bindRiskStaticActions() {
-  pageContent.querySelectorAll(".modal-overlay [data-risk-action]").forEach((button) => {
-    button.addEventListener("click", () => handleRiskAction(button.dataset.riskAction, button.dataset.id));
-  });
+  if (document.body.dataset.riskActionsBound !== "true") {
+    document.body.dataset.riskActionsBound = "true";
+    document.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-risk-action]");
+      if (!button) return;
+      event.preventDefault();
+      handleRiskAction(button.dataset.riskAction, button.dataset.id);
+    });
+  }
 
   pageContent.querySelectorAll("[data-risk-close]").forEach((button) => {
     button.addEventListener("click", () => closeRiskModal(button.dataset.riskClose));
@@ -2037,8 +2215,9 @@ function metric(label, value) {
 
 function bindDashboardActions() {
   bindModuleCards();
+  bindViewTargetButtons();
 
-  document.querySelectorAll(".kpi-link").forEach((link) => {
+  document.querySelectorAll(".kpi-link:not([data-view-target])").forEach((link) => {
     link.addEventListener("click", (event) => {
       event.preventDefault();
       render(link.textContent.includes("empresa") ? "empresa" : "relatorios");
