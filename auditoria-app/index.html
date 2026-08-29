@@ -1,0 +1,374 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#020617" />
+    <title>AuditPRO</title>
+    <link rel="stylesheet" href="styles.css?v=20260713-titlelogo" />
+  </head>
+  <body>
+    <section class="start-screen" id="startScreen">
+      <div class="start-shell">
+        <header class="start-header">
+          <div>
+            <span class="start-kicker">AUDITPRO</span>
+            <h1>Auditoria inteligente</h1>
+          </div>
+          <div class="start-icon">
+            <img src="assets/auditpro-logo.png" alt="AuditPRO" />
+          </div>
+        </header>
+
+        <article class="start-card">
+          <div class="start-card-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M9 3h6l1 2h3v16H5V5h3z"/><path d="m8 13 2.5 2.5L16 10"/><path d="M9 5h6"/></svg>
+          </div>
+          <div class="start-card-copy">
+            <h2>Nova consultoria</h2>
+            <p>Escolha a norma auditada para iniciar o checklist, registrar evidências, acompanhar indicadores e gerar o relatório final em PDF.</p>
+          </div>
+          <label class="start-field">
+            <span>Norma auditada</span>
+            <select id="startStandard"></select>
+          </label>
+          <button class="start-button" id="startConsultoriaBtn" type="button">
+            <span>+</span>
+            Iniciar consultoria
+          </button>
+        </article>
+
+        <div class="start-stats">
+          <div>
+            <strong>PDF</strong>
+            <span>Relatório final</span>
+          </div>
+          <div>
+            <strong>ISO</strong>
+            <span>Checklist por norma</span>
+          </div>
+        </div>
+      </div>
+
+      <nav class="start-bottom-nav" aria-label="Navegação inicial">
+        <button class="active" type="button">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 10v10h14V10"/><path d="M9 20v-6h6v6"/></svg>
+          <span>Início</span>
+        </button>
+        <button data-start-view="dados" type="button">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></svg>
+          <span>Auditoria</span>
+        </button>
+        <button data-start-view="checklist" type="button">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6l1 2h3v16H5V5h3z"/><path d="m8 13 2 2 5-5"/></svg>
+          <span>Checklist</span>
+        </button>
+        <button data-start-view="dashboard" type="button">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5"/><path d="M4 19h17"/><path d="M8 16V9"/><path d="M13 16V7"/><path d="M18 16v-4"/></svg>
+          <span>Indicadores</span>
+        </button>
+        <button data-start-view="relatorio" type="button">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.5A3.5 3.5 0 1 0 12 8a3.5 3.5 0 0 0 0 7.5z"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.04.04a2 2 0 1 1-2.83 2.83l-.04-.04A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6V20a2 2 0 1 1-4 0v-.06a1.7 1.7 0 0 0-1-.6 1.7 1.7 0 0 0-1.88.34l-.04.04a2 2 0 1 1-2.83-2.83l.04-.04A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1H4a2 2 0 1 1 0-4h.06a1.7 1.7 0 0 0 .6-1 1.7 1.7 0 0 0-.34-1.88l-.04-.04a2 2 0 1 1 2.83-2.83l.04.04A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6V4a2 2 0 1 1 4 0v.06a1.7 1.7 0 0 0 1 .6 1.7 1.7 0 0 0 1.88-.34l.04-.04a2 2 0 1 1 2.83 2.83l-.04.04A1.7 1.7 0 0 0 19.4 9c.2.34.4.66.6 1H20a2 2 0 1 1 0 4h-.06a1.7 1.7 0 0 0-.54 1z"/></svg>
+          <span>Config</span>
+        </button>
+      </nav>
+    </section>
+
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-mark">
+            <img src="assets/auditpro-logo.png" alt="AuditPRO" />
+          </div>
+          <div>
+            <strong>AuditPRO</strong>
+            <span id="brandStandard">Norma auditada</span>
+          </div>
+        </div>
+
+        <nav class="nav" aria-label="Navegação principal">
+          <button class="nav-button active" data-view="dashboard">
+            <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 10v10h14V10"/><path d="M9 20v-6h6v6"/></svg>
+            <span class="nav-label-full">Dashboard</span>
+            <span class="nav-label-short">Início</span>
+          </button>
+          <button class="nav-button" data-view="dados">
+            <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></svg>
+            <span class="nav-label-full">Dados gerais</span>
+            <span class="nav-label-short">Dados</span>
+          </button>
+          <button class="nav-button" data-view="checklist">
+            <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6l1 2h3v16H5V5h3z"/><path d="m8 13 2 2 5-5"/></svg>
+            <span class="nav-label-full">Checklist</span>
+            <span class="nav-label-short">Checklist</span>
+          </button>
+          <button class="nav-button" data-view="documentos">
+            <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h8l4 4v16H6z"/><path d="M14 2v5h5"/><path d="M9 13h6"/><path d="M9 17h6"/></svg>
+            <span class="nav-label-full">Info documentada</span>
+            <span class="nav-label-short">Docs</span>
+          </button>
+          <button class="nav-button" data-view="pessoas">
+            <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/><circle cx="9.5" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            <span class="nav-label-full">Competência/RH</span>
+            <span class="nav-label-short">RH</span>
+          </button>
+          <button class="nav-button" data-view="relatorio">
+            <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5"/><path d="M4 19h17"/><path d="M8 16V9"/><path d="M13 16V7"/><path d="M18 16v-4"/></svg>
+            <span class="nav-label-full">Relatório final</span>
+            <span class="nav-label-short">Relatório</span>
+          </button>
+        </nav>
+      </aside>
+
+      <main class="workspace">
+        <header class="topbar">
+          <div>
+            <h1 id="appTitle">Relatório de Auditoria</h1>
+          </div>
+          <div class="topbar-actions">
+            <button class="ghost-button" id="resetBtn" type="button">Limpar</button>
+            <button class="ghost-button" id="importBtn" type="button">Importar</button>
+            <button class="primary-button" id="exportBtn" type="button">Exportar PDF</button>
+            <input id="importFile" type="file" accept="application/json" hidden />
+          </div>
+        </header>
+
+        <section class="view active" id="view-dashboard">
+          <div class="summary-grid">
+            <article class="metric metric-conforme">
+              <span>Conformidades</span>
+              <strong id="metricConforme">0</strong>
+            </article>
+            <article class="metric metric-melhoria">
+              <span>Oportunidades</span>
+              <strong id="metricMelhoria">0</strong>
+            </article>
+            <article class="metric metric-menor">
+              <span>NC menores</span>
+              <strong id="metricMenor">0</strong>
+            </article>
+            <article class="metric metric-maior">
+              <span>NC maiores</span>
+              <strong id="metricMaior">0</strong>
+            </article>
+          </div>
+
+          <div class="dashboard-grid">
+            <section class="panel">
+              <div class="section-heading">
+                <div>
+                  <span class="eyebrow">Resumo</span>
+                  <h2>Status da auditoria</h2>
+                </div>
+                <strong id="totalAuditado">0 itens</strong>
+              </div>
+              <canvas id="statusChart" width="640" height="320" aria-label="Gráfico de status"></canvas>
+            </section>
+
+            <section class="panel">
+              <div class="section-heading">
+                <div>
+                  <span class="eyebrow">Requisitos</span>
+                  <h2>Impacto por cláusula</h2>
+                </div>
+              </div>
+              <div id="requirementBars" class="bar-list"></div>
+            </section>
+
+            <section class="panel">
+              <div class="section-heading">
+                <div>
+                  <span class="eyebrow">Conclusão sugerida</span>
+                  <h2 id="classificationTitle">Sistema Conforme</h2>
+                </div>
+                <span id="classificationBadge" class="status-pill status-conforme">Conforme</span>
+              </div>
+              <p id="classificationText" class="muted"></p>
+              <div class="risk-row">
+                <div>
+                  <span>Documentos pendentes</span>
+                  <strong id="pendingDocs">0</strong>
+                </div>
+                <div>
+                  <span>RH pendente</span>
+                  <strong id="pendingPeople">0</strong>
+                </div>
+              </div>
+            </section>
+
+            <section class="panel">
+              <div class="section-heading">
+                <div>
+                  <span class="eyebrow">Amostra</span>
+                  <h2>Itens críticos</h2>
+                </div>
+              </div>
+              <div id="criticalList" class="critical-list"></div>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" id="view-dados">
+          <section class="panel">
+            <div class="section-heading">
+              <div>
+                <span class="eyebrow">Identificação</span>
+                <h2>Informações gerais</h2>
+              </div>
+            </div>
+            <div class="form-grid" id="generalForm"></div>
+          </section>
+        </section>
+
+        <section class="view" id="view-checklist">
+          <section class="panel full-panel">
+            <div class="section-heading">
+              <div>
+                <span class="eyebrow">Detalhamento</span>
+                <h2>Constatações de auditoria</h2>
+              </div>
+              <div class="filter-group">
+                <select id="requirementFilter" aria-label="Filtrar por requisito"></select>
+                <select id="statusFilter" aria-label="Filtrar por status">
+                  <option value="">Todos os status</option>
+                </select>
+              </div>
+            </div>
+            <div id="checklistRows" class="checklist"></div>
+          </section>
+        </section>
+
+        <section class="view" id="view-documentos">
+          <section class="panel full-panel">
+            <div class="section-heading">
+              <div>
+                <span class="eyebrow">Cruzamento</span>
+                <h2>Informação documentada citada</h2>
+              </div>
+              <strong id="docCount">0 itens</strong>
+            </div>
+            <div id="documentRows" class="simple-table"></div>
+          </section>
+        </section>
+
+        <section class="view" id="view-pessoas">
+          <section class="panel full-panel">
+            <div class="section-heading">
+              <div>
+                <span class="eyebrow">Cruzamento</span>
+                <h2>Pessoas entrevistadas e RH</h2>
+              </div>
+              <strong id="personCount">0 itens</strong>
+            </div>
+            <div id="personRows" class="simple-table"></div>
+          </section>
+        </section>
+
+        <section class="view" id="view-relatorio">
+          <div class="report-actions">
+            <button class="ghost-button" id="copyReportBtn" type="button">Copiar texto</button>
+            <button class="primary-button" id="printBtn" type="button">Imprimir / PDF</button>
+          </div>
+          <article class="report" id="report">
+            <header class="report-header">
+              <div class="report-logo">
+                <img src="assets/auditpro-logo.png" alt="AuditPRO" />
+              </div>
+              <div>
+                <h2 id="reportTitle">Relatório de Auditoria</h2>
+                <p id="reportSubtitle"></p>
+              </div>
+              <div class="report-code">
+                <span>Código: FM-xxx</span>
+                <span>Revisão: 00</span>
+              </div>
+            </header>
+
+            <section class="report-section">
+              <h3>1. Informações gerais</h3>
+              <div id="reportGeneral" class="report-grid"></div>
+            </section>
+
+            <section class="report-section">
+              <h3>2. Objetivo da auditoria</h3>
+              <p id="reportObjective"></p>
+            </section>
+
+            <section class="report-section">
+              <h3>3. Resumo da auditoria</h3>
+              <div id="reportMetrics" class="report-metrics"></div>
+              <canvas id="reportChart" width="760" height="300" aria-label="Gráfico do relatório"></canvas>
+            </section>
+
+            <section class="report-section">
+              <h3>4. Distribuição das não conformidades</h3>
+              <div id="reportRequirementTable" class="report-table"></div>
+            </section>
+
+            <section class="report-section">
+              <h3>5. Cruzamentos de evidência</h3>
+              <div id="reportCrossChecks" class="report-table"></div>
+            </section>
+
+            <section class="report-section">
+              <h3>6. Constatações relevantes</h3>
+              <div id="reportFindings" class="report-table"></div>
+            </section>
+
+            <section class="report-section">
+              <h3>7. Conclusão da auditoria</h3>
+              <p id="reportConclusion"></p>
+              <strong id="reportClassification"></strong>
+            </section>
+
+            <section class="report-section signatures">
+              <div>
+                <strong>Auditor líder</strong>
+                <span>Nome:</span>
+                <span>Assinatura:</span>
+                <span>Data:</span>
+              </div>
+              <div>
+                <strong>Representante da direção</strong>
+                <span>Nome:</span>
+                <span>Assinatura:</span>
+                <span>Data:</span>
+              </div>
+              <div>
+                <strong>Direção da empresa</strong>
+                <span>Nome:</span>
+                <span>Assinatura:</span>
+                <span>Data:</span>
+              </div>
+            </section>
+          </article>
+        </section>
+      </main>
+    </div>
+
+    <section class="model-chooser" id="modelChooser" aria-modal="true" role="dialog">
+      <div class="model-chooser-card">
+        <div>
+          <span class="eyebrow">AuditPRO</span>
+          <h2>Escolha o modelo visual</h2>
+          <p>Os dois modelos usam os mesmos dados, checklists, dashboards e relatório final. Muda apenas o layout para comparação.</p>
+        </div>
+
+        <div class="model-options">
+          <button class="model-option" data-model-choice="qualicheck" type="button">
+            <span class="model-preview model-preview-dark"></span>
+            <strong>Modelo QualiCheck</strong>
+            <small>Mobile-first, escuro, cards compactos e navegação inferior.</small>
+          </button>
+          <button class="model-option" data-model-choice="classic" type="button">
+            <span class="model-preview model-preview-light"></span>
+            <strong>Modelo clássico</strong>
+            <small>Visual claro anterior, painel amplo e menu lateral no desktop.</small>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <script src="app.js?v=20260713-titlelogo"></script>
+  </body>
+</html>
