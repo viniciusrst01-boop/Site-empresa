@@ -4,6 +4,7 @@ const http = require("http");
 const path = require("path");
 const querystring = require("querystring");
 const {
+  ensureInitialized,
   findUser,
   getCompany,
   getCompanyData,
@@ -26,7 +27,8 @@ const loginUser = process.env.SGQ_LOGIN_USER || process.env.SGQ_USER_EMAIL || ""
 const loginPassword = process.env.SGQ_USER_PASSWORD || "";
 const adminUser = process.env.SGQ_ADMIN_USER || "viniciusrst";
 const extraLogins = parseExtraLogins(process.env.SGQ_EXTRA_LOGINS || "");
-syncConfiguredUsers(getAllowedLogins());
+const configuredLogins = getAllowedLogins();
+let bootstrapPromise;
 
 const contentTypes = {
   ".html": "text/html; charset=utf-8",
@@ -89,6 +91,14 @@ function getAllowedLogins() {
 
 function findValidLogin(username, password) {
   return findUser(username, password);
+}
+
+async function bootstrapDatabase() {
+  if (!bootstrapPromise) {
+    bootstrapPromise = ensureInitialized().then(() => syncConfiguredUsers(configuredLogins));
+  }
+
+  return bootstrapPromise;
 }
 
 function parseCookies(cookieHeader = "") {
@@ -247,6 +257,14 @@ function loginPage(error = "") {
 }
 
 async function handleRequest(req, res) {
+  try {
+    await bootstrapDatabase();
+  } catch (error) {
+    console.error("Falha ao inicializar banco de dados:", error);
+    sendJson(res, 500, { error: "database_unavailable" });
+    return;
+  }
+
   const url = new URL(req.url, `http://${req.headers.host}`);
   const session = readSession(req);
 
@@ -262,7 +280,7 @@ async function handleRequest(req, res) {
 
   if (url.pathname === "/login" && req.method === "POST") {
     const body = querystring.parse(await readBody(req));
-    const validLogin = findValidLogin(body.username, body.password);
+    const validLogin = await findValidLogin(body.username, body.password);
 
     if (!validLogin) {
       send(res, 401, loginPage("Usuário ou senha inválidos."), {
@@ -326,9 +344,9 @@ async function handleApiRequest(req, res, url, session) {
   const companyId = session.companyId;
 
   if (url.pathname === "/api/bootstrap" && req.method === "GET") {
-    const savedState = getCompanyData(companyId, "state");
-    const savedContext = getCompanyData(companyId, "context");
-    const savedRisk = getCompanyData(companyId, "risk");
+    const savedState = await getCompanyData(companyId, "state");
+    const savedContext = await getCompanyData(companyId, "context");
+    const savedRisk = await getCompanyData(companyId, "risk");
 
     sendJson(res, 200, {
       user: {
@@ -339,7 +357,7 @@ async function handleApiRequest(req, res, url, session) {
         companyId,
         isAdmin: isAdminSession(session),
       },
-      company: getCompany(companyId),
+      company: await getCompany(companyId),
       needsOnboarding: !savedState,
       state: savedState,
       context: savedContext,
@@ -355,11 +373,11 @@ async function handleApiRequest(req, res, url, session) {
       return;
     }
 
-    const user = updateUserProfile(session.userId, {
+    const user = await updateUserProfile(session.userId, {
       displayName: body.user?.name,
       role: body.user?.role || session.role,
     });
-    const company = updateCompany(companyId, {
+    const company = await updateCompany(companyId, {
       name: body.company?.name,
       cnpj: body.company?.cnpj,
       scope: body.company?.scope,
@@ -367,9 +385,9 @@ async function handleApiRequest(req, res, url, session) {
       plan: body.company?.plan,
     });
 
-    setCompanyData(companyId, "state", body.state);
-    setCompanyData(companyId, "context", body.context);
-    setCompanyData(companyId, "risk", body.risk);
+    await setCompanyData(companyId, "state", body.state);
+    await setCompanyData(companyId, "context", body.context);
+    await setCompanyData(companyId, "risk", body.risk);
 
     sendJson(res, 200, { ok: true, user, company });
     return;
@@ -381,7 +399,7 @@ async function handleApiRequest(req, res, url, session) {
       return;
     }
 
-    sendJson(res, 200, listAdminOverview());
+    sendJson(res, 200, await listAdminOverview());
     return;
   }
 
@@ -399,7 +417,7 @@ async function handleApiRequest(req, res, url, session) {
     }
 
     const temporaryPassword = generateTemporaryPassword();
-    const user = resetUserPassword(userId, temporaryPassword);
+    const user = await resetUserPassword(userId, temporaryPassword);
     if (!user) {
       sendJson(res, 404, { error: "user_not_found" });
       return;
@@ -421,7 +439,7 @@ async function handleApiRequest(req, res, url, session) {
       return;
     }
 
-    setCompanyData(companyId, body.key, body.value);
+    await setCompanyData(companyId, body.key, body.value);
     sendJson(res, 200, { ok: true });
     return;
   }

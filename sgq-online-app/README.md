@@ -38,9 +38,9 @@ Também é possível configurar logins extras:
 $env:SGQ_EXTRA_LOGINS="usuario2:senha2:Empresa 2,usuario3:senha3:Empresa 3"
 ```
 
-## Banco local
+## Banco de dados
 
-O app usa um banco local em arquivo JSON no servidor. O arquivo é criado automaticamente em:
+Sem configuração extra, o app usa um banco local em arquivo JSON no servidor. Isso é útil para testar na sua máquina. O arquivo é criado automaticamente em:
 
 ```text
 data/sgq-local.json
@@ -53,3 +53,28 @@ Esse arquivo fica ignorado pelo Git e pela Vercel para não publicar dados locai
 - `risk`: riscos, objetivos e mudanças.
 
 Esta versão já separa dados por usuário/empresa localmente. Para produção definitiva, a próxima evolução é trocar esse arquivo local por Postgres online, porque ambientes como Vercel podem limpar arquivos temporários em reinicializações.
+
+## Banco online em produção
+
+Para produção, configure um Postgres online e adicione a variável `DATABASE_URL` na hospedagem. Com essa variável definida, o app deixa de usar o JSON local/temporário e passa a salvar tudo no Postgres.
+
+Variáveis principais para produção:
+
+```text
+DATABASE_URL=postgresql://usuario:senha@host:5432/banco?sslmode=require
+SESSION_SECRET=uma-chave-secreta-longa
+SGQ_ADMIN_USER=viniciusrst
+SGQ_EXTRA_LOGINS=usuario:senha:Nome da Empresa
+```
+
+Ao iniciar com `DATABASE_URL`, o app cria automaticamente as tabelas:
+
+- `companies`: empresas/clientes;
+- `users`: acessos de cada empresa;
+- `company_data`: dados dos módulos separados por empresa.
+
+Em bancos locais sem SSL, use:
+
+```text
+PGSSLMODE=disable
+```
