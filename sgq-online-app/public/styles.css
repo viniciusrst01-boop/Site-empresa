@@ -499,9 +499,16 @@
   border-radius: 10px;
   background: rgba(5,11,22,0.64);
   color: var(--text-primary);
+  color-scheme: dark;
   font: inherit;
   min-height: 44px;
   padding: 0 12px;
+}
+
+.qp-form select option,
+select.input-basic option {
+  background: #0b1526;
+  color: #f5f7fa;
 }
 
 .qp-form textarea {
@@ -1763,6 +1770,7 @@ textarea.input-basic {
   outline: none;
   background: rgba(255,255,255,0.02);
   color: var(--text-primary);
+  color-scheme: dark;
   font: inherit;
   font-size: 13.5px;
   padding: 11px 13px;
@@ -1881,6 +1889,13 @@ body.theme-light select.input-basic,
 body.theme-light textarea.input-basic {
   border-color: rgba(15, 81, 130, 0.18);
   background: #f8fcff;
+  color-scheme: light;
+}
+
+body.theme-light .qp-form select option,
+body.theme-light select.input-basic option {
+  background: #f8fcff;
+  color: #0f172a;
 }
 
 @media (max-width: 1200px) {
