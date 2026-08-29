@@ -7,6 +7,8 @@ const {
   findUser,
   getCompany,
   getCompanyData,
+  listAdminOverview,
+  resetUserPassword,
   setCompanyData,
   syncConfiguredUsers,
   updateCompany,
@@ -22,6 +24,7 @@ const publicDir = path.join(root, "public");
 const sessionSecret = process.env.SESSION_SECRET || "qualitypro-dev-secret-change-me";
 const loginUser = process.env.SGQ_LOGIN_USER || process.env.SGQ_USER_EMAIL || "";
 const loginPassword = process.env.SGQ_USER_PASSWORD || "";
+const adminUser = process.env.SGQ_ADMIN_USER || "viniciusrst";
 const extraLogins = parseExtraLogins(process.env.SGQ_EXTRA_LOGINS || "");
 syncConfiguredUsers(getAllowedLogins());
 
@@ -146,6 +149,14 @@ function sendJson(res, status, value) {
     "Content-Type": "application/json; charset=utf-8",
     "Cache-Control": "no-store",
   });
+}
+
+function generateTemporaryPassword() {
+  return crypto.randomBytes(5).toString("base64url");
+}
+
+function isAdminSession(session) {
+  return String(session?.username || "").toLowerCase() === String(adminUser || "").toLowerCase();
 }
 
 function redirect(res, location) {
@@ -326,6 +337,7 @@ async function handleApiRequest(req, res, url, session) {
         name: session.displayName,
         role: session.role,
         companyId,
+        isAdmin: isAdminSession(session),
       },
       company: getCompany(companyId),
       needsOnboarding: !savedState,
@@ -360,6 +372,40 @@ async function handleApiRequest(req, res, url, session) {
     setCompanyData(companyId, "risk", body.risk);
 
     sendJson(res, 200, { ok: true, user, company });
+    return;
+  }
+
+  if (url.pathname === "/api/admin/overview" && req.method === "GET") {
+    if (!isAdminSession(session)) {
+      sendJson(res, 403, { error: "forbidden" });
+      return;
+    }
+
+    sendJson(res, 200, listAdminOverview());
+    return;
+  }
+
+  if (url.pathname === "/api/admin/reset-password" && req.method === "POST") {
+    if (!isAdminSession(session)) {
+      sendJson(res, 403, { error: "forbidden" });
+      return;
+    }
+
+    const body = await readJsonBody(req);
+    const userId = Number(body?.userId);
+    if (!userId) {
+      sendJson(res, 400, { error: "invalid_user" });
+      return;
+    }
+
+    const temporaryPassword = generateTemporaryPassword();
+    const user = resetUserPassword(userId, temporaryPassword);
+    if (!user) {
+      sendJson(res, 404, { error: "user_not_found" });
+      return;
+    }
+
+    sendJson(res, 200, { ok: true, user, temporaryPassword });
     return;
   }
 

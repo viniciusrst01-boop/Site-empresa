@@ -200,6 +200,72 @@ function updateUserProfile(userId, values) {
   return getUser(userId);
 }
 
+function listAdminOverview() {
+  const database = getDb();
+  const companies = database.prepare(`
+    SELECT
+      companies.id,
+      companies.name,
+      companies.cnpj,
+      companies.certification,
+      companies.plan,
+      companies.created_at,
+      COUNT(users.id) AS access_count,
+      SUM(CASE WHEN users.status = 'Ativo' THEN 1 ELSE 0 END) AS active_access_count
+    FROM companies
+    LEFT JOIN users ON users.company_id = companies.id
+    GROUP BY companies.id
+    ORDER BY companies.created_at DESC, companies.id DESC
+  `).all();
+
+  const users = database.prepare(`
+    SELECT
+      users.id,
+      users.company_id AS companyId,
+      users.username,
+      users.display_name AS displayName,
+      users.role,
+      users.status,
+      users.created_at AS createdAt,
+      companies.name AS companyName,
+      companies.plan AS companyPlan
+    FROM users
+    JOIN companies ON companies.id = users.company_id
+    ORDER BY users.created_at DESC, users.id DESC
+  `).all();
+
+  const payingCompanies = companies.filter((company) => isPaidPlan(company.plan));
+
+  return {
+    summary: {
+      companies: companies.length,
+      payingCompanies: payingCompanies.length,
+      accesses: users.length,
+      activeAccesses: users.filter((user) => user.status === "Ativo").length,
+    },
+    companies,
+    users,
+  };
+}
+
+function isPaidPlan(plan) {
+  const value = String(plan || "").trim().toLowerCase();
+  return Boolean(value) && !["gratis", "grátis", "free", "teste", "demo"].includes(value);
+}
+
+function resetUserPassword(userId, temporaryPassword) {
+  const database = getDb();
+  const user = getUser(userId);
+  if (!user) return null;
+
+  database.prepare("UPDATE users SET password_hash = ? WHERE id = ?").run(
+    hashPassword(temporaryPassword),
+    userId,
+  );
+
+  return getUser(userId);
+}
+
 function getCompanyData(companyId, key) {
   const row = getDb()
     .prepare("SELECT data_json FROM company_data WHERE company_id = ? AND data_key = ?")
@@ -229,6 +295,8 @@ module.exports = {
   getCompany,
   getCompanyData,
   getUser,
+  listAdminOverview,
+  resetUserPassword,
   setCompanyData,
   syncConfiguredUsers,
   updateCompany,

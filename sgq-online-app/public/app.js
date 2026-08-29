@@ -210,6 +210,10 @@ function saveState() {
 
 async function initializeApp() {
   const needsOnboarding = await loadRemoteData();
+  if (currentUser?.isAdmin) {
+    render("gerenciamento");
+    return;
+  }
   if (needsOnboarding) {
     renderOnboarding();
     return;
@@ -302,6 +306,28 @@ function applyUserProfile() {
   if (avatar) avatar.textContent = initials;
   if (userName) userName.textContent = name;
   if (userRole) userRole.textContent = role;
+  updateAdminNav();
+}
+
+function updateAdminNav() {
+  if (!currentUser?.isAdmin) {
+    document.querySelector('[data-view="gerenciamento"]')?.remove();
+    return;
+  }
+
+  document.querySelectorAll(".sb-nav .nav-item").forEach((item) => {
+    if (item.dataset.view !== "gerenciamento") item.remove();
+  });
+
+  if (document.querySelector('[data-view="gerenciamento"]')) return;
+
+  const nav = document.querySelector(".sb-nav");
+  const item = document.createElement("div");
+  item.className = "nav-item";
+  item.dataset.view = "gerenciamento";
+  item.innerHTML = `${moduleIcon("plano")} Gerenciamento`;
+  item.addEventListener("click", () => render("gerenciamento"));
+  nav?.appendChild(item);
 }
 
 function renderOnboarding() {
@@ -489,6 +515,10 @@ function setActiveNav(view) {
 }
 
 function render(view = "inicio") {
+  if (currentUser?.isAdmin && view !== "gerenciamento") {
+    view = "gerenciamento";
+  }
+
   setActiveNav(view);
   pageContent.classList.remove("risk-page-content");
   pageContent.classList.remove("context-page-content");
@@ -500,6 +530,7 @@ function render(view = "inicio") {
     usuarios: renderUsuarios,
     notificacoes: renderNotificacoes,
     relatorios: renderRelatorios,
+    gerenciamento: renderGerenciamento,
     configuracoes: renderConfiguracoes,
     ajuda: renderAjuda,
   };
@@ -2491,6 +2522,168 @@ function renderRelatorios() {
       <p class="qp-muted">Nesta primeira versão, os relatórios são exibidos em tela. A exportação em PDF/Excel entra na próxima etapa.</p>
     </article>
   `;
+}
+
+async function renderGerenciamento() {
+  setTopbar("Gerenciamento", "Clientes, planos e acessos do SGQ Online");
+  pageContent.classList.remove("risk-page-content");
+  pageContent.classList.remove("context-page-content");
+  pageContent.innerHTML = `
+    ${viewHeader("Gerenciamento", "Acompanhe clientes pagantes, acessos ativos e usuários cadastrados automaticamente.")}
+    <div class="admin-loading qp-card">Carregando dados de gerenciamento...</div>
+  `;
+
+  try {
+    const response = await fetch("/api/admin/overview", {
+      headers: { Accept: "application/json" },
+      cache: "no-store",
+    });
+    if (response.status === 403) {
+      pageContent.innerHTML = `${viewHeader("Acesso restrito", "Esta área está disponível somente para o administrador.")}`;
+      return;
+    }
+    if (!response.ok) throw new Error("Falha ao carregar gerenciamento.");
+
+    const data = await response.json();
+    pageContent.innerHTML = adminOverviewHtml(data);
+    bindAdminActions();
+  } catch (error) {
+    console.warn(error);
+    pageContent.innerHTML = `
+      ${viewHeader("Gerenciamento", "Clientes, planos e acessos do SGQ Online.")}
+      <article class="qp-card">
+        <h3>Não foi possível carregar</h3>
+        <p class="qp-muted">Verifique se o servidor local está rodando e tente novamente.</p>
+      </article>
+    `;
+  }
+}
+
+function adminOverviewHtml(data) {
+  const summary = data.summary || {};
+  const companies = data.companies || [];
+  const users = data.users || [];
+
+  return `
+    ${viewHeader("Gerenciamento", "Acompanhe clientes pagantes, acessos ativos e usuários cadastrados automaticamente.")}
+
+    <div class="admin-kpi-row">
+      ${adminMetric("Clientes", summary.companies || 0, "empresas cadastradas")}
+      ${adminMetric("Pagantes", summary.payingCompanies || 0, "empresas com plano pago")}
+      ${adminMetric("Acessos", summary.accesses || 0, "usuários cadastrados")}
+      ${adminMetric("Ativos", summary.activeAccesses || 0, "acessos ativos")}
+    </div>
+
+    <section class="qp-card admin-card">
+      <div class="dcc-head">
+        <div>
+          <div class="dcc-title">Clientes e planos</div>
+          <div class="dcc-sub">Empresas criadas automaticamente no primeiro acesso ou via login configurado.</div>
+        </div>
+      </div>
+      <div class="admin-table-wrap">
+        <table class="data-table">
+          <thead><tr><th>Empresa</th><th>CNPJ</th><th>Plano</th><th>Acessos</th><th>Criado em</th></tr></thead>
+          <tbody>
+            ${companies.length ? companies.map((company) => `
+              <tr>
+                <td><strong>${escapeHtml(company.name)}</strong></td>
+                <td>${escapeHtml(company.cnpj || "-")}</td>
+                <td>${planBadge(company.plan)}</td>
+                <td>${Number(company.active_access_count || 0)} ativos / ${Number(company.access_count || 0)} total</td>
+                <td>${formatDate(company.created_at)}</td>
+              </tr>
+            `).join("") : `<tr><td colspan="5"><div class="empty-state">Nenhum cliente cadastrado.</div></td></tr>`}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="qp-card admin-card">
+      <div class="dcc-head">
+        <div>
+          <div class="dcc-title">Usuários e acessos</div>
+          <div class="dcc-sub">Todo usuário cadastrado no banco aparece automaticamente aqui.</div>
+        </div>
+      </div>
+      <div class="admin-table-wrap">
+        <table class="data-table">
+          <thead><tr><th>Usuário</th><th>Login</th><th>Empresa</th><th>Perfil</th><th>Status</th><th>Ações</th></tr></thead>
+          <tbody>
+            ${users.length ? users.map((user) => `
+              <tr>
+                <td><strong>${escapeHtml(user.displayName)}</strong></td>
+                <td>${escapeHtml(user.username)}</td>
+                <td>${escapeHtml(user.companyName)}</td>
+                <td>${escapeHtml(user.role)}</td>
+                <td><span class="status-pill ${statusClass(user.status)}"><span class="status-dot2"></span>${escapeHtml(user.status)}</span></td>
+                <td><button class="abtn" data-admin-action="reset-password" data-user-id="${user.id}" data-user-name="${escapeHtml(user.displayName)}" type="button" title="Resetar senha">${moduleIcon("edit")}</button></td>
+              </tr>
+            `).join("") : `<tr><td colspan="6"><div class="empty-state">Nenhum usuário cadastrado.</div></td></tr>`}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <div class="admin-reset-result" id="adminResetResult" hidden></div>
+  `;
+}
+
+function adminMetric(label, value, caption) {
+  return `
+    <article class="kpi-card" style="--accent-line:#2f8ff0;">
+      <div class="kpi-top">
+        <div class="kpi-icon" style="border-color:rgba(47,143,240,0.4); color:#4fa3ff;">${moduleIcon("modulos")}</div>
+        <div><div class="kpi-label">${escapeHtml(label)}</div><div class="kpi-value big">${escapeHtml(value)}</div></div>
+      </div>
+      <div class="kpi-caption">${escapeHtml(caption)}</div>
+    </article>
+  `;
+}
+
+function planBadge(plan) {
+  const paid = isPaidPlanName(plan);
+  return `<span class="plan-badge ${paid ? "paid" : "trial"}">${escapeHtml(plan || "Sem plano")}</span>`;
+}
+
+function isPaidPlanName(plan) {
+  const value = String(plan || "").trim().toLowerCase();
+  return Boolean(value) && !["gratis", "grátis", "free", "teste", "demo"].includes(value);
+}
+
+function bindAdminActions() {
+  pageContent.querySelectorAll("[data-admin-action]").forEach((button) => {
+    button.addEventListener("click", () => handleAdminAction(button));
+  });
+}
+
+async function handleAdminAction(button) {
+  if (button.dataset.adminAction !== "reset-password") return;
+  const userId = Number(button.dataset.userId);
+  const userName = button.dataset.userName || "usuário";
+  if (!userId || !window.confirm(`Resetar a senha de ${userName}?`)) return;
+
+  const response = await fetch("/api/admin/reset-password", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId }),
+  });
+
+  if (!response.ok) {
+    toast("Não foi possível resetar a senha.");
+    return;
+  }
+
+  const result = await response.json();
+  const box = document.querySelector("#adminResetResult");
+  if (box) {
+    box.hidden = false;
+    box.innerHTML = `
+      <strong>Senha temporária gerada para ${escapeHtml(result.user.displayName)}:</strong>
+      <code>${escapeHtml(result.temporaryPassword)}</code>
+    `;
+  }
+  toast("Senha resetada.");
 }
 
 function renderConfiguracoes() {
