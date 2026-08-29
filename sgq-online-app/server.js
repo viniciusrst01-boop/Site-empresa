@@ -1,0 +1,281 @@
+const crypto = require("crypto");
+const fs = require("fs");
+const http = require("http");
+const path = require("path");
+const querystring = require("querystring");
+
+loadLocalEnv();
+
+const port = Number(process.env.PORT || 4180);
+const host = process.env.HOST || "127.0.0.1";
+const root = __dirname;
+const publicDir = path.join(root, "public");
+const sessionSecret = process.env.SESSION_SECRET || "qualitypro-dev-secret-change-me";
+const loginUser = process.env.SGQ_LOGIN_USER || process.env.SGQ_USER_EMAIL || "";
+const loginPassword = process.env.SGQ_USER_PASSWORD || "";
+const extraLogins = parseExtraLogins(process.env.SGQ_EXTRA_LOGINS || "");
+
+const contentTypes = {
+  ".html": "text/html; charset=utf-8",
+  ".css": "text/css; charset=utf-8",
+  ".js": "text/javascript; charset=utf-8",
+  ".json": "application/json; charset=utf-8",
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".svg": "image/svg+xml",
+  ".ico": "image/x-icon",
+};
+
+function loadLocalEnv() {
+  const envPath = path.join(__dirname, ".env");
+  if (!fs.existsSync(envPath)) return;
+
+  const lines = fs.readFileSync(envPath, "utf8").split(/\r?\n/);
+  lines.forEach((line) => {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) return;
+
+    const index = trimmed.indexOf("=");
+    if (index === -1) return;
+
+    const key = trimmed.slice(0, index).trim();
+    const value = trimmed.slice(index + 1).trim().replace(/^["']|["']$/g, "");
+    if (key && !process.env[key]) {
+      process.env[key] = value;
+    }
+  });
+}
+
+function parseExtraLogins(rawValue) {
+  return rawValue
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+    .map((entry) => {
+      const separatorIndex = entry.indexOf(":");
+      if (separatorIndex === -1) return null;
+
+      return {
+        user: entry.slice(0, separatorIndex),
+        password: entry.slice(separatorIndex + 1),
+      };
+    })
+    .filter(Boolean);
+}
+
+function getAllowedLogins() {
+  const primaryLogin =
+    loginUser && loginPassword ? [{ user: loginUser, password: loginPassword }] : [];
+
+  return [...primaryLogin, ...extraLogins];
+}
+
+function findValidLogin(username, password) {
+  return getAllowedLogins().find(
+    (login) => login.user === username && login.password === password,
+  );
+}
+
+function parseCookies(cookieHeader = "") {
+  return Object.fromEntries(
+    cookieHeader
+      .split(";")
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .map((part) => {
+        const index = part.indexOf("=");
+        return [part.slice(0, index), decodeURIComponent(part.slice(index + 1))];
+      }),
+  );
+}
+
+function sign(value) {
+  return crypto.createHmac("sha256", sessionSecret).update(value).digest("base64url");
+}
+
+function createSession(user) {
+  const payload = Buffer.from(
+    JSON.stringify({
+      user,
+      expiresAt: Date.now() + 1000 * 60 * 60 * 12,
+    }),
+  ).toString("base64url");
+
+  return `${payload}.${sign(payload)}`;
+}
+
+function readSession(req) {
+  const token = parseCookies(req.headers.cookie).sgq_session;
+  if (!token || !token.includes(".")) return null;
+
+  const [payload, signature] = token.split(".");
+  if (signature !== sign(payload)) return null;
+
+  try {
+    const session = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
+    if (!session.expiresAt || session.expiresAt < Date.now()) return null;
+    return session;
+  } catch {
+    return null;
+  }
+}
+
+function send(res, status, body, headers = {}) {
+  res.writeHead(status, headers);
+  res.end(body);
+}
+
+function redirect(res, location) {
+  send(res, 302, "", { Location: location });
+}
+
+function serveFile(res, filePath) {
+  const normalized = path.normalize(filePath);
+  if (!normalized.startsWith(publicDir)) {
+    send(res, 403, "Forbidden", { "Content-Type": "text/plain; charset=utf-8" });
+    return;
+  }
+
+  fs.readFile(normalized, (error, data) => {
+    if (error) {
+      send(res, 404, "Arquivo não encontrado", {
+        "Content-Type": "text/plain; charset=utf-8",
+      });
+      return;
+    }
+
+    const ext = path.extname(normalized).toLowerCase();
+    send(res, 200, data, {
+      "Content-Type": contentTypes[ext] || "application/octet-stream",
+      "Cache-Control": "no-store",
+    });
+  });
+}
+
+function readBody(req) {
+  return new Promise((resolve) => {
+    let body = "";
+    req.on("data", (chunk) => {
+      body += chunk.toString();
+      if (body.length > 100_000) req.destroy();
+    });
+    req.on("end", () => resolve(body));
+  });
+}
+
+function loginPage(error = "") {
+  return `<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#050b16" />
+  <title>Login - QualityPro Cloud</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/login.css" />
+</head>
+<body>
+  <main class="login-page">
+    <section class="login-card">
+      <img class="login-logo" src="/assets/qualitypro-cloud-logo-transparent.png" alt="QualityPro Cloud" />
+      <p class="kicker">QualityPro Cloud</p>
+      <h1>Acesse seu SGQ Online</h1>
+      <p class="intro">Entre para acessar o painel inicial do Sistema de Gestão da Qualidade.</p>
+      ${error ? `<p class="login-error">${error}</p>` : ""}
+      <form method="post" action="/login" class="login-form">
+        <label>
+          <span>Usuário</span>
+          <input name="username" type="text" autocomplete="username" required autofocus />
+        </label>
+        <label>
+          <span>Senha</span>
+          <input name="password" type="password" autocomplete="current-password" required placeholder="Digite a senha" />
+        </label>
+        <button type="submit">Entrar no sistema</button>
+      </form>
+      <p class="hint">Acesso restrito a usuários autorizados.</p>
+    </section>
+  </main>
+</body>
+</html>`;
+}
+
+async function handleRequest(req, res) {
+  const url = new URL(req.url, `http://${req.headers.host}`);
+  const session = readSession(req);
+
+  if (url.pathname === "/login" && req.method === "GET") {
+    send(res, 200, loginPage(), { "Content-Type": "text/html; charset=utf-8" });
+    return;
+  }
+
+  if (url.pathname === "/login" && req.method === "POST") {
+    const body = querystring.parse(await readBody(req));
+    const validLogin = findValidLogin(body.username, body.password);
+
+    if (!validLogin) {
+      send(res, 401, loginPage("Usuário ou senha inválidos."), {
+        "Content-Type": "text/html; charset=utf-8",
+      });
+      return;
+    }
+
+    send(res, 302, "", {
+      Location: "/app",
+      "Set-Cookie": `sgq_session=${encodeURIComponent(createSession(validLogin.user))}; Path=/; HttpOnly; SameSite=Lax; Max-Age=43200`,
+    });
+    return;
+  }
+
+  if (url.pathname === "/logout" && req.method === "POST") {
+    send(res, 302, "", {
+      Location: "/login",
+      "Set-Cookie": "sgq_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0",
+    });
+    return;
+  }
+
+  if (url.pathname === "/" || url.pathname === "/app") {
+    if (!session) {
+      redirect(res, "/login");
+      return;
+    }
+    serveFile(res, path.join(publicDir, "app.html"));
+    return;
+  }
+
+  if (url.pathname === "/login.css") {
+    serveFile(res, path.join(publicDir, "login.css"));
+    return;
+  }
+
+  if (
+    url.pathname === "/assets/qualitypro-cloud-logo.png" ||
+    url.pathname === "/assets/qualitypro-cloud-logo-transparent.png" ||
+    url.pathname === "/assets/qualitypro-cloud-logo-light.png"
+  ) {
+    serveFile(res, path.join(publicDir, url.pathname));
+    return;
+  }
+
+  if (!session) {
+    redirect(res, "/login");
+    return;
+  }
+
+  serveFile(res, path.join(publicDir, url.pathname));
+}
+
+if (require.main === module) {
+  const server = http.createServer(handleRequest);
+
+  server.listen(port, host, () => {
+    console.log(`SGQ Online rodando em http://${host}:${port}`);
+    console.log(`Usuário configurado: ${loginUser}`);
+  });
+}
+
+module.exports = handleRequest;
