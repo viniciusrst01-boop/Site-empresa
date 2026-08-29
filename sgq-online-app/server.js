@@ -3,6 +3,15 @@ const fs = require("fs");
 const http = require("http");
 const path = require("path");
 const querystring = require("querystring");
+const {
+  findUser,
+  getCompany,
+  getCompanyData,
+  setCompanyData,
+  syncConfiguredUsers,
+  updateCompany,
+  updateUserProfile,
+} = require("./db");
 
 loadLocalEnv();
 
@@ -14,6 +23,7 @@ const sessionSecret = process.env.SESSION_SECRET || "qualitypro-dev-secret-chang
 const loginUser = process.env.SGQ_LOGIN_USER || process.env.SGQ_USER_EMAIL || "";
 const loginPassword = process.env.SGQ_USER_PASSWORD || "";
 const extraLogins = parseExtraLogins(process.env.SGQ_EXTRA_LOGINS || "");
+syncConfiguredUsers(getAllowedLogins());
 
 const contentTypes = {
   ".html": "text/html; charset=utf-8",
@@ -53,12 +63,13 @@ function parseExtraLogins(rawValue) {
     .map((entry) => entry.trim())
     .filter(Boolean)
     .map((entry) => {
-      const separatorIndex = entry.indexOf(":");
-      if (separatorIndex === -1) return null;
+      const parts = entry.split(":");
+      if (parts.length < 2) return null;
 
       return {
-        user: entry.slice(0, separatorIndex),
-        password: entry.slice(separatorIndex + 1),
+        user: parts[0],
+        password: parts[1],
+        companyName: parts.slice(2).join(":") || "",
       };
     })
     .filter(Boolean);
@@ -66,15 +77,15 @@ function parseExtraLogins(rawValue) {
 
 function getAllowedLogins() {
   const primaryLogin =
-    loginUser && loginPassword ? [{ user: loginUser, password: loginPassword }] : [];
+    loginUser && loginPassword
+      ? [{ user: loginUser, password: loginPassword, companyName: process.env.SGQ_COMPANY_NAME || "" }]
+      : [];
 
   return [...primaryLogin, ...extraLogins];
 }
 
 function findValidLogin(username, password) {
-  return getAllowedLogins().find(
-    (login) => login.user === username && login.password === password,
-  );
+  return findUser(username, password);
 }
 
 function parseCookies(cookieHeader = "") {
@@ -97,7 +108,11 @@ function sign(value) {
 function createSession(user) {
   const payload = Buffer.from(
     JSON.stringify({
-      user,
+      userId: user.id,
+      username: user.username,
+      displayName: user.displayName,
+      role: user.role,
+      companyId: user.companyId,
       expiresAt: Date.now() + 1000 * 60 * 60 * 12,
     }),
   ).toString("base64url");
@@ -124,6 +139,13 @@ function readSession(req) {
 function send(res, status, body, headers = {}) {
   res.writeHead(status, headers);
   res.end(body);
+}
+
+function sendJson(res, status, value) {
+  send(res, status, JSON.stringify(value), {
+    "Content-Type": "application/json; charset=utf-8",
+    "Cache-Control": "no-store",
+  });
 }
 
 function redirect(res, location) {
@@ -162,6 +184,16 @@ function readBody(req) {
     });
     req.on("end", () => resolve(body));
   });
+}
+
+async function readJsonBody(req) {
+  const rawBody = await readBody(req);
+  if (!rawBody) return {};
+  try {
+    return JSON.parse(rawBody);
+  } catch {
+    return null;
+  }
 }
 
 function loginPage(error = "") {
@@ -207,6 +239,11 @@ async function handleRequest(req, res) {
   const url = new URL(req.url, `http://${req.headers.host}`);
   const session = readSession(req);
 
+  if (url.pathname.startsWith("/api/")) {
+    await handleApiRequest(req, res, url, session);
+    return;
+  }
+
   if (url.pathname === "/login" && req.method === "GET") {
     send(res, 200, loginPage(), { "Content-Type": "text/html; charset=utf-8" });
     return;
@@ -225,7 +262,7 @@ async function handleRequest(req, res) {
 
     send(res, 302, "", {
       Location: "/app",
-      "Set-Cookie": `sgq_session=${encodeURIComponent(createSession(validLogin.user))}; Path=/; HttpOnly; SameSite=Lax; Max-Age=43200`,
+      "Set-Cookie": `sgq_session=${encodeURIComponent(createSession(validLogin))}; Path=/; HttpOnly; SameSite=Lax; Max-Age=43200`,
     });
     return;
   }
@@ -267,6 +304,83 @@ async function handleRequest(req, res) {
   }
 
   serveFile(res, path.join(publicDir, url.pathname));
+}
+
+async function handleApiRequest(req, res, url, session) {
+  if (!session) {
+    sendJson(res, 401, { error: "unauthorized" });
+    return;
+  }
+
+  const companyId = session.companyId;
+
+  if (url.pathname === "/api/bootstrap" && req.method === "GET") {
+    const savedState = getCompanyData(companyId, "state");
+    const savedContext = getCompanyData(companyId, "context");
+    const savedRisk = getCompanyData(companyId, "risk");
+
+    sendJson(res, 200, {
+      user: {
+        id: session.userId,
+        username: session.username,
+        name: session.displayName,
+        role: session.role,
+        companyId,
+      },
+      company: getCompany(companyId),
+      needsOnboarding: !savedState,
+      state: savedState,
+      context: savedContext,
+      risk: savedRisk,
+    });
+    return;
+  }
+
+  if (url.pathname === "/api/onboarding" && req.method === "POST") {
+    const body = await readJsonBody(req);
+    if (!body || typeof body !== "object") {
+      sendJson(res, 400, { error: "invalid_payload" });
+      return;
+    }
+
+    const user = updateUserProfile(session.userId, {
+      displayName: body.user?.name,
+      role: body.user?.role || session.role,
+    });
+    const company = updateCompany(companyId, {
+      name: body.company?.name,
+      cnpj: body.company?.cnpj,
+      scope: body.company?.scope,
+      certification: body.company?.certification,
+      plan: body.company?.plan,
+    });
+
+    setCompanyData(companyId, "state", body.state);
+    setCompanyData(companyId, "context", body.context);
+    setCompanyData(companyId, "risk", body.risk);
+
+    sendJson(res, 200, { ok: true, user, company });
+    return;
+  }
+
+  if (url.pathname === "/api/data" && req.method === "POST") {
+    const body = await readJsonBody(req);
+    if (!body || typeof body.key !== "string") {
+      sendJson(res, 400, { error: "invalid_payload" });
+      return;
+    }
+
+    if (!["state", "context", "risk"].includes(body.key)) {
+      sendJson(res, 400, { error: "invalid_key" });
+      return;
+    }
+
+    setCompanyData(companyId, body.key, body.value);
+    sendJson(res, 200, { ok: true });
+    return;
+  }
+
+  sendJson(res, 404, { error: "not_found" });
 }
 
 if (require.main === module) {

@@ -188,6 +188,9 @@ const contextSeeds = {
 let currentContextTab = "swot";
 
 let state = loadState();
+let riskData = null;
+let contextData = null;
+let currentUser = null;
 const pageContent = document.querySelector(".page-content");
 const dashboardTemplate = pageContent ? pageContent.innerHTML : "";
 applyTheme();
@@ -202,6 +205,256 @@ function loadState() {
 
 function saveState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  saveRemoteData("state", state);
+}
+
+async function initializeApp() {
+  const needsOnboarding = await loadRemoteData();
+  if (needsOnboarding) {
+    renderOnboarding();
+    return;
+  }
+  render("inicio");
+}
+
+async function loadRemoteData() {
+  try {
+    const response = await fetch("/api/bootstrap", {
+      headers: { Accept: "application/json" },
+      cache: "no-store",
+    });
+    if (!response.ok) throw new Error("Falha ao carregar dados do servidor.");
+
+    const payload = await response.json();
+    currentUser = payload.user || null;
+    state = normalizeState(payload.state, payload.company, payload.user);
+    riskData = payload.risk || loadLocalRiskData();
+    contextData = payload.context || loadLocalContextData();
+
+    applyTheme();
+    applyUserProfile();
+    return Boolean(payload.needsOnboarding);
+  } catch (error) {
+    console.warn(error);
+    riskData = loadLocalRiskData();
+    contextData = loadLocalContextData();
+    return false;
+  }
+}
+
+function normalizeState(savedState, company, user) {
+  const sourceState = savedState || state || {};
+  const nextState = {
+    ...structuredClone(seedState),
+    ...sourceState,
+  };
+
+  nextState.company = {
+    ...structuredClone(seedState.company),
+    ...(sourceState.company || {}),
+  };
+
+  nextState.settings = {
+    ...structuredClone(seedState.settings),
+    ...(sourceState.settings || {}),
+  };
+
+  if (company && !savedState) {
+    nextState.company = {
+      ...nextState.company,
+      name: company.name || nextState.company.name,
+      cnpj: company.cnpj || nextState.company.cnpj,
+      scope: company.scope || nextState.company.scope,
+      certification: company.certification || nextState.company.certification,
+    };
+    nextState.settings.companyAccess = company.plan || nextState.settings.companyAccess;
+  }
+
+  if (user?.name) {
+    const userExists = nextState.users.some((item) => item.name === user.name || item.email === user.username);
+    if (!userExists) {
+      nextState.users.unshift({
+        name: user.name,
+        email: user.username,
+        role: user.role || "Administrador",
+        status: "Ativo",
+      });
+    }
+  }
+
+  return nextState;
+}
+
+function applyUserProfile() {
+  if (!currentUser) return;
+  const name = currentUser.name || currentUser.username || "Usuário";
+  const role = currentUser.role || "Usuário";
+  const initials = name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join("") || "U";
+
+  const avatar = document.querySelector(".tb-avatar");
+  const userName = document.querySelector(".tb-user-name");
+  const userRole = document.querySelector(".tb-user-role");
+  if (avatar) avatar.textContent = initials;
+  if (userName) userName.textContent = name;
+  if (userRole) userRole.textContent = role;
+}
+
+function renderOnboarding() {
+  setActiveNav("");
+  setTopbar("Cadastro inicial", "Complete os dados para iniciar o SGQ Online");
+  pageContent.classList.remove("risk-page-content");
+  pageContent.classList.remove("context-page-content");
+  pageContent.innerHTML = `
+    ${pageDecorHtml()}
+    <section class="onboarding-shell">
+      <div class="onboarding-copy">
+        <div class="welcome-eyebrow">PRIMEIRO ACESSO</div>
+        <h1 class="welcome-title">Finalize seu cadastro</h1>
+        <p class="welcome-sub">Essas informações criam o ambiente da sua empresa e deixam os dados separados dos outros usuários.</p>
+      </div>
+
+      <form class="qp-card qp-form onboarding-form" id="onboardingForm">
+        <div class="form-section-title">Dados do usuário</div>
+        <label>
+          <span>Nome completo</span>
+          <input name="userName" value="${escapeHtml(currentUser?.name || "")}" required />
+        </label>
+        <label>
+          <span>Cargo/perfil</span>
+          <input name="userRole" value="${escapeHtml(currentUser?.role || "Administrador")}" required />
+        </label>
+
+        <div class="form-section-title full">Dados da empresa</div>
+        <label>
+          <span>Razão social</span>
+          <input name="companyName" value="${escapeHtml(state.company.name)}" required />
+        </label>
+        <label>
+          <span>CNPJ</span>
+          <input name="companyCnpj" value="${escapeHtml(state.company.cnpj)}" />
+        </label>
+        <label>
+          <span>Certificação</span>
+          <input name="companyCertification" value="${escapeHtml(state.company.certification)}" />
+        </label>
+        <label>
+          <span>Plano</span>
+          <input name="companyPlan" value="${escapeHtml(state.settings.companyAccess)}" />
+        </label>
+        <label class="full">
+          <span>Escopo do SGQ</span>
+          <textarea name="companyScope" rows="4">${escapeHtml(state.company.scope)}</textarea>
+        </label>
+
+        <div class="onboarding-actions full">
+          <button class="btn-primary" type="submit">Salvar e entrar no sistema</button>
+        </div>
+      </form>
+    </section>
+  `;
+
+  document.querySelector("#onboardingForm")?.addEventListener("submit", saveOnboarding);
+}
+
+async function saveOnboarding(event) {
+  event.preventDefault();
+  const data = new FormData(event.currentTarget);
+  const user = {
+    name: data.get("userName"),
+    role: data.get("userRole"),
+  };
+  const company = {
+    name: data.get("companyName"),
+    cnpj: data.get("companyCnpj"),
+    certification: data.get("companyCertification"),
+    plan: data.get("companyPlan"),
+    scope: data.get("companyScope"),
+  };
+
+  currentUser = {
+    ...(currentUser || {}),
+    name: user.name,
+    role: user.role,
+  };
+  state.company = {
+    ...state.company,
+    name: company.name,
+    cnpj: company.cnpj,
+    certification: company.certification,
+    scope: company.scope,
+  };
+  state.settings = {
+    ...state.settings,
+    companyAccess: company.plan,
+  };
+  state.users = upsertCurrentUser(state.users, currentUser);
+
+  const response = await fetch("/api/onboarding", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      user,
+      company,
+      state,
+      context: contextData || loadLocalContextData(),
+      risk: riskData || loadLocalRiskData(),
+    }),
+  });
+
+  if (!response.ok) {
+    toast("Não foi possível salvar o cadastro inicial.");
+    return;
+  }
+
+  const payload = await response.json();
+  if (payload.user) {
+    currentUser = {
+      id: payload.user.id,
+      companyId: payload.user.companyId,
+      username: payload.user.username,
+      name: payload.user.displayName,
+      role: payload.user.role,
+    };
+  }
+  if (payload.company) {
+    state.company.name = payload.company.name || state.company.name;
+    state.company.cnpj = payload.company.cnpj || state.company.cnpj;
+    state.company.certification = payload.company.certification || state.company.certification;
+    state.company.scope = payload.company.scope || state.company.scope;
+    state.settings.companyAccess = payload.company.plan || state.settings.companyAccess;
+  }
+
+  applyUserProfile();
+  toast("Cadastro inicial salvo.");
+  render("inicio");
+}
+
+function upsertCurrentUser(users, user) {
+  const rows = Array.isArray(users) ? [...users] : [];
+  const email = user?.username || "";
+  const name = user?.name || user?.username || "Usuário";
+  const role = user?.role || "Administrador";
+  const index = rows.findIndex((item) => item.email === email || item.name === name);
+  const record = { name, email, role, status: "Ativo" };
+
+  if (index >= 0) rows[index] = { ...rows[index], ...record };
+  else rows.unshift(record);
+
+  return rows;
+}
+
+function saveRemoteData(key, value) {
+  fetch("/api/data", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ key, value }),
+    keepalive: true,
+  }).catch((error) => console.warn(error));
 }
 
 function applyTheme() {
@@ -279,7 +532,7 @@ function renderDashboardHtml() {
     ${pageDecorHtml()}
     <div class="welcome-block">
       <div class="welcome-eyebrow">PAINEL · SISTEMA DE GESTÃO DA QUALIDADE</div>
-      <h1 class="welcome-title">Olá, Hugo!</h1>
+      <h1 class="welcome-title">Olá, ${escapeHtml(firstName(currentUser?.name || "Usuário"))}!</h1>
       <p class="welcome-sub">Aqui está um resumo do seu Sistema de Gestão.</p>
     </div>
 
@@ -457,6 +710,10 @@ function isClosedStatus(status) {
 function shortText(value, maxLength) {
   const text = String(value || "").trim();
   return text.length > maxLength ? `${text.slice(0, maxLength - 3)}...` : text;
+}
+
+function firstName(name) {
+  return String(name || "").trim().split(/\s+/)[0] || "Usuário";
 }
 
 function renderModulos() {
@@ -735,24 +992,35 @@ function renderRiskOpportunityModule() {
 }
 
 function ensureRiskData() {
-  Object.entries(riskStorageKeys).forEach(([key, storageKey]) => {
-    if (localStorage.getItem(storageKey) === null) {
-      localStorage.setItem(storageKey, JSON.stringify(riskSeeds[key]));
-    }
+  if (!riskData) riskData = loadLocalRiskData();
+  Object.keys(riskStorageKeys).forEach((key) => {
+    if (!Array.isArray(riskData[key])) riskData[key] = structuredClone(riskSeeds[key]);
   });
 }
 
 function riskGet(key) {
   ensureRiskData();
-  try {
-    return JSON.parse(localStorage.getItem(riskStorageKeys[key]) || "[]");
-  } catch {
-    return [...riskSeeds[key]];
-  }
+  return structuredClone(riskData[key] || []);
 }
 
 function riskSet(key, value) {
+  ensureRiskData();
+  riskData[key] = structuredClone(value);
   localStorage.setItem(riskStorageKeys[key], JSON.stringify(value));
+  saveRemoteData("risk", riskData);
+}
+
+function loadLocalRiskData() {
+  const data = structuredClone(riskSeeds);
+  Object.entries(riskStorageKeys).forEach(([key, storageKey]) => {
+    try {
+      const stored = JSON.parse(localStorage.getItem(storageKey) || "null");
+      if (Array.isArray(stored)) data[key] = stored;
+    } catch {
+      data[key] = structuredClone(riskSeeds[key]);
+    }
+  });
+  return data;
 }
 
 function bindRiskTabs() {
@@ -976,24 +1244,37 @@ function renderContextModule() {
 }
 
 function ensureContextData() {
-  Object.entries(contextStorageKeys).forEach(([key, storageKey]) => {
-    if (localStorage.getItem(storageKey) === null) {
-      localStorage.setItem(storageKey, JSON.stringify(contextSeeds[key]));
+  if (!contextData) contextData = loadLocalContextData();
+  Object.keys(contextStorageKeys).forEach((key) => {
+    if (contextData[key] === undefined || contextData[key] === null) {
+      contextData[key] = structuredClone(contextSeeds[key]);
     }
   });
 }
 
 function contextGet(key) {
   ensureContextData();
-  try {
-    return JSON.parse(localStorage.getItem(contextStorageKeys[key]) || "null") ?? structuredClone(contextSeeds[key]);
-  } catch {
-    return structuredClone(contextSeeds[key]);
-  }
+  return structuredClone(contextData[key] ?? contextSeeds[key]);
 }
 
 function contextSet(key, value) {
+  ensureContextData();
+  contextData[key] = structuredClone(value);
   localStorage.setItem(contextStorageKeys[key], JSON.stringify(value));
+  saveRemoteData("context", contextData);
+}
+
+function loadLocalContextData() {
+  const data = structuredClone(contextSeeds);
+  Object.entries(contextStorageKeys).forEach(([key, storageKey]) => {
+    try {
+      const stored = JSON.parse(localStorage.getItem(storageKey) || "null");
+      if (stored !== null) data[key] = stored;
+    } catch {
+      data[key] = structuredClone(contextSeeds[key]);
+    }
+  });
+  return data;
 }
 
 function bindContextTabs() {
@@ -2391,4 +2672,4 @@ document.querySelectorAll(".nav-item").forEach((item) => {
   item.addEventListener("click", () => render(item.dataset.view));
 });
 
-render("inicio");
+initializeApp();
