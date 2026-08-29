@@ -6,3 +6,6 @@ data/*.sqlite-*
 data/*.json
 
 .vercel
+.env*
+.agents
+skills-lock.json
