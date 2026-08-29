@@ -137,6 +137,7 @@ const contextStorageKeys = {
   escopo: "qps_ctx_escopo",
   processos: "qps_ctx_processos",
 };
+const contextClearBackupKey = "qps_ctx_last_clear_backup";
 
 const contextSeeds = {
   swot: [
@@ -411,6 +412,7 @@ function dashboardSummary() {
   const pendingDocs = docs.filter((item) => item.status !== "Aprovado").length;
   const plannedAudits = audits.filter((item) => !isClosedStatus(item.status)).length;
   const totalRecords = swot.length + partes.length + processos.length + riscos.length + objetivos.length + mudancas.length + docs.length + audits.length + ncs.length + users.length;
+  const escopoStatus = hasEscopoData(escopo) ? escopo.statusAprovacao || "sem status" : "sem escopo";
 
   return {
     totalRecords,
@@ -418,7 +420,7 @@ function dashboardSummary() {
     modules: {
       contexto: {
         value: `${swot.length + partes.length + processos.length} registros`,
-        caption: `${swot.length} SWOT · ${partes.length} partes · ${processos.length} processos · escopo ${escopo.statusAprovacao || "sem status"}`,
+        caption: `${swot.length} SWOT · ${partes.length} partes · ${processos.length} processos · ${escopoStatus}`,
       },
       lideranca: {
         value: `${users.length} usuários`,
@@ -917,6 +919,10 @@ function renderContextModule() {
         <h1 class="welcome-title">Contexto da Organização</h1>
         <p class="welcome-sub">Compreensão da organização, das partes interessadas, do escopo do SGQ e do mapeamento de processos.</p>
       </div>
+      <div class="toolbar-actions">
+        <button class="btn-ghost" data-context-action="undo-clear-context" type="button">Desfazer</button>
+        <button class="btn-ghost danger-text" data-context-action="clear-context" type="button">Limpar módulo</button>
+      </div>
     </div>
 
     <div class="context-kpi-row">
@@ -1021,14 +1027,45 @@ function renderContextKpis() {
   const strategicProcesses = processos.filter((item) => item.categoria === "Estratégico").length;
   const operationalProcesses = processos.filter((item) => item.categoria === "Operacional").length;
   const supportProcesses = processos.filter((item) => item.categoria === "Suporte").length;
+  const escopoFilled = hasEscopoData(escopo);
   setText("#ctxKpiSwot", swot.length);
   setText("#ctxKpiSwotCaption", `${pendingPlans} planos abertos · ${highPriority} alta prioridade`);
   setText("#ctxKpiPartes", partes.length);
   setText("#ctxKpiPartesCaption", `${monitoredPartes} com monitoramento definido`);
-  setText("#ctxKpiEscopo", escopo.statusAprovacao || "-");
-  setText("#ctxKpiEscopoCaption", `atualizado em ${formatDate(escopo.dataAtualizacao)}`);
+  setText("#ctxKpiEscopo", escopoFilled ? escopo.statusAprovacao || "-" : "-");
+  setText("#ctxKpiEscopoCaption", escopoFilled ? `atualizado em ${formatDate(escopo.dataAtualizacao)}` : "sem escopo cadastrado");
   setText("#ctxKpiProcessos", processos.length);
   setText("#ctxKpiProcessosCaption", `${strategicProcesses} estratégicos · ${operationalProcesses} operacionais · ${supportProcesses} suporte`);
+}
+
+function blankContextEscopo() {
+  return {
+    unidades: "",
+    produtos: "",
+    servicos: "",
+    exclusoes: "",
+    justificativas: "",
+    dataAtualizacao: "",
+    statusAprovacao: "",
+    aprovador: "",
+    dataAprovacao: "",
+  };
+}
+
+function hasEscopoData(data) {
+  return Boolean(
+    data &&
+    [
+      "unidades",
+      "produtos",
+      "servicos",
+      "exclusoes",
+      "justificativas",
+      "statusAprovacao",
+      "aprovador",
+      "dataAprovacao",
+    ].some((key) => String(data[key] || "").trim()),
+  );
 }
 
 function contextSwotHtml() {
@@ -1088,7 +1125,10 @@ function contextPartesHtml() {
 
 function contextEscopoHtml() {
   const data = contextGet("escopo");
-  const statusText = data.statusAprovacao === "Aprovado"
+  const escopoFilled = hasEscopoData(data);
+  const statusText = !escopoFilled
+    ? "Sem escopo cadastrado"
+    : data.statusAprovacao === "Aprovado"
     ? `Aprovado pela Alta Direção - ${formatDate(data.dataAprovacao)}`
     : data.statusAprovacao === "Reprovado" ? `Reprovado pela Alta Direção - ${formatDate(data.dataAprovacao)}` : "Pendente de aprovação";
   const fields = [
@@ -1103,7 +1143,7 @@ function contextEscopoHtml() {
       <div class="context-scope-head">
         <div><div class="dcc-title">Escopo do Sistema de Gestão da Qualidade</div><div class="dcc-sub">Abrangência do SGQ · cláusula 4.3</div></div>
         <div class="escopo-topbar">
-          <div class="escopo-pill">Última atualização: <strong>${formatDate(data.dataAtualizacao)}</strong></div>
+          <div class="escopo-pill">Última atualização: <strong>${data.dataAtualizacao ? formatDate(data.dataAtualizacao) : "-"}</strong></div>
           <div class="escopo-pill ${data.statusAprovacao === "Aprovado" ? "approved" : ""}">${escapeHtml(statusText)}</div>
         </div>
       </div>
@@ -1124,6 +1164,7 @@ function contextEscopoHtml() {
       </div>
       <div class="escopo-save-row">
         <div class="escopo-saved-msg" id="ctxEscopoSavedMsg">Alterações salvas</div>
+        <button class="btn-ghost danger-text" data-context-action="clear-escopo" type="button">Limpar escopo</button>
         <button class="btn-primary" data-context-action="save-escopo" type="button">Salvar alterações</button>
       </div>
     </section>`;
@@ -1319,6 +1360,9 @@ function handleContextAction(action, id) {
     "delete-parte": () => deleteContextParte(id),
     "save-parte": () => saveContextParte(),
     "save-escopo": () => saveContextEscopo(),
+    "clear-escopo": () => clearContextEscopo(),
+    "clear-context": () => clearContextModule(),
+    "undo-clear-context": () => undoClearContextModule(),
     "view-processo": () => viewContextProcesso(id),
     "new-processo": () => openContextProcesso(),
     "edit-processo": () => openContextProcesso(id),
@@ -1326,6 +1370,50 @@ function handleContextAction(action, id) {
     "save-processo": () => saveContextProcesso(),
   };
   actions[action]?.();
+}
+
+function clearContextModule() {
+  if (!window.confirm("Limpar todos os dados do módulo Contexto da Organização?")) return;
+  saveContextClearBackup();
+  contextSet("swot", []);
+  contextSet("partes", []);
+  contextSet("escopo", blankContextEscopo());
+  contextSet("processos", []);
+  refreshContextScreen("Módulo Contexto limpo.");
+}
+
+function saveContextClearBackup() {
+  const backup = {
+    swot: contextGet("swot"),
+    partes: contextGet("partes"),
+    escopo: contextGet("escopo"),
+    processos: contextGet("processos"),
+    createdAt: new Date().toISOString(),
+  };
+  localStorage.setItem(contextClearBackupKey, JSON.stringify(backup));
+}
+
+function undoClearContextModule() {
+  const backup = readContextClearBackup();
+  if (!backup) {
+    toast("Nenhum backup para desfazer.");
+    return;
+  }
+
+  contextSet("swot", backup.swot || []);
+  contextSet("partes", backup.partes || []);
+  contextSet("escopo", backup.escopo || blankContextEscopo());
+  contextSet("processos", backup.processos || []);
+  localStorage.removeItem(contextClearBackupKey);
+  refreshContextScreen("Limpeza desfeita.");
+}
+
+function readContextClearBackup() {
+  try {
+    return JSON.parse(localStorage.getItem(contextClearBackupKey) || "null");
+  } catch {
+    return null;
+  }
 }
 
 function openContextModal(id) {
@@ -1435,6 +1523,14 @@ function saveContextEscopo() {
     window.setTimeout(() => message.classList.remove("show"), 2200);
   }
   toast("Escopo salvo.");
+}
+
+function clearContextEscopo() {
+  if (!window.confirm("Limpar os dados do escopo?")) return;
+  contextSet("escopo", blankContextEscopo());
+  renderContextTab();
+  renderContextKpis();
+  toast("Escopo limpo.");
 }
 
 function viewContextProcesso(id) {
