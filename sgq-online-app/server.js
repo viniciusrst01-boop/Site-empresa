@@ -355,6 +355,17 @@ async function handleApiRequest(req, res, url, session) {
     const savedState = await getCompanyData(companyId, "state");
     const savedContext = await getCompanyData(companyId, "context");
     const savedRisk = await getCompanyData(companyId, "risk");
+    let company = await getCompany(companyId);
+
+    if (savedState?.company?.name && savedState.company.name !== company?.name) {
+      company = await updateCompany(companyId, {
+        name: savedState.company.name,
+        cnpj: savedState.company.cnpj,
+        scope: savedState.company.scope,
+        certification: savedState.company.certification,
+        plan: savedState.settings?.companyAccess || company?.plan,
+      });
+    }
 
     sendJson(res, 200, {
       user: {
@@ -365,7 +376,7 @@ async function handleApiRequest(req, res, url, session) {
         companyId,
         isAdmin: isAdminSession(session),
       },
-      company: await getCompany(companyId),
+      company,
       needsOnboarding: !savedState,
       state: savedState,
       context: savedContext,
@@ -398,6 +409,47 @@ async function handleApiRequest(req, res, url, session) {
     await setCompanyData(companyId, "risk", body.risk);
 
     sendJson(res, 200, { ok: true, user, company });
+    return;
+  }
+
+  if (url.pathname === "/api/company" && req.method === "PATCH") {
+    const body = await readJsonBody(req);
+    if (!body || typeof body !== "object" || !body.name) {
+      sendJson(res, 400, { error: "invalid_company" });
+      return;
+    }
+
+    const company = await updateCompany(companyId, {
+      name: body.name,
+      cnpj: body.cnpj,
+      scope: body.scope,
+      certification: body.certification,
+      plan: body.plan,
+    });
+
+    if (!company) {
+      sendJson(res, 404, { error: "company_not_found" });
+      return;
+    }
+
+    const savedState = (await getCompanyData(companyId, "state")) || {};
+    const nextState = {
+      ...savedState,
+      company: {
+        ...(savedState.company || {}),
+        name: company.name,
+        cnpj: company.cnpj,
+        scope: company.scope,
+        certification: company.certification,
+      },
+      settings: {
+        ...(savedState.settings || {}),
+        companyAccess: company.plan,
+      },
+    };
+    await setCompanyData(companyId, "state", nextState);
+
+    sendJson(res, 200, { ok: true, company, state: nextState });
     return;
   }
 
@@ -457,6 +509,21 @@ async function handleApiRequest(req, res, url, session) {
         sendJson(res, 404, { error: "company_not_found" });
         return;
       }
+      const savedState = (await getCompanyData(targetCompanyId, "state")) || {};
+      await setCompanyData(targetCompanyId, "state", {
+        ...savedState,
+        company: {
+          ...(savedState.company || {}),
+          name: company.name,
+          cnpj: company.cnpj,
+          scope: company.scope,
+          certification: company.certification,
+        },
+        settings: {
+          ...(savedState.settings || {}),
+          companyAccess: company.plan,
+        },
+      });
       sendJson(res, 200, { ok: true, company });
     } catch (error) {
       sendJson(res, isUniqueError(error) ? 409 : 500, {

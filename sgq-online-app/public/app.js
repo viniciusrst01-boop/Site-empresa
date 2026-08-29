@@ -2495,11 +2495,38 @@ function renderEmpresa() {
       <button type="submit">Salvar empresa</button>
     </form>
   `;
-  document.querySelector("#companyForm").addEventListener("submit", (event) => {
+  document.querySelector("#companyForm").addEventListener("submit", async (event) => {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
-    state.company = Object.fromEntries(data.entries());
-    saveState();
+    const company = {
+      ...Object.fromEntries(data.entries()),
+      plan: state.settings.companyAccess,
+    };
+
+    const response = await fetch("/api/company", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(company),
+    });
+
+    if (!response.ok) {
+      toast("Não foi possível salvar os dados da empresa.");
+      return;
+    }
+
+    const payload = await response.json();
+    if (payload.company) {
+      state.company = {
+        ...state.company,
+        name: payload.company.name || "",
+        cnpj: payload.company.cnpj || "",
+        certification: payload.company.certification || "",
+        scope: payload.company.scope || "",
+      };
+      state.settings.companyAccess = payload.company.plan || state.settings.companyAccess;
+    } else {
+      state.company = company;
+    }
     toast("Dados da empresa salvos.");
   });
 }
