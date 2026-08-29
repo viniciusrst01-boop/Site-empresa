@@ -891,6 +891,8 @@ function moduleIcon(name) {
     edit: '<svg class="icon" viewBox="0 0 24 24"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z"/></svg>',
     eye: '<svg class="icon" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>',
     trash: '<svg class="icon" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>',
+    shield: '<svg class="icon" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>',
+    key: '<svg class="icon" viewBox="0 0 24 24"><circle cx="7.5" cy="14.5" r="3.5"/><path d="M10 12l9-9"/><path d="M15 4l5 5"/><path d="M14 8l2 2"/></svg>',
     close: '<svg class="icon" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
     "trend-up": '<svg class="trend-icon" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="8 7 17 7 17 16"/></svg>',
     "trend-down": '<svg class="trend-icon" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2"><line x1="7" y1="7" x2="17" y2="17"/><polyline points="17 8 17 17 8 17"/></svg>',
@@ -2574,6 +2576,11 @@ function adminOverviewHtml(data) {
       ${adminMetric("Ativos", summary.activeAccesses || 0, "acessos ativos")}
     </div>
 
+    <div class="admin-form-grid">
+      ${adminCompanyFormHtml()}
+      ${adminUserFormHtml(companies)}
+    </div>
+
     <section class="qp-card admin-card">
       <div class="dcc-head">
         <div>
@@ -2583,7 +2590,7 @@ function adminOverviewHtml(data) {
       </div>
       <div class="admin-table-wrap">
         <table class="data-table">
-          <thead><tr><th>Empresa</th><th>CNPJ</th><th>Plano</th><th>Acessos</th><th>Criado em</th></tr></thead>
+          <thead><tr><th>Empresa</th><th>CNPJ</th><th>Plano</th><th>Acessos</th><th>Criado em</th><th>Ações</th></tr></thead>
           <tbody>
             ${companies.length ? companies.map((company) => `
               <tr>
@@ -2592,8 +2599,11 @@ function adminOverviewHtml(data) {
                 <td>${planBadge(company.plan)}</td>
                 <td>${Number(company.active_access_count || 0)} ativos / ${Number(company.access_count || 0)} total</td>
                 <td>${formatDate(company.created_at)}</td>
+                <td>
+                  <button class="abtn" data-admin-action="edit-company" data-company='${adminPayload(company)}' type="button" title="Editar cliente">${moduleIcon("edit")}</button>
+                </td>
               </tr>
-            `).join("") : `<tr><td colspan="5"><div class="empty-state">Nenhum cliente cadastrado.</div></td></tr>`}
+            `).join("") : `<tr><td colspan="6"><div class="empty-state">Nenhum cliente cadastrado.</div></td></tr>`}
           </tbody>
         </table>
       </div>
@@ -2617,7 +2627,11 @@ function adminOverviewHtml(data) {
                 <td>${escapeHtml(user.companyName)}</td>
                 <td>${escapeHtml(user.role)}</td>
                 <td><span class="status-pill ${statusClass(user.status)}"><span class="status-dot2"></span>${escapeHtml(user.status)}</span></td>
-                <td><button class="abtn" data-admin-action="reset-password" data-user-id="${user.id}" data-user-name="${escapeHtml(user.displayName)}" type="button" title="Resetar senha">${moduleIcon("edit")}</button></td>
+                <td>
+                  <button class="abtn" data-admin-action="edit-user" data-user='${adminPayload(user)}' type="button" title="Editar usuário">${moduleIcon("edit")}</button>
+                  <button class="abtn" data-admin-action="toggle-user" data-user-id="${user.id}" data-user-status="${escapeHtml(user.status)}" data-user-name="${escapeHtml(user.displayName)}" type="button" title="${user.status === "Ativo" ? "Bloquear acesso" : "Liberar acesso"}">${moduleIcon("shield")}</button>
+                  <button class="abtn" data-admin-action="reset-password" data-user-id="${user.id}" data-user-name="${escapeHtml(user.displayName)}" type="button" title="Resetar senha">${moduleIcon("key")}</button>
+                </td>
               </tr>
             `).join("") : `<tr><td colspan="6"><div class="empty-state">Nenhum usuário cadastrado.</div></td></tr>`}
           </tbody>
@@ -2626,6 +2640,62 @@ function adminOverviewHtml(data) {
     </section>
 
     <div class="admin-reset-result" id="adminResetResult" hidden></div>
+  `;
+}
+
+function adminCompanyFormHtml() {
+  return `
+    <form class="qp-card qp-form admin-edit-form" id="adminCompanyForm">
+      <input type="hidden" name="companyId" />
+      <div class="form-section-title full">Cliente</div>
+      <label><span>Empresa</span><input name="name" required placeholder="Nome da empresa" /></label>
+      <label><span>CNPJ</span><input name="cnpj" placeholder="00.000.000/0001-00" /></label>
+      <label><span>Certificação</span><input name="certification" placeholder="ISO 9001:2015" /></label>
+      <label><span>Plano</span><input name="plan" placeholder="Plano Profissional" /></label>
+      <label class="full"><span>Escopo</span><textarea name="scope" placeholder="Escopo do sistema de gestão"></textarea></label>
+      <div class="admin-form-actions full">
+        <button class="btn-primary" type="submit">Salvar cliente</button>
+        <button class="btn-ghost" data-admin-action="clear-company-form" type="button">Novo cliente</button>
+      </div>
+    </form>
+  `;
+}
+
+function adminUserFormHtml(companies) {
+  return `
+    <form class="qp-card qp-form admin-edit-form" id="adminUserForm">
+      <input type="hidden" name="userId" />
+      <div class="form-section-title full">Usuário e acesso</div>
+      <label><span>Nome</span><input name="displayName" required placeholder="Nome do usuário" /></label>
+      <label><span>Login</span><input name="username" required placeholder="usuario@email.com ou usuario" /></label>
+      <label>
+        <span>Empresa</span>
+        <select name="companyId" required>
+          <option value="">Selecione</option>
+          ${companies.map((company) => `<option value="${company.id}">${escapeHtml(company.name)}</option>`).join("")}
+        </select>
+      </label>
+      <label>
+        <span>Perfil</span>
+        <select name="role">
+          <option>Administrador</option>
+          <option>Qualidade</option>
+          <option>Consulta</option>
+        </select>
+      </label>
+      <label>
+        <span>Status</span>
+        <select name="status">
+          <option>Ativo</option>
+          <option>Bloqueado</option>
+        </select>
+      </label>
+      <label><span>Senha inicial</span><input name="password" type="password" autocomplete="new-password" placeholder="Obrigatória ao criar" /></label>
+      <div class="admin-form-actions full">
+        <button class="btn-primary" type="submit">Salvar usuário</button>
+        <button class="btn-ghost" data-admin-action="clear-user-form" type="button">Novo usuário</button>
+      </div>
+    </form>
   `;
 }
 
@@ -2651,14 +2721,57 @@ function isPaidPlanName(plan) {
   return Boolean(value) && !["gratis", "grátis", "free", "teste", "demo"].includes(value);
 }
 
+function adminPayload(value) {
+  return encodeURIComponent(JSON.stringify(value || {}));
+}
+
+function readAdminPayload(button, key) {
+  if (!button) return {};
+  try {
+    return JSON.parse(decodeURIComponent(button.dataset[key] || "%7B%7D"));
+  } catch {
+    return {};
+  }
+}
+
 function bindAdminActions() {
+  document.querySelector("#adminCompanyForm")?.addEventListener("submit", saveAdminCompany);
+  document.querySelector("#adminUserForm")?.addEventListener("submit", saveAdminUser);
+
   pageContent.querySelectorAll("[data-admin-action]").forEach((button) => {
     button.addEventListener("click", () => handleAdminAction(button));
   });
 }
 
 async function handleAdminAction(button) {
-  if (button.dataset.adminAction !== "reset-password") return;
+  const action = button.dataset.adminAction;
+
+  if (action === "clear-company-form") {
+    clearAdminCompanyForm();
+    return;
+  }
+
+  if (action === "clear-user-form") {
+    clearAdminUserForm();
+    return;
+  }
+
+  if (action === "edit-company") {
+    fillAdminCompanyForm(readAdminPayload(button, "company"));
+    return;
+  }
+
+  if (action === "edit-user") {
+    fillAdminUserForm(readAdminPayload(button, "user"));
+    return;
+  }
+
+  if (action === "toggle-user") {
+    await toggleAdminUser(button);
+    return;
+  }
+
+  if (action !== "reset-password") return;
   const userId = Number(button.dataset.userId);
   const userName = button.dataset.userName || "usuário";
   if (!userId || !window.confirm(`Resetar a senha de ${userName}?`)) return;
@@ -2684,6 +2797,138 @@ async function handleAdminAction(button) {
     `;
   }
   toast("Senha resetada.");
+}
+
+async function saveAdminCompany(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const data = Object.fromEntries(new FormData(form).entries());
+  const isEditing = Boolean(data.companyId);
+
+  const response = await fetch("/api/admin/company", {
+    method: isEditing ? "PATCH" : "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      companyId: data.companyId ? Number(data.companyId) : undefined,
+      name: data.name,
+      cnpj: data.cnpj,
+      certification: data.certification,
+      plan: data.plan,
+      scope: data.scope,
+    }),
+  });
+
+  if (!response.ok) {
+    toast(response.status === 409 ? "Já existe uma empresa com esse nome." : "Não foi possível salvar o cliente.");
+    return;
+  }
+
+  toast(isEditing ? "Cliente atualizado." : "Cliente cadastrado.");
+  await renderGerenciamento();
+}
+
+async function saveAdminUser(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const data = Object.fromEntries(new FormData(form).entries());
+  const isEditing = Boolean(data.userId);
+
+  if (!isEditing && !data.password) {
+    toast("Informe uma senha inicial para criar o usuário.");
+    return;
+  }
+
+  const response = await fetch("/api/admin/user", {
+    method: isEditing ? "PATCH" : "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      userId: data.userId ? Number(data.userId) : undefined,
+      companyId: Number(data.companyId),
+      username: data.username,
+      displayName: data.displayName,
+      role: data.role,
+      status: data.status,
+      password: data.password,
+    }),
+  });
+
+  if (!response.ok) {
+    toast(response.status === 409 ? "Já existe um usuário com esse login." : "Não foi possível salvar o usuário.");
+    return;
+  }
+
+  toast(isEditing ? "Usuário atualizado." : "Usuário cadastrado.");
+  await renderGerenciamento();
+}
+
+async function toggleAdminUser(button) {
+  const user = readAdminPayload(button.closest("tr")?.querySelector("[data-admin-action='edit-user']"), "user");
+  if (!user?.id) return;
+
+  const nextStatus = user.status === "Ativo" ? "Bloqueado" : "Ativo";
+  if (!window.confirm(`${nextStatus === "Bloqueado" ? "Bloquear" : "Liberar"} o acesso de ${user.displayName}?`)) return;
+
+  const response = await fetch("/api/admin/user", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      userId: user.id,
+      companyId: user.companyId,
+      username: user.username,
+      displayName: user.displayName,
+      role: user.role,
+      status: nextStatus,
+    }),
+  });
+
+  if (!response.ok) {
+    toast("Não foi possível alterar o status.");
+    return;
+  }
+
+  toast(nextStatus === "Bloqueado" ? "Acesso bloqueado." : "Acesso liberado.");
+  await renderGerenciamento();
+}
+
+function fillAdminCompanyForm(company) {
+  const form = document.querySelector("#adminCompanyForm");
+  if (!form) return;
+  form.companyId.value = company.id || "";
+  form.name.value = company.name || "";
+  form.cnpj.value = company.cnpj || "";
+  form.certification.value = company.certification || "";
+  form.plan.value = company.plan || "";
+  form.scope.value = company.scope || "";
+  form.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+function fillAdminUserForm(user) {
+  const form = document.querySelector("#adminUserForm");
+  if (!form) return;
+  form.userId.value = user.id || "";
+  form.displayName.value = user.displayName || "";
+  form.username.value = user.username || "";
+  form.companyId.value = user.companyId || "";
+  form.role.value = user.role || "Administrador";
+  form.status.value = user.status || "Ativo";
+  form.password.value = "";
+  form.password.placeholder = "Use resetar senha para trocar";
+  form.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+function clearAdminCompanyForm() {
+  const form = document.querySelector("#adminCompanyForm");
+  if (!form) return;
+  form.reset();
+  form.companyId.value = "";
+}
+
+function clearAdminUserForm() {
+  const form = document.querySelector("#adminUserForm");
+  if (!form) return;
+  form.reset();
+  form.userId.value = "";
+  form.password.placeholder = "Obrigatória ao criar";
 }
 
 function renderConfiguracoes() {

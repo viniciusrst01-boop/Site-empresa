@@ -4,6 +4,8 @@ const http = require("http");
 const path = require("path");
 const querystring = require("querystring");
 const {
+  createCompany,
+  createUser,
   ensureInitialized,
   findUser,
   getCompany,
@@ -12,6 +14,8 @@ const {
   resetUserPassword,
   setCompanyData,
   syncConfiguredUsers,
+  updateAdminCompany,
+  updateAdminUser,
   updateCompany,
   updateUserProfile,
 } = require("./db");
@@ -171,6 +175,10 @@ function isAdminSession(session) {
 
 function redirect(res, location) {
   send(res, 302, "", { Location: location });
+}
+
+function isUniqueError(error) {
+  return error?.code === "23505";
 }
 
 function serveFile(res, filePath) {
@@ -400,6 +408,121 @@ async function handleApiRequest(req, res, url, session) {
     }
 
     sendJson(res, 200, await listAdminOverview());
+    return;
+  }
+
+  if (url.pathname === "/api/admin/company" && req.method === "POST") {
+    if (!isAdminSession(session)) {
+      sendJson(res, 403, { error: "forbidden" });
+      return;
+    }
+
+    const body = await readJsonBody(req);
+    if (!body?.name) {
+      sendJson(res, 400, { error: "invalid_company" });
+      return;
+    }
+
+    try {
+      const company = await createCompany(body);
+      if (!company) {
+        sendJson(res, 400, { error: "invalid_company" });
+        return;
+      }
+      sendJson(res, 201, { ok: true, company });
+    } catch (error) {
+      sendJson(res, isUniqueError(error) ? 409 : 500, {
+        error: isUniqueError(error) ? "company_exists" : "company_create_failed",
+      });
+    }
+    return;
+  }
+
+  if (url.pathname === "/api/admin/company" && req.method === "PATCH") {
+    if (!isAdminSession(session)) {
+      sendJson(res, 403, { error: "forbidden" });
+      return;
+    }
+
+    const body = await readJsonBody(req);
+    const targetCompanyId = Number(body?.companyId);
+    if (!targetCompanyId || !body?.name) {
+      sendJson(res, 400, { error: "invalid_company" });
+      return;
+    }
+
+    try {
+      const company = await updateAdminCompany(targetCompanyId, body);
+      if (!company) {
+        sendJson(res, 404, { error: "company_not_found" });
+        return;
+      }
+      sendJson(res, 200, { ok: true, company });
+    } catch (error) {
+      sendJson(res, isUniqueError(error) ? 409 : 500, {
+        error: isUniqueError(error) ? "company_exists" : "company_update_failed",
+      });
+    }
+    return;
+  }
+
+  if (url.pathname === "/api/admin/user" && req.method === "POST") {
+    if (!isAdminSession(session)) {
+      sendJson(res, 403, { error: "forbidden" });
+      return;
+    }
+
+    const body = await readJsonBody(req);
+    if (!body?.companyId || !body?.username || !body?.displayName || !body?.password) {
+      sendJson(res, 400, { error: "invalid_user" });
+      return;
+    }
+
+    try {
+      const user = await createUser(body);
+      if (!user) {
+        sendJson(res, 400, { error: "invalid_user" });
+        return;
+      }
+      sendJson(res, 201, { ok: true, user });
+    } catch (error) {
+      sendJson(res, isUniqueError(error) ? 409 : 500, {
+        error: isUniqueError(error) ? "user_exists" : "user_create_failed",
+      });
+    }
+    return;
+  }
+
+  if (url.pathname === "/api/admin/user" && req.method === "PATCH") {
+    if (!isAdminSession(session)) {
+      sendJson(res, 403, { error: "forbidden" });
+      return;
+    }
+
+    const body = await readJsonBody(req);
+    const targetUserId = Number(body?.userId);
+    if (!targetUserId || !body?.companyId || !body?.username || !body?.displayName) {
+      sendJson(res, 400, { error: "invalid_user" });
+      return;
+    }
+
+    if (targetUserId === Number(session.userId) && body.status === "Bloqueado") {
+      sendJson(res, 400, { error: "cannot_block_self" });
+      return;
+    }
+
+    try {
+      const user = await updateAdminUser(targetUserId, body);
+      if (!user) {
+        sendJson(res, 404, { error: "user_not_found" });
+        return;
+      }
+      sendJson(res, 200, { ok: true, user });
+    } catch (error) {
+      sendJson(res, isUniqueError(error) ? 409 : 500, {
+        error: isUniqueError(error) ? "user_exists" : "user_update_failed",
+      });
+    }
     return;
   }
 

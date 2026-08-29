@@ -1890,6 +1890,31 @@ textarea.input-basic {
   margin-bottom: 22px;
 }
 
+.admin-form-grid {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+.admin-edit-form {
+  align-content: start;
+  margin: 0;
+}
+
+.admin-edit-form textarea {
+  min-height: 88px;
+}
+
+.admin-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .admin-card {
   position: relative;
   z-index: 1;
@@ -1945,6 +1970,23 @@ textarea.input-basic {
   font-family: var(--font-mono);
   font-weight: 800;
   padding: 5px 8px;
+}
+
+@media (max-width: 1100px) {
+  .admin-form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .admin-form-actions {
+    justify-content: stretch;
+  }
+
+  .admin-form-actions .btn-primary,
+  .admin-form-actions .btn-ghost {
+    width: 100%;
+  }
 }
 
 .modal-section-title {

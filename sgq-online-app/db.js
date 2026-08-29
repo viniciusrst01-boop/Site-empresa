@@ -219,6 +219,15 @@ function displayNameFromUsername(username) {
   );
 }
 
+function normalizeText(value) {
+  return String(value ?? "").trim();
+}
+
+function normalizeStatus(value, fallback = "Ativo") {
+  const status = normalizeText(value) || fallback;
+  return status === "Bloqueado" ? "Bloqueado" : "Ativo";
+}
+
 async function syncConfiguredUsers(logins) {
   await ensureInitialized();
 
@@ -365,6 +374,71 @@ async function updateCompany(companyId, values) {
   return company;
 }
 
+async function createCompany(values) {
+  await ensureInitialized();
+
+  const company = {
+    name: normalizeText(values.name),
+    cnpj: normalizeText(values.cnpj),
+    scope: normalizeText(values.scope),
+    certification: normalizeText(values.certification),
+    plan: normalizeText(values.plan),
+  };
+
+  if (!company.name) return null;
+
+  if (usePostgres) {
+    const result = await getPool().query(
+      `
+        INSERT INTO companies (name, cnpj, scope, certification, plan)
+        VALUES ($1, $2, $3, $4, $5)
+        RETURNING *
+      `,
+      [company.name, company.cnpj, company.scope, company.certification, company.plan],
+    );
+    return mapCompany(result.rows[0]);
+  }
+
+  const database = getStore();
+  const exists = database.companies.some(
+    (item) => item.name.toLowerCase() === company.name.toLowerCase(),
+  );
+  if (exists) {
+    const error = new Error("company_exists");
+    error.code = "23505";
+    throw error;
+  }
+
+  const created = {
+    id: database.nextCompanyId++,
+    name: company.name,
+    cnpj: company.cnpj,
+    scope: company.scope,
+    certification: company.certification,
+    plan: company.plan,
+    created_at: timestamp(),
+  };
+  database.companies.push(created);
+  saveStore();
+  return created;
+}
+
+async function updateAdminCompany(companyId, values) {
+  await ensureInitialized();
+
+  const company = {
+    name: normalizeText(values.name),
+    cnpj: normalizeText(values.cnpj),
+    scope: normalizeText(values.scope),
+    certification: normalizeText(values.certification),
+    plan: normalizeText(values.plan),
+  };
+
+  if (!company.name) return null;
+
+  return updateCompany(companyId, company);
+}
+
 async function updateUserProfile(userId, values) {
   await ensureInitialized();
 
@@ -387,6 +461,113 @@ async function updateUserProfile(userId, values) {
 
   user.display_name = values.displayName || "";
   user.role = values.role || "Administrador";
+  saveStore();
+  return getUser(userId);
+}
+
+async function createUser(values) {
+  await ensureInitialized();
+
+  const user = {
+    companyId: Number(values.companyId),
+    username: normalizeText(values.username),
+    displayName: normalizeText(values.displayName),
+    role: normalizeText(values.role) || "Administrador",
+    status: normalizeStatus(values.status),
+    password: String(values.password || ""),
+  };
+
+  if (!user.companyId || !user.username || !user.displayName || !user.password) return null;
+  const passwordHash = hashPassword(user.password);
+
+  if (usePostgres) {
+    const result = await getPool().query(
+      `
+        INSERT INTO users (company_id, username, display_name, password_hash, role, status)
+        VALUES ($1, $2, $3, $4, $5, $6)
+        RETURNING *
+      `,
+      [user.companyId, user.username, user.displayName, passwordHash, user.role, user.status],
+    );
+    return mapUser(result.rows[0]);
+  }
+
+  const database = getStore();
+  const company = database.companies.find((item) => item.id === user.companyId);
+  if (!company) return null;
+
+  const exists = database.users.some(
+    (item) => item.username.toLowerCase() === user.username.toLowerCase(),
+  );
+  if (exists) {
+    const error = new Error("user_exists");
+    error.code = "23505";
+    throw error;
+  }
+
+  const created = {
+    id: database.nextUserId++,
+    company_id: user.companyId,
+    username: user.username,
+    display_name: user.displayName,
+    password_hash: passwordHash,
+    role: user.role,
+    status: user.status,
+    created_at: timestamp(),
+  };
+  database.users.push(created);
+  saveStore();
+  return getUser(created.id);
+}
+
+async function updateAdminUser(userId, values) {
+  await ensureInitialized();
+
+  const user = {
+    companyId: Number(values.companyId),
+    username: normalizeText(values.username),
+    displayName: normalizeText(values.displayName),
+    role: normalizeText(values.role) || "Administrador",
+    status: normalizeStatus(values.status),
+  };
+
+  if (!user.companyId || !user.username || !user.displayName) return null;
+
+  if (usePostgres) {
+    const result = await getPool().query(
+      `
+        UPDATE users
+        SET company_id = $2, username = $3, display_name = $4, role = $5, status = $6
+        WHERE id = $1
+        RETURNING *
+      `,
+      [Number(userId), user.companyId, user.username, user.displayName, user.role, user.status],
+    );
+    return mapUser(result.rows[0]);
+  }
+
+  const database = getStore();
+  const existing = database.users.find((item) => item.id === Number(userId));
+  if (!existing) return null;
+
+  const company = database.companies.find((item) => item.id === user.companyId);
+  if (!company) return null;
+
+  const duplicate = database.users.some(
+    (item) =>
+      item.id !== Number(userId) && item.username.toLowerCase() === user.username.toLowerCase(),
+  );
+  if (duplicate) {
+    const error = new Error("user_exists");
+    error.code = "23505";
+    throw error;
+  }
+
+  existing.company_id = user.companyId;
+  existing.username = user.username;
+  existing.display_name = user.displayName;
+  existing.role = user.role;
+  existing.status = user.status;
   saveStore();
   return getUser(userId);
 }
@@ -572,6 +753,8 @@ async function setCompanyData(companyId, key, value) {
 }
 
 module.exports = {
+  createCompany,
+  createUser,
   ensureDefaultCompany,
   ensureCompany,
   ensureInitialized,
@@ -583,6 +766,8 @@ module.exports = {
   resetUserPassword,
   setCompanyData,
   syncConfiguredUsers,
+  updateAdminCompany,
+  updateAdminUser,
   updateCompany,
   updateUserProfile,
 };
