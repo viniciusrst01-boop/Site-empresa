@@ -1,9 +1,12 @@
 const crypto = require("crypto");
 const fs = require("fs");
+const os = require("os");
 const path = require("path");
-const { DatabaseSync } = require("node:sqlite");
 
-const dataDir = path.join(__dirname, "data");
+const isServerless = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
+const dataDir = process.env.SGQ_DATA_DIR ||
+  (isServerless ? path.join(os.tmpdir(), "sgq-online-app") : path.join(__dirname, "data"));
+const dbPath = process.env.SGQ_DB_PATH || path.join(dataDir, "sgq-local.json");
 
 const defaultCompany = {
   name: "QualityPro Solutions LTDA",
@@ -13,52 +16,35 @@ const defaultCompany = {
   plan: "Plano Professional",
 };
 
-let db;
+let store;
 
-function getDb() {
-  if (db) return db;
+function getStore() {
+  if (store) return store;
   fs.mkdirSync(dataDir, { recursive: true });
-  const dbPath = process.env.SGQ_DB_PATH || path.join(dataDir, "sgq-local.sqlite");
-  db = new DatabaseSync(dbPath);
-  db.exec("PRAGMA journal_mode = WAL");
-  db.exec("PRAGMA foreign_keys = ON");
-  migrate();
-  return db;
+
+  try {
+    store = JSON.parse(fs.readFileSync(dbPath, "utf8"));
+  } catch {
+    store = {
+      nextCompanyId: 1,
+      nextUserId: 1,
+      companies: [],
+      users: [],
+      companyData: [],
+    };
+    saveStore();
+  }
+
+  return store;
 }
 
-function migrate() {
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS companies (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
-      cnpj TEXT NOT NULL DEFAULT '',
-      scope TEXT NOT NULL DEFAULT '',
-      certification TEXT NOT NULL DEFAULT '',
-      plan TEXT NOT NULL DEFAULT '',
-      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-    );
+function saveStore() {
+  fs.mkdirSync(dataDir, { recursive: true });
+  fs.writeFileSync(dbPath, JSON.stringify(store, null, 2));
+}
 
-    CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      company_id INTEGER NOT NULL,
-      username TEXT NOT NULL UNIQUE,
-      display_name TEXT NOT NULL,
-      password_hash TEXT NOT NULL,
-      role TEXT NOT NULL DEFAULT 'Administrador',
-      status TEXT NOT NULL DEFAULT 'Ativo',
-      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE
-    );
-
-    CREATE TABLE IF NOT EXISTS company_data (
-      company_id INTEGER NOT NULL,
-      data_key TEXT NOT NULL,
-      data_json TEXT NOT NULL,
-      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      PRIMARY KEY (company_id, data_key),
-      FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE
-    );
-  `);
+function timestamp() {
+  return new Date().toISOString();
 }
 
 function ensureDefaultCompany() {
@@ -66,23 +52,23 @@ function ensureDefaultCompany() {
 }
 
 function ensureCompany(companyName) {
-  const database = getDb();
+  const database = getStore();
   const name = companyName || defaultCompany.name;
-  let company = database.prepare("SELECT * FROM companies WHERE name = ? ORDER BY id LIMIT 1").get(name);
+  let company = database.companies.find((item) => item.name === name);
   if (company) return company;
 
-  const result = database.prepare(`
-    INSERT INTO companies (name, cnpj, scope, certification, plan)
-    VALUES (?, ?, ?, ?, ?)
-  `).run(
+  company = {
+    id: database.nextCompanyId++,
     name,
-    defaultCompany.cnpj,
-    defaultCompany.scope,
-    defaultCompany.certification,
-    defaultCompany.plan,
-  );
-
-  return database.prepare("SELECT * FROM companies WHERE id = ?").get(result.lastInsertRowid);
+    cnpj: defaultCompany.cnpj,
+    scope: defaultCompany.scope,
+    certification: defaultCompany.certification,
+    plan: defaultCompany.plan,
+    created_at: timestamp(),
+  };
+  database.companies.push(company);
+  saveStore();
+  return company;
 }
 
 function hashPassword(password) {
@@ -109,58 +95,56 @@ function displayNameFromUsername(username) {
 }
 
 function syncConfiguredUsers(logins) {
-  const database = getDb();
+  const database = getStore();
 
   logins.forEach((login) => {
     if (!login?.user || !login?.password) return;
     const company = ensureCompany(login.companyName || `${displayNameFromUsername(login.user)} LTDA`);
-    const existing = database.prepare("SELECT id FROM users WHERE username = ?").get(login.user);
+    const existing = database.users.find((user) => user.username === login.user);
+
     if (existing) {
-      database.prepare("UPDATE users SET password_hash = ?, company_id = ? WHERE id = ?").run(
-        hashPassword(login.password),
-        company.id,
-        existing.id,
-      );
+      existing.password_hash = hashPassword(login.password);
+      existing.company_id = company.id;
+      saveStore();
       return;
     }
 
-    database.prepare(`
-      INSERT INTO users (company_id, username, display_name, password_hash)
-      VALUES (?, ?, ?, ?)
-    `).run(company.id, login.user, displayNameFromUsername(login.user), hashPassword(login.password));
+    database.users.push({
+      id: database.nextUserId++,
+      company_id: company.id,
+      username: login.user,
+      display_name: displayNameFromUsername(login.user),
+      password_hash: hashPassword(login.password),
+      role: "Administrador",
+      status: "Ativo",
+      created_at: timestamp(),
+    });
+    saveStore();
   });
 }
 
 function findUser(username, password) {
-  const database = getDb();
-  const user = database.prepare(`
-    SELECT users.*, companies.name AS company_name
-    FROM users
-    JOIN companies ON companies.id = users.company_id
-    WHERE users.username = ? AND users.status = 'Ativo'
-  `).get(username);
-
+  const database = getStore();
+  const user = database.users.find((item) => item.username === username && item.status === "Ativo");
   if (!user || !verifyPassword(password, user.password_hash)) return null;
 
+  const company = getCompany(user.company_id);
   return {
     id: user.id,
     companyId: user.company_id,
     username: user.username,
     displayName: user.display_name,
     role: user.role,
-    companyName: user.company_name,
+    companyName: company?.name || "",
   };
 }
 
 function getCompany(companyId) {
-  return getDb().prepare("SELECT * FROM companies WHERE id = ?").get(companyId);
+  return getStore().companies.find((company) => company.id === Number(companyId)) || null;
 }
 
 function getUser(userId) {
-  const user = getDb()
-    .prepare("SELECT id, company_id, username, display_name, role, status FROM users WHERE id = ?")
-    .get(userId);
-
+  const user = getStore().users.find((item) => item.id === Number(userId));
   if (!user) return null;
 
   return {
@@ -174,65 +158,58 @@ function getUser(userId) {
 }
 
 function updateCompany(companyId, values) {
-  getDb().prepare(`
-    UPDATE companies
-    SET name = ?, cnpj = ?, scope = ?, certification = ?, plan = ?
-    WHERE id = ?
-  `).run(
-    values.name || "",
-    values.cnpj || "",
-    values.scope || "",
-    values.certification || "",
-    values.plan || "",
-    companyId,
-  );
+  const company = getCompany(companyId);
+  if (!company) return null;
 
-  return getCompany(companyId);
+  company.name = values.name || "";
+  company.cnpj = values.cnpj || "";
+  company.scope = values.scope || "";
+  company.certification = values.certification || "";
+  company.plan = values.plan || "";
+  saveStore();
+  return company;
 }
 
 function updateUserProfile(userId, values) {
-  getDb().prepare(`
-    UPDATE users
-    SET display_name = ?, role = ?
-    WHERE id = ?
-  `).run(values.displayName || "", values.role || "Administrador", userId);
+  const database = getStore();
+  const user = database.users.find((item) => item.id === Number(userId));
+  if (!user) return null;
 
+  user.display_name = values.displayName || "";
+  user.role = values.role || "Administrador";
+  saveStore();
   return getUser(userId);
 }
 
 function listAdminOverview() {
-  const database = getDb();
-  const companies = database.prepare(`
-    SELECT
-      companies.id,
-      companies.name,
-      companies.cnpj,
-      companies.certification,
-      companies.plan,
-      companies.created_at,
-      COUNT(users.id) AS access_count,
-      SUM(CASE WHEN users.status = 'Ativo' THEN 1 ELSE 0 END) AS active_access_count
-    FROM companies
-    LEFT JOIN users ON users.company_id = companies.id
-    GROUP BY companies.id
-    ORDER BY companies.created_at DESC, companies.id DESC
-  `).all();
+  const database = getStore();
+  const companies = database.companies
+    .map((company) => {
+      const users = database.users.filter((user) => user.company_id === company.id);
+      return {
+        ...company,
+        access_count: users.length,
+        active_access_count: users.filter((user) => user.status === "Ativo").length,
+      };
+    })
+    .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)) || b.id - a.id);
 
-  const users = database.prepare(`
-    SELECT
-      users.id,
-      users.company_id AS companyId,
-      users.username,
-      users.display_name AS displayName,
-      users.role,
-      users.status,
-      users.created_at AS createdAt,
-      companies.name AS companyName,
-      companies.plan AS companyPlan
-    FROM users
-    JOIN companies ON companies.id = users.company_id
-    ORDER BY users.created_at DESC, users.id DESC
-  `).all();
+  const users = database.users
+    .map((user) => {
+      const company = getCompany(user.company_id);
+      return {
+        id: user.id,
+        companyId: user.company_id,
+        username: user.username,
+        displayName: user.display_name,
+        role: user.role,
+        status: user.status,
+        createdAt: user.created_at,
+        companyName: company?.name || "",
+        companyPlan: company?.plan || "",
+      };
+    })
+    .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)) || b.id - a.id);
 
   const payingCompanies = companies.filter((company) => isPaidPlan(company.plan));
 
@@ -254,38 +231,37 @@ function isPaidPlan(plan) {
 }
 
 function resetUserPassword(userId, temporaryPassword) {
-  const database = getDb();
-  const user = getUser(userId);
+  const database = getStore();
+  const user = database.users.find((item) => item.id === Number(userId));
   if (!user) return null;
 
-  database.prepare("UPDATE users SET password_hash = ? WHERE id = ?").run(
-    hashPassword(temporaryPassword),
-    userId,
-  );
-
+  user.password_hash = hashPassword(temporaryPassword);
+  saveStore();
   return getUser(userId);
 }
 
 function getCompanyData(companyId, key) {
-  const row = getDb()
-    .prepare("SELECT data_json FROM company_data WHERE company_id = ? AND data_key = ?")
-    .get(companyId, key);
-
-  if (!row) return null;
-  try {
-    return JSON.parse(row.data_json);
-  } catch {
-    return null;
-  }
+  const row = getStore().companyData.find(
+    (item) => item.company_id === Number(companyId) && item.data_key === key,
+  );
+  return row?.data_json ?? null;
 }
 
 function setCompanyData(companyId, key, value) {
-  getDb().prepare(`
-    INSERT INTO company_data (company_id, data_key, data_json, updated_at)
-    VALUES (?, ?, ?, CURRENT_TIMESTAMP)
-    ON CONFLICT(company_id, data_key)
-    DO UPDATE SET data_json = excluded.data_json, updated_at = CURRENT_TIMESTAMP
-  `).run(companyId, key, JSON.stringify(value));
+  const database = getStore();
+  let row = database.companyData.find(
+    (item) => item.company_id === Number(companyId) && item.data_key === key,
+  );
+
+  if (!row) {
+    row = { company_id: Number(companyId), data_key: key, data_json: value, updated_at: timestamp() };
+    database.companyData.push(row);
+  } else {
+    row.data_json = value;
+    row.updated_at = timestamp();
+  }
+
+  saveStore();
 }
 
 module.exports = {

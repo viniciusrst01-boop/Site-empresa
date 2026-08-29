@@ -40,10 +40,10 @@ $env:SGQ_EXTRA_LOGINS="usuario2:senha2:Empresa 2,usuario3:senha3:Empresa 3"
 
 ## Banco local
 
-O app usa SQLite local através do Node.js. O arquivo é criado automaticamente em:
+O app usa um banco local em arquivo JSON no servidor. O arquivo é criado automaticamente em:
 
 ```text
-data/sgq-local.sqlite
+data/sgq-local.json
 ```
 
 Esse arquivo fica ignorado pelo Git e pela Vercel para não publicar dados locais. A API salva os dados por empresa nas chaves:
@@ -52,4 +52,4 @@ Esse arquivo fica ignorado pelo Git e pela Vercel para não publicar dados locai
 - `context`: SWOT, partes interessadas, escopo e processos;
 - `risk`: riscos, objetivos e mudanças.
 
-Esta versão já separa dados por usuário/empresa localmente. Para produção definitiva, a próxima evolução é trocar o SQLite local por Postgres online e adicionar gestão de usuários/permissões pela interface.
+Esta versão já separa dados por usuário/empresa localmente. Para produção definitiva, a próxima evolução é trocar esse arquivo local por Postgres online, porque ambientes como Vercel podem limpar arquivos temporários em reinicializações.
