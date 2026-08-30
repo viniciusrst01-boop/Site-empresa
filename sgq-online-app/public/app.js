@@ -3893,7 +3893,7 @@ async function renderUsuarios() {
 }
 
 function bindUsersScreen() {
-  pageContent.querySelector("[data-user-action='new']")?.addEventListener("click", openCompanyUserModal);
+  pageContent.querySelector("[data-user-action='new']")?.addEventListener("click", () => openCompanyUserModal());
   pageContent.querySelectorAll("[data-user-modal-close]").forEach((button) => button.addEventListener("click", closeCompanyUserModal));
   pageContent.querySelector("[data-user-save]")?.addEventListener("click", saveCompanyUser);
   pageContent.querySelector("#usersSearchInput")?.addEventListener("input", renderCompanyUsersTable);
