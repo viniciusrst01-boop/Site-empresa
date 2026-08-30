@@ -1705,10 +1705,12 @@ table.ctxtbl {
 .s-done { color: var(--accent-green); }
 .s-prog { color: var(--accent-amber); }
 .s-info { color: var(--accent-cyan); }
+.s-late { color: var(--accent-red); }
 .s-pend { color: var(--text-muted); }
 .s-done .status-dot2 { background: var(--accent-green); box-shadow: 0 0 6px rgba(52,211,153,0.7); }
 .s-prog .status-dot2 { background: var(--accent-amber); box-shadow: 0 0 6px rgba(251,191,36,0.7); }
 .s-info .status-dot2 { background: var(--accent-cyan); box-shadow: 0 0 6px rgba(70,217,245,0.7); }
+.s-late .status-dot2 { background: var(--accent-red); box-shadow: 0 0 6px rgba(248,113,113,0.7); }
 .s-pend .status-dot2 { background: var(--text-muted); }
 
 .p-cell {
@@ -2227,6 +2229,86 @@ body.theme-light textarea.input-basic {
 .indicator-panel .context-kpi-row {
   margin-top: 18px;
   margin-bottom: 0;
+}
+
+.leadership-page-content {
+  overflow: visible;
+  padding-top: 34px;
+}
+
+.leadership-page-content .breadcrumb {
+  margin-bottom: 12px;
+}
+
+.leadership-page-content .context-toolbar {
+  margin-bottom: 24px;
+}
+
+.leadership-page-content .welcome-title {
+  font-size: 24px;
+  line-height: 1.18;
+}
+
+.leadership-page-content .welcome-sub {
+  max-width: 680px;
+  line-height: 1.45;
+}
+
+.leadership-page-content .context-kpi-row {
+  gap: 16px;
+  margin-bottom: 30px;
+}
+
+.leadership-page-content > .ctx-tabs {
+  margin-bottom: 18px;
+}
+
+.leadership-page-content > .subfilter-row {
+  padding: 0;
+  margin-bottom: 18px;
+}
+
+.leadership-page-content .kpi-card {
+  min-height: 112px;
+  padding: 20px 18px 18px;
+}
+
+.leadership-page-content .kpi-value.big {
+  font-size: 24px;
+  line-height: 1.1;
+}
+
+.leadership-page-content .dcc {
+  border-color: rgba(255, 255, 255, 0.09);
+}
+
+.leadership-page-content .dcc-hd {
+  min-height: 78px;
+  padding: 20px 22px;
+}
+
+.leadership-page-content .risk-table-wrap {
+  margin-top: 0;
+}
+
+.leadership-page-content .ctxtbl thead th {
+  padding: 17px 18px;
+}
+
+.leadership-page-content .ctxtbl tbody td {
+  padding: 16px 18px;
+  color: var(--text-secondary);
+}
+
+.leadership-page-content .ctxtbl tbody td.strong-cell,
+.leadership-page-content .ctxtbl tbody td.mono:first-child {
+  color: var(--text-primary);
+}
+
+.leadership-page-content .mchip {
+  padding: 4px 10px;
+  font-size: 11px;
+  line-height: 1.1;
 }
 
 body.theme-light .qp-form select option,

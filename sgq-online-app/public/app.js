@@ -191,7 +191,16 @@ const leadershipSeeds = {
   acoes: [
     { id: "AD-0001", data: "2026-07-15", tipo: "Reunião Estratégica", descricao: "Reunião mensal com análise dos indicadores e resultados do SGQ.", participantes: "Hugo Melo, Marina Souza, Carlos Andrade", evidencia: "Ata_15072026.pdf", responsavel: "Hugo Melo", status: "Concluída" },
     { id: "AD-0002", data: "2026-06-30", tipo: "Análise de Indicadores", descricao: "Análise crítica dos indicadores do SGQ - Junho/2026.", participantes: "Hugo Melo, Rafael Costa", evidencia: "Relatorio_Indicadores_0626.pdf", responsavel: "Hugo Melo", status: "Concluída" },
-    { id: "AD-0003", data: "2026-05-20", tipo: "Alocação de Recursos", descricao: "Aprovação de investimento em equipamentos de medição.", participantes: "Hugo Melo, Rafael Costa", evidencia: "Aprovacao_Investimento.pdf", responsavel: "Hugo Melo", status: "Concluída" },
+    { id: "AD-0003", data: "2026-06-15", tipo: "Decisão Estratégica", descricao: "Aprovação do novo objetivo estratégico de satisfação do cliente.", participantes: "Hugo Melo", evidencia: "Ata_15062026.pdf", responsavel: "Hugo Melo", status: "Concluída" },
+    { id: "AD-0004", data: "2026-05-20", tipo: "Alocação de Recursos", descricao: "Aprovação de investimento em equipamentos de medição.", participantes: "Hugo Melo, Rafael Costa", evidencia: "Aprovacao_Investimento.pdf", responsavel: "Hugo Melo", status: "Concluída" },
+    { id: "AD-0005", data: "2026-05-05", tipo: "Reunião Estratégica", descricao: "Reunião estratégica para planejamento semestral.", participantes: "Hugo Melo, Marina Souza, Beatriz Santos, Carlos Andrade, João Pereira", evidencia: "Ata_05052026.pdf", responsavel: "Hugo Melo", status: "Concluída" },
+    { id: "AD-0006", data: "2026-04-18", tipo: "Análise de Indicadores", descricao: "Análise crítica dos indicadores do SGQ - Abril/2026.", participantes: "Hugo Melo", evidencia: "Relatorio_Indicadores_0426.pdf", responsavel: "Hugo Melo", status: "Concluída" },
+    { id: "AD-0007", data: "2026-04-02", tipo: "Decisão Estratégica", descricao: "Aprovação da expansão da carteira de clientes PME.", participantes: "Hugo Melo, Beatriz Santos", evidencia: "Ata_02042026.pdf", responsavel: "Hugo Melo", status: "Programada" },
+    { id: "AD-0008", data: "2026-03-22", tipo: "Alocação de Recursos", descricao: "Aprovação de contratação de consultor associado.", participantes: "Hugo Melo, Marina Souza", evidencia: "Aprovacao_Contratacao.pdf", responsavel: "Hugo Melo", status: "Programada" },
+    { id: "AD-0009", data: "2026-03-10", tipo: "Reunião Estratégica", descricao: "Reunião trimestral de análise crítica do SGQ.", participantes: "Hugo Melo, Marina Souza, Carlos Andrade, Rafael Costa", evidencia: "Ata_10032026.pdf", responsavel: "Hugo Melo", status: "Concluída" },
+    { id: "AD-0010", data: "2026-02-14", tipo: "Análise de Indicadores", descricao: "Análise crítica dos indicadores do SGQ - Janeiro/2026.", participantes: "Hugo Melo", evidencia: "Relatorio_Indicadores_0126.pdf", responsavel: "Hugo Melo", status: "Não Realizada" },
+    { id: "AD-0011", data: "2026-01-28", tipo: "Decisão Estratégica", descricao: "Definição da política de home office.", participantes: "Hugo Melo, Marina Souza", evidencia: "Ata_28012026.pdf", responsavel: "Hugo Melo", status: "Concluída" },
+    { id: "AD-0012", data: "2026-01-10", tipo: "Reunião Estratégica", descricao: "Reunião de abertura do planejamento anual 2026.", participantes: "Hugo Melo, Marina Souza, Carlos Andrade, Beatriz Santos, Rafael Costa, João Pereira", evidencia: "Ata_10012026.pdf", responsavel: "Hugo Melo", status: "Concluída" },
   ],
   posicionamento: {
     missao: "Entregar soluções de qualidade que gerem valor e confiança para nossos clientes.",
@@ -222,10 +231,19 @@ const leadershipSeeds = {
   comunicacao: [
     { id: "COMPOL-0001", data: "2026-07-10", forma: "Reunião de Equipe", setor: "Toda a organização", qtdPessoas: 7, evidencia: "Ata_reuniao_qualidade_0710.pdf" },
     { id: "COMPOL-0002", data: "2026-06-15", forma: "E-mail", setor: "Todos os Setores", qtdPessoas: 7, evidencia: "Comprovante_email_0615.pdf" },
+    { id: "COMPOL-0003", data: "2026-05-20", forma: "Treinamento", setor: "Comercial", qtdPessoas: 2, evidencia: "Lista_presenca_treinamento_0520.pdf" },
+    { id: "COMPOL-0004", data: "2026-04-10", forma: "Integração", setor: "Novo Colaborador", qtdPessoas: 1, evidencia: "Lista_presenca_integracao_0410.pdf" },
+    { id: "COMPOL-0005", data: "2026-03-05", forma: "Mural/Comunicado Interno", setor: "Toda a organização", qtdPessoas: 7, evidencia: "Foto_mural_0305.jpg" },
+    { id: "COMPOL-0006", data: "2026-01-10", forma: "Reunião de Equipe", setor: "Toda a organização", qtdPessoas: 7, evidencia: "Ata_reuniao_qualidade_0110.pdf" },
   ],
   cargos: [
     { id: "CARGO-0001", nome: "Hugo Melo", cargo: "Diretor Geral", departamento: "Direção", substituto: "-", status: "Ativo", descricao: "Responsável pelo direcionamento estratégico e liderança geral da organização.", responsabilidades: ["Definir a política e os objetivos da qualidade", "Garantir os recursos necessários ao SGQ"], autoridades: ["Aprovar documentos estratégicos", "Aprovar investimentos e contratações"] },
     { id: "CARGO-0002", nome: "Carlos Andrade", cargo: "Gerente da Qualidade", departamento: "Qualidade", substituto: "João Pereira", status: "Ativo", descricao: "Responsável por planejar, implementar e manter o SGQ.", responsabilidades: ["Garantir a conformidade do SGQ", "Reportar desempenho à Direção"], autoridades: ["Requisitar recursos para melhoria", "Emitir ações corretivas"] },
+    { id: "CARGO-0003", nome: "Beatriz Santos", cargo: "Coordenadora Comercial", departamento: "Comercial", substituto: "Rafael Costa", status: "Ativo", descricao: "Responsável pela prospecção, propostas e relacionamento com clientes.", responsabilidades: ["Elaborar propostas comerciais", "Acompanhar a satisfação dos clientes"], autoridades: ["Aprovar condições comerciais dentro da política vigente"] },
+    { id: "CARGO-0004", nome: "Marina Souza", cargo: "Coordenadora de Pessoas e Compras", departamento: "Gestão de Pessoas", substituto: "Beatriz Santos", status: "Ativo", descricao: "Responsável pela gestão de pessoas, treinamentos e homologação de fornecedores.", responsabilidades: ["Conduzir contratações e capacitações", "Homologar e avaliar fornecedores"], autoridades: ["Aprovar planos de treinamento", "Aprovar homologação de fornecedores"] },
+    { id: "CARGO-0005", nome: "João Pereira", cargo: "Auditor Interno", departamento: "Qualidade", substituto: "Carlos Andrade", status: "Ativo", descricao: "Responsável pela execução das auditorias internas do SGQ.", responsabilidades: ["Executar o programa de auditorias internas", "Registrar e acompanhar não conformidades"], autoridades: ["Emitir relatórios de não conformidade"] },
+    { id: "CARGO-0006", nome: "Eduardo Lima", cargo: "Técnico de Suporte Interno", departamento: "Manutenção/TI", substituto: "João Pereira", status: "Ativo", descricao: "Responsável pela manutenção de equipamentos e suporte de infraestrutura.", responsabilidades: ["Executar manutenções preventivas e corretivas", "Dar suporte à infraestrutura de TI"], autoridades: ["Solicitar substituição de equipamentos críticos"] },
+    { id: "CARGO-0007", nome: "Rafael Costa", cargo: "Analista Financeiro", departamento: "Financeiro", substituto: "Marina Souza", status: "Ativo", descricao: "Responsável pelo controle financeiro e faturamento dos projetos.", responsabilidades: ["Controlar o faturamento e o fluxo de caixa", "Acompanhar a inadimplência de clientes"], autoridades: ["Aprovar pagamentos dentro do limite estabelecido"] },
   ],
   raci: [
     { id: "RACI-0001", atividade: "Definir Política da Qualidade", diretorGeral: "A", qualidade: "R", comercial: "I", financeiro: "I" },
@@ -1110,6 +1128,24 @@ function ensureLeadershipData() {
       leadershipData[key] = structuredClone(leadershipSeeds[key]);
     }
   });
+  if (leadershipData._seedVersion !== 2) {
+    ["acoes", "comunicacao", "cargos"].forEach((key) => {
+      leadershipData[key] = mergeSeedRows(leadershipData[key], leadershipSeeds[key]);
+    });
+    leadershipData._seedVersion = 2;
+    localStorage.setItem(leadershipStorageKey, JSON.stringify(leadershipData));
+    saveRemoteData("leadership", leadershipData);
+  }
+}
+
+function mergeSeedRows(currentRows, seedRows) {
+  const rows = Array.isArray(currentRows) ? structuredClone(currentRows) : [];
+  const seedById = new Map(seedRows.map((item) => [item.id, item]));
+  const hasOnlySeedRows = rows.every((item) => seedById.has(item.id));
+  if (!hasOnlySeedRows || rows.length >= seedRows.length) return rows;
+
+  const ids = new Set(rows.map((item) => item.id));
+  return [...rows, ...seedRows.filter((item) => !ids.has(item.id)).map((item) => structuredClone(item))];
 }
 
 function leadershipGetAll() {
@@ -1274,7 +1310,7 @@ function leadershipActionsHtml() {
   const rows = leadershipGet("acoes").sort((a, b) => new Date(b.data) - new Date(a.data));
   const body = rows.length ? rows.map((item) => `
     <tr>
-      <td class="mono">${formatDate(item.data)}</td><td>${chip(item.tipo, "mchip-gold")}</td>
+      <td class="mono">${formatDate(item.data)}</td><td>${leadershipActionTypeChip(item.tipo)}</td>
       <td class="desc-cell">${escapeHtml(item.descricao)}</td><td class="desc-cell">${escapeHtml(item.participantes)}</td>
       <td>${escapeHtml(item.evidencia || "-")}</td><td><span class="status-pill ${statusClass(item.status)}"><span class="status-dot2"></span>${escapeHtml(item.status)}</span></td>
       <td>${leadershipActions("acao", item.id)}</td>
@@ -1282,6 +1318,16 @@ function leadershipActionsHtml() {
   return leadershipCard("Ações da Direção", "Evidências do comprometimento da Alta Direção com o SGQ · 5.1", "Nova ação", "new-acao", `
     <table class="ctxtbl"><colgroup><col style="width:10%"><col style="width:14%"><col style="width:25%"><col style="width:18%"><col style="width:13%"><col style="width:10%"><col style="width:10%"></colgroup>
     <thead><tr><th>Data</th><th>Tipo</th><th>Descrição</th><th>Participantes</th><th>Evidência</th><th>Status</th><th>Ações</th></tr></thead><tbody>${body}</tbody></table>`);
+}
+
+function leadershipActionTypeChip(type) {
+  const classes = {
+    "Reunião Estratégica": "mchip-blue",
+    "Análise de Indicadores": "mchip-cyan",
+    "Decisão Estratégica": "mchip-purple",
+    "Alocação de Recursos": "mchip-gold",
+  };
+  return chip(type, classes[type] || "mchip-blue");
 }
 
 function leadershipPositionHtml() {
@@ -1757,7 +1803,8 @@ function chip(text, cls) {
 
 function statusClass(status) {
   const normalized = String(status || "").toLowerCase();
-  if (normalized.includes("conclu") || normalized.includes("atingid") || normalized.includes("tratado")) return "s-done";
+  if (normalized.includes("inativo")) return "s-late";
+  if (normalized.includes("conclu") || normalized.includes("atingid") || normalized.includes("tratado") || normalized.includes("ativo")) return "s-done";
   if (normalized.includes("tratamento") || normalized.includes("execu") || normalized.includes("andamento") || normalized.includes("planejamento") || normalized.includes("atrasado")) return "s-prog";
   if (normalized.includes("monitorando") || normalized.includes("explorando")) return "s-info";
   return "s-pend";
