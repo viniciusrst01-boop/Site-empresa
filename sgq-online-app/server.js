@@ -176,6 +176,17 @@ function isAdminSession(session) {
   return String(session?.username || "").toLowerCase() === String(adminUser || "").toLowerCase();
 }
 
+async function isCompanyOwnerSession(session) {
+  if (isAdminSession(session)) return true;
+  const users = await listCompanyUsers(session.companyId);
+  const firstUser = users.sort((a, b) => Number(a.id) - Number(b.id))[0];
+  return Boolean(
+    firstUser &&
+    Number(firstUser.id) === Number(session.userId) &&
+    String(session.role || "").toLowerCase().includes("administrador"),
+  );
+}
+
 function redirect(res, location) {
   send(res, 302, "", { Location: location });
 }
@@ -385,6 +396,7 @@ async function handleApiRequest(req, res, url, session) {
     const savedRisk = await getCompanyData(companyId, "risk");
     const savedLeadership = await getCompanyData(companyId, "leadership");
     let company = await getCompany(companyId);
+    const canManageCompany = await isCompanyOwnerSession(session);
 
     if (savedState?.company?.name && savedState.company.name !== company?.name) {
       company = await updateCompany(companyId, {
@@ -404,9 +416,10 @@ async function handleApiRequest(req, res, url, session) {
         role: session.role,
         companyId,
         isAdmin: isAdminSession(session),
+        canManageCompany,
       },
       company,
-      needsOnboarding: !savedState,
+      needsOnboarding: !savedState && canManageCompany,
       state: savedState,
       context: savedContext,
       risk: savedRisk,
@@ -416,6 +429,11 @@ async function handleApiRequest(req, res, url, session) {
   }
 
   if (url.pathname === "/api/onboarding" && req.method === "POST") {
+    if (!(await isCompanyOwnerSession(session))) {
+      sendJson(res, 403, { error: "forbidden" });
+      return;
+    }
+
     const body = await readJsonBody(req);
     if (!body || typeof body !== "object") {
       sendJson(res, 400, { error: "invalid_payload" });
@@ -444,6 +462,11 @@ async function handleApiRequest(req, res, url, session) {
   }
 
   if (url.pathname === "/api/company" && req.method === "PATCH") {
+    if (!(await isCompanyOwnerSession(session))) {
+      sendJson(res, 403, { error: "forbidden" });
+      return;
+    }
+
     const body = await readJsonBody(req);
     if (!body || typeof body !== "object" || !body.name) {
       sendJson(res, 400, { error: "invalid_company" });
@@ -494,6 +517,11 @@ async function handleApiRequest(req, res, url, session) {
   }
 
   if (url.pathname === "/api/company/users" && req.method === "POST") {
+    if (!(await isCompanyOwnerSession(session))) {
+      sendJson(res, 403, { error: "forbidden" });
+      return;
+    }
+
     const body = await readJsonBody(req);
     if (!body?.username || !body?.displayName || !body?.password) {
       sendJson(res, 400, { error: "invalid_user" });
@@ -531,6 +559,11 @@ async function handleApiRequest(req, res, url, session) {
   }
 
   if (url.pathname === "/api/company/users" && req.method === "PATCH") {
+    if (!(await isCompanyOwnerSession(session))) {
+      sendJson(res, 403, { error: "forbidden" });
+      return;
+    }
+
     const body = await readJsonBody(req);
     const targetUserId = Number(body?.userId);
     if (!targetUserId || !body?.username || !body?.displayName) {
@@ -568,6 +601,11 @@ async function handleApiRequest(req, res, url, session) {
   }
 
   if (url.pathname === "/api/company/users" && req.method === "DELETE") {
+    if (!(await isCompanyOwnerSession(session))) {
+      sendJson(res, 403, { error: "forbidden" });
+      return;
+    }
+
     const body = await readJsonBody(req);
     const targetUserId = Number(body?.userId);
     if (!targetUserId) {

@@ -153,7 +153,8 @@
     font-family: 'JetBrains Mono', monospace;
   }
   .tb-divider { width: 1px; height: 26px; background: var(--border-subtle); margin: 0 10px; }
-  .tb-user { display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 6px 8px 6px 6px; border-radius: 10px; }
+  .topbar-right > form[action="/logout"] { display: none; }
+  .tb-user { position: relative; display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 6px 8px 6px 6px; border-radius: 10px; }
   .tb-user:hover { background: rgba(255,255,255,0.05); }
   .tb-avatar {
     width: 36px; height: 36px; border-radius: 50%; background: var(--accent-gradient);
@@ -164,6 +165,57 @@
   .tb-user-name { font-size: 13.5px; font-weight: 700; color: var(--text-primary); }
   .tb-user-role { font-size: 11.5px; color: var(--text-secondary); }
   .tb-chevron { color: var(--text-muted); width: 16px; height: 16px; margin-left: 2px; }
+
+  .user-menu {
+    position: absolute;
+    top: calc(100% + 10px);
+    right: 0;
+    z-index: 30;
+    width: 230px;
+    border: 1px solid var(--border-strong);
+    border-radius: 12px;
+    background: rgba(11,21,38,0.98);
+    box-shadow: 0 18px 44px rgba(0,0,0,0.42);
+    padding: 8px;
+  }
+  .user-menu[hidden] { display: none; }
+  .user-menu-head {
+    border-bottom: 1px solid var(--border-subtle);
+    margin-bottom: 6px;
+    padding: 9px 10px 11px;
+  }
+  .user-menu-head strong {
+    display: block;
+    color: var(--text-primary);
+    font-size: 13px;
+    font-weight: 900;
+  }
+  .user-menu-head span {
+    display: block;
+    color: var(--text-secondary);
+    font-size: 11.5px;
+    margin-top: 2px;
+  }
+  .user-menu button {
+    width: 100%;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font: inherit;
+    font-size: 12.5px;
+    font-weight: 800;
+    padding: 9px 10px;
+    text-align: left;
+  }
+  .user-menu button:hover {
+    background: rgba(255,255,255,0.06);
+    color: var(--text-primary);
+  }
+  .user-menu button.danger {
+    color: var(--accent-red);
+  }
 
   .page-content { flex: 1; padding: 28px 28px 40px; position: relative; overflow: hidden; }
   .page-decor { position: absolute; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
@@ -1968,6 +2020,103 @@ table.utbl {
   font-size: 12px;
   line-height: 1.5;
   margin: 3px 0 0;
+}
+
+.profile-grid {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(280px, 0.8fr) minmax(320px, 1.2fr);
+  gap: 18px;
+}
+
+.profile-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.profile-card.details {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 18px;
+}
+
+.profile-avatar {
+  width: 58px;
+  height: 58px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--accent-gradient);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.profile-card h3 {
+  color: var(--text-primary);
+  font-size: 18px;
+  margin: 0 0 4px;
+}
+
+.profile-card p {
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.profile-card .detail-item span,
+.permission-row span {
+  display: block;
+  color: var(--text-muted);
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  margin-bottom: 5px;
+  text-transform: uppercase;
+}
+
+.profile-card .detail-item strong {
+  color: var(--text-primary);
+  font-size: 13.5px;
+}
+
+.permissions-summary {
+  position: relative;
+  z-index: 1;
+  max-width: 760px;
+}
+
+.permission-list {
+  display: grid;
+  gap: 10px;
+}
+
+.permission-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  background: rgba(255,255,255,0.02);
+  padding: 13px 14px;
+}
+
+.permission-row strong {
+  font-size: 12.5px;
+}
+
+.permission-row strong.allowed {
+  color: var(--accent-green);
+}
+
+.permission-row strong.blocked {
+  color: var(--accent-red);
 }
 
 .subfilter-row {

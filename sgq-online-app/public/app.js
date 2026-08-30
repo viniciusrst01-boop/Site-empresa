@@ -303,6 +303,7 @@ let currentCompanyModalKey = "";
 let currentCompanyEditId = null;
 let companyUsersData = [];
 let editingCompanyUserId = null;
+let userMenuOutsideBound = false;
 
 let state = loadState();
 let riskData = null;
@@ -454,6 +455,7 @@ function applyUserProfile() {
   if (userName) userName.textContent = name;
   if (userRole) userRole.textContent = role;
   updateAdminNav();
+  renderUserMenu();
 }
 
 function updateAdminNav() {
@@ -696,6 +698,91 @@ function upsertCurrentUser(users, user) {
   return rows;
 }
 
+function canManageCompany() {
+  return Boolean(currentUser?.canManageCompany || currentUser?.isAdmin);
+}
+
+function renderUserMenu() {
+  const trigger = document.querySelector(".tb-user");
+  if (!trigger || !currentUser) return;
+
+  trigger.setAttribute("role", "button");
+  trigger.setAttribute("tabindex", "0");
+  trigger.setAttribute("aria-haspopup", "menu");
+  trigger.setAttribute("aria-expanded", "false");
+  trigger.querySelector(".user-menu")?.remove();
+
+  const items = currentUser.isAdmin
+    ? [
+        ["Painel de gerenciamento", "gerenciamento"],
+        ["Clientes e planos", "gerenciamento"],
+        ["Usuários do sistema", "gerenciamento"],
+        ["Configurações globais", "configuracoes"],
+      ]
+    : [
+        ["Meu perfil", "perfil"],
+        ["Minhas permissões", "permissoes"],
+        ...(canManageCompany() ? [["Gerenciar usuários", "usuarios"], ["Dados da empresa", "empresa"]] : []),
+        ["Preferências", "configuracoes"],
+        ["Central de ajuda", "ajuda"],
+      ];
+
+  const menu = document.createElement("div");
+  menu.className = "user-menu";
+  menu.setAttribute("role", "menu");
+  menu.hidden = true;
+  menu.innerHTML = `
+    <div class="user-menu-head">
+      <strong>${escapeHtml(currentUser.name || currentUser.username || "Usuário")}</strong>
+      <span>${escapeHtml(currentUser.role || "Usuário")}</span>
+    </div>
+    ${items.map(([label, view]) => `<button type="button" data-user-menu-view="${view}" role="menuitem">${escapeHtml(label)}</button>`).join("")}
+    <button type="button" class="danger" data-user-menu-action="logout" role="menuitem">Sair</button>
+  `;
+  trigger.appendChild(menu);
+
+  const closeMenu = () => {
+    menu.hidden = true;
+    trigger.setAttribute("aria-expanded", "false");
+  };
+  const toggleMenu = (event) => {
+    event.stopPropagation();
+    menu.hidden = !menu.hidden;
+    trigger.setAttribute("aria-expanded", String(!menu.hidden));
+  };
+
+  trigger.onclick = toggleMenu;
+  trigger.onkeydown = (event) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      toggleMenu(event);
+    }
+    if (event.key === "Escape") closeMenu();
+  };
+
+  menu.querySelectorAll("[data-user-menu-view]").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      closeMenu();
+      render(button.dataset.userMenuView);
+    });
+  });
+  menu.querySelector("[data-user-menu-action='logout']")?.addEventListener("click", (event) => {
+    event.stopPropagation();
+    document.querySelector('form[action="/logout"]')?.submit();
+  });
+
+  if (!userMenuOutsideBound) {
+    document.addEventListener("click", () => {
+      document.querySelectorAll(".user-menu").forEach((openMenu) => {
+        openMenu.hidden = true;
+        openMenu.closest(".tb-user")?.setAttribute("aria-expanded", "false");
+      });
+    });
+    userMenuOutsideBound = true;
+  }
+}
+
 function saveRemoteData(key, value) {
   fetch("/api/data", {
     method: "POST",
@@ -737,7 +824,8 @@ function setActiveNav(view) {
 }
 
 function render(view = "inicio") {
-  if (currentUser?.isAdmin && view !== "gerenciamento") {
+  const adminAllowedViews = ["gerenciamento", "configuracoes"];
+  if (currentUser?.isAdmin && !adminAllowedViews.includes(view)) {
     view = "gerenciamento";
   }
 
@@ -751,6 +839,8 @@ function render(view = "inicio") {
     modulos: renderModulos,
     empresa: renderEmpresa,
     usuarios: renderUsuarios,
+    perfil: renderMeuPerfil,
+    permissoes: renderMinhasPermissoes,
     notificacoes: renderNotificacoes,
     relatorios: renderRelatorios,
     gerenciamento: renderGerenciamento,
@@ -3360,6 +3450,11 @@ function companyFormValue(fieldId) {
 }
 
 async function persistCompanyProfile(message = "Dados da empresa salvos.") {
+  if (!canManageCompany()) {
+    toast("Você não tem permissão para alterar dados da empresa.");
+    return;
+  }
+
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   const response = await fetch("/api/company", {
     method: "PATCH",
@@ -3390,7 +3485,7 @@ function renderEmpresa() {
         <h1 class="welcome-title" id="companyTabTitle">${escapeHtml(companyTabMeta[currentCompanyTab].title)}</h1>
         <p class="welcome-sub" id="companyTabSub">${escapeHtml(companyTabMeta[currentCompanyTab].sub)}</p>
       </div>
-      <button type="button" class="btn-grad" id="companyNewBtn" data-company-new="${escapeHtml(currentCompanyTab)}">
+      <button type="button" class="btn-grad" id="companyNewBtn" data-company-new="${escapeHtml(currentCompanyTab)}" ${canManageCompany() ? "" : "hidden"}>
         ${moduleIcon("plus")}
         <span>${escapeHtml(companyTabMeta[currentCompanyTab].newLabel || "Novo")}</span>
       </button>
@@ -3448,7 +3543,7 @@ function bindCompanyScreen() {
 function renderCompanyTab() {
   const newButton = pageContent.querySelector("#companyNewBtn");
   if (newButton) {
-    newButton.style.display = currentCompanyTab === "dados" ? "none" : "inline-flex";
+    newButton.style.display = currentCompanyTab === "dados" || !canManageCompany() ? "none" : "inline-flex";
     newButton.querySelector("span").textContent = companyTabMeta[currentCompanyTab].newLabel || "Novo";
   }
 
@@ -3467,6 +3562,7 @@ function renderCompanyTab() {
 }
 
 function renderCompanyForm() {
+  const editable = canManageCompany();
   return `
     <form class="empresa-form-card" id="companyForm">
       <div class="ef-logo-row">
@@ -3474,7 +3570,7 @@ function renderCompanyForm() {
         <div class="ef-logo-info">
           <div class="ef-logo-title">Logo da empresa</div>
           <div class="ef-logo-desc">PNG ou JPG, fundo transparente recomendado. Máx. 3MB.</div>
-          <div class="ef-logo-actions">
+          <div class="ef-logo-actions" ${editable ? "" : "hidden"}>
             <label class="btn-ghost company-logo-btn">
               Enviar logo
               <input type="file" id="logoInput" accept="image/png,image/jpeg" hidden>
@@ -3525,12 +3621,13 @@ function renderCompanyForm() {
         </div>
       `, true)}
 
-      <div class="ef-actions">
+      <div class="ef-actions" ${editable ? "" : "hidden"}>
         <span class="ef-save-status" id="companySaveStatus"></span>
         <button type="submit" class="btn-grad">${moduleIcon("check-circle")} Salvar alterações</button>
       </div>
     </form>
-  `;
+  `.replaceAll("<input class=\"input-basic\"", `<input class="input-basic"${editable ? "" : " readonly"}`)
+    .replaceAll("<select class=\"input-basic\"", `<select class="input-basic"${editable ? "" : " disabled"}`);
 }
 
 function companyFormSection(title, content, last = false) {
@@ -3639,6 +3736,7 @@ function handleCompanyLogoChange(event) {
 function renderCompanyRegistryTable(key) {
   const mod = companyRegistryModules[key];
   const records = getCompanyProfile().registry[key] || [];
+  const showActions = canManageCompany();
   return `
     <div class="reg-section">
       <div class="reg-section-hd">
@@ -3650,10 +3748,10 @@ function renderCompanyRegistryTable(key) {
       <div class="company-table-wrap">
         <table class="rtbl">
           <thead>
-            <tr>${mod.columns.map((column) => `<th>${escapeHtml(column.label)}</th>`).join("")}<th>Ações</th></tr>
+            <tr>${mod.columns.map((column) => `<th>${escapeHtml(column.label)}</th>`).join("")}${showActions ? "<th>Ações</th>" : ""}</tr>
           </thead>
           <tbody>
-            ${records.map((record) => renderCompanyRegistryRow(key, record)).join("")}
+            ${records.map((record) => renderCompanyRegistryRow(key, record, showActions)).join("")}
           </tbody>
         </table>
       </div>
@@ -3662,7 +3760,7 @@ function renderCompanyRegistryTable(key) {
   `;
 }
 
-function renderCompanyRegistryRow(key, record) {
+function renderCompanyRegistryRow(key, record, showActions = true) {
   const mod = companyRegistryModules[key];
   const cells = mod.columns.map((column) => {
     const value = record[column.field] || "-";
@@ -3672,12 +3770,12 @@ function renderCompanyRegistryRow(key, record) {
   return `
     <tr>
       ${cells}
-      <td>
+      ${showActions ? `<td>
         <div class="r-actions">
           <button class="r-abtn" title="Editar" data-company-action="edit" data-company-key="${key}" data-company-id="${record.id}" type="button">${moduleIcon("edit")}</button>
           <button class="r-abtn danger" title="Excluir" data-company-action="delete" data-company-key="${key}" data-company-id="${record.id}" type="button">${moduleIcon("trash")}</button>
         </div>
-      </td>
+      </td>` : ""}
     </tr>
   `;
 }
@@ -3702,6 +3800,11 @@ function renderCompanyModalField(field, record) {
 }
 
 function openCompanyRegistryModal(key, id = null) {
+  if (!canManageCompany()) {
+    toast("Você não tem permissão para alterar dados da empresa.");
+    return;
+  }
+
   const mod = companyRegistryModules[key];
   const record = id ? getCompanyProfile().registry[key].find((item) => Number(item.id) === Number(id)) : null;
   currentCompanyModalKey = key;
@@ -3723,6 +3826,11 @@ function closeCompanyRegistryModal() {
 }
 
 async function saveCompanyRegistryRecord() {
+  if (!canManageCompany()) {
+    toast("Você não tem permissão para alterar dados da empresa.");
+    return;
+  }
+
   const mod = companyRegistryModules[currentCompanyModalKey];
   if (!mod) return;
   const fields = mod.fields.flat();
@@ -3757,6 +3865,11 @@ async function saveCompanyRegistryRecord() {
 }
 
 async function deleteCompanyRegistryRecord(key, id) {
+  if (!canManageCompany()) {
+    toast("Você não tem permissão para alterar dados da empresa.");
+    return;
+  }
+
   const registry = getCompanyProfile().registry;
   const record = registry[key].find((item) => Number(item.id) === Number(id));
   if (!record) return;
@@ -3772,6 +3885,7 @@ async function deleteCompanyRegistryRecord(key, id) {
 }
 
 async function renderUsuarios() {
+  const canManage = canManageCompany();
   setTopbar("Usuários", "Controle de acesso da equipe");
   pageContent.classList.remove("risk-page-content");
   pageContent.classList.remove("context-page-content");
@@ -3783,7 +3897,7 @@ async function renderUsuarios() {
         <h1 class="welcome-title">Usuários</h1>
         <p class="welcome-sub">Gerencie contas, cargos e permissões de acesso ao SGQ Online.</p>
       </div>
-      <button class="btn-grad" data-user-action="new" type="button">
+      <button class="btn-grad" data-user-action="new" type="button" ${canManage ? "" : "hidden"}>
         ${moduleIcon("plus")}
         Novo usuário
       </button>
@@ -3877,7 +3991,6 @@ async function renderUsuarios() {
           <div class="permission-title">Permissões</div>
           <label><input type="checkbox" data-user-permission="modules" checked> Acessar módulos do SGQ</label>
           <label><input type="checkbox" data-user-permission="reports"> Visualizar relatórios</label>
-          <label><input type="checkbox" data-user-permission="manageUsers"> Gerenciar usuários</label>
           <p>As permissões ficam registradas no cadastro do usuário e poderão ser refinadas por módulo nas próximas etapas.</p>
         </div>
         <div class="modal-actions">
@@ -3974,7 +4087,7 @@ function defaultUserPermissions(role) {
   return {
     modules: true,
     reports: ["Administrador", "Gestor", "Qualidade"].includes(role),
-    manageUsers: role === "Administrador",
+    manageUsers: false,
   };
 }
 
@@ -4040,6 +4153,7 @@ function renderCompanyUsersTable() {
 
 function renderCompanyUserRow(user) {
   const status = userStatusMeta(user.status);
+  const showActions = canManageCompany();
   return `
     <tr class="${user.status === "Bloqueado" ? "inactive-row" : ""}">
       <td>
@@ -4052,13 +4166,13 @@ function renderCompanyUserRow(user) {
       <td><span class="role-badge ${roleClass(user.role)}">${escapeHtml(user.role)}</span></td>
       <td><span class="status-pill ${status.cls}"><span class="status-dot2"></span>${escapeHtml(status.label)}</span></td>
       <td class="last-access">${escapeHtml(user.status === "Pendente" ? "Nunca acessou" : "Cadastrado em " + formatDate(String(user.created_at || "").slice(0, 10)))}</td>
-      <td>
+      ${showActions ? `<td>
         <div class="u-actions">
           <button class="u-abtn" title="Editar" data-user-row-action="edit" data-user-id="${user.id}" type="button">${moduleIcon("edit")}</button>
           <button class="u-abtn" title="Permissões" data-user-row-action="permissions" data-user-id="${user.id}" type="button">${moduleIcon("key")}</button>
           <button class="u-abtn danger" title="Excluir" data-user-row-action="delete" data-user-id="${user.id}" type="button">${moduleIcon("trash")}</button>
         </div>
-      </td>
+      </td>` : "<td>-</td>"}
     </tr>
   `;
 }
@@ -4105,6 +4219,11 @@ function describePermissions(permissions) {
 }
 
 function openCompanyUserModal(id = null) {
+  if (!canManageCompany()) {
+    toast("Você não tem permissão para gerenciar usuários.");
+    return;
+  }
+
   const user = id ? companyUsersData.find((item) => Number(item.id) === Number(id)) : null;
   editingCompanyUserId = id;
   pageContent.querySelector("#userModalTitle").textContent = id ? "Editar usuário" : "Novo usuário";
@@ -4127,6 +4246,11 @@ function closeCompanyUserModal() {
 }
 
 async function saveCompanyUser() {
+  if (!canManageCompany()) {
+    toast("Você não tem permissão para gerenciar usuários.");
+    return;
+  }
+
   const displayName = pageContent.querySelector("#userNameField").value.trim();
   const username = pageContent.querySelector("#userLoginField").value.trim();
   const department = pageContent.querySelector("#userDepartmentField").value;
@@ -4177,6 +4301,11 @@ async function saveCompanyUser() {
 }
 
 async function deleteCompanyUser(user) {
+  if (!canManageCompany()) {
+    toast("Você não tem permissão para gerenciar usuários.");
+    return;
+  }
+
   if (Number(user.id) === Number(currentUser?.id)) {
     toast("Você não pode excluir seu próprio acesso.");
     return;
@@ -4632,12 +4761,86 @@ function clearAdminUserForm() {
   form.password.placeholder = "Obrigatória ao criar";
 }
 
+function renderMeuPerfil() {
+  setTopbar("Meu perfil", "Dados do usuário conectado");
+  pageContent.classList.remove("risk-page-content");
+  pageContent.classList.remove("context-page-content");
+  pageContent.classList.remove("leadership-page-content");
+  pageContent.innerHTML = `
+    ${viewHeader("Meu perfil", "Consulte as informações da sua conta no SGQ Online.")}
+    <section class="profile-grid">
+      <article class="qp-card profile-card">
+        <div class="profile-avatar">${escapeHtml(initials(currentUser?.name || currentUser?.username || "U"))}</div>
+        <div>
+          <h3>${escapeHtml(currentUser?.name || "Usuário")}</h3>
+          <p>${escapeHtml(currentUser?.role || "Colaborador")}</p>
+        </div>
+      </article>
+      <article class="qp-card profile-card details">
+        <div class="detail-item"><span>Login</span><strong>${escapeHtml(currentUser?.username || "-")}</strong></div>
+        <div class="detail-item"><span>Empresa</span><strong>${escapeHtml(state.company.name || "-")}</strong></div>
+        <div class="detail-item"><span>Perfil</span><strong>${escapeHtml(currentUser?.role || "-")}</strong></div>
+        <div class="detail-item"><span>Acesso</span><strong>${canManageCompany() ? "Administrador da empresa" : "Colaborador"}</strong></div>
+      </article>
+    </section>
+  `;
+}
+
+async function renderMinhasPermissoes() {
+  setTopbar("Minhas permissões", "Acessos disponíveis para sua conta");
+  pageContent.classList.remove("risk-page-content");
+  pageContent.classList.remove("context-page-content");
+  pageContent.classList.remove("leadership-page-content");
+  pageContent.innerHTML = `
+    ${viewHeader("Minhas permissões", "Veja quais áreas do SGQ Online estão liberadas para o seu usuário.")}
+    <article class="qp-card permissions-summary">
+      <div class="admin-loading">Carregando permissões...</div>
+    </article>
+  `;
+
+  let user = null;
+  try {
+    const response = await fetch("/api/company/users", {
+      headers: { Accept: "application/json" },
+      cache: "no-store",
+    });
+    if (response.ok) {
+      const payload = await response.json();
+      user = (payload.users || []).map(normalizeCompanyUser).find((item) => Number(item.id) === Number(currentUser?.id));
+    }
+  } catch (error) {
+    console.warn(error);
+  }
+
+  const permissions = user?.permissions || defaultUserPermissions(currentUser?.role || "Colaborador");
+  const rows = [
+    ["Acessar módulos do SGQ", Boolean(permissions.modules)],
+    ["Visualizar relatórios", Boolean(permissions.reports)],
+    ["Gerenciar usuários", Boolean(permissions.manageUsers && canManageCompany())],
+    ["Alterar dados da empresa", canManageCompany()],
+  ];
+
+  const box = pageContent.querySelector(".permissions-summary");
+  if (!box) return;
+  box.innerHTML = `
+    <div class="permission-list">
+      ${rows.map(([label, allowed]) => `
+        <div class="permission-row">
+          <span>${escapeHtml(label)}</span>
+          <strong class="${allowed ? "allowed" : "blocked"}">${allowed ? "Liberado" : "Bloqueado"}</strong>
+        </div>
+      `).join("")}
+    </div>
+  `;
+}
+
 function renderConfiguracoes() {
   setTopbar("Configurações", "Preferências do sistema");
+  const canEditPlan = canManageCompany();
   pageContent.innerHTML = `
-    ${viewHeader("Configurações", "Ajuste preferências iniciais do SGQ Online.")}
+    ${viewHeader(currentUser?.isAdmin ? "Configurações globais" : "Preferências", "Ajuste preferências iniciais do SGQ Online.")}
     <form class="qp-card qp-form" id="settingsForm">
-      <label><span>Plano</span><input name="companyAccess" value="${escapeHtml(state.settings.companyAccess)}" /></label>
+      ${canEditPlan ? `<label><span>Plano</span><input name="companyAccess" value="${escapeHtml(state.settings.companyAccess)}" /></label>` : ""}
       <label>
         <span>Tema do sistema</span>
         <select name="theme">
@@ -4654,7 +4857,7 @@ function renderConfiguracoes() {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
     state.settings = {
-      companyAccess: data.get("companyAccess"),
+      companyAccess: canEditPlan ? data.get("companyAccess") : state.settings.companyAccess,
       emailAlerts: data.has("emailAlerts"),
       weeklyReport: data.has("weeklyReport"),
       theme: data.get("theme") || "dark",
