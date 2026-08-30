@@ -301,6 +301,8 @@ let currentLeadershipSubTab = "acoes";
 let currentCompanyTab = "dados";
 let currentCompanyModalKey = "";
 let currentCompanyEditId = null;
+let companyUsersData = [];
+let editingCompanyUserId = null;
 
 let state = loadState();
 let riskData = null;
@@ -1117,6 +1119,8 @@ function moduleIcon(name) {
     trash: '<svg class="icon" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>',
     shield: '<svg class="icon" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>',
     key: '<svg class="icon" viewBox="0 0 24 24"><circle cx="7.5" cy="14.5" r="3.5"/><path d="M10 12l9-9"/><path d="M15 4l5 5"/><path d="M14 8l2 2"/></svg>',
+    search: '<svg class="icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>',
+    notificacoes: '<svg class="icon" viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>',
     close: '<svg class="icon" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
     "trend-up": '<svg class="trend-icon" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="8 7 17 7 17 16"/></svg>',
     "trend-down": '<svg class="trend-icon" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2"><line x1="7" y1="7" x2="17" y2="17"/><polyline points="17 8 17 17 8 17"/></svg>',
@@ -3767,26 +3771,431 @@ async function deleteCompanyRegistryRecord(key, id) {
   }
 }
 
-function renderUsuarios() {
+async function renderUsuarios() {
   setTopbar("Usuários", "Controle de acesso da equipe");
+  pageContent.classList.remove("risk-page-content");
+  pageContent.classList.remove("context-page-content");
+  pageContent.classList.remove("leadership-page-content");
   pageContent.innerHTML = `
-    ${viewHeader("Usuários", "Cadastre pessoas que terão acesso ao SGQ Online.")}
-    <form class="qp-card qp-form compact" id="userForm">
-      <label><span>Nome</span><input name="name" required /></label>
-      <label><span>E-mail</span><input name="email" type="email" required /></label>
-      <label><span>Perfil</span><select name="role"><option>Administrador</option><option>Qualidade</option><option>Consulta</option></select></label>
-      <button type="submit">Adicionar usuário</button>
-    </form>
-    ${dataTable("Usuários cadastrados", ["Nome", "E-mail", "Perfil", "Status"], state.users)}
+    <div class="page-toolbar company-toolbar">
+      <div>
+        <div class="welcome-eyebrow">MINHA EMPRESA · CONTROLE DE ACESSO</div>
+        <h1 class="welcome-title">Usuários</h1>
+        <p class="welcome-sub">Gerencie contas, cargos e permissões de acesso ao SGQ Online.</p>
+      </div>
+      <button class="btn-grad" data-user-action="new" type="button">
+        ${moduleIcon("plus")}
+        Novo usuário
+      </button>
+    </div>
+
+    <div class="kpi-row users-kpi-row" id="usersKpiRow"></div>
+
+    <section class="users-section">
+      <div class="users-section-hd">
+        <div>
+          <h2 class="section-title">Todos os usuários</h2>
+          <p class="section-sub" id="usersCountLabel">Carregando usuários...</p>
+        </div>
+        <div class="users-filters">
+          <div class="search-wrap">
+            ${moduleIcon("search")}
+            <input type="text" id="usersSearchInput" placeholder="Buscar por nome ou login...">
+          </div>
+          <select class="filter-select" id="usersStatusFilter">
+            <option value="todos">Todos os status</option>
+            <option value="Ativo">Ativos</option>
+            <option value="Bloqueado">Inativos</option>
+            <option value="Pendente">Pendentes</option>
+          </select>
+        </div>
+      </div>
+      <div class="users-table-wrap">
+        <table class="utbl">
+          <thead>
+            <tr>
+              <th>Usuário</th>
+              <th>Departamento</th>
+              <th>Papel</th>
+              <th>Status</th>
+              <th>Último acesso</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody id="usersTbody"></tbody>
+        </table>
+      </div>
+      <div class="users-empty" id="usersEmpty" hidden>Nenhum usuário encontrado para esse filtro.</div>
+    </section>
+
+    <div class="modal-overlay" id="userModalOverlay">
+      <div class="modal-box">
+        <div class="modal-hd">
+          <div>
+            <h3 id="userModalTitle">Novo usuário</h3>
+            <p>Preencha os dados de acesso do membro da equipe.</p>
+          </div>
+          <button class="modal-close" data-user-modal-close type="button">${moduleIcon("close")}</button>
+        </div>
+        <div class="field">
+          <label for="userNameField">Nome completo</label>
+          <input class="input-basic" id="userNameField" type="text" placeholder="Ex.: Marina Souza">
+        </div>
+        <div class="field">
+          <label for="userLoginField">Login / e-mail</label>
+          <input class="input-basic" id="userLoginField" type="text" placeholder="nome@empresa.com.br ou nome.sobrenome">
+        </div>
+        <div class="field field-row2">
+          <div>
+            <label for="userDepartmentField">Departamento</label>
+            <select class="input-basic" id="userDepartmentField">
+              ${userDepartmentOptions()}
+            </select>
+          </div>
+          <div>
+            <label for="userRoleField">Papel</label>
+            <select class="input-basic" id="userRoleField">
+              ${userRoleOptions()}
+            </select>
+          </div>
+        </div>
+        <div class="field field-row2">
+          <div>
+            <label for="userStatusField">Status</label>
+            <select class="input-basic" id="userStatusField">
+              <option value="Ativo">Ativo</option>
+              <option value="Bloqueado">Inativo</option>
+              <option value="Pendente">Pendente (convite enviado)</option>
+            </select>
+          </div>
+          <div>
+            <label for="userPasswordField">Senha inicial</label>
+            <input class="input-basic" id="userPasswordField" type="password" autocomplete="new-password" placeholder="Obrigatória ao criar">
+          </div>
+        </div>
+        <div class="permission-box">
+          <div class="permission-title">Permissões</div>
+          <label><input type="checkbox" data-user-permission="modules" checked> Acessar módulos do SGQ</label>
+          <label><input type="checkbox" data-user-permission="reports"> Visualizar relatórios</label>
+          <label><input type="checkbox" data-user-permission="manageUsers"> Gerenciar usuários</label>
+          <p>As permissões ficam registradas no cadastro do usuário e poderão ser refinadas por módulo nas próximas etapas.</p>
+        </div>
+        <div class="modal-actions">
+          <button class="btn-ghost" data-user-modal-close type="button">Cancelar</button>
+          <button class="btn-grad" data-user-save type="button">${moduleIcon("check-circle")} Salvar usuário</button>
+        </div>
+      </div>
+    </div>
   `;
-  document.querySelector("#userForm").addEventListener("submit", (event) => {
-    event.preventDefault();
-    const data = Object.fromEntries(new FormData(event.currentTarget).entries());
-    state.users.unshift({ ...data, status: "Ativo" });
-    saveState();
-    renderUsuarios();
-    toast("Usuário adicionado.");
+
+  bindUsersScreen();
+  await loadCompanyUsers();
+}
+
+function bindUsersScreen() {
+  pageContent.querySelector("[data-user-action='new']")?.addEventListener("click", openCompanyUserModal);
+  pageContent.querySelectorAll("[data-user-modal-close]").forEach((button) => button.addEventListener("click", closeCompanyUserModal));
+  pageContent.querySelector("[data-user-save]")?.addEventListener("click", saveCompanyUser);
+  pageContent.querySelector("#usersSearchInput")?.addEventListener("input", renderCompanyUsersTable);
+  pageContent.querySelector("#usersStatusFilter")?.addEventListener("change", renderCompanyUsersTable);
+}
+
+async function loadCompanyUsers() {
+  try {
+    const response = await fetch("/api/company/users", {
+      headers: { Accept: "application/json" },
+      cache: "no-store",
+    });
+    if (!response.ok) throw new Error("Falha ao carregar usuários.");
+    const payload = await response.json();
+    companyUsersData = (payload.users || []).map(normalizeCompanyUser);
+    syncStateUsersFromCompanyUsers();
+    renderUsersKpis();
+    renderCompanyUsersTable();
+  } catch (error) {
+    console.warn(error);
+    companyUsersData = (state.users || []).map((user, index) => normalizeCompanyUser({
+      id: index + 1,
+      displayName: user.name,
+      username: user.email,
+      role: user.role,
+      status: user.status,
+    }));
+    renderUsersKpis();
+    renderCompanyUsersTable();
+    toast("Não foi possível carregar usuários do banco.");
+  }
+}
+
+function normalizeCompanyUser(user) {
+  const role = user.role || "Colaborador";
+  return {
+    ...user,
+    displayName: user.displayName || user.name || "Usuário",
+    username: user.username || user.email || "",
+    department: user.department || departmentFromRole(role),
+    role,
+    status: normalizeUserStatus(user.status),
+    permissions: user.permissions || defaultUserPermissions(role),
+  };
+}
+
+function syncStateUsersFromCompanyUsers() {
+  state.users = companyUsersData.map((user) => ({
+    name: user.displayName,
+    email: user.username,
+    role: user.role,
+    status: user.status === "Bloqueado" ? "Inativo" : user.status,
+  }));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  saveRemoteData("state", state);
+}
+
+function userDepartmentOptions(selected = "RH / Compras") {
+  const departments = getCompanyProfile().registry.setores?.map((item) => item.nome).filter(Boolean) || [];
+  const options = departments.length ? departments : ["Diretoria", "RH / Compras", "Engenharia / Qualidade", "Comercial", "Financeiro", "Auditoria Interna", "Manutenção / TI"];
+  return [...new Set(options)].map((item) => `<option ${item === selected ? "selected" : ""}>${escapeHtml(item)}</option>`).join("");
+}
+
+function userRoleOptions(selected = "Colaborador") {
+  return ["Administrador", "Gestor", "Colaborador", "Auditor", "Consulta", "Qualidade"]
+    .map((item) => `<option value="${item}" ${item === selected ? "selected" : ""}>${item}</option>`)
+    .join("");
+}
+
+function departmentFromRole(role) {
+  if (role === "Administrador") return "Diretoria";
+  if (role === "Auditor") return "Auditoria Interna";
+  if (role === "Qualidade" || role === "Gestor") return "Engenharia / Qualidade";
+  return "RH / Compras";
+}
+
+function defaultUserPermissions(role) {
+  return {
+    modules: true,
+    reports: ["Administrador", "Gestor", "Qualidade"].includes(role),
+    manageUsers: role === "Administrador",
+  };
+}
+
+function normalizeUserStatus(status) {
+  const value = String(status || "").toLowerCase();
+  if (value.includes("pendente")) return "Pendente";
+  if (value.includes("bloque") || value.includes("inativo")) return "Bloqueado";
+  return "Ativo";
+}
+
+function renderUsersKpis() {
+  const total = companyUsersData.length;
+  const active = companyUsersData.filter((user) => user.status === "Ativo").length;
+  const admins = companyUsersData.filter((user) => user.role === "Administrador").length;
+  const pending = companyUsersData.filter((user) => user.status === "Pendente").length;
+  const kpis = [
+    { label: "Total de usuários", value: total, accent: "#2f8ff0", icon: "contexto", caption: "Contas cadastradas", muted: true },
+    { label: "Usuários ativos", value: active, accent: "#34D399", icon: "auditorias", caption: `${total ? Math.round((active / total) * 100) : 0}% da equipe` },
+    { label: "Administradores", value: admins, accent: "#46D9F5", icon: "plano", caption: "Acesso total ao sistema", muted: true },
+    { label: "Convites pendentes", value: pending, accent: "#FBBF24", icon: "notificacoes", caption: pending ? "Aguardando primeiro acesso" : "Nenhum convite em aberto", muted: true },
+  ];
+
+  const row = pageContent.querySelector("#usersKpiRow");
+  if (!row) return;
+  row.innerHTML = kpis.map((item) => `
+    <article class="kpi-card" style="--accent-line:${item.accent};">
+      <div class="kpi-top">
+        <div class="kpi-icon" style="border-color:${hexToRgba(item.accent, 0.4)}; color:${item.accent};">${moduleIcon(item.icon)}</div>
+        <div><div class="kpi-label">${escapeHtml(item.label)}</div><div class="kpi-value big">${item.value}</div></div>
+      </div>
+      <div class="kpi-caption ${item.muted ? "muted" : ""}">${escapeHtml(item.caption)}</div>
+    </article>
+  `).join("");
+}
+
+function renderCompanyUsersTable() {
+  const search = pageContent.querySelector("#usersSearchInput")?.value.trim().toLowerCase() || "";
+  const statusFilter = pageContent.querySelector("#usersStatusFilter")?.value || "todos";
+  const filtered = companyUsersData.filter((user) => {
+    const matchesSearch = !search || user.displayName.toLowerCase().includes(search) || user.username.toLowerCase().includes(search);
+    const matchesStatus = statusFilter === "todos" || user.status === statusFilter;
+    return matchesSearch && matchesStatus;
   });
+
+  const count = pageContent.querySelector("#usersCountLabel");
+  if (count) count.textContent = `${companyUsersData.length} ${companyUsersData.length === 1 ? "usuário cadastrado" : "usuários cadastrados"}`;
+
+  const tbody = pageContent.querySelector("#usersTbody");
+  const empty = pageContent.querySelector("#usersEmpty");
+  if (!tbody || !empty) return;
+  if (!filtered.length) {
+    tbody.innerHTML = "";
+    empty.hidden = false;
+    return;
+  }
+
+  empty.hidden = true;
+  tbody.innerHTML = filtered.map((user) => renderCompanyUserRow(user)).join("");
+  pageContent.querySelectorAll("[data-user-row-action]").forEach((button) => {
+    button.addEventListener("click", () => handleCompanyUserAction(button));
+  });
+}
+
+function renderCompanyUserRow(user) {
+  const status = userStatusMeta(user.status);
+  return `
+    <tr class="${user.status === "Bloqueado" ? "inactive-row" : ""}">
+      <td>
+        <div class="u-cell">
+          <div class="u-avatar" style="background:${avatarColor(user.id)};">${escapeHtml(initials(user.displayName))}</div>
+          <div><div class="u-name">${escapeHtml(user.displayName)}</div><div class="u-email">${escapeHtml(user.username)}</div></div>
+        </div>
+      </td>
+      <td>${escapeHtml(user.department)}</td>
+      <td><span class="role-badge ${roleClass(user.role)}">${escapeHtml(user.role)}</span></td>
+      <td><span class="status-pill ${status.cls}"><span class="status-dot2"></span>${escapeHtml(status.label)}</span></td>
+      <td class="last-access">${escapeHtml(user.status === "Pendente" ? "Nunca acessou" : "Cadastrado em " + formatDate(String(user.created_at || "").slice(0, 10)))}</td>
+      <td>
+        <div class="u-actions">
+          <button class="u-abtn" title="Editar" data-user-row-action="edit" data-user-id="${user.id}" type="button">${moduleIcon("edit")}</button>
+          <button class="u-abtn" title="Permissões" data-user-row-action="permissions" data-user-id="${user.id}" type="button">${moduleIcon("key")}</button>
+          <button class="u-abtn danger" title="Excluir" data-user-row-action="delete" data-user-id="${user.id}" type="button">${moduleIcon("trash")}</button>
+        </div>
+      </td>
+    </tr>
+  `;
+}
+
+function avatarColor(id) {
+  const colors = ["#4fa3ff", "#46D9F5", "#F2B705", "#34D399", "#FBBF24", "#F87171", "#A78BFA"];
+  return colors[Number(id || 0) % colors.length];
+}
+
+function roleClass(role) {
+  const normalized = String(role || "").toLowerCase();
+  if (normalized.includes("admin")) return "role-admin";
+  if (normalized.includes("gestor") || normalized.includes("qualidade")) return "role-gestor";
+  if (normalized.includes("auditor")) return "role-auditor";
+  return "role-colab";
+}
+
+function userStatusMeta(status) {
+  if (status === "Ativo") return { cls: "st-active", label: "Ativo" };
+  if (status === "Pendente") return { cls: "st-pending", label: "Pendente" };
+  return { cls: "st-inactive", label: "Inativo" };
+}
+
+function handleCompanyUserAction(button) {
+  const user = companyUsersData.find((item) => Number(item.id) === Number(button.dataset.userId));
+  if (!user) return;
+  if (button.dataset.userRowAction === "edit") {
+    openCompanyUserModal(user.id);
+    return;
+  }
+  if (button.dataset.userRowAction === "permissions") {
+    toast(`Permissões de ${user.displayName}: ${describePermissions(user.permissions)}.`);
+    return;
+  }
+  deleteCompanyUser(user);
+}
+
+function describePermissions(permissions) {
+  const labels = [];
+  if (permissions?.modules) labels.push("módulos");
+  if (permissions?.reports) labels.push("relatórios");
+  if (permissions?.manageUsers) labels.push("usuários");
+  return labels.length ? labels.join(", ") : "sem permissões adicionais";
+}
+
+function openCompanyUserModal(id = null) {
+  const user = id ? companyUsersData.find((item) => Number(item.id) === Number(id)) : null;
+  editingCompanyUserId = id;
+  pageContent.querySelector("#userModalTitle").textContent = id ? "Editar usuário" : "Novo usuário";
+  pageContent.querySelector("#userNameField").value = user?.displayName || "";
+  pageContent.querySelector("#userLoginField").value = user?.username || "";
+  pageContent.querySelector("#userDepartmentField").innerHTML = userDepartmentOptions(user?.department);
+  pageContent.querySelector("#userRoleField").innerHTML = userRoleOptions(user?.role);
+  pageContent.querySelector("#userStatusField").value = user?.status || "Pendente";
+  pageContent.querySelector("#userPasswordField").value = "";
+  pageContent.querySelector("#userPasswordField").placeholder = id ? "Preencha para redefinir" : "Obrigatória ao criar";
+  pageContent.querySelectorAll("[data-user-permission]").forEach((checkbox) => {
+    checkbox.checked = Boolean((user?.permissions || defaultUserPermissions(user?.role || "Colaborador"))[checkbox.dataset.userPermission]);
+  });
+  pageContent.querySelector("#userModalOverlay").classList.add("show");
+}
+
+function closeCompanyUserModal() {
+  pageContent.querySelector("#userModalOverlay")?.classList.remove("show");
+  editingCompanyUserId = null;
+}
+
+async function saveCompanyUser() {
+  const displayName = pageContent.querySelector("#userNameField").value.trim();
+  const username = pageContent.querySelector("#userLoginField").value.trim();
+  const department = pageContent.querySelector("#userDepartmentField").value;
+  const role = pageContent.querySelector("#userRoleField").value;
+  const status = pageContent.querySelector("#userStatusField").value;
+  const password = pageContent.querySelector("#userPasswordField").value;
+  const permissions = Object.fromEntries([...pageContent.querySelectorAll("[data-user-permission]")].map((checkbox) => [checkbox.dataset.userPermission, checkbox.checked]));
+
+  if (!displayName || !username) {
+    toast("Preencha nome e login para continuar.");
+    return;
+  }
+  if (!editingCompanyUserId && !password) {
+    toast("Informe uma senha inicial para criar o usuário.");
+    return;
+  }
+
+  const method = editingCompanyUserId ? "PATCH" : "POST";
+  const body = {
+    userId: editingCompanyUserId,
+    username,
+    displayName,
+    department,
+    role,
+    status,
+    password,
+    permissions,
+  };
+
+  const response = await fetch("/api/company/users", {
+    method,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    const messages = {
+      400: "Verifique os dados do usuário.",
+      409: "Já existe um usuário com esse login.",
+    };
+    toast(messages[response.status] || "Não foi possível salvar o usuário.");
+    return;
+  }
+
+  closeCompanyUserModal();
+  toast(editingCompanyUserId ? "Usuário atualizado." : "Usuário cadastrado.");
+  await loadCompanyUsers();
+}
+
+async function deleteCompanyUser(user) {
+  if (Number(user.id) === Number(currentUser?.id)) {
+    toast("Você não pode excluir seu próprio acesso.");
+    return;
+  }
+  if (!window.confirm(`Remover o acesso de "${user.displayName}"? Essa ação não pode ser desfeita.`)) return;
+
+  const response = await fetch("/api/company/users", {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId: user.id }),
+  });
+
+  if (!response.ok) {
+    toast("Não foi possível excluir o usuário.");
+    return;
+  }
+
+  toast("Usuário excluído.");
+  await loadCompanyUsers();
 }
 
 function renderNotificacoes() {

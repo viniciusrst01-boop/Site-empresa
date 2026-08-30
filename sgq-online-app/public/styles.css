@@ -1042,6 +1042,15 @@ body.theme-light .qp-toast {
   box-shadow: 0 0 6px rgba(251,191,36,0.7);
 }
 
+.st-inactive {
+  color: var(--accent-red);
+}
+
+.st-inactive .status-dot2 {
+  background: var(--accent-red);
+  box-shadow: 0 0 6px rgba(248,113,113,0.65);
+}
+
 .mymod-desc {
   margin: 0;
   color: var(--text-secondary);
@@ -1708,6 +1717,257 @@ table.rtbl {
   font-size: 13px;
   padding: 34px 22px;
   text-align: center;
+}
+
+.users-section {
+  position: relative;
+  z-index: 1;
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  background: var(--bg-panel);
+}
+
+.users-section-hd {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--border-subtle);
+  padding: 20px 22px;
+}
+
+.users-filters {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.search-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 260px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: rgba(255,255,255,0.02);
+  color: var(--text-muted);
+  padding: 0 12px;
+}
+
+.search-wrap .icon {
+  width: 16px;
+  height: 16px;
+}
+
+.search-wrap input,
+.filter-select {
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--text-primary);
+  color-scheme: dark;
+  font: inherit;
+  font-size: 13px;
+}
+
+.search-wrap input {
+  width: 100%;
+  padding: 11px 0;
+}
+
+.search-wrap input::placeholder {
+  color: var(--text-muted);
+}
+
+.filter-select {
+  min-height: 40px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: rgba(255,255,255,0.02);
+  padding: 0 12px;
+}
+
+.users-table-wrap {
+  overflow-x: auto;
+}
+
+table.utbl {
+  width: 100%;
+  min-width: 1080px;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.utbl thead th {
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  padding: 12px 18px;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.utbl tbody td {
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  font-size: 12.5px;
+  padding: 13px 18px;
+  vertical-align: middle;
+}
+
+.utbl tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.utbl tbody tr:hover {
+  background: rgba(255,255,255,0.02);
+}
+
+.utbl tr.inactive-row {
+  opacity: 0.72;
+}
+
+.u-cell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.u-avatar {
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  color: #03101c;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.u-name {
+  color: var(--text-primary);
+  font-size: 13.5px;
+  font-weight: 800;
+}
+
+.u-email,
+.last-access {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.role-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 23px;
+  border: 1px solid rgba(148,163,184,0.28);
+  border-radius: 7px;
+  color: var(--text-secondary);
+  font-size: 11.5px;
+  font-weight: 900;
+  padding: 2px 10px;
+}
+
+.role-admin,
+.role-gestor {
+  border-color: rgba(167,139,250,0.5);
+  color: var(--accent-purple);
+}
+
+.role-auditor {
+  border-color: rgba(70,217,245,0.42);
+  color: var(--accent-cyan);
+}
+
+.role-colab {
+  border-color: rgba(79,163,255,0.42);
+  color: var(--accent-blue-bright);
+}
+
+.u-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  white-space: nowrap;
+}
+
+.u-abtn {
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.u-abtn .icon {
+  width: 15px;
+  height: 15px;
+}
+
+.u-abtn:hover {
+  background: rgba(255,255,255,0.06);
+  color: var(--accent-blue-bright);
+}
+
+.u-abtn.danger:hover {
+  background: rgba(248,113,113,0.1);
+  color: var(--accent-red);
+}
+
+.users-empty {
+  color: var(--text-secondary);
+  font-size: 13px;
+  padding: 34px 22px;
+  text-align: center;
+}
+
+.permission-box {
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  background: rgba(255,255,255,0.02);
+  display: grid;
+  gap: 9px;
+  padding: 14px;
+}
+
+.permission-title {
+  color: var(--text-primary);
+  font-size: 12.5px;
+  font-weight: 900;
+  margin-bottom: 2px;
+}
+
+.permission-box label {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--text-primary);
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.permission-box input {
+  accent-color: var(--accent-cyan);
+}
+
+.permission-box p {
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 3px 0 0;
 }
 
 .subfilter-row {

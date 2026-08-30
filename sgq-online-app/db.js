@@ -144,6 +144,7 @@ function mapUser(row) {
     displayName: row.display_name,
     role: row.role,
     status: row.status,
+    created_at: row.created_at,
   };
 }
 
@@ -225,7 +226,10 @@ function normalizeText(value) {
 
 function normalizeStatus(value, fallback = "Ativo") {
   const status = normalizeText(value) || fallback;
-  return status === "Bloqueado" ? "Bloqueado" : "Ativo";
+  const lowered = status.toLowerCase();
+  if (["bloqueado", "inativo"].includes(lowered)) return "Bloqueado";
+  if (["pendente", "pendente (convite enviado)"].includes(lowered)) return "Pendente";
+  return "Ativo";
 }
 
 async function syncConfiguredUsers(logins) {
@@ -572,6 +576,99 @@ async function updateAdminUser(userId, values) {
   return getUser(userId);
 }
 
+async function listCompanyUsers(companyId) {
+  await ensureInitialized();
+
+  if (usePostgres) {
+    const result = await getPool().query(
+      `
+        SELECT *
+        FROM users
+        WHERE company_id = $1
+        ORDER BY created_at ASC, id ASC
+      `,
+      [Number(companyId)],
+    );
+    return result.rows.map(mapUser);
+  }
+
+  return getStore().users
+    .filter((user) => user.company_id === Number(companyId))
+    .sort((a, b) => a.id - b.id)
+    .map(mapUser);
+}
+
+async function updateCompanyUser(companyId, userId, values) {
+  await ensureInitialized();
+
+  const user = {
+    username: normalizeText(values.username),
+    displayName: normalizeText(values.displayName),
+    role: normalizeText(values.role) || "Colaborador",
+    status: normalizeStatus(values.status, "Pendente"),
+  };
+
+  if (!user.username || !user.displayName) return null;
+
+  if (usePostgres) {
+    const result = await getPool().query(
+      `
+        UPDATE users
+        SET username = $3, display_name = $4, role = $5, status = $6
+        WHERE id = $1 AND company_id = $2
+        RETURNING *
+      `,
+      [Number(userId), Number(companyId), user.username, user.displayName, user.role, user.status],
+    );
+    return mapUser(result.rows[0]);
+  }
+
+  const database = getStore();
+  const existing = database.users.find(
+    (item) => item.id === Number(userId) && item.company_id === Number(companyId),
+  );
+  if (!existing) return null;
+
+  const duplicate = database.users.some(
+    (item) =>
+      item.id !== Number(userId) && item.username.toLowerCase() === user.username.toLowerCase(),
+  );
+  if (duplicate) {
+    const error = new Error("user_exists");
+    error.code = "23505";
+    throw error;
+  }
+
+  existing.username = user.username;
+  existing.display_name = user.displayName;
+  existing.role = user.role;
+  existing.status = user.status;
+  saveStore();
+  return getUser(userId);
+}
+
+async function deleteCompanyUser(companyId, userId) {
+  await ensureInitialized();
+
+  if (usePostgres) {
+    const result = await getPool().query(
+      "DELETE FROM users WHERE id = $1 AND company_id = $2 RETURNING *",
+      [Number(userId), Number(companyId)],
+    );
+    return mapUser(result.rows[0]);
+  }
+
+  const database = getStore();
+  const index = database.users.findIndex(
+    (item) => item.id === Number(userId) && item.company_id === Number(companyId),
+  );
+  if (index < 0) return null;
+
+  const [deleted] = database.users.splice(index, 1);
+  saveStore();
+  return mapUser(deleted);
+}
+
 async function listAdminOverview() {
   await ensureInitialized();
 
@@ -755,6 +852,7 @@ async function setCompanyData(companyId, key, value) {
 module.exports = {
   createCompany,
   createUser,
+  deleteCompanyUser,
   ensureDefaultCompany,
   ensureCompany,
   ensureInitialized,
@@ -762,12 +860,14 @@ module.exports = {
   getCompany,
   getCompanyData,
   getUser,
+  listCompanyUsers,
   listAdminOverview,
   resetUserPassword,
   setCompanyData,
   syncConfiguredUsers,
   updateAdminCompany,
   updateAdminUser,
+  updateCompanyUser,
   updateCompany,
   updateUserProfile,
 };

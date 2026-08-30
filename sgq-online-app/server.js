@@ -6,16 +6,19 @@ const querystring = require("querystring");
 const {
   createCompany,
   createUser,
+  deleteCompanyUser,
   ensureInitialized,
   findUser,
   getCompany,
   getCompanyData,
+  listCompanyUsers,
   listAdminOverview,
   resetUserPassword,
   setCompanyData,
   syncConfiguredUsers,
   updateAdminCompany,
   updateAdminUser,
+  updateCompanyUser,
   updateCompany,
   updateUserProfile,
 } = require("./db");
@@ -179,6 +182,31 @@ function redirect(res, location) {
 
 function isUniqueError(error) {
   return error?.code === "23505";
+}
+
+async function listUsersWithCompanySettings(companyId) {
+  const users = await listCompanyUsers(companyId);
+  const settings = (await getCompanyData(companyId, "userSettings")) || {};
+  return users.map((user) => ({
+    ...user,
+    ...(settings[user.id] || {}),
+  }));
+}
+
+async function saveCompanyUserSettings(companyId, userId, values) {
+  const settings = (await getCompanyData(companyId, "userSettings")) || {};
+  settings[userId] = {
+    ...(settings[userId] || {}),
+    department: values.department || "",
+    permissions: values.permissions || {},
+  };
+  await setCompanyData(companyId, "userSettings", settings);
+}
+
+async function removeCompanyUserSettings(companyId, userId) {
+  const settings = (await getCompanyData(companyId, "userSettings")) || {};
+  delete settings[userId];
+  await setCompanyData(companyId, "userSettings", settings);
 }
 
 function serveFile(res, filePath) {
@@ -456,6 +484,108 @@ async function handleApiRequest(req, res, url, session) {
     await setCompanyData(companyId, "state", nextState);
 
     sendJson(res, 200, { ok: true, company, state: nextState });
+    return;
+  }
+
+  if (url.pathname === "/api/company/users" && req.method === "GET") {
+    const users = await listUsersWithCompanySettings(companyId);
+    sendJson(res, 200, { users });
+    return;
+  }
+
+  if (url.pathname === "/api/company/users" && req.method === "POST") {
+    const body = await readJsonBody(req);
+    if (!body?.username || !body?.displayName || !body?.password) {
+      sendJson(res, 400, { error: "invalid_user" });
+      return;
+    }
+
+    try {
+      const user = await createUser({
+        companyId,
+        username: body.username,
+        displayName: body.displayName,
+        role: body.role || "Colaborador",
+        status: body.status || "Pendente",
+        password: body.password,
+      });
+      if (!user) {
+        sendJson(res, 400, { error: "invalid_user" });
+        return;
+      }
+      await saveCompanyUserSettings(companyId, user.id, body);
+      sendJson(res, 201, {
+        ok: true,
+        user: {
+          ...user,
+          department: body.department || "",
+          permissions: body.permissions || {},
+        },
+      });
+    } catch (error) {
+      sendJson(res, isUniqueError(error) ? 409 : 500, {
+        error: isUniqueError(error) ? "user_exists" : "user_create_failed",
+      });
+    }
+    return;
+  }
+
+  if (url.pathname === "/api/company/users" && req.method === "PATCH") {
+    const body = await readJsonBody(req);
+    const targetUserId = Number(body?.userId);
+    if (!targetUserId || !body?.username || !body?.displayName) {
+      sendJson(res, 400, { error: "invalid_user" });
+      return;
+    }
+
+    if (targetUserId === Number(session.userId) && body.status === "Bloqueado") {
+      sendJson(res, 400, { error: "cannot_block_self" });
+      return;
+    }
+
+    try {
+      const user = await updateCompanyUser(companyId, targetUserId, body);
+      if (!user) {
+        sendJson(res, 404, { error: "user_not_found" });
+        return;
+      }
+      if (body.password) await resetUserPassword(targetUserId, body.password);
+      await saveCompanyUserSettings(companyId, user.id, body);
+      sendJson(res, 200, {
+        ok: true,
+        user: {
+          ...user,
+          department: body.department || "",
+          permissions: body.permissions || {},
+        },
+      });
+    } catch (error) {
+      sendJson(res, isUniqueError(error) ? 409 : 500, {
+        error: isUniqueError(error) ? "user_exists" : "user_update_failed",
+      });
+    }
+    return;
+  }
+
+  if (url.pathname === "/api/company/users" && req.method === "DELETE") {
+    const body = await readJsonBody(req);
+    const targetUserId = Number(body?.userId);
+    if (!targetUserId) {
+      sendJson(res, 400, { error: "invalid_user" });
+      return;
+    }
+    if (targetUserId === Number(session.userId)) {
+      sendJson(res, 400, { error: "cannot_delete_self" });
+      return;
+    }
+
+    const user = await deleteCompanyUser(companyId, targetUserId);
+    if (!user) {
+      sendJson(res, 404, { error: "user_not_found" });
+      return;
+    }
+    await removeCompanyUserSettings(companyId, targetUserId);
+    sendJson(res, 200, { ok: true, user });
     return;
   }
 
