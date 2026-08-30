@@ -48,7 +48,21 @@ const modules = [
 const seedState = {
   company: {
     name: "QualityPro Solutions LTDA",
+    tradeName: "QualityPro Solutions",
     cnpj: "00.000.000/0001-00",
+    segment: "Consultoria em Gestão da Qualidade",
+    size: "pequena",
+    cep: "",
+    cityUf: "",
+    address: "",
+    district: "",
+    phone: "",
+    email: "",
+    site: "",
+    legalResponsibleName: "Hugo Melo",
+    legalResponsibleRole: "Diretor Geral",
+    logo: "",
+    registry: null,
     scope: "Consultoria, implantação e suporte em Sistemas de Gestão da Qualidade.",
     certification: "ISO 9001:2015",
   },
@@ -284,6 +298,9 @@ const leadershipTabs = {
 let leadershipData = null;
 let currentLeadershipMainTab = "lideranca";
 let currentLeadershipSubTab = "acoes";
+let currentCompanyTab = "dados";
+let currentCompanyModalKey = "";
+let currentCompanyEditId = null;
 
 let state = loadState();
 let riskData = null;
@@ -518,8 +535,22 @@ function renderOnboarding() {
           <input name="companyName" value="${escapeHtml(state.company.name)}" autocomplete="organization" required />
         </label>
         <label>
+          <span>Nome fantasia</span>
+          <input name="companyTradeName" value="${escapeHtml(state.company.tradeName || "")}" placeholder="Ex.: QualityPro Solutions" />
+        </label>
+        <label>
           <span>CNPJ</span>
           <input name="companyCnpj" value="${escapeHtml(state.company.cnpj)}" inputmode="numeric" placeholder="00.000.000/0001-00" />
+        </label>
+        <label>
+          <span>Setor / segmento</span>
+          <input name="companySegment" value="${escapeHtml(state.company.segment || "")}" placeholder="Ex.: Consultoria em Gestão da Qualidade" />
+        </label>
+        <label>
+          <span>Porte da empresa</span>
+          <select name="companySize">
+            ${companySizeOptions(state.company.size)}
+          </select>
         </label>
         <label>
           <span>Certificação</span>
@@ -528,6 +559,22 @@ function renderOnboarding() {
         <label>
           <span>Plano</span>
           <input name="companyPlan" value="${escapeHtml(state.settings.companyAccess)}" placeholder="Ex.: Plano Profissional" />
+        </label>
+        <label>
+          <span>E-mail corporativo</span>
+          <input name="companyEmail" type="email" value="${escapeHtml(state.company.email || "")}" placeholder="contato@empresa.com.br" />
+        </label>
+        <label>
+          <span>Telefone</span>
+          <input name="companyPhone" value="${escapeHtml(state.company.phone || "")}" placeholder="(00) 0000-0000" />
+        </label>
+        <label>
+          <span>Responsável legal</span>
+          <input name="companyResponsibleName" value="${escapeHtml(state.company.legalResponsibleName || currentUser?.name || "")}" placeholder="Ex.: Hugo Melo" />
+        </label>
+        <label>
+          <span>Cargo do responsável</span>
+          <input name="companyResponsibleRole" value="${escapeHtml(state.company.legalResponsibleRole || "")}" placeholder="Ex.: Diretor Geral" />
         </label>
         <label class="full">
           <span>Escopo do SGQ</span>
@@ -553,9 +600,16 @@ async function saveOnboarding(event) {
   };
   const company = {
     name: data.get("companyName"),
+    tradeName: data.get("companyTradeName"),
     cnpj: data.get("companyCnpj"),
+    segment: data.get("companySegment"),
+    size: data.get("companySize"),
     certification: data.get("companyCertification"),
     plan: data.get("companyPlan"),
+    email: data.get("companyEmail"),
+    phone: data.get("companyPhone"),
+    legalResponsibleName: data.get("companyResponsibleName"),
+    legalResponsibleRole: data.get("companyResponsibleRole"),
     scope: data.get("companyScope"),
   };
 
@@ -567,9 +621,17 @@ async function saveOnboarding(event) {
   state.company = {
     ...state.company,
     name: company.name,
+    tradeName: company.tradeName,
     cnpj: company.cnpj,
+    segment: company.segment,
+    size: company.size,
     certification: company.certification,
+    email: company.email,
+    phone: company.phone,
+    legalResponsibleName: company.legalResponsibleName,
+    legalResponsibleRole: company.legalResponsibleRole,
     scope: company.scope,
+    registry: normalizeCompanyRegistry(state.company.registry),
   };
   state.settings = {
     ...state.settings,
@@ -3144,53 +3206,565 @@ function renderOperationalTable(moduleId) {
   `;
 }
 
+const companyFieldMap = {
+  fRazaoSocial: "name",
+  fNomeFantasia: "tradeName",
+  fCnpj: "cnpj",
+  fSegmento: "segment",
+  fPorte: "size",
+  fCep: "cep",
+  fCidadeUf: "cityUf",
+  fEndereco: "address",
+  fBairro: "district",
+  fTelefone: "phone",
+  fEmail: "email",
+  fSite: "site",
+  fRespNome: "legalResponsibleName",
+  fRespCargo: "legalResponsibleRole",
+};
+
+const companyTabMeta = {
+  dados: {
+    title: "Dados da empresa",
+    sub: "Essas informações aparecem no cabeçalho de documentos, relatórios e certificados emitidos pelo sistema.",
+  },
+  direcao: {
+    title: "Alta Direção",
+    sub: "Cadastro dos membros da alta direção e suas responsabilidades no SGQ.",
+    newLabel: "Novo membro",
+  },
+  setores: {
+    title: "Setores",
+    sub: "Estrutura organizacional da empresa, por setor e responsável.",
+    newLabel: "Novo setor",
+  },
+  fornecedores: {
+    title: "Fornecedores Homologados",
+    sub: "Fornecedores avaliados e aprovados para o fornecimento de produtos e serviços.",
+    newLabel: "Novo fornecedor",
+  },
+  clientes: {
+    title: "Clientes",
+    sub: "Principais clientes atendidos pela empresa.",
+    newLabel: "Novo cliente",
+  },
+};
+
+const companyRegistrySeeds = {
+  direcao: [
+    { id: 1, nome: "Hugo Melo", cargo: "Diretor Geral / Executivo", email: "hugo.melo@qualitypro.com.br", telefone: "(11) 98888-0001", responsabilidades: "Liderança executiva do SGQ, definição da política e dos objetivos da qualidade e condução da análise crítica pela direção." },
+    { id: 2, nome: "Carlos Andrade", cargo: "Gestor da Qualidade", email: "carlos.andrade@qualitypro.com.br", telefone: "(11) 98888-0002", responsabilidades: "Coordenação do sistema de gestão da qualidade, auditorias internas e tratamento de não conformidades." },
+  ],
+  setores: [
+    { id: 1, nome: "Diretoria", responsavel: "Hugo Melo", colaboradores: 1, descricao: "Direção executiva e estratégica da empresa." },
+    { id: 2, nome: "RH / Compras", responsavel: "Marina Souza", colaboradores: 1, descricao: "Gestão de pessoas, recrutamento e compras administrativas." },
+    { id: 3, nome: "Engenharia / Qualidade", responsavel: "Carlos Andrade", colaboradores: 1, descricao: "Controle de processos, garantia da qualidade e melhoria contínua." },
+    { id: 4, nome: "Comercial", responsavel: "Beatriz Santos", colaboradores: 1, descricao: "Relacionamento com clientes, propostas e contratos comerciais." },
+    { id: 5, nome: "Financeiro", responsavel: "Rafael Costa", colaboradores: 1, descricao: "Controle financeiro, contas a pagar e a receber." },
+    { id: 6, nome: "Auditoria Interna", responsavel: "João Pereira", colaboradores: 1, descricao: "Planejamento e execução das auditorias internas do SGQ." },
+    { id: 7, nome: "Manutenção / TI", responsavel: "Eduardo Lima", colaboradores: 1, descricao: "Suporte técnico, infraestrutura e manutenção predial." },
+  ],
+  fornecedores: [
+    { id: 1, nome: "Metalúrgica Rio Verde LTDA", cnpj: "", categoria: "Matéria-prima", contato: "contato@rioverde.com.br" },
+    { id: 2, nome: "Calibra Serviços Técnicos", cnpj: "", categoria: "Calibração de equipamentos", contato: "atendimento@calibra.com.br" },
+    { id: 3, nome: "LogExpress Transportes", cnpj: "", categoria: "Logística e transporte", contato: "comercial@logexpress.com.br" },
+  ],
+  clientes: [
+    { id: 1, nome: "Indústrias Alfa S.A.", cnpj: "", segmento: "Indústria automotiva", contato: "qualidade@alfa.com.br" },
+    { id: 2, nome: "Grupo Bemol Engenharia", cnpj: "", segmento: "Engenharia civil", contato: "contato@bemol.com.br" },
+    { id: 3, nome: "Nortec Componentes", cnpj: "", segmento: "Componentes eletrônicos", contato: "compras@nortec.com.br" },
+  ],
+};
+
+const companyRegistryModules = {
+  direcao: {
+    label: "membro da alta direção",
+    countNoun: ["membro cadastrado", "membros cadastrados"],
+    columns: [
+      { label: "Nome", field: "nome" },
+      { label: "Cargo / Função", field: "cargo" },
+      { label: "E-mail", field: "email", muted: true },
+      { label: "Telefone", field: "telefone", muted: true },
+    ],
+    fields: [
+      [{ id: "nome", label: "Nome completo", type: "text", placeholder: "Ex.: Hugo Melo", required: true }],
+      [{ id: "cargo", label: "Cargo / Função", type: "text", placeholder: "Ex.: Diretor Geral", required: true }, { id: "email", label: "E-mail", type: "email", placeholder: "nome@empresa.com.br" }],
+      [{ id: "telefone", label: "Telefone", type: "text", placeholder: "(00) 00000-0000" }],
+      [{ id: "responsabilidades", label: "Principais responsabilidades", type: "textarea", placeholder: "Ex.: Definição da política e dos objetivos da qualidade..." }],
+    ],
+  },
+  setores: {
+    label: "setor",
+    countNoun: ["setor cadastrado", "setores cadastrados"],
+    columns: [
+      { label: "Setor", field: "nome" },
+      { label: "Responsável", field: "responsavel" },
+      { label: "Colab.", field: "colaboradores", mono: true },
+      { label: "Descrição", field: "descricao", muted: true },
+    ],
+    fields: [
+      [{ id: "nome", label: "Nome do setor", type: "text", placeholder: "Ex.: Engenharia / Qualidade", required: true }],
+      [{ id: "responsavel", label: "Responsável pelo setor", type: "text", placeholder: "Ex.: Carlos Andrade" }, { id: "colaboradores", label: "Nº de colaboradores", type: "number", placeholder: "Ex.: 4" }],
+      [{ id: "descricao", label: "Descrição das atividades", type: "textarea", placeholder: "Ex.: Responsável pelo controle de qualidade dos processos e produtos." }],
+    ],
+  },
+  fornecedores: {
+    label: "fornecedor",
+    countNoun: ["fornecedor cadastrado", "fornecedores cadastrados"],
+    columns: [
+      { label: "Fornecedor", field: "nome" },
+      { label: "CNPJ", field: "cnpj", muted: true, mono: true },
+      { label: "Categoria", field: "categoria", muted: true },
+      { label: "Contato", field: "contato", muted: true },
+    ],
+    fields: [
+      [{ id: "nome", label: "Nome / Razão social", type: "text", placeholder: "Ex.: Metalúrgica Rio Verde LTDA", required: true }],
+      [{ id: "cnpj", label: "CNPJ", type: "text", placeholder: "00.000.000/0000-00" }, { id: "categoria", label: "Categoria de fornecimento", type: "text", placeholder: "Ex.: Matéria-prima" }],
+      [{ id: "contato", label: "Contato", type: "text", placeholder: "E-mail ou telefone" }],
+    ],
+  },
+  clientes: {
+    label: "cliente",
+    countNoun: ["cliente cadastrado", "clientes cadastrados"],
+    columns: [
+      { label: "Cliente", field: "nome" },
+      { label: "CNPJ", field: "cnpj", muted: true, mono: true },
+      { label: "Segmento", field: "segmento", muted: true },
+      { label: "Contato", field: "contato", muted: true },
+    ],
+    fields: [
+      [{ id: "nome", label: "Nome / Razão social", type: "text", placeholder: "Ex.: Indústrias Alfa S.A.", required: true }],
+      [{ id: "cnpj", label: "CNPJ", type: "text", placeholder: "00.000.000/0000-00" }, { id: "segmento", label: "Segmento", type: "text", placeholder: "Ex.: Indústria automotiva" }],
+      [{ id: "contato", label: "Contato", type: "text", placeholder: "E-mail ou telefone" }],
+    ],
+  },
+};
+
+function normalizeCompanyRegistry(registry) {
+  const source = registry && typeof registry === "object" ? registry : {};
+  return Object.fromEntries(Object.keys(companyRegistryModules).map((key) => [key, Array.isArray(source[key]) ? source[key] : structuredClone(companyRegistrySeeds[key])]));
+}
+
+function getCompanyProfile() {
+  state.company.registry = normalizeCompanyRegistry(state.company.registry);
+  return state.company;
+}
+
+function companyFormValue(fieldId) {
+  const value = getCompanyProfile()[companyFieldMap[fieldId]];
+  return value == null ? "" : String(value);
+}
+
+async function persistCompanyProfile(message = "Dados da empresa salvos.") {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  const response = await fetch("/api/company", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      ...state.company,
+      plan: state.settings.companyAccess,
+    }),
+  });
+
+  if (!response.ok) throw new Error("Falha ao salvar empresa.");
+  const payload = await response.json();
+  if (payload.state?.company) state.company = { ...state.company, ...payload.state.company };
+  if (payload.state?.settings?.companyAccess) state.settings.companyAccess = payload.state.settings.companyAccess;
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  if (message) toast(message);
+}
+
 function renderEmpresa() {
   setTopbar("Empresa", "Dados principais da organização");
+  pageContent.classList.remove("risk-page-content");
+  pageContent.classList.remove("context-page-content");
+  pageContent.classList.remove("leadership-page-content");
   pageContent.innerHTML = `
-    ${viewHeader("Dados da empresa", "Atualize as informações que aparecem nos módulos do SGQ.")}
-    <form class="qp-card qp-form" id="companyForm">
-      <label><span>Razão social</span><input name="name" value="${escapeHtml(state.company.name)}" /></label>
-      <label><span>CNPJ</span><input name="cnpj" value="${escapeHtml(state.company.cnpj)}" /></label>
-      <label><span>Certificação</span><input name="certification" value="${escapeHtml(state.company.certification)}" /></label>
-      <label class="full"><span>Escopo do SGQ</span><textarea name="scope" rows="4">${escapeHtml(state.company.scope)}</textarea></label>
-      <button type="submit">Salvar empresa</button>
+    <div class="page-toolbar company-toolbar">
+      <div>
+        <div class="welcome-eyebrow">MINHA EMPRESA</div>
+        <h1 class="welcome-title" id="companyTabTitle">${escapeHtml(companyTabMeta[currentCompanyTab].title)}</h1>
+        <p class="welcome-sub" id="companyTabSub">${escapeHtml(companyTabMeta[currentCompanyTab].sub)}</p>
+      </div>
+      <button type="button" class="btn-grad" id="companyNewBtn" data-company-new="${escapeHtml(currentCompanyTab)}">
+        ${moduleIcon("plus")}
+        <span>${escapeHtml(companyTabMeta[currentCompanyTab].newLabel || "Novo")}</span>
+      </button>
+    </div>
+
+    <div class="emp-tabbar" role="tablist">
+      ${Object.entries(companyTabMeta).map(([key, item]) => `
+        <button type="button" class="emp-tab-btn ${currentCompanyTab === key ? "active" : ""}" data-company-tab="${key}">
+          ${moduleIcon(key === "dados" ? "documentos" : key === "direcao" ? "lideranca" : key === "setores" ? "modulos" : key === "fornecedores" ? "plano" : "contexto")}
+          ${escapeHtml(item.title)}
+        </button>
+      `).join("")}
+    </div>
+
+    <section class="emp-section" id="companyPanel"></section>
+
+    <div class="modal-overlay" id="companyModalOverlay">
+      <div class="modal-box">
+        <div class="modal-hd">
+          <div>
+            <h3 id="companyModalTitle">Novo registro</h3>
+            <p id="companyModalSub">Preencha as informações abaixo.</p>
+          </div>
+          <button class="modal-close" data-company-modal-close type="button">${moduleIcon("close")}</button>
+        </div>
+        <div id="companyModalFields"></div>
+        <div class="modal-actions">
+          <button class="btn-ghost" data-company-modal-close type="button">Cancelar</button>
+          <button class="btn-grad" data-company-save-record type="button">${moduleIcon("check-circle")} Salvar</button>
+        </div>
+      </div>
+    </div>
+  `;
+  bindCompanyScreen();
+  renderCompanyTab();
+}
+
+function bindCompanyScreen() {
+  pageContent.querySelectorAll("[data-company-tab]").forEach((button) => {
+    button.addEventListener("click", () => {
+      currentCompanyTab = button.dataset.companyTab;
+      renderEmpresa();
+    });
+  });
+
+  pageContent.querySelector("#companyNewBtn")?.addEventListener("click", () => {
+    if (currentCompanyTab !== "dados") openCompanyRegistryModal(currentCompanyTab);
+  });
+
+  pageContent.querySelector("[data-company-modal-close]")?.addEventListener("click", closeCompanyRegistryModal);
+  pageContent.querySelectorAll("[data-company-modal-close]").forEach((button) => button.addEventListener("click", closeCompanyRegistryModal));
+  pageContent.querySelector("[data-company-save-record]")?.addEventListener("click", saveCompanyRegistryRecord);
+}
+
+function renderCompanyTab() {
+  const newButton = pageContent.querySelector("#companyNewBtn");
+  if (newButton) {
+    newButton.style.display = currentCompanyTab === "dados" ? "none" : "inline-flex";
+    newButton.querySelector("span").textContent = companyTabMeta[currentCompanyTab].newLabel || "Novo";
+  }
+
+  const panel = pageContent.querySelector("#companyPanel");
+  if (!panel) return;
+
+  if (currentCompanyTab === "dados") {
+    panel.innerHTML = renderCompanyForm();
+    bindCompanyForm();
+    renderCompanyLogo();
+    return;
+  }
+
+  panel.innerHTML = renderCompanyRegistryTable(currentCompanyTab);
+  bindCompanyTableActions();
+}
+
+function renderCompanyForm() {
+  return `
+    <form class="empresa-form-card" id="companyForm">
+      <div class="ef-logo-row">
+        <div class="ef-logo-preview" id="logoPreview"></div>
+        <div class="ef-logo-info">
+          <div class="ef-logo-title">Logo da empresa</div>
+          <div class="ef-logo-desc">PNG ou JPG, fundo transparente recomendado. Máx. 3MB.</div>
+          <div class="ef-logo-actions">
+            <label class="btn-ghost company-logo-btn">
+              Enviar logo
+              <input type="file" id="logoInput" accept="image/png,image/jpeg" hidden>
+            </label>
+            <button type="button" class="btn-ghost" id="logoRemoveBtn">Remover</button>
+          </div>
+        </div>
+      </div>
+
+      ${companyFormSection("Dados gerais", `
+        ${companyField("fRazaoSocial", "Razão social", "Ex.: QualityPro Solutions LTDA")}
+        <div class="field field-row2">
+          ${companyField("fNomeFantasia", "Nome fantasia", "Ex.: QualityPro Solutions", true)}
+          ${companyField("fCnpj", "CNPJ", "00.000.000/0000-00", true)}
+        </div>
+        <div class="field field-row2">
+          ${companyField("fSegmento", "Setor / Segmento de atuação", "Ex.: Consultoria em Gestão da Qualidade", true)}
+          <div>
+            <label for="fPorte">Porte da empresa</label>
+            <select class="input-basic" id="fPorte" data-company-field="fPorte">
+              ${companySizeOptions(companyFormValue("fPorte"))}
+            </select>
+          </div>
+        </div>
+      `)}
+
+      ${companyFormSection("Endereço", `
+        <div class="field field-row2">
+          ${companyField("fCep", "CEP", "00000-000", true)}
+          ${companyField("fCidadeUf", "Cidade / UF", "Ex.: São Paulo / SP", true)}
+        </div>
+        ${companyField("fEndereco", "Logradouro e número", "Ex.: Av. Paulista, 1000 - Sala 12")}
+        ${companyField("fBairro", "Bairro", "Ex.: Bela Vista")}
+      `)}
+
+      ${companyFormSection("Contato", `
+        <div class="field field-row2">
+          ${companyField("fTelefone", "Telefone", "(00) 0000-0000", true)}
+          ${companyField("fEmail", "E-mail corporativo", "contato@empresa.com.br", true, "email")}
+        </div>
+        ${companyField("fSite", "Site", "https://www.empresa.com.br")}
+      `)}
+
+      ${companyFormSection("Responsável legal", `
+        <div class="field field-row2">
+          ${companyField("fRespNome", "Nome do responsável", "Ex.: Hugo Melo", true)}
+          ${companyField("fRespCargo", "Cargo", "Ex.: Diretor Geral", true)}
+        </div>
+      `, true)}
+
+      <div class="ef-actions">
+        <span class="ef-save-status" id="companySaveStatus"></span>
+        <button type="submit" class="btn-grad">${moduleIcon("check-circle")} Salvar alterações</button>
+      </div>
     </form>
   `;
-  document.querySelector("#companyForm").addEventListener("submit", async (event) => {
+}
+
+function companyFormSection(title, content, last = false) {
+  return `<div class="ef-section ${last ? "last" : ""}"><div class="ef-section-title">${title}</div>${content}</div>`;
+}
+
+function companyField(id, label, placeholder, nested = false, type = "text") {
+  const input = `<input class="input-basic" id="${id}" data-company-field="${id}" type="${type}" placeholder="${escapeHtml(placeholder)}" value="${escapeHtml(companyFormValue(id))}">`;
+  const html = `<label for="${id}">${escapeHtml(label)}</label>${input}`;
+  return nested ? `<div>${html}</div>` : `<div class="field">${html}</div>`;
+}
+
+function companySizeOptions(current) {
+  const options = [
+    ["mei", "MEI"],
+    ["micro", "Microempresa"],
+    ["pequena", "Pequena empresa"],
+    ["media", "Média empresa"],
+    ["grande", "Grande empresa"],
+  ];
+  return options.map(([value, label]) => `<option value="${value}" ${String(current || "pequena") === value ? "selected" : ""}>${label}</option>`).join("");
+}
+
+function bindCompanyForm() {
+  pageContent.querySelector("#companyForm")?.addEventListener("submit", async (event) => {
     event.preventDefault();
-    const data = new FormData(event.currentTarget);
-    const company = {
-      ...Object.fromEntries(data.entries()),
-      plan: state.settings.companyAccess,
-    };
-
-    const response = await fetch("/api/company", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(company),
-    });
-
-    if (!response.ok) {
-      toast("Não foi possível salvar os dados da empresa.");
+    const name = pageContent.querySelector("#fRazaoSocial")?.value.trim();
+    const cnpj = pageContent.querySelector("#fCnpj")?.value.trim();
+    if (!name) {
+      toast("Informe a razão social da empresa.");
+      pageContent.querySelector("#fRazaoSocial")?.focus();
+      return;
+    }
+    if (!cnpj) {
+      toast("Informe o CNPJ da empresa.");
+      pageContent.querySelector("#fCnpj")?.focus();
       return;
     }
 
-    const payload = await response.json();
-    if (payload.company) {
-      state.company = {
-        ...state.company,
-        name: payload.company.name || "",
-        cnpj: payload.company.cnpj || "",
-        certification: payload.company.certification || "",
-        scope: payload.company.scope || "",
-      };
-      state.settings.companyAccess = payload.company.plan || state.settings.companyAccess;
-    } else {
-      state.company = company;
+    pageContent.querySelectorAll("[data-company-field]").forEach((field) => {
+      state.company[companyFieldMap[field.dataset.companyField]] = field.value;
+    });
+
+    try {
+      await persistCompanyProfile("");
+      const status = pageContent.querySelector("#companySaveStatus");
+      if (status) {
+        status.textContent = "Dados salvos com sucesso.";
+        status.classList.add("show");
+        window.setTimeout(() => status.classList.remove("show"), 3000);
+      }
+      toast("Dados da empresa salvos.");
+    } catch {
+      toast("Não foi possível salvar os dados da empresa.");
     }
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    toast("Dados da empresa salvos.");
   });
+
+  pageContent.querySelector("#logoInput")?.addEventListener("change", handleCompanyLogoChange);
+  pageContent.querySelector("#logoRemoveBtn")?.addEventListener("click", async () => {
+    state.company.logo = "";
+    renderCompanyLogo();
+    pageContent.querySelector("#logoInput").value = "";
+    try {
+      await persistCompanyProfile("Logo removida.");
+    } catch {
+      toast("Não foi possível remover a logo.");
+    }
+  });
+}
+
+function renderCompanyLogo() {
+  const preview = pageContent.querySelector("#logoPreview");
+  const removeBtn = pageContent.querySelector("#logoRemoveBtn");
+  if (!preview || !removeBtn) return;
+  if (state.company.logo) {
+    preview.innerHTML = `<img src="${escapeHtml(state.company.logo)}" alt="Logo da empresa">`;
+    removeBtn.style.display = "inline-flex";
+  } else {
+    preview.innerHTML = moduleIcon("documentos");
+    removeBtn.style.display = "none";
+  }
+}
+
+function handleCompanyLogoChange(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  if (file.size > 3 * 1024 * 1024) {
+    toast("A imagem excede o limite de 3MB.");
+    event.target.value = "";
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.addEventListener("load", async () => {
+    state.company.logo = reader.result;
+    renderCompanyLogo();
+    try {
+      await persistCompanyProfile("Logo salva.");
+    } catch {
+      toast("Não foi possível salvar a logo.");
+    }
+  });
+  reader.readAsDataURL(file);
+}
+
+function renderCompanyRegistryTable(key) {
+  const mod = companyRegistryModules[key];
+  const records = getCompanyProfile().registry[key] || [];
+  return `
+    <div class="reg-section">
+      <div class="reg-section-hd">
+        <div>
+          <h2>${escapeHtml(companyTabMeta[key].title)}</h2>
+          <p>${records.length} ${escapeHtml(records.length === 1 ? mod.countNoun[0] : mod.countNoun[1])}</p>
+        </div>
+      </div>
+      <div class="company-table-wrap">
+        <table class="rtbl">
+          <thead>
+            <tr>${mod.columns.map((column) => `<th>${escapeHtml(column.label)}</th>`).join("")}<th>Ações</th></tr>
+          </thead>
+          <tbody>
+            ${records.map((record) => renderCompanyRegistryRow(key, record)).join("")}
+          </tbody>
+        </table>
+      </div>
+      ${records.length ? "" : `<div class="reg-empty">Nenhum ${escapeHtml(mod.label)} cadastrado ainda.</div>`}
+    </div>
+  `;
+}
+
+function renderCompanyRegistryRow(key, record) {
+  const mod = companyRegistryModules[key];
+  const cells = mod.columns.map((column) => {
+    const value = record[column.field] || "-";
+    const classes = [column.muted ? "muted-cell" : "", column.mono ? "mono" : ""].filter(Boolean).join(" ");
+    return `<td class="${classes}">${escapeHtml(value)}</td>`;
+  }).join("");
+  return `
+    <tr>
+      ${cells}
+      <td>
+        <div class="r-actions">
+          <button class="r-abtn" title="Editar" data-company-action="edit" data-company-key="${key}" data-company-id="${record.id}" type="button">${moduleIcon("edit")}</button>
+          <button class="r-abtn danger" title="Excluir" data-company-action="delete" data-company-key="${key}" data-company-id="${record.id}" type="button">${moduleIcon("trash")}</button>
+        </div>
+      </td>
+    </tr>
+  `;
+}
+
+function bindCompanyTableActions() {
+  pageContent.querySelectorAll("[data-company-action]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const key = button.dataset.companyKey;
+      const id = Number(button.dataset.companyId);
+      if (button.dataset.companyAction === "edit") openCompanyRegistryModal(key, id);
+      if (button.dataset.companyAction === "delete") deleteCompanyRegistryRecord(key, id);
+    });
+  });
+}
+
+function renderCompanyModalField(field, record) {
+  const value = record?.[field.id] || "";
+  const control = field.type === "textarea"
+    ? `<textarea class="input-basic" id="companyModal_${field.id}" placeholder="${escapeHtml(field.placeholder || "")}">${escapeHtml(value)}</textarea>`
+    : `<input class="input-basic" id="companyModal_${field.id}" type="${field.type || "text"}" placeholder="${escapeHtml(field.placeholder || "")}" value="${escapeHtml(value)}">`;
+  return `<label for="companyModal_${field.id}">${escapeHtml(field.label)}</label>${control}`;
+}
+
+function openCompanyRegistryModal(key, id = null) {
+  const mod = companyRegistryModules[key];
+  const record = id ? getCompanyProfile().registry[key].find((item) => Number(item.id) === Number(id)) : null;
+  currentCompanyModalKey = key;
+  currentCompanyEditId = id;
+
+  pageContent.querySelector("#companyModalTitle").textContent = `${id ? "Editar" : "Novo"} ${mod.label}`;
+  pageContent.querySelector("#companyModalSub").textContent = id ? "Atualize as informações do registro." : "Preencha as informações do novo registro.";
+  pageContent.querySelector("#companyModalFields").innerHTML = mod.fields.map((row) => {
+    if (row.length === 1) return `<div class="field">${renderCompanyModalField(row[0], record)}</div>`;
+    return `<div class="field field-row2">${row.map((field) => `<div>${renderCompanyModalField(field, record)}</div>`).join("")}</div>`;
+  }).join("");
+  pageContent.querySelector("#companyModalOverlay").classList.add("show");
+}
+
+function closeCompanyRegistryModal() {
+  pageContent.querySelector("#companyModalOverlay")?.classList.remove("show");
+  currentCompanyModalKey = "";
+  currentCompanyEditId = null;
+}
+
+async function saveCompanyRegistryRecord() {
+  const mod = companyRegistryModules[currentCompanyModalKey];
+  if (!mod) return;
+  const fields = mod.fields.flat();
+
+  for (const field of fields) {
+    const element = pageContent.querySelector(`#companyModal_${field.id}`);
+    if (field.required && !element.value.trim()) {
+      toast(`Preencha o campo "${field.label}".`);
+      element.focus();
+      return;
+    }
+  }
+
+  const data = Object.fromEntries(fields.map((field) => [field.id, pageContent.querySelector(`#companyModal_${field.id}`).value]));
+  const registry = getCompanyProfile().registry;
+  if (currentCompanyEditId) {
+    registry[currentCompanyModalKey] = registry[currentCompanyModalKey].map((item) => (
+      Number(item.id) === Number(currentCompanyEditId) ? { ...item, ...data } : item
+    ));
+  } else {
+    const nextId = registry[currentCompanyModalKey].reduce((max, item) => Math.max(max, Number(item.id) || 0), 0) + 1;
+    registry[currentCompanyModalKey].push({ id: nextId, ...data });
+  }
+
+  try {
+    await persistCompanyProfile("Registro salvo.");
+    closeCompanyRegistryModal();
+    renderCompanyTab();
+  } catch {
+    toast("Não foi possível salvar o registro.");
+  }
+}
+
+async function deleteCompanyRegistryRecord(key, id) {
+  const registry = getCompanyProfile().registry;
+  const record = registry[key].find((item) => Number(item.id) === Number(id));
+  if (!record) return;
+  if (!window.confirm(`Remover "${record.nome || "este registro"}"? Essa ação não pode ser desfeita.`)) return;
+
+  registry[key] = registry[key].filter((item) => Number(item.id) !== Number(id));
+  try {
+    await persistCompanyProfile("Registro excluído.");
+    renderCompanyTab();
+  } catch {
+    toast("Não foi possível excluir o registro.");
+  }
 }
 
 function renderUsuarios() {

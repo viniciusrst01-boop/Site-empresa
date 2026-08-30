@@ -436,10 +436,13 @@ async function handleApiRequest(req, res, url, session) {
     }
 
     const savedState = (await getCompanyData(companyId, "state")) || {};
+    const companyExtras = { ...body };
+    delete companyExtras.plan;
     const nextState = {
       ...savedState,
       company: {
         ...(savedState.company || {}),
+        ...companyExtras,
         name: company.name,
         cnpj: company.cnpj,
         scope: company.scope,
