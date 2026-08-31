@@ -454,6 +454,7 @@ function applyUserProfile() {
   if (avatar) avatar.textContent = initials;
   if (userName) userName.textContent = name;
   if (userRole) userRole.textContent = role;
+  document.body.classList.toggle("readonly-company-user", !canManageCompany());
   updateAdminNav();
   renderUserMenu();
 }
@@ -1456,7 +1457,7 @@ function leadershipCard(title, subtitle, buttonLabel, action, table) {
     <section class="dcc">
       <div class="dcc-hd">
         <div><div class="dcc-title">${escapeHtml(title)}</div><div class="dcc-sub">${escapeHtml(subtitle)}</div></div>
-        ${buttonLabel ? `<button class="btn-grad" data-lc-action="${action}" type="button">${moduleIcon("plus")}${escapeHtml(buttonLabel)}</button>` : ""}
+        ${buttonLabel && canManageCompany() ? `<button class="btn-grad" data-lc-action="${action}" type="button">${moduleIcon("plus")}${escapeHtml(buttonLabel)}</button>` : ""}
       </div>
       <div class="risk-table-wrap">${table}</div>
     </section>`;
@@ -1488,15 +1489,16 @@ function leadershipActionTypeChip(type) {
 
 function leadershipPositionHtml() {
   const item = leadershipGet("posicionamento");
+  const readonly = canManageCompany() ? "" : " readonly";
   return `
     <section class="doc-card">
       <div class="dcc-hd plain-head">
         <div><div class="dcc-title">Posicionamento Estratégico</div><div class="dcc-sub">Missão, visão e valores da organização · 5.1</div></div>
-        <button class="btn-grad" data-lc-action="save-position" type="button">${moduleIcon("check-circle")}Salvar alterações</button>
+        ${canManageCompany() ? `<button class="btn-grad" data-lc-action="save-position" type="button">${moduleIcon("check-circle")}Salvar alterações</button>` : ""}
       </div>
-      <div class="field"><label>Missão</label><textarea class="input-basic" id="lcPosMissao">${escapeHtml(item.missao)}</textarea></div>
-      <div class="field"><label>Visão</label><textarea class="input-basic" id="lcPosVisao">${escapeHtml(item.visao)}</textarea></div>
-      <div class="field"><label>Valores, um por linha</label><textarea class="input-basic" id="lcPosValores">${escapeHtml((item.valores || []).join("\n"))}</textarea></div>
+      <div class="field"><label>Missão</label><textarea class="input-basic" id="lcPosMissao"${readonly}>${escapeHtml(item.missao)}</textarea></div>
+      <div class="field"><label>Visão</label><textarea class="input-basic" id="lcPosVisao"${readonly}>${escapeHtml(item.visao)}</textarea></div>
+      <div class="field"><label>Valores, um por linha</label><textarea class="input-basic" id="lcPosValores"${readonly}>${escapeHtml((item.valores || []).join("\n"))}</textarea></div>
       <div class="valores-chips">${(item.valores || []).map((value) => chip(value, "mchip-gold")).join("")}</div>
     </section>`;
 }
@@ -1520,7 +1522,7 @@ function leadershipPolicyHtml() {
     <section class="doc-card">
       <div class="dcc-hd plain-head">
         <div><div class="dcc-title">Política da Qualidade</div><div class="dcc-sub">Compromisso da Alta Direção com o SGQ · 5.2</div></div>
-        <button class="btn-grad" data-lc-action="edit-politica" type="button">${moduleIcon("edit")}Editar</button>
+        ${canManageCompany() ? `<button class="btn-grad" data-lc-action="edit-politica" type="button">${moduleIcon("edit")}Editar</button>` : ""}
       </div>
       <div class="doc-meta-row">
         <div class="doc-pill approved">Status: <strong>${escapeHtml(item.status)}</strong></div>
@@ -1624,6 +1626,12 @@ function leadershipRoleIndicatorsHtml() {
 }
 
 function leadershipActions(type, id, canView = false) {
+  if (!canManageCompany()) {
+    return canView
+      ? `<div class="row-actions"><button class="abtn" data-lc-action="view-${type}" data-id="${id}" type="button" title="Ver detalhes">${moduleIcon("eye")}</button></div>`
+      : "-";
+  }
+
   return `
     <div class="row-actions">
       ${canView ? `<button class="abtn" data-lc-action="view-${type}" data-id="${id}" type="button" title="Ver detalhes">${moduleIcon("eye")}</button>` : ""}
@@ -1644,6 +1652,10 @@ function percent(value, total) {
 function handleLeadershipAction(action, id) {
   if (action === "close-modal") {
     closeLeadershipModal();
+    return;
+  }
+  if (!canManageCompany() && !action.startsWith("view-") && action !== "switch-tab") {
+    toast("Você tem acesso somente para visualizar.");
     return;
   }
   if (action === "save-record") {
@@ -1959,7 +1971,8 @@ function chip(text, cls) {
 
 function statusClass(status) {
   const normalized = String(status || "").toLowerCase();
-  if (normalized.includes("inativo")) return "s-late";
+  if (normalized.includes("inativo") || normalized.includes("não realizada") || normalized.includes("nao realizada")) return "s-late";
+  if (normalized.includes("programada")) return "s-prog";
   if (normalized.includes("conclu") || normalized.includes("atingid") || normalized.includes("tratado") || normalized.includes("ativo")) return "s-done";
   if (normalized.includes("tratamento") || normalized.includes("execu") || normalized.includes("andamento") || normalized.includes("planejamento") || normalized.includes("atrasado")) return "s-prog";
   if (normalized.includes("monitorando") || normalized.includes("explorando")) return "s-info";
@@ -2029,7 +2042,7 @@ function riskItemsHtml() {
     <section class="dcc">
       <div class="dcc-hd">
         <div><div class="dcc-title">Riscos e Oportunidades</div><div class="dcc-sub">Nível = probabilidade x impacto · cláusula 6.1</div></div>
-        <button class="btn-grad" data-risk-action="new-risk" type="button">${moduleIcon("plus")}Novo item</button>
+        ${canManageCompany() ? `<button class="btn-grad" data-risk-action="new-risk" type="button">${moduleIcon("plus")}Novo item</button>` : ""}
       </div>
       <div class="subfilter-row">
         <button class="subfilter-pill ${riskFilter === "todos" ? "active" : ""}" data-risk-filter="todos" type="button">Todos</button>
@@ -2066,7 +2079,7 @@ function renderContextModule() {
         <h1 class="welcome-title">Contexto da Organização</h1>
         <p class="welcome-sub">Compreensão da organização, das partes interessadas, do escopo do SGQ e do mapeamento de processos.</p>
       </div>
-      <div class="toolbar-actions">
+      <div class="toolbar-actions" ${canManageCompany() ? "" : "hidden"}>
         <button class="btn-ghost" data-context-action="undo-clear-context" type="button">Desfazer</button>
         <button class="btn-ghost danger-text" data-context-action="clear-context" type="button">Limpar módulo</button>
       </div>
@@ -2244,7 +2257,7 @@ function contextSwotHtml() {
     <section class="dcc">
       <div class="dcc-hd">
         <div><div class="dcc-title">SWOT - Forças, Fraquezas, Oportunidades e Ameaças</div><div class="dcc-sub">Análise estratégica do contexto interno e externo · cláusula 4.1</div></div>
-        <button class="btn-grad" data-context-action="new-swot" type="button">${moduleIcon("plus")}Novo item</button>
+        ${canManageCompany() ? `<button class="btn-grad" data-context-action="new-swot" type="button">${moduleIcon("plus")}Novo item</button>` : ""}
       </div>
       <div class="risk-table-wrap">
         <table class="ctxtbl">
@@ -2271,7 +2284,7 @@ function contextPartesHtml() {
     <section class="dcc">
       <div class="dcc-hd">
         <div><div class="dcc-title">Partes Interessadas</div><div class="dcc-sub">Necessidades, expectativas e forma de monitoramento · cláusula 4.2</div></div>
-        <button class="btn-grad" data-context-action="new-parte" type="button">${moduleIcon("plus")}Nova parte interessada</button>
+        ${canManageCompany() ? `<button class="btn-grad" data-context-action="new-parte" type="button">${moduleIcon("plus")}Nova parte interessada</button>` : ""}
       </div>
       <div class="risk-table-wrap">
         <table class="ctxtbl">
@@ -2285,6 +2298,8 @@ function contextPartesHtml() {
 
 function contextEscopoHtml() {
   const data = contextGet("escopo");
+  const readonly = canManageCompany() ? "" : " readonly";
+  const disabled = canManageCompany() ? "" : " disabled";
   const escopoFilled = hasEscopoData(data);
   const statusText = !escopoFilled
     ? "Sem escopo cadastrado"
@@ -2311,18 +2326,18 @@ function contextEscopoHtml() {
         ${fields.map(([key, label]) => `
           <div class="escopo-card ${key === "servicos" || key === "justificativas" ? "full" : ""}">
             <h4>${escapeHtml(label)}</h4>
-            <textarea id="ctxEscopo-${key}">${escapeHtml(data[key] || "")}</textarea>
+            <textarea id="ctxEscopo-${key}"${readonly}>${escapeHtml(data[key] || "")}</textarea>
           </div>`).join("")}
         <div class="escopo-card full">
           <h4>Aprovação pela Alta Direção</h4>
           <div class="field-row3">
-            <div class="field"><label>Status de aprovação</label><select class="input-basic" id="ctxEscopo-statusAprovacao">${["Pendente", "Aprovado", "Reprovado"].map((status) => `<option value="${status}" ${data.statusAprovacao === status ? "selected" : ""}>${status}</option>`).join("")}</select></div>
-            <div class="field"><label>Aprovador</label><input class="input-basic" id="ctxEscopo-aprovador" type="text" value="${escapeHtml(data.aprovador || "")}"></div>
-            <div class="field"><label>Data de aprovação</label><input class="input-basic" id="ctxEscopo-dataAprovacao" type="date" value="${escapeHtml(data.dataAprovacao || "")}"></div>
+            <div class="field"><label>Status de aprovação</label><select class="input-basic" id="ctxEscopo-statusAprovacao"${disabled}>${["Pendente", "Aprovado", "Reprovado"].map((status) => `<option value="${status}" ${data.statusAprovacao === status ? "selected" : ""}>${status}</option>`).join("")}</select></div>
+            <div class="field"><label>Aprovador</label><input class="input-basic" id="ctxEscopo-aprovador" type="text" value="${escapeHtml(data.aprovador || "")}"${readonly}></div>
+            <div class="field"><label>Data de aprovação</label><input class="input-basic" id="ctxEscopo-dataAprovacao" type="date" value="${escapeHtml(data.dataAprovacao || "")}"${readonly}></div>
           </div>
         </div>
       </div>
-      <div class="escopo-save-row">
+      <div class="escopo-save-row" ${canManageCompany() ? "" : "hidden"}>
         <div class="escopo-saved-msg" id="ctxEscopoSavedMsg">Alterações salvas</div>
         <button class="btn-ghost danger-text" data-context-action="clear-escopo" type="button">Limpar escopo</button>
         <button class="btn-primary" data-context-action="save-escopo" type="button">Salvar alterações</button>
@@ -2350,7 +2365,7 @@ function contextProcessosHtml() {
       </div>
       <div class="dcc-hd">
         <div><div class="dcc-title">Mapa de Processos</div><div class="dcc-sub">Processos estratégicos, operacionais e de suporte · cláusula 4.4</div></div>
-        <button class="btn-grad" data-context-action="new-processo" type="button">${moduleIcon("plus")}Novo processo</button>
+        ${canManageCompany() ? `<button class="btn-grad" data-context-action="new-processo" type="button">${moduleIcon("plus")}Novo processo</button>` : ""}
       </div>
       <div class="risk-table-wrap">
         <table class="ctxtbl">
@@ -2384,6 +2399,12 @@ function contextProcessBadge(rows, category, label, description) {
 }
 
 function contextRowActions(type, id, canView) {
+  if (!canManageCompany()) {
+    return canView
+      ? `<div class="row-actions"><button class="abtn" data-context-action="view-${type}" data-id="${id}" type="button" title="Ver detalhes">${moduleIcon("eye")}</button></div>`
+      : "-";
+  }
+
   return `
     <div class="row-actions">
       ${canView ? `<button class="abtn" data-context-action="view-${type}" data-id="${id}" type="button" title="Ver detalhes">${moduleIcon("eye")}</button>` : ""}
@@ -2510,6 +2531,11 @@ function bindContextOverlayClose() {
 }
 
 function handleContextAction(action, id) {
+  if (!canManageCompany() && !action.startsWith("view-")) {
+    toast("Você tem acesso somente para visualizar.");
+    return;
+  }
+
   const actions = {
     "new-swot": () => openContextSwot(),
     "edit-swot": () => openContextSwot(id),
@@ -2802,7 +2828,7 @@ function riskGoalsHtml() {
     <section class="dcc">
       <div class="dcc-hd">
         <div><div class="dcc-title">Objetivos da Qualidade e Planejamento para Alcançá-los</div><div class="dcc-sub">Metas, resultados e planejamento · cláusula 6.2</div></div>
-        <button class="btn-grad" data-risk-action="new-goal" type="button">${moduleIcon("plus")}Novo objetivo</button>
+        ${canManageCompany() ? `<button class="btn-grad" data-risk-action="new-goal" type="button">${moduleIcon("plus")}Novo objetivo</button>` : ""}
       </div>
       <div class="risk-table-wrap">
         <table class="ctxtbl">
@@ -2839,7 +2865,7 @@ function riskChangesHtml() {
     <section class="dcc">
       <div class="dcc-hd">
         <div><div class="dcc-title">Registro de Mudanças</div><div class="dcc-sub">Planejamento e controle de mudanças no SGQ · cláusula 6.3</div></div>
-        <button class="btn-grad" data-risk-action="new-change" type="button">${moduleIcon("plus")}Nova mudança</button>
+        ${canManageCompany() ? `<button class="btn-grad" data-risk-action="new-change" type="button">${moduleIcon("plus")}Nova mudança</button>` : ""}
       </div>
       <div class="risk-table-wrap">
         <table class="ctxtbl">
@@ -2862,6 +2888,12 @@ function personCell(name, role = "") {
 }
 
 function rowActions(type, id, canView) {
+  if (!canManageCompany()) {
+    return canView
+      ? `<div class="row-actions"><button class="abtn" data-risk-action="view-${type}" data-id="${id}" type="button" title="Ver detalhes">${moduleIcon("eye")}</button></div>`
+      : "-";
+  }
+
   return `
     <div class="row-actions">
       ${canView ? `<button class="abtn" data-risk-action="view-${type}" data-id="${id}" type="button" title="Ver detalhes">${moduleIcon("eye")}</button>` : ""}
@@ -3046,6 +3078,11 @@ function bindRiskOverlayClose() {
 }
 
 function handleRiskAction(action, id) {
+  if (!canManageCompany() && !action.startsWith("view-")) {
+    toast("Você tem acesso somente para visualizar.");
+    return;
+  }
+
   const actions = {
     "new-risk": openRiskItem,
     "save-risk": saveRiskItem,

@@ -792,6 +792,11 @@ async function handleApiRequest(req, res, url, session) {
   }
 
   if (url.pathname === "/api/data" && req.method === "POST") {
+    if (!(await isCompanyOwnerSession(session))) {
+      sendJson(res, 403, { error: "forbidden" });
+      return;
+    }
+
     const body = await readJsonBody(req);
     if (!body || typeof body.key !== "string") {
       sendJson(res, 400, { error: "invalid_payload" });
