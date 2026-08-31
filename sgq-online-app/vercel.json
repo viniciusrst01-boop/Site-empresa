@@ -10,6 +10,16 @@
       "use": "@vercel/static"
     }
   ],
+  "crons": [
+    {
+      "path": "/api/cron/notifications",
+      "schedule": "0 12 * * *"
+    },
+    {
+      "path": "/api/cron/backups",
+      "schedule": "0 3 * * *"
+    }
+  ],
   "routes": [
     {
       "src": "/assets/(.*)",

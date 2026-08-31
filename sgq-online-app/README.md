@@ -74,6 +74,11 @@ Ao iniciar com `DATABASE_URL`, o app cria automaticamente as tabelas:
 - `users`: acessos de cada empresa;
 - `company_data`: dados dos módulos separados por empresa.
 - `audit_logs`: acessos, falhas de login, backups, exportações e ações administrativas.
+- `invitation_tokens`: convites de uso único para o primeiro acesso;
+- `user_sessions`: dispositivos conectados e revogação individual de sessões.
+- `billing_events`: eventos de assinatura, pagamento e faturas recebidos do Stripe;
+- `backup_snapshots`: catálogo, integridade e resultado dos testes de restauração;
+- `system_events`: falhas operacionais do navegador, API, banco, cobrança e backup.
 
 As migrações também adicionam situação financeira e limite de acessos às empresas, além de último acesso e versão de sessão aos usuários. Ao bloquear um usuário ou resetar sua senha, sessões já abertas são invalidadas.
 
@@ -86,10 +91,45 @@ Para enviar o link automaticamente quando o login for um e-mail, configure:
 ```ini
 PUBLIC_APP_URL=https://sgq-online-app.vercel.app
 RESEND_API_KEY=re_...
-PASSWORD_RESET_FROM=QualityPro Cloud <acesso@seudominio.com.br>
+EMAIL_FROM=QualityPro Cloud <acesso@seudominio.com.br>
 ```
 
 Sem essas variáveis, a solicitação continua registrada em **Gerenciamento > Atividade e segurança**, onde o administrador pode usar a ação de reset já disponível para o usuário.
+
+## Convites e primeiro acesso
+
+Novos usuários são criados com status `Pendente` e recebem um convite de uso único, válido por 48 horas. O próprio usuário define sua senha na página de aceite e só então a conta fica ativa. Administradores da empresa e o administrador global podem reenviar o convite, invalidando o link anterior.
+
+O login de novos usuários precisa ser um e-mail válido. O envio usa as mesmas variáveis `RESEND_API_KEY` e `EMAIL_FROM` da recuperação de senha.
+
+## Alertas automáticos
+
+O projeto agenda uma verificação diária às 12h UTC pela Vercel. Empresas com **Alertas por e-mail** habilitados recebem um resumo de pendências vencidas ou com prazo nos próximos sete dias.
+
+Configure uma chave aleatória na Vercel:
+
+```ini
+CRON_SECRET=uma-chave-aleatoria-longa
+```
+
+O endpoint `/api/cron/notifications` aceita somente chamadas autenticadas com essa chave e registra cada execução no histórico de segurança.
+
+## Assinaturas e cobrança
+
+A tela **Configurações** permite iniciar o período de teste, escolher ou trocar o plano e abrir o portal de cobrança. O Stripe atualiza automaticamente plano, vencimento, limite de acessos e situação financeira por webhook. Empresas inadimplentes ou canceladas têm o acesso bloqueado até a regularização; o administrador global permanece com acesso para suporte.
+
+Configure no Stripe três preços recorrentes e cadastre as variáveis:
+
+```ini
+STRIPE_SECRET_KEY=sk_live_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+STRIPE_PRICE_ESSENTIAL=price_...
+STRIPE_PRICE_PROFESSIONAL=price_...
+STRIPE_PRICE_PREMIUM=price_...
+STRIPE_TRIAL_DAYS=14
+```
+
+O webhook deve apontar para `https://seu-app/api/billing/webhook` e receber eventos de checkout, assinatura e fatura. O histórico aparece no painel administrativo e na área de cobrança da empresa.
 
 ## Permissões por módulo
 
@@ -113,13 +153,32 @@ A tela **Relatórios** gera arquivos diretamente a partir dos dados salvos no ba
 
 O administrador global também pode baixar um backup geral ou o backup individual de uma empresa pela tela **Gerenciamento**.
 
+## Backup automático e monitoramento
+
+Além das exportações manuais, a Vercel executa diariamente `/api/cron/backups`. Cada cópia de recuperação contém todas as empresas e usuários, é compactada, criptografada com AES-256-GCM e armazenada de forma privada no Vercel Blob. O sistema confere o checksum e executa um teste de restauração sem substituir o banco ativo. Cópias anteriores ao período de retenção são removidas automaticamente.
+
+```ini
+BLOB_READ_WRITE_TOKEN=vercel_blob_...
+BACKUP_ENCRYPTION_KEY=uma-chave-longa-exclusiva-para-backup
+BACKUP_RETENTION_DAYS=30
+ALERT_EMAIL=operacao@seudominio.com.br
+```
+
+O endpoint público `/api/health` verifica aplicação, banco, cobrança e armazenamento de backup. O painel **Gerenciamento > Operação do sistema** mostra esses serviços, backups, testes de restauração, eventos financeiros e incidentes. Erros críticos também são enviados ao `ALERT_EMAIL` quando o envio de e-mail está configurado.
+
+Em desenvolvimento, os backups ficam em `data/backups`. `STRIPE_MOCK_MODE=true` existe somente para testes automatizados e não deve ser usado em produção.
+
 ## Segurança
 
 - cookies de sessão `HttpOnly`, `SameSite=Strict` e `Secure` em HTTPS;
 - validade de sessão configurável por `SESSION_TTL_HOURS` (padrão: 8 horas);
 - bloqueio temporário após 5 falhas de login em 15 minutos;
 - histórico das principais ações e tentativas de acesso no painel administrativo;
-- sessões revogadas ao bloquear usuário ou resetar senha.
+- token CSRF obrigatório em todas as alterações autenticadas;
+- sessões registradas por dispositivo, com revogação individual ou das demais sessões;
+- confirmação da senha atual para convites, exclusões e mudanças administrativas críticas;
+- autenticação em duas etapas TOTP para o administrador global, com QR Code e códigos de recuperação;
+- sessões revogadas ao bloquear usuário, aceitar convite ou resetar senha.
 
 Para testes isolados com o banco JSON, mesmo quando existir uma `DATABASE_URL`, use:
 

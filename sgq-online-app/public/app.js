@@ -309,6 +309,37 @@ let state = loadState();
 let riskData = null;
 let contextData = null;
 let currentUser = null;
+let csrfToken = "";
+let activeView = "inicio";
+let lastClientErrorAt = 0;
+const nativeFetch = window.fetch.bind(window);
+window.fetch = (input, options = {}) => {
+  const url = typeof input === "string" ? new URL(input, window.location.href) : new URL(input.url, window.location.href);
+  const method = String(options.method || (typeof input !== "string" && input.method) || "GET").toUpperCase();
+  if (csrfToken && url.origin === window.location.origin && !["GET", "HEAD", "OPTIONS"].includes(method)) {
+    const headers = new Headers(options.headers || (typeof input !== "string" ? input.headers : undefined));
+    headers.set("X-CSRF-Token", csrfToken);
+    options = { ...options, headers };
+  }
+  return nativeFetch(input, options);
+};
+
+function reportClientError(message, source = "") {
+  if (!csrfToken || Date.now() - lastClientErrorAt < 10_000) return;
+  lastClientErrorAt = Date.now();
+  window.fetch("/api/monitor/client-error", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message: String(message || "Erro no navegador"), source, view: activeView }),
+  }).catch(() => {});
+}
+
+window.addEventListener("error", (event) => {
+  reportClientError(event.message, event.filename || "window.error");
+});
+window.addEventListener("unhandledrejection", (event) => {
+  reportClientError(event.reason?.message || String(event.reason || "Promise rejeitada"), "unhandledrejection");
+});
 const pageContent = document.querySelector(".page-content");
 const dashboardTemplate = pageContent ? pageContent.innerHTML : "";
 applyTheme();
@@ -348,6 +379,7 @@ async function loadRemoteData() {
     if (!response.ok) throw new Error("Falha ao carregar dados do servidor.");
 
     const payload = await response.json();
+    csrfToken = payload.csrfToken || "";
     const localState = state;
     const localCompany = localState?.company || {};
     const localPlan = localState?.settings?.companyAccess;
@@ -421,7 +453,7 @@ function normalizeState(savedState, company, user) {
     ...(sourceState.settings || {}),
   };
 
-  if (company && !savedState) {
+  if (company) {
     nextState.company = {
       ...nextState.company,
       name: company.name || nextState.company.name,
@@ -465,6 +497,17 @@ function applyUserProfile() {
   if (userName) userName.textContent = name;
   if (userRole) userRole.textContent = role;
   document.body.classList.toggle("readonly-company-user", !canManageCompany());
+  const logoutForm = document.querySelector('form[action="/logout"]');
+  if (logoutForm) {
+    let field = logoutForm.querySelector('input[name="csrfToken"]');
+    if (!field) {
+      field = document.createElement("input");
+      field.type = "hidden";
+      field.name = "csrfToken";
+      logoutForm.appendChild(field);
+    }
+    field.value = csrfToken;
+  }
   if (currentUser.permissions?.reports === false) {
     document.querySelector('[data-view="relatorios"]')?.remove();
   }
@@ -762,6 +805,7 @@ function renderUserMenu() {
         ["Painel de gerenciamento", "gerenciamento"],
         ["Clientes e planos", "gerenciamento"],
         ["Usuários do sistema", "gerenciamento"],
+        ["Segurança da conta", "perfil"],
         ["Configurações globais", "configuracoes"],
       ]
     : [
@@ -879,10 +923,11 @@ function setActiveNav(view) {
 }
 
 function render(view = "inicio") {
-  const adminAllowedViews = ["gerenciamento", "configuracoes"];
+  const adminAllowedViews = ["gerenciamento", "configuracoes", "perfil"];
   if (currentUser?.isAdmin && !adminAllowedViews.includes(view)) {
     view = "gerenciamento";
   }
+  activeView = view;
   if (view === "relatorios" && currentUser?.permissions?.reports === false) {
     toast("Seu perfil não possui permissão para visualizar relatórios.");
     view = "inicio";
@@ -1276,7 +1321,9 @@ function moduleIcon(name) {
     trash: '<svg class="icon" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>',
     shield: '<svg class="icon" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>',
     key: '<svg class="icon" viewBox="0 0 24 24"><circle cx="7.5" cy="14.5" r="3.5"/><path d="M10 12l9-9"/><path d="M15 4l5 5"/><path d="M14 8l2 2"/></svg>',
+    mail: '<svg class="icon" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><polyline points="3 7 12 13 21 7"/></svg>',
     download: '<svg class="icon" viewBox="0 0 24 24"><path d="M12 3v12"/><polyline points="7 10 12 15 17 10"/><path d="M5 21h14"/></svg>',
+    external: '<svg class="icon" viewBox="0 0 24 24"><path d="M14 3h7v7"/><path d="M10 14L21 3"/><path d="M21 14v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h6"/></svg>',
     search: '<svg class="icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>',
     notificacoes: '<svg class="icon" viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>',
     close: '<svg class="icon" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
@@ -4073,7 +4120,7 @@ async function renderUsuarios() {
         </div>
         <div class="field">
           <label for="userLoginField">Login / e-mail</label>
-          <input class="input-basic" id="userLoginField" type="text" placeholder="nome@empresa.com.br ou nome.sobrenome">
+          <input class="input-basic" id="userLoginField" type="email" placeholder="nome@empresa.com.br">
         </div>
         <div class="field field-row2">
           <div>
@@ -4089,7 +4136,7 @@ async function renderUsuarios() {
             </select>
           </div>
         </div>
-        <div class="field field-row2">
+        <div class="field">
           <div>
             <label for="userStatusField">Status</label>
             <select class="input-basic" id="userStatusField">
@@ -4098,11 +4145,8 @@ async function renderUsuarios() {
               <option value="Pendente">Pendente (convite enviado)</option>
             </select>
           </div>
-          <div>
-            <label for="userPasswordField">Senha inicial</label>
-            <input class="input-basic" id="userPasswordField" type="password" autocomplete="new-password" placeholder="Obrigatória ao criar">
-          </div>
         </div>
+        <div class="invite-flow-note">Ao criar a conta, o usuário receberá um convite de uso único por e-mail para definir a própria senha.</div>
         <div class="permission-box">
           <div class="permission-title">Permissões</div>
           <label><input type="checkbox" data-user-permission="modules" checked> Acessar módulos do SGQ</label>
@@ -4336,6 +4380,7 @@ function renderCompanyUserRow(user) {
         <div class="u-actions">
           <button class="u-abtn" title="Editar" data-user-row-action="edit" data-user-id="${user.id}" type="button">${moduleIcon("edit")}</button>
           <button class="u-abtn" title="Permissões" data-user-row-action="permissions" data-user-id="${user.id}" type="button">${moduleIcon("key")}</button>
+          ${user.status === "Pendente" ? `<button class="u-abtn" title="Reenviar convite" data-user-row-action="resend" data-user-id="${user.id}" type="button">${moduleIcon("mail")}</button>` : ""}
           <button class="u-abtn danger" title="Excluir" data-user-row-action="delete" data-user-id="${user.id}" type="button">${moduleIcon("trash")}</button>
         </div>
       </td>` : "<td>-</td>"}
@@ -4373,6 +4418,10 @@ function handleCompanyUserAction(button) {
     toast(`Permissões de ${user.displayName}: ${describePermissions(user.permissions)}.`);
     return;
   }
+  if (button.dataset.userRowAction === "resend") {
+    resendCompanyUserInvitation(user);
+    return;
+  }
   deleteCompanyUser(user);
 }
 
@@ -4400,8 +4449,6 @@ function openCompanyUserModal(id = null) {
   pageContent.querySelector("#userDepartmentField").innerHTML = userDepartmentOptions(user?.department);
   pageContent.querySelector("#userRoleField").innerHTML = userRoleOptions(user?.role);
   pageContent.querySelector("#userStatusField").value = user?.status || "Pendente";
-  pageContent.querySelector("#userPasswordField").value = "";
-  pageContent.querySelector("#userPasswordField").placeholder = id ? "Preencha para redefinir" : "Obrigatória ao criar";
   const permissions = normalizeUserPermissions(user?.role || "Colaborador", user?.permissions);
   pageContent.querySelectorAll("[data-user-permission]").forEach((checkbox) => {
     checkbox.checked = Boolean(permissions[checkbox.dataset.userPermission]);
@@ -4428,7 +4475,6 @@ async function saveCompanyUser() {
   const department = pageContent.querySelector("#userDepartmentField").value;
   const role = pageContent.querySelector("#userRoleField").value;
   const status = pageContent.querySelector("#userStatusField").value;
-  const password = pageContent.querySelector("#userPasswordField").value;
   const permissions = Object.fromEntries([...pageContent.querySelectorAll("[data-user-permission]")].map((checkbox) => [checkbox.dataset.userPermission, checkbox.checked]));
   permissions.moduleAccess = Object.fromEntries(
     [...pageContent.querySelectorAll("[data-user-module-permission]")]
@@ -4439,10 +4485,15 @@ async function saveCompanyUser() {
     toast("Preencha nome e login para continuar.");
     return;
   }
-  if (!editingCompanyUserId && !password) {
-    toast("Informe uma senha inicial para criar o usuário.");
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(username)) {
+    toast("Informe um e-mail válido para enviar o convite.");
     return;
   }
+
+  const currentPassword = await confirmSensitiveAction(
+    isEditing ? "Atualizar acesso do usuário" : "Convidar novo usuário",
+  );
+  if (!currentPassword) return;
 
   const method = editingCompanyUserId ? "PATCH" : "POST";
   const isEditing = Boolean(editingCompanyUserId);
@@ -4453,7 +4504,7 @@ async function saveCompanyUser() {
     department,
     role,
     status,
-    password,
+    currentPassword,
     permissions,
   };
 
@@ -4477,9 +4528,32 @@ async function saveCompanyUser() {
     return;
   }
 
+  const result = await response.json().catch(() => ({}));
   closeCompanyUserModal();
-  toast(isEditing ? "Usuário atualizado." : "Usuário cadastrado.");
+  toast(
+    isEditing
+      ? "Usuário atualizado."
+      : result.invitation?.delivery === "sent"
+        ? "Convite enviado por e-mail."
+        : "Usuário criado. Configure o e-mail do sistema para entregar o convite.",
+  );
   await loadCompanyUsers();
+}
+
+async function resendCompanyUserInvitation(user) {
+  const currentPassword = await confirmSensitiveAction("Reenviar convite de acesso");
+  if (!currentPassword) return;
+  const response = await fetch("/api/company/users/invite", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId: user.id, currentPassword }),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    toast(result.error === "password_confirmation_required" ? "Senha atual incorreta." : "Não foi possível reenviar o convite.");
+    return;
+  }
+  toast(result.invitation?.delivery === "sent" ? "Convite reenviado." : "Convite renovado, mas o envio de e-mail não está configurado.");
 }
 
 async function deleteCompanyUser(user) {
@@ -4493,11 +4567,13 @@ async function deleteCompanyUser(user) {
     return;
   }
   if (!window.confirm(`Remover o acesso de "${user.displayName}"? Essa ação não pode ser desfeita.`)) return;
+  const currentPassword = await confirmSensitiveAction("Excluir acesso do usuário");
+  if (!currentPassword) return;
 
   const response = await fetch("/api/company/users", {
     method: "DELETE",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ userId: user.id }),
+    body: JSON.stringify({ userId: user.id, currentPassword }),
   });
 
   if (!response.ok) {
@@ -4575,10 +4651,10 @@ async function renderGerenciamento() {
   `;
 
   try {
-    const response = await fetch("/api/admin/overview", {
-      headers: { Accept: "application/json" },
-      cache: "no-store",
-    });
+    const [response, operationsResponse] = await Promise.all([
+      fetch("/api/admin/overview", { headers: { Accept: "application/json" }, cache: "no-store" }),
+      fetch("/api/admin/operations", { headers: { Accept: "application/json" }, cache: "no-store" }),
+    ]);
     if (response.status === 403) {
       pageContent.innerHTML = `${viewHeader("Acesso restrito", "Esta área está disponível somente para o administrador.")}`;
       return;
@@ -4586,6 +4662,7 @@ async function renderGerenciamento() {
     if (!response.ok) throw new Error("Falha ao carregar gerenciamento.");
 
     const data = await response.json();
+    data.operations = operationsResponse.ok ? await operationsResponse.json() : null;
     pageContent.innerHTML = adminOverviewHtml(data);
     bindAdminActions();
   } catch (error) {
@@ -4605,6 +4682,7 @@ function adminOverviewHtml(data) {
   const companies = data.companies || [];
   const users = data.users || [];
   const logs = data.logs || [];
+  const operations = data.operations || null;
 
   return `
     ${viewHeader("Gerenciamento", "Acompanhe clientes pagantes, acessos ativos e usuários cadastrados automaticamente.")}
@@ -4619,6 +4697,8 @@ function adminOverviewHtml(data) {
       ${adminMetric("Falhas 24h", summary.failedLogins24h || 0, "tentativas recusadas")}
       ${adminMetric("Disponibilidade", "Online", "banco e autenticação ativos")}
     </div>
+
+    ${operations ? operationsPanelHtml(operations) : ""}
 
     <div class="admin-toolbar qp-card">
       <label>
@@ -4683,7 +4763,9 @@ function adminOverviewHtml(data) {
                 <td><span class="status-pill ${statusClass(user.status)}"><span class="status-dot2"></span>${escapeHtml(user.status)}</span></td>
                 <td>
                   <button class="abtn" data-admin-action="edit-user" data-user='${adminPayload(user)}' type="button" title="Editar usuário">${moduleIcon("edit")}</button>
-                  <button class="abtn" data-admin-action="toggle-user" data-user-id="${user.id}" data-user-status="${escapeHtml(user.status)}" data-user-name="${escapeHtml(user.displayName)}" type="button" title="${user.status === "Ativo" ? "Bloquear acesso" : "Liberar acesso"}">${moduleIcon("shield")}</button>
+                  ${user.status === "Pendente"
+                    ? `<button class="abtn" data-admin-action="resend-invite" data-user-id="${user.id}" data-user-name="${escapeHtml(user.displayName)}" type="button" title="Reenviar convite">${moduleIcon("mail")}</button>`
+                    : `<button class="abtn" data-admin-action="toggle-user" data-user-id="${user.id}" data-user-status="${escapeHtml(user.status)}" data-user-name="${escapeHtml(user.displayName)}" type="button" title="${user.status === "Ativo" ? "Bloquear acesso" : "Liberar acesso"}">${moduleIcon("shield")}</button>`}
                   <button class="abtn" data-admin-action="reset-password" data-user-id="${user.id}" data-user-name="${escapeHtml(user.displayName)}" type="button" title="Resetar senha">${moduleIcon("key")}</button>
                 </td>
               </tr>
@@ -4722,6 +4804,81 @@ function adminOverviewHtml(data) {
   `;
 }
 
+function operationsPanelHtml(operations) {
+  const health = operations.health || {};
+  const services = health.services || {};
+  const backups = operations.backups || [];
+  const incidents = operations.incidents || [];
+  const billingEvents = operations.billingEvents || [];
+  return `
+    <section class="qp-card admin-card operations-card">
+      <div class="dcc-head">
+        <div>
+          <div class="dcc-title">Operação do sistema</div>
+          <div class="dcc-sub">Cobrança, backups verificados e falhas registradas automaticamente.</div>
+        </div>
+        <button class="btn-primary" data-admin-action="run-backup" type="button">${moduleIcon("download")} Executar backup</button>
+      </div>
+      <div class="operations-health-grid">
+        ${operationHealthItem("Banco de dados", services.database?.ok, services.database?.ok ? `${services.database.latencyMs} ms` : "Indisponível")}
+        ${operationHealthItem("Cobrança Stripe", services.billing?.ok, services.billing?.ok ? "Configurada" : "Não configurada")}
+        ${operationHealthItem("Backup automático", services.backup?.ok, services.backup?.mode || "Indisponível")}
+        ${operationHealthItem("E-mail", services.email?.ok, services.email?.ok ? "Configurado" : "Não configurado")}
+      </div>
+      <div class="operations-columns">
+        <div>
+          <h4>Backups recentes</h4>
+          <div class="admin-table-wrap">
+            <table class="data-table compact-table">
+              <thead><tr><th>Data</th><th>Tamanho</th><th>Verificação</th><th>Ação</th></tr></thead>
+              <tbody>${backups.length ? backups.slice(0, 8).map((backup) => `
+                <tr>
+                  <td>${formatDateTime(backup.createdAt)}</td>
+                  <td>${formatBytes(backup.byteSize)}</td>
+                  <td>${backupStatusBadge(backup)}</td>
+                  <td>${backup.status === "completed" ? `<button class="abtn" data-admin-action="verify-backup" data-backup-id="${backup.id}" type="button" title="Testar restauração">${moduleIcon("check-circle")}</button>` : "-"}</td>
+                </tr>`).join("") : `<tr><td colspan="4"><div class="empty-state">Nenhum backup automático executado.</div></td></tr>`}</tbody>
+            </table>
+          </div>
+        </div>
+        <div>
+          <h4>Incidentes recentes</h4>
+          <div class="operations-event-list">
+            ${incidents.length ? incidents.slice(0, 8).map((incident) => `
+              <div class="operations-event ${escapeHtml(incident.severity || "info")}">
+                <span></span><div><strong>${escapeHtml(incident.component || "app")}</strong><p>${escapeHtml(incident.message || incident.eventType)}</p><small>${formatDateTime(incident.createdAt)}</small></div>
+              </div>`).join("") : `<div class="empty-state">Nenhuma falha registrada.</div>`}
+          </div>
+        </div>
+      </div>
+      <details class="billing-events-details">
+        <summary>Histórico recente da cobrança (${billingEvents.length})</summary>
+        <div class="operations-event-list">
+          ${billingEvents.length ? billingEvents.slice(0, 10).map((event) => `
+            <div class="operations-event info"><span></span><div><strong>${escapeHtml(event.eventType)}</strong><p>Empresa ${escapeHtml(event.companyId || "-")} · ${escapeHtml(event.status || "processado")}</p><small>${formatDateTime(event.createdAt)}</small></div></div>`).join("") : `<div class="empty-state">Os eventos aparecerão após o primeiro webhook da Stripe.</div>`}
+        </div>
+      </details>
+    </section>`;
+}
+
+function operationHealthItem(label, ok, detail) {
+  return `<div class="operation-health ${ok ? "ok" : "warning"}"><span></span><div><strong>${escapeHtml(label)}</strong><small>${escapeHtml(detail)}</small></div></div>`;
+}
+
+function backupStatusBadge(backup) {
+  const verified = backup.verificationStatus === "verified";
+  const failed = backup.status === "failed" || backup.verificationStatus === "failed";
+  const label = failed ? "Falhou" : verified ? "Verificado" : "Pendente";
+  return `<span class="status-pill ${failed ? "s-danger" : verified ? "s-ok" : "s-prog"}"><span class="status-dot2"></span>${label}</span>`;
+}
+
+function formatBytes(value) {
+  const bytes = Number(value) || 0;
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
 function adminCompanyFormHtml() {
   return `
     <form class="qp-card qp-form admin-edit-form" id="adminCompanyForm">
@@ -4748,7 +4905,7 @@ function adminUserFormHtml(companies) {
       <input type="hidden" name="userId" />
       <div class="form-section-title full">Usuário e acesso</div>
       <label><span>Nome</span><input name="displayName" required placeholder="Nome do usuário" /></label>
-      <label><span>Login</span><input name="username" required placeholder="usuario@email.com ou usuario" /></label>
+      <label><span>E-mail de acesso</span><input name="username" type="email" required placeholder="usuario@empresa.com.br" /></label>
       <label>
         <span>Empresa</span>
         <select name="companyId" required>
@@ -4769,9 +4926,10 @@ function adminUserFormHtml(companies) {
         <select name="status">
           <option>Ativo</option>
           <option>Bloqueado</option>
+          <option>Pendente</option>
         </select>
       </label>
-      <label><span>Senha inicial</span><input name="password" type="password" autocomplete="new-password" placeholder="Obrigatória ao criar" /></label>
+      <div class="invite-flow-note full">Novos usuários recebem um convite por e-mail para criar a própria senha.</div>
       <div class="admin-form-actions full">
         <button class="btn-primary" type="submit">Salvar usuário</button>
         <button class="btn-ghost" data-admin-action="clear-user-form" type="button">Novo usuário</button>
@@ -4830,6 +4988,21 @@ function adminEventLabel(eventType) {
     password_reset_rate_limited: "Recuperação temporariamente bloqueada",
     password_reset_completed: "Senha redefinida pelo usuário",
     password_reset_failed: "Link de recuperação recusado",
+    invitation_sent: "Convite de usuário enviado",
+    invitation_resent: "Convite de usuário reenviado",
+    invitation_accepted: "Convite de usuário aceito",
+    invitation_failed: "Convite de usuário recusado",
+    mfa_challenge_started: "Verificação em duas etapas solicitada",
+    mfa_verified: "Verificação em duas etapas concluída",
+    mfa_failed: "Falha na verificação em duas etapas",
+    mfa_rate_limited: "Verificação em duas etapas bloqueada",
+    mfa_setup_started: "Configuração de 2FA iniciada",
+    mfa_enabled: "Verificação em duas etapas ativada",
+    mfa_disabled: "Verificação em duas etapas desativada",
+    session_revoked: "Sessão desconectada",
+    other_sessions_revoked: "Outras sessões desconectadas",
+    csrf_rejected: "Solicitação insegura recusada",
+    deadline_alert_sent: "Alerta de prazos enviado",
     company_export: "Relatório exportado",
     company_backup: "Backup da empresa gerado",
     admin_backup: "Backup administrativo gerado",
@@ -4889,6 +5062,16 @@ function filterAdminRows(event) {
 async function handleAdminAction(button) {
   const action = button.dataset.adminAction;
 
+  if (action === "run-backup") {
+    await runAdminBackup();
+    return;
+  }
+
+  if (action === "verify-backup") {
+    await verifyAdminBackup(Number(button.dataset.backupId));
+    return;
+  }
+
   if (action === "clear-company-form") {
     clearAdminCompanyForm();
     return;
@@ -4914,15 +5097,22 @@ async function handleAdminAction(button) {
     return;
   }
 
+  if (action === "resend-invite") {
+    await resendAdminInvitation(button);
+    return;
+  }
+
   if (action !== "reset-password") return;
   const userId = Number(button.dataset.userId);
   const userName = button.dataset.userName || "usuário";
   if (!userId || !window.confirm(`Resetar a senha de ${userName}?`)) return;
+  const currentPassword = await confirmSensitiveAction("Resetar senha do usuário");
+  if (!currentPassword) return;
 
   const response = await fetch("/api/admin/reset-password", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ userId }),
+    body: JSON.stringify({ userId, currentPassword }),
   });
 
   if (!response.ok) {
@@ -4942,11 +5132,68 @@ async function handleAdminAction(button) {
   toast("Senha resetada.");
 }
 
+async function runAdminBackup() {
+  const currentPassword = await confirmSensitiveAction("Executar backup automático agora");
+  if (!currentPassword) return;
+  const response = await fetch("/api/admin/backups/run", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ currentPassword }),
+  });
+  if (!response.ok) {
+    toast("Não foi possível concluir o backup.");
+    return;
+  }
+  toast("Backup criado e verificado.");
+  await renderGerenciamento();
+}
+
+async function verifyAdminBackup(snapshotId) {
+  if (!snapshotId) return;
+  const currentPassword = await confirmSensitiveAction("Testar restauração do backup");
+  if (!currentPassword) return;
+  const response = await fetch("/api/admin/backups/verify", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ snapshotId, currentPassword }),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    toast("O teste de restauração falhou.");
+    return;
+  }
+  const counts = result.counts || {};
+  toast(`Backup íntegro: ${counts.companies || 0} empresa(s), ${counts.users || 0} usuário(s).`);
+  await renderGerenciamento();
+}
+
+async function resendAdminInvitation(button) {
+  const userId = Number(button.dataset.userId);
+  const currentPassword = await confirmSensitiveAction("Reenviar convite de acesso");
+  if (!userId || !currentPassword) return;
+  const response = await fetch("/api/admin/invite", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId, currentPassword }),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    toast(result.error === "password_confirmation_required" ? "Senha atual incorreta." : "Não foi possível reenviar o convite.");
+    return;
+  }
+  toast(result.invitation?.delivery === "sent" ? "Convite reenviado." : "Convite renovado, mas o envio de e-mail não está configurado.");
+  await renderGerenciamento();
+}
+
 async function saveAdminCompany(event) {
   event.preventDefault();
   const form = event.currentTarget;
   const data = Object.fromEntries(new FormData(form).entries());
   const isEditing = Boolean(data.companyId);
+  const currentPassword = isEditing
+    ? await confirmSensitiveAction("Atualizar dados do cliente")
+    : "";
+  if (isEditing && !currentPassword) return;
 
   const response = await fetch("/api/admin/company", {
     method: isEditing ? "PATCH" : "POST",
@@ -4960,6 +5207,7 @@ async function saveAdminCompany(event) {
       billingStatus: data.billingStatus,
       accessLimit: Number(data.accessLimit),
       scope: data.scope,
+      currentPassword,
     }),
   });
 
@@ -4978,11 +5226,8 @@ async function saveAdminUser(event) {
   const form = event.currentTarget;
   const data = Object.fromEntries(new FormData(form).entries());
   const isEditing = Boolean(data.userId);
-
-  if (!isEditing && !data.password) {
-    toast("Informe uma senha inicial para criar o usuário.");
-    return;
-  }
+  const currentPassword = await confirmSensitiveAction(isEditing ? "Atualizar usuário" : "Convidar usuário");
+  if (!currentPassword) return;
 
   const response = await fetch("/api/admin/user", {
     method: isEditing ? "PATCH" : "POST",
@@ -4994,7 +5239,7 @@ async function saveAdminUser(event) {
       displayName: data.displayName,
       role: data.role,
       status: data.status,
-      password: data.password,
+      currentPassword,
     }),
   });
 
@@ -5010,7 +5255,14 @@ async function saveAdminUser(event) {
     return;
   }
 
-  toast(isEditing ? "Usuário atualizado." : "Usuário cadastrado.");
+  const result = await response.json().catch(() => ({}));
+  toast(
+    isEditing
+      ? "Usuário atualizado."
+      : result.invitation?.delivery === "sent"
+        ? "Convite enviado por e-mail."
+        : "Usuário criado. Configure o e-mail para entregar o convite.",
+  );
   await renderGerenciamento();
 }
 
@@ -5020,6 +5272,8 @@ async function toggleAdminUser(button) {
 
   const nextStatus = user.status === "Ativo" ? "Bloqueado" : "Ativo";
   if (!window.confirm(`${nextStatus === "Bloqueado" ? "Bloquear" : "Liberar"} o acesso de ${user.displayName}?`)) return;
+  const currentPassword = await confirmSensitiveAction(`${nextStatus === "Bloqueado" ? "Bloquear" : "Liberar"} acesso`);
+  if (!currentPassword) return;
 
   const response = await fetch("/api/admin/user", {
     method: "PATCH",
@@ -5031,6 +5285,7 @@ async function toggleAdminUser(button) {
       displayName: user.displayName,
       role: user.role,
       status: nextStatus,
+      currentPassword,
     }),
   });
 
@@ -5066,8 +5321,6 @@ function fillAdminUserForm(user) {
   form.companyId.value = user.companyId || "";
   form.role.value = user.role || "Administrador";
   form.status.value = user.status || "Ativo";
-  form.password.value = "";
-  form.password.placeholder = "Use resetar senha para trocar";
   form.scrollIntoView({ behavior: "smooth", block: "center" });
 }
 
@@ -5085,10 +5338,9 @@ function clearAdminUserForm() {
   if (!form) return;
   form.reset();
   form.userId.value = "";
-  form.password.placeholder = "Obrigatória ao criar";
 }
 
-function renderMeuPerfil() {
+async function renderMeuPerfil() {
   setTopbar("Meu perfil", "Dados do usuário conectado");
   pageContent.classList.remove("risk-page-content");
   pageContent.classList.remove("context-page-content");
@@ -5110,7 +5362,192 @@ function renderMeuPerfil() {
         <div class="detail-item"><span>Acesso</span><strong>${canManageCompany() ? "Administrador da empresa" : "Colaborador"}</strong></div>
       </article>
     </section>
+    <section class="security-grid" id="securityGrid">
+      <article class="qp-card security-card"><div class="admin-loading">Carregando segurança da conta...</div></article>
+    </section>
   `;
+
+  try {
+    const response = await fetch("/api/security", { headers: { Accept: "application/json" }, cache: "no-store" });
+    if (!response.ok) throw new Error("Falha ao carregar segurança.");
+    renderSecurityPanel(await response.json());
+  } catch (error) {
+    console.warn(error);
+    const grid = pageContent.querySelector("#securityGrid");
+    if (grid) grid.innerHTML = `<article class="qp-card security-card"><p class="qp-muted">Não foi possível carregar as opções de segurança.</p></article>`;
+  }
+}
+
+function renderSecurityPanel(security) {
+  const grid = pageContent.querySelector("#securityGrid");
+  if (!grid) return;
+  const mfaCard = security.mfaAvailable ? `
+    <article class="qp-card security-card">
+      <div class="security-card-head">
+        <div class="security-icon">${moduleIcon("shield")}</div>
+        <div><h3>Verificação em duas etapas</h3><p>Protege seu acesso administrativo com um código temporário.</p></div>
+      </div>
+      <div class="security-status ${security.mfaEnabled ? "enabled" : "disabled"}">
+        <span></span>${security.mfaEnabled ? "Ativada" : "Desativada"}
+      </div>
+      <button class="${security.mfaEnabled ? "btn-ghost danger-text" : "btn-primary"}" type="button" data-security-action="${security.mfaEnabled ? "disable-mfa" : "setup-mfa"}">
+        ${security.mfaEnabled ? "Desativar 2FA" : "Configurar 2FA"}
+      </button>
+    </article>` : "";
+  grid.innerHTML = `
+    ${mfaCard}
+    <article class="qp-card security-card security-sessions-card">
+      <div class="security-card-head">
+        <div class="security-icon">${moduleIcon("modulos")}</div>
+        <div><h3>Sessões ativas</h3><p>Dispositivos que ainda possuem acesso à sua conta.</p></div>
+      </div>
+      <div class="security-session-list">
+        ${(security.sessions || []).map((session) => `
+          <div class="security-session-row">
+            <div>
+              <strong>${escapeHtml(session.device || "Navegador")}${session.current ? " · sessão atual" : ""}</strong>
+              <span>${escapeHtml(session.ipAddress || "IP não informado")} · atividade ${escapeHtml(formatDateTime(session.lastSeenAt))}</span>
+            </div>
+            ${session.current ? `<span class="security-current">Atual</span>` : `<button class="u-abtn danger" type="button" title="Desconectar dispositivo" data-security-session="${escapeHtml(session.id)}">${moduleIcon("close")}</button>`}
+          </div>
+        `).join("") || `<p class="qp-muted">Nenhuma sessão ativa encontrada.</p>`}
+      </div>
+      ${(security.sessions || []).some((session) => !session.current) ? `<button class="btn-ghost" type="button" data-security-action="revoke-others">Desconectar outros dispositivos</button>` : ""}
+    </article>
+  `;
+  grid.querySelector("[data-security-action='setup-mfa']")?.addEventListener("click", setupMfa);
+  grid.querySelector("[data-security-action='disable-mfa']")?.addEventListener("click", disableMfa);
+  grid.querySelector("[data-security-action='revoke-others']")?.addEventListener("click", revokeOtherSessions);
+  grid.querySelectorAll("[data-security-session]").forEach((button) => {
+    button.addEventListener("click", () => revokeSecuritySession(button.dataset.securitySession));
+  });
+}
+
+async function setupMfa() {
+  const currentPassword = await confirmSensitiveAction("Configurar verificação em duas etapas");
+  if (!currentPassword) return;
+  const response = await fetch("/api/security/mfa/setup", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ currentPassword }),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    toast(result.error === "password_confirmation_required" ? "Senha atual incorreta." : "Não foi possível iniciar a configuração.");
+    return;
+  }
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay show mfa-setup-overlay";
+  overlay.innerHTML = `
+    <div class="modal-box mfa-setup-box" role="dialog" aria-modal="true">
+      <div class="modal-hd"><div><h3>Ativar verificação em duas etapas</h3><p>Leia o QR Code no Google Authenticator, Microsoft Authenticator ou aplicativo compatível.</p></div></div>
+      <div class="mfa-setup-content">
+        <img src="${result.qrCode}" alt="QR Code para configurar autenticação em duas etapas">
+        <div><span>Chave manual</span><code>${escapeHtml(result.secret)}</code></div>
+      </div>
+      <div class="field"><label for="mfaSetupCode">Código de seis números</label><input class="input-basic" id="mfaSetupCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6"></div>
+      <div class="modal-actions"><button class="btn-ghost" type="button" data-mfa-cancel>Cancelar</button><button class="btn-grad" type="button" data-mfa-enable>Ativar 2FA</button></div>
+    </div>`;
+  overlay.querySelector("[data-mfa-cancel]").addEventListener("click", () => overlay.remove());
+  overlay.querySelector("[data-mfa-enable]").addEventListener("click", async () => {
+    const code = overlay.querySelector("#mfaSetupCode").value.trim();
+    if (!/^\d{6}$/.test(code)) {
+      toast("Digite o código de seis números.");
+      return;
+    }
+    const password = await confirmSensitiveAction("Confirmar ativação do 2FA");
+    if (!password) return;
+    const enableResponse = await fetch("/api/security/mfa/enable", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code, currentPassword: password }),
+    });
+    const enabled = await enableResponse.json().catch(() => ({}));
+    if (!enableResponse.ok) {
+      toast(enabled.error === "invalid_mfa_code" ? "Código inválido." : "Não foi possível ativar o 2FA.");
+      return;
+    }
+    overlay.querySelector(".mfa-setup-box").innerHTML = `
+      <div class="modal-hd"><div><h3>Códigos de recuperação</h3><p>Guarde estes códigos em local seguro. Cada código funciona apenas uma vez.</p></div></div>
+      <div class="recovery-code-grid">${enabled.recoveryCodes.map((item) => `<code>${escapeHtml(item)}</code>`).join("")}</div>
+      <div class="modal-actions"><button class="btn-grad" type="button" data-mfa-finish>Concluir</button></div>`;
+    overlay.querySelector("[data-mfa-finish]").addEventListener("click", () => {
+      overlay.remove();
+      renderMeuPerfil();
+    });
+  });
+  document.body.appendChild(overlay);
+  overlay.querySelector("#mfaSetupCode").focus();
+}
+
+function promptSecurityCode(title) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement("div");
+    overlay.className = "modal-overlay show security-confirm-overlay";
+    overlay.innerHTML = `
+      <div class="modal-box security-confirm-box" role="dialog" aria-modal="true">
+        <div class="modal-hd"><div><h3>${escapeHtml(title)}</h3><p>Informe o código do autenticador ou um código de recuperação.</p></div></div>
+        <div class="field"><label for="securityCodeField">Código</label><input class="input-basic" id="securityCodeField" autocomplete="one-time-code" required></div>
+        <div class="modal-actions"><button class="btn-ghost" type="button" data-code-cancel>Cancelar</button><button class="btn-grad" type="button" data-code-confirm>Confirmar</button></div>
+      </div>`;
+    const finish = (value) => { overlay.remove(); resolve(value); };
+    overlay.querySelector("[data-code-cancel]").addEventListener("click", () => finish(null));
+    overlay.querySelector("[data-code-confirm]").addEventListener("click", () => finish(overlay.querySelector("#securityCodeField").value.trim() || null));
+    document.body.appendChild(overlay);
+    overlay.querySelector("#securityCodeField").focus();
+  });
+}
+
+async function disableMfa() {
+  const code = await promptSecurityCode("Desativar verificação em duas etapas");
+  if (!code) return;
+  const currentPassword = await confirmSensitiveAction("Confirmar desativação do 2FA");
+  if (!currentPassword) return;
+  const response = await fetch("/api/security/mfa/disable", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ code, currentPassword }),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    toast(result.error === "invalid_mfa_code" ? "Código de verificação inválido." : "Não foi possível desativar o 2FA.");
+    return;
+  }
+  toast("Verificação em duas etapas desativada.");
+  renderMeuPerfil();
+}
+
+async function revokeSecuritySession(sessionId) {
+  const currentPassword = await confirmSensitiveAction("Desconectar dispositivo");
+  if (!currentPassword) return;
+  const response = await fetch("/api/security/sessions", {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ sessionId, currentPassword }),
+  });
+  if (!response.ok) {
+    toast("Não foi possível desconectar o dispositivo.");
+    return;
+  }
+  toast("Dispositivo desconectado.");
+  renderMeuPerfil();
+}
+
+async function revokeOtherSessions() {
+  const currentPassword = await confirmSensitiveAction("Desconectar outros dispositivos");
+  if (!currentPassword) return;
+  const response = await fetch("/api/security/sessions/revoke-others", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ currentPassword }),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    toast("Não foi possível desconectar as outras sessões.");
+    return;
+  }
+  toast(`${result.revoked || 0} sessão(ões) desconectada(s).`);
+  renderMeuPerfil();
 }
 
 async function renderMinhasPermissoes() {
@@ -5178,13 +5615,11 @@ async function renderMinhasPermissoes() {
   `;
 }
 
-function renderConfiguracoes() {
+async function renderConfiguracoes() {
   setTopbar("Configurações", "Preferências do sistema");
-  const canEditPlan = canManageCompany();
   pageContent.innerHTML = `
     ${viewHeader(currentUser?.isAdmin ? "Configurações globais" : "Preferências", "Ajuste preferências iniciais do SGQ Online.")}
     <form class="qp-card qp-form" id="settingsForm">
-      ${canEditPlan ? `<label><span>Plano</span><input name="companyAccess" value="${escapeHtml(state.settings.companyAccess)}" /></label>` : ""}
       <label>
         <span>Tema do sistema</span>
         <select name="theme">
@@ -5196,12 +5631,13 @@ function renderConfiguracoes() {
       <label class="check-row"><input name="weeklyReport" type="checkbox" ${state.settings.weeklyReport ? "checked" : ""} /> <span>Gerar resumo semanal</span></label>
       <button type="submit">Salvar configurações</button>
     </form>
+    ${canManageCompany() ? `<section id="billingSettings" class="billing-settings"><div class="qp-card admin-loading">Carregando assinatura...</div></section>` : ""}
   `;
   document.querySelector("#settingsForm").addEventListener("submit", (event) => {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
     state.settings = {
-      companyAccess: canEditPlan ? data.get("companyAccess") : state.settings.companyAccess,
+      companyAccess: state.settings.companyAccess,
       emailAlerts: data.has("emailAlerts"),
       weeklyReport: data.has("weeklyReport"),
       theme: data.get("theme") || "dark",
@@ -5210,6 +5646,98 @@ function renderConfiguracoes() {
     applyTheme();
     toast("Configurações salvas.");
   });
+  if (canManageCompany()) await loadBillingSettings();
+}
+
+async function loadBillingSettings() {
+  const container = document.querySelector("#billingSettings");
+  if (!container) return;
+  try {
+    const response = await fetch("/api/billing", { headers: { Accept: "application/json" }, cache: "no-store" });
+    if (!response.ok) throw new Error("billing_load_failed");
+    const billing = await response.json();
+    container.innerHTML = billingSettingsHtml(billing);
+    container.querySelectorAll("[data-billing-action]").forEach((button) => {
+      button.addEventListener("click", () => handleBillingAction(button));
+    });
+  } catch {
+    container.innerHTML = `<article class="qp-card"><h3>Assinatura indisponível</h3><p class="qp-muted">Não foi possível consultar a cobrança agora.</p></article>`;
+  }
+}
+
+function billingSettingsHtml(billing) {
+  const company = billing.company || {};
+  const plans = billing.plans || [];
+  const invoices = billing.invoices || [];
+  const hasSubscription = Boolean(company.billingSubscriptionId);
+  return `
+    <article class="qp-card billing-summary-card">
+      <div class="dcc-head">
+        <div><div class="dcc-title">Assinatura</div><div class="dcc-sub">Plano, período de teste, renovação e faturas da empresa.</div></div>
+        ${billingBadge(company.billingStatus || "Pendente")}
+      </div>
+      ${billing.configured ? "" : `<div class="billing-warning">A cobrança ainda não foi configurada pelo administrador do SGQ Online.</div>`}
+      <div class="billing-current-grid">
+        <div><span>Plano atual</span><strong>${escapeHtml(company.plan || "Sem plano")}</strong></div>
+        <div><span>Limite de acessos</span><strong>${Number(company.accessLimit || 0)}</strong></div>
+        <div><span>Próxima renovação</span><strong>${formatDateTime(company.billingCurrentPeriodEnd || company.billingTrialEnd)}</strong></div>
+        <div><span>Renovação automática</span><strong>${company.billingCancelAtPeriodEnd ? "Cancelamento agendado" : "Ativa"}</strong></div>
+      </div>
+      ${company.billingCustomerId ? `<button class="btn-ghost" data-billing-action="portal" type="button">${moduleIcon("external")} Gerenciar cobrança e faturas</button>` : ""}
+    </article>
+    <section class="billing-plan-section">
+      <div class="dcc-title">Planos disponíveis</div>
+      <div class="billing-plan-grid">
+        ${plans.length ? plans.map((plan) => {
+          const selected = company.billingPriceId === plan.priceId;
+          const action = hasSubscription ? "change-plan" : "checkout";
+          return `<article class="qp-card billing-plan-card ${selected ? "selected" : ""}">
+            <div><span>${selected ? "PLANO ATUAL" : "ASSINATURA"}</span><h3>${escapeHtml(plan.name)}</h3><p>Até ${Number(plan.accessLimit)} acessos por empresa.</p></div>
+            <button class="${selected ? "btn-ghost" : "btn-primary"}" data-billing-action="${action}" data-plan="${escapeHtml(plan.key)}" type="button" ${selected || !billing.configured ? "disabled" : ""}>${selected ? "Plano atual" : hasSubscription ? "Trocar plano" : "Iniciar período de teste"}</button>
+          </article>`;
+        }).join("") : `<article class="qp-card"><p class="qp-muted">Os planos aparecerão quando os preços da Stripe forem configurados.</p></article>`}
+      </div>
+    </section>
+    <article class="qp-card admin-card">
+      <div class="dcc-title">Faturas</div>
+      <div class="admin-table-wrap">
+        <table class="data-table compact-table"><thead><tr><th>Data</th><th>Número</th><th>Status</th><th>Valor</th><th>Ação</th></tr></thead>
+          <tbody>${invoices.length ? invoices.map((invoice) => `<tr><td>${formatDate(invoice.createdAt)}</td><td>${escapeHtml(invoice.number || invoice.id)}</td><td>${billingBadge(invoice.status)}</td><td>${formatCurrencyMinor(invoice.amount, invoice.currency)}</td><td>${invoice.url ? `<a class="abtn" href="${escapeHtml(invoice.url)}" target="_blank" rel="noopener" title="Abrir fatura">${moduleIcon("external")}</a>` : "-"}</td></tr>`).join("") : `<tr><td colspan="5"><div class="empty-state">Nenhuma fatura emitida.</div></td></tr>`}</tbody>
+        </table>
+      </div>
+    </article>`;
+}
+
+async function handleBillingAction(button) {
+  const action = button.dataset.billingAction;
+  const currentPassword = await confirmSensitiveAction(
+    action === "portal" ? "Abrir gerenciamento da cobrança" : action === "checkout" ? "Iniciar assinatura" : "Trocar plano",
+  );
+  if (!currentPassword) return;
+  const endpoint = action === "portal" ? "/api/billing/portal" : action === "checkout" ? "/api/billing/checkout" : "/api/billing/change-plan";
+  button.disabled = true;
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ plan: button.dataset.plan, currentPassword }),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    button.disabled = false;
+    toast(result.error === "password_confirmation_required" ? "Senha atual incorreta." : "Não foi possível atualizar a assinatura.");
+    return;
+  }
+  if (result.url) {
+    window.location.assign(result.url);
+    return;
+  }
+  state.settings.companyAccess = result.company?.plan || state.settings.companyAccess;
+  toast("Plano atualizado.");
+  await loadBillingSettings();
+}
+
+function formatCurrencyMinor(value, currency = "BRL") {
+  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: String(currency || "BRL").toUpperCase() }).format((Number(value) || 0) / 100);
 }
 
 function renderAjuda() {
@@ -5339,6 +5867,47 @@ function resolveModuleId(element) {
 function bindViewTargetButtons() {
   document.querySelectorAll("[data-view-target]").forEach((button) => {
     button.addEventListener("click", () => render(button.dataset.viewTarget));
+  });
+}
+
+function confirmSensitiveAction(title, description = "Confirme sua senha para continuar.") {
+  return new Promise((resolve) => {
+    const overlay = document.createElement("div");
+    overlay.className = "modal-overlay show security-confirm-overlay";
+    overlay.innerHTML = `
+      <div class="modal-box security-confirm-box" role="dialog" aria-modal="true" aria-labelledby="securityConfirmTitle">
+        <div class="modal-hd">
+          <div><h3 id="securityConfirmTitle">${escapeHtml(title)}</h3><p>${escapeHtml(description)}</p></div>
+          <button class="modal-close" type="button" data-security-cancel>${moduleIcon("close")}</button>
+        </div>
+        <div class="field">
+          <label for="securityConfirmPassword">Sua senha atual</label>
+          <input class="input-basic" id="securityConfirmPassword" type="password" autocomplete="current-password" required>
+        </div>
+        <div class="modal-actions">
+          <button class="btn-ghost" type="button" data-security-cancel>Cancelar</button>
+          <button class="btn-grad" type="button" data-security-confirm>${moduleIcon("shield")} Confirmar</button>
+        </div>
+      </div>`;
+    const finish = (value) => {
+      overlay.remove();
+      resolve(value);
+    };
+    overlay.querySelectorAll("[data-security-cancel]").forEach((button) => button.addEventListener("click", () => finish(null)));
+    overlay.querySelector("[data-security-confirm]").addEventListener("click", () => {
+      const password = overlay.querySelector("#securityConfirmPassword").value;
+      if (!password) {
+        toast("Informe sua senha atual.");
+        return;
+      }
+      finish(password);
+    });
+    overlay.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") finish(null);
+      if (event.key === "Enter") overlay.querySelector("[data-security-confirm]").click();
+    });
+    document.body.appendChild(overlay);
+    overlay.querySelector("#securityConfirmPassword").focus();
   });
 }
 

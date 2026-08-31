@@ -43,19 +43,37 @@ function getStore() {
       nextUserId: 1,
       nextAuditLogId: 1,
       nextPasswordResetId: 1,
+      nextInvitationId: 1,
+      nextBillingEventId: 1,
+      nextBackupSnapshotId: 1,
+      nextSystemEventId: 1,
       companies: [],
       users: [],
       companyData: [],
       auditLogs: [],
       passwordResetTokens: [],
+      invitationTokens: [],
+      userSessions: [],
+      billingEvents: [],
+      backupSnapshots: [],
+      systemEvents: [],
     };
     saveStore();
   }
 
   store.nextAuditLogId = Number(store.nextAuditLogId) || 1;
   store.nextPasswordResetId = Number(store.nextPasswordResetId) || 1;
+  store.nextInvitationId = Number(store.nextInvitationId) || 1;
+  store.nextBillingEventId = Number(store.nextBillingEventId) || 1;
+  store.nextBackupSnapshotId = Number(store.nextBackupSnapshotId) || 1;
+  store.nextSystemEventId = Number(store.nextSystemEventId) || 1;
   store.auditLogs = Array.isArray(store.auditLogs) ? store.auditLogs : [];
   store.passwordResetTokens = Array.isArray(store.passwordResetTokens) ? store.passwordResetTokens : [];
+  store.invitationTokens = Array.isArray(store.invitationTokens) ? store.invitationTokens : [];
+  store.userSessions = Array.isArray(store.userSessions) ? store.userSessions : [];
+  store.billingEvents = Array.isArray(store.billingEvents) ? store.billingEvents : [];
+  store.backupSnapshots = Array.isArray(store.backupSnapshots) ? store.backupSnapshots : [];
+  store.systemEvents = Array.isArray(store.systemEvents) ? store.systemEvents : [];
   store.companies = Array.isArray(store.companies) ? store.companies : [];
   store.users = Array.isArray(store.users) ? store.users : [];
   store.companyData = Array.isArray(store.companyData) ? store.companyData : [];
@@ -63,10 +81,19 @@ function getStore() {
     company.billing_status = company.billing_status || "Ativo";
     company.access_limit = normalizeAccessLimit(company.access_limit);
     company.updated_at = company.updated_at || company.created_at || timestamp();
+    company.billing_customer_id = company.billing_customer_id || "";
+    company.billing_subscription_id = company.billing_subscription_id || "";
+    company.billing_price_id = company.billing_price_id || "";
+    company.billing_current_period_end = company.billing_current_period_end || null;
+    company.billing_trial_end = company.billing_trial_end || null;
+    company.billing_cancel_at_period_end = Boolean(company.billing_cancel_at_period_end);
   });
   store.users.forEach((user) => {
     user.session_version = Number(user.session_version || 1);
     user.last_login_at = user.last_login_at || null;
+    user.mfa_secret = user.mfa_secret || "";
+    user.mfa_enabled = Boolean(user.mfa_enabled);
+    user.mfa_recovery_codes = Array.isArray(user.mfa_recovery_codes) ? user.mfa_recovery_codes : [];
   });
 
   return store;
@@ -132,11 +159,20 @@ async function initializeDatabase() {
     ALTER TABLE companies
       ADD COLUMN IF NOT EXISTS billing_status TEXT NOT NULL DEFAULT 'Ativo',
       ADD COLUMN IF NOT EXISTS access_limit INTEGER NOT NULL DEFAULT 5,
-      ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+      ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      ADD COLUMN IF NOT EXISTS billing_customer_id TEXT NOT NULL DEFAULT '',
+      ADD COLUMN IF NOT EXISTS billing_subscription_id TEXT NOT NULL DEFAULT '',
+      ADD COLUMN IF NOT EXISTS billing_price_id TEXT NOT NULL DEFAULT '',
+      ADD COLUMN IF NOT EXISTS billing_current_period_end TIMESTAMPTZ,
+      ADD COLUMN IF NOT EXISTS billing_trial_end TIMESTAMPTZ,
+      ADD COLUMN IF NOT EXISTS billing_cancel_at_period_end BOOLEAN NOT NULL DEFAULT FALSE;
 
     ALTER TABLE users
       ADD COLUMN IF NOT EXISTS session_version INTEGER NOT NULL DEFAULT 1,
-      ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMPTZ;
+      ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMPTZ,
+      ADD COLUMN IF NOT EXISTS mfa_secret TEXT NOT NULL DEFAULT '',
+      ADD COLUMN IF NOT EXISTS mfa_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+      ADD COLUMN IF NOT EXISTS mfa_recovery_codes JSONB NOT NULL DEFAULT '[]'::jsonb;
 
     CREATE TABLE IF NOT EXISTS audit_logs (
       id BIGSERIAL PRIMARY KEY,
@@ -167,6 +203,84 @@ async function initializeDatabase() {
       ON password_reset_tokens (user_id, created_at DESC);
     CREATE INDEX IF NOT EXISTS password_reset_tokens_expiry_idx
       ON password_reset_tokens (expires_at);
+
+    CREATE TABLE IF NOT EXISTS invitation_tokens (
+      id BIGSERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      token_hash TEXT NOT NULL UNIQUE,
+      expires_at TIMESTAMPTZ NOT NULL,
+      used_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE INDEX IF NOT EXISTS invitation_tokens_user_idx
+      ON invitation_tokens (user_id, created_at DESC);
+    CREATE INDEX IF NOT EXISTS invitation_tokens_expiry_idx
+      ON invitation_tokens (expires_at);
+
+    CREATE TABLE IF NOT EXISTS user_sessions (
+      session_id TEXT PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      company_id INTEGER NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+      ip_address TEXT NOT NULL DEFAULT '',
+      user_agent TEXT NOT NULL DEFAULT '',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      expires_at TIMESTAMPTZ NOT NULL,
+      revoked_at TIMESTAMPTZ
+    );
+
+    CREATE INDEX IF NOT EXISTS user_sessions_user_idx
+      ON user_sessions (user_id, last_seen_at DESC);
+    CREATE INDEX IF NOT EXISTS user_sessions_expiry_idx
+      ON user_sessions (expires_at);
+
+    CREATE TABLE IF NOT EXISTS billing_events (
+      id BIGSERIAL PRIMARY KEY,
+      stripe_event_id TEXT NOT NULL UNIQUE,
+      company_id INTEGER REFERENCES companies(id) ON DELETE SET NULL,
+      event_type TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT '',
+      amount_total BIGINT,
+      currency TEXT NOT NULL DEFAULT '',
+      invoice_url TEXT NOT NULL DEFAULT '',
+      metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE INDEX IF NOT EXISTS billing_events_company_idx
+      ON billing_events (company_id, created_at DESC);
+
+    CREATE TABLE IF NOT EXISTS backup_snapshots (
+      id BIGSERIAL PRIMARY KEY,
+      storage_key TEXT NOT NULL,
+      storage_url TEXT NOT NULL DEFAULT '',
+      checksum TEXT NOT NULL DEFAULT '',
+      byte_size BIGINT NOT NULL DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'completed',
+      verification_status TEXT NOT NULL DEFAULT 'pending',
+      verified_at TIMESTAMPTZ,
+      error_message TEXT NOT NULL DEFAULT '',
+      metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE INDEX IF NOT EXISTS backup_snapshots_created_idx
+      ON backup_snapshots (created_at DESC);
+
+    CREATE TABLE IF NOT EXISTS system_events (
+      id BIGSERIAL PRIMARY KEY,
+      severity TEXT NOT NULL DEFAULT 'info',
+      component TEXT NOT NULL DEFAULT 'app',
+      event_type TEXT NOT NULL,
+      message TEXT NOT NULL DEFAULT '',
+      metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+      resolved_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE INDEX IF NOT EXISTS system_events_created_idx
+      ON system_events (created_at DESC);
   `);
 }
 
@@ -194,6 +308,14 @@ function mapCompany(row) {
     plan: row.plan,
     billingStatus: row.billing_status ?? row.billingStatus ?? "Ativo",
     accessLimit: Number(row.access_limit ?? row.accessLimit ?? 5),
+    billingCustomerId: row.billing_customer_id ?? row.billingCustomerId ?? "",
+    billingSubscriptionId: row.billing_subscription_id ?? row.billingSubscriptionId ?? "",
+    billingPriceId: row.billing_price_id ?? row.billingPriceId ?? "",
+    billingCurrentPeriodEnd: row.billing_current_period_end ?? row.billingCurrentPeriodEnd ?? null,
+    billingTrialEnd: row.billing_trial_end ?? row.billingTrialEnd ?? null,
+    billingCancelAtPeriodEnd: Boolean(
+      row.billing_cancel_at_period_end ?? row.billingCancelAtPeriodEnd,
+    ),
     created_at: row.created_at,
     updated_at: row.updated_at,
   };
@@ -211,6 +333,7 @@ function mapUser(row) {
     status: row.status,
     sessionVersion: Number(row.session_version ?? row.sessionVersion ?? 1),
     lastLoginAt: row.last_login_at ?? row.lastLoginAt ?? null,
+    mfaEnabled: Boolean(row.mfa_enabled ?? row.mfaEnabled),
     created_at: row.created_at,
   };
 }
@@ -356,6 +479,9 @@ async function syncConfiguredUsers(logins) {
       status: "Ativo",
       session_version: 1,
       last_login_at: null,
+      mfa_secret: "",
+      mfa_enabled: false,
+      mfa_recovery_codes: [],
       created_at: timestamp(),
     });
     saveStore();
@@ -384,6 +510,7 @@ async function findUser(username, password) {
       role: row.role,
       companyName: company?.name || "",
       sessionVersion: Number(row.session_version || 1),
+      mfaEnabled: Boolean(row.mfa_enabled),
     };
   }
 
@@ -404,6 +531,7 @@ async function findUser(username, password) {
     role: user.role,
     companyName: company?.name || "",
     sessionVersion: Number(user.session_version || 1),
+    mfaEnabled: Boolean(user.mfa_enabled),
   };
 }
 
@@ -450,7 +578,9 @@ async function getCompany(companyId) {
     return mapCompany(result.rows[0]);
   }
 
-  return getStore().companies.find((company) => company.id === Number(companyId)) || null;
+  return mapCompany(
+    getStore().companies.find((company) => company.id === Number(companyId)),
+  );
 }
 
 async function getUser(userId) {
@@ -682,6 +812,9 @@ async function createUser(values) {
       status: user.status,
       session_version: 1,
       last_login_at: null,
+      mfa_secret: "",
+      mfa_enabled: false,
+      mfa_recovery_codes: [],
       created_at: timestamp(),
   };
   database.users.push(created);
@@ -1037,6 +1170,10 @@ async function resetUserPassword(userId, temporaryPassword) {
       "UPDATE users SET password_hash = $2, session_version = session_version + 1 WHERE id = $1 RETURNING *",
       [Number(userId), passwordHash],
     );
+    await getPool().query(
+      "UPDATE user_sessions SET revoked_at = NOW() WHERE user_id = $1 AND revoked_at IS NULL",
+      [Number(userId)],
+    );
     return mapUser(result.rows[0]);
   }
 
@@ -1046,12 +1183,269 @@ async function resetUserPassword(userId, temporaryPassword) {
 
   user.password_hash = passwordHash;
   user.session_version = Number(user.session_version || 1) + 1;
+  database.userSessions.forEach((session) => {
+    if (Number(session.user_id) === Number(userId) && !session.revoked_at) session.revoked_at = timestamp();
+  });
   saveStore();
   return getUser(userId);
 }
 
+async function verifyUserPassword(userId, password) {
+  await ensureInitialized();
+  if (!password) return false;
+
+  if (usePostgres) {
+    const result = await getPool().query("SELECT password_hash FROM users WHERE id = $1 LIMIT 1", [
+      Number(userId),
+    ]);
+    return verifyPassword(password, result.rows[0]?.password_hash);
+  }
+
+  const user = getStore().users.find((item) => Number(item.id) === Number(userId));
+  return Boolean(user && verifyPassword(password, user.password_hash));
+}
+
+async function getUserSecurity(userId) {
+  await ensureInitialized();
+
+  if (usePostgres) {
+    const result = await getPool().query(
+      "SELECT mfa_secret, mfa_enabled, mfa_recovery_codes FROM users WHERE id = $1 LIMIT 1",
+      [Number(userId)],
+    );
+    const row = result.rows[0];
+    return row
+      ? {
+          secret: row.mfa_secret || "",
+          enabled: Boolean(row.mfa_enabled),
+          recoveryCodes: Array.isArray(row.mfa_recovery_codes) ? row.mfa_recovery_codes : [],
+        }
+      : null;
+  }
+
+  const user = getStore().users.find((item) => Number(item.id) === Number(userId));
+  return user
+    ? {
+        secret: user.mfa_secret || "",
+        enabled: Boolean(user.mfa_enabled),
+        recoveryCodes: Array.isArray(user.mfa_recovery_codes) ? user.mfa_recovery_codes : [],
+      }
+    : null;
+}
+
+async function setUserMfa(userId, values = {}) {
+  await ensureInitialized();
+  const secret = String(values.secret || "");
+  const enabled = Boolean(values.enabled);
+  const recoveryCodes = Array.isArray(values.recoveryCodes) ? values.recoveryCodes : [];
+
+  if (usePostgres) {
+    const result = await getPool().query(
+      `UPDATE users
+       SET mfa_secret = $2, mfa_enabled = $3, mfa_recovery_codes = $4::jsonb
+       WHERE id = $1
+       RETURNING *`,
+      [Number(userId), secret, enabled, JSON.stringify(recoveryCodes)],
+    );
+    return mapUser(result.rows[0]);
+  }
+
+  const database = getStore();
+  const user = database.users.find((item) => Number(item.id) === Number(userId));
+  if (!user) return null;
+  user.mfa_secret = secret;
+  user.mfa_enabled = enabled;
+  user.mfa_recovery_codes = recoveryCodes;
+  saveStore();
+  return mapUser(user);
+}
+
+async function consumeMfaRecoveryCode(userId, codeHash) {
+  await ensureInitialized();
+  if (!codeHash) return false;
+
+  if (usePostgres) {
+    const client = await getPool().connect();
+    try {
+      await client.query("BEGIN");
+      const result = await client.query(
+        "SELECT mfa_recovery_codes FROM users WHERE id = $1 FOR UPDATE",
+        [Number(userId)],
+      );
+      const codes = Array.isArray(result.rows[0]?.mfa_recovery_codes)
+        ? result.rows[0].mfa_recovery_codes
+        : [];
+      const index = codes.indexOf(codeHash);
+      if (index < 0) {
+        await client.query("ROLLBACK");
+        return false;
+      }
+      codes.splice(index, 1);
+      await client.query("UPDATE users SET mfa_recovery_codes = $2::jsonb WHERE id = $1", [
+        Number(userId),
+        JSON.stringify(codes),
+      ]);
+      await client.query("COMMIT");
+      return true;
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  const database = getStore();
+  const user = database.users.find((item) => Number(item.id) === Number(userId));
+  const index = user?.mfa_recovery_codes?.indexOf(codeHash) ?? -1;
+  if (index < 0) return false;
+  user.mfa_recovery_codes.splice(index, 1);
+  saveStore();
+  return true;
+}
+
 function passwordResetTokenHash(token) {
   return crypto.createHash("sha256").update(String(token || "")).digest("hex");
+}
+
+async function createInvitationToken(userId, ttlHours = 48) {
+  await ensureInitialized();
+  const user = await getUser(userId);
+  if (!user) return null;
+
+  const token = crypto.randomBytes(32).toString("base64url");
+  const tokenHash = passwordResetTokenHash(token);
+  const safeTtl = Math.max(1, Math.min(Number(ttlHours) || 48, 168));
+  const expiresAt = new Date(Date.now() + safeTtl * 60 * 60 * 1000).toISOString();
+
+  if (usePostgres) {
+    await getPool().query(
+      "UPDATE invitation_tokens SET used_at = NOW() WHERE user_id = $1 AND used_at IS NULL",
+      [Number(userId)],
+    );
+    await getPool().query(
+      `INSERT INTO invitation_tokens (user_id, token_hash, expires_at)
+       VALUES ($1, $2, $3)`,
+      [Number(userId), tokenHash, expiresAt],
+    );
+  } else {
+    const database = getStore();
+    database.invitationTokens.forEach((item) => {
+      if (Number(item.user_id) === Number(userId) && !item.used_at) item.used_at = timestamp();
+    });
+    database.invitationTokens.push({
+      id: database.nextInvitationId++,
+      user_id: Number(userId),
+      token_hash: tokenHash,
+      expires_at: expiresAt,
+      used_at: null,
+      created_at: timestamp(),
+    });
+    saveStore();
+  }
+
+  return { token, expiresAt, user };
+}
+
+async function getInvitationByToken(token) {
+  await ensureInitialized();
+  const tokenHash = passwordResetTokenHash(token);
+  if (!tokenHash) return null;
+
+  if (usePostgres) {
+    const result = await getPool().query(
+      `SELECT u.*, c.name AS company_name, i.expires_at
+       FROM invitation_tokens i
+       JOIN users u ON u.id = i.user_id
+       JOIN companies c ON c.id = u.company_id
+       WHERE i.token_hash = $1 AND i.used_at IS NULL AND i.expires_at > NOW()
+       LIMIT 1`,
+      [tokenHash],
+    );
+    const row = result.rows[0];
+    return row ? { user: mapUser(row), companyName: row.company_name, expiresAt: row.expires_at } : null;
+  }
+
+  const database = getStore();
+  const invitation = database.invitationTokens.find(
+    (item) => item.token_hash === tokenHash && !item.used_at && new Date(item.expires_at).getTime() > Date.now(),
+  );
+  if (!invitation) return null;
+  const user = database.users.find((item) => Number(item.id) === Number(invitation.user_id));
+  const company = database.companies.find((item) => Number(item.id) === Number(user?.company_id));
+  return user ? { user: mapUser(user), companyName: company?.name || "", expiresAt: invitation.expires_at } : null;
+}
+
+async function consumeInvitationToken(token, newPassword) {
+  await ensureInitialized();
+  const tokenHash = passwordResetTokenHash(token);
+  if (!tokenHash || String(newPassword || "").length < 8) return null;
+  const passwordHash = hashPassword(newPassword);
+
+  if (usePostgres) {
+    const client = await getPool().connect();
+    try {
+      await client.query("BEGIN");
+      const tokenResult = await client.query(
+        `UPDATE invitation_tokens
+         SET used_at = NOW()
+         WHERE token_hash = $1 AND used_at IS NULL AND expires_at > NOW()
+         RETURNING user_id`,
+        [tokenHash],
+      );
+      const userId = tokenResult.rows[0]?.user_id;
+      if (!userId) {
+        await client.query("ROLLBACK");
+        return null;
+      }
+      const userResult = await client.query(
+        `UPDATE users
+         SET password_hash = $2, status = 'Ativo', session_version = session_version + 1
+         WHERE id = $1 AND status <> 'Bloqueado'
+         RETURNING *`,
+        [Number(userId), passwordHash],
+      );
+      if (!userResult.rows[0]) {
+        await client.query("ROLLBACK");
+        return null;
+      }
+      await client.query("UPDATE invitation_tokens SET used_at = NOW() WHERE user_id = $1 AND used_at IS NULL", [
+        Number(userId),
+      ]);
+      await client.query("UPDATE user_sessions SET revoked_at = NOW() WHERE user_id = $1 AND revoked_at IS NULL", [
+        Number(userId),
+      ]);
+      await client.query("COMMIT");
+      return mapUser(userResult.rows[0]);
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  const database = getStore();
+  const invitation = database.invitationTokens.find(
+    (item) => item.token_hash === tokenHash && !item.used_at && new Date(item.expires_at).getTime() > Date.now(),
+  );
+  if (!invitation) return null;
+  const user = database.users.find(
+    (item) => Number(item.id) === Number(invitation.user_id) && item.status !== "Bloqueado",
+  );
+  if (!user) return null;
+  invitation.used_at = timestamp();
+  database.invitationTokens.forEach((item) => {
+    if (Number(item.user_id) === Number(user.id) && !item.used_at) item.used_at = timestamp();
+  });
+  user.password_hash = passwordHash;
+  user.status = "Ativo";
+  user.session_version = Number(user.session_version || 1) + 1;
+  database.userSessions.forEach((session) => {
+    if (Number(session.user_id) === Number(user.id) && !session.revoked_at) session.revoked_at = timestamp();
+  });
+  saveStore();
+  return mapUser(user);
 }
 
 async function createPasswordResetToken(username, ttlMinutes = 30) {
@@ -1130,6 +1524,10 @@ async function consumePasswordResetToken(token, newPassword) {
         "UPDATE password_reset_tokens SET used_at = NOW() WHERE user_id = $1 AND used_at IS NULL",
         [Number(userId)],
       );
+      await client.query(
+        "UPDATE user_sessions SET revoked_at = NOW() WHERE user_id = $1 AND revoked_at IS NULL",
+        [Number(userId)],
+      );
       await client.query("COMMIT");
       return mapUser(userResult.rows[0]);
     } catch (error) {
@@ -1156,6 +1554,9 @@ async function consumePasswordResetToken(token, newPassword) {
   });
   user.password_hash = hashPassword(newPassword);
   user.session_version = Number(user.session_version || 1) + 1;
+  database.userSessions.forEach((session) => {
+    if (Number(session.user_id) === Number(user.id) && !session.revoked_at) session.revoked_at = timestamp();
+  });
   saveStore();
   return mapUser(user);
 }
@@ -1194,6 +1595,253 @@ async function validateSessionUser(userId, companyId, sessionVersion) {
   if (Number(user.companyId) !== Number(companyId)) return null;
   if (Number(user.sessionVersion || 1) !== Number(sessionVersion || 1)) return null;
   return user;
+}
+
+function mapSession(row) {
+  if (!row) return null;
+  return {
+    id: row.session_id ?? row.id,
+    userId: Number(row.user_id ?? row.userId),
+    companyId: Number(row.company_id ?? row.companyId),
+    ipAddress: row.ip_address ?? row.ipAddress ?? "",
+    userAgent: row.user_agent ?? row.userAgent ?? "",
+    createdAt: row.created_at ?? row.createdAt,
+    lastSeenAt: row.last_seen_at ?? row.lastSeenAt,
+    expiresAt: row.expires_at ?? row.expiresAt,
+    revokedAt: row.revoked_at ?? row.revokedAt ?? null,
+  };
+}
+
+async function registerUserSession(values) {
+  await ensureInitialized();
+  const row = {
+    id: normalizeText(values.sessionId),
+    userId: Number(values.userId),
+    companyId: Number(values.companyId),
+    ipAddress: normalizeText(values.ipAddress).slice(0, 100),
+    userAgent: normalizeText(values.userAgent).slice(0, 500),
+    expiresAt: new Date(values.expiresAt).toISOString(),
+  };
+  if (!row.id || !row.userId || !row.companyId) return null;
+
+  if (usePostgres) {
+    const result = await getPool().query(
+      `INSERT INTO user_sessions
+        (session_id, user_id, company_id, ip_address, user_agent, expires_at)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       ON CONFLICT (session_id) DO UPDATE SET
+         ip_address = EXCLUDED.ip_address,
+         user_agent = EXCLUDED.user_agent,
+         last_seen_at = NOW(),
+         expires_at = EXCLUDED.expires_at,
+         revoked_at = NULL
+       RETURNING *`,
+      [row.id, row.userId, row.companyId, row.ipAddress, row.userAgent, row.expiresAt],
+    );
+    return mapSession(result.rows[0]);
+  }
+
+  const database = getStore();
+  const created = {
+    session_id: row.id,
+    user_id: row.userId,
+    company_id: row.companyId,
+    ip_address: row.ipAddress,
+    user_agent: row.userAgent,
+    created_at: timestamp(),
+    last_seen_at: timestamp(),
+    expires_at: row.expiresAt,
+    revoked_at: null,
+  };
+  database.userSessions.push(created);
+  saveStore();
+  return mapSession(created);
+}
+
+async function validateUserSession(sessionId, userId, companyId) {
+  await ensureInitialized();
+  if (!sessionId) return null;
+
+  if (usePostgres) {
+    const result = await getPool().query(
+      `UPDATE user_sessions
+       SET last_seen_at = CASE
+         WHEN last_seen_at < NOW() - INTERVAL '5 minutes' THEN NOW()
+         ELSE last_seen_at
+       END
+       WHERE session_id = $1 AND user_id = $2 AND company_id = $3
+         AND revoked_at IS NULL AND expires_at > NOW()
+       RETURNING *`,
+      [sessionId, Number(userId), Number(companyId)],
+    );
+    return mapSession(result.rows[0]);
+  }
+
+  const database = getStore();
+  const session = database.userSessions.find(
+    (item) =>
+      item.session_id === sessionId &&
+      Number(item.user_id) === Number(userId) &&
+      Number(item.company_id) === Number(companyId) &&
+      !item.revoked_at &&
+      new Date(item.expires_at).getTime() > Date.now(),
+  );
+  if (!session) return null;
+  if (Date.now() - new Date(session.last_seen_at).getTime() > 5 * 60 * 1000) {
+    session.last_seen_at = timestamp();
+    saveStore();
+  }
+  return mapSession(session);
+}
+
+async function listUserSessions(userId) {
+  await ensureInitialized();
+
+  if (usePostgres) {
+    const result = await getPool().query(
+      `SELECT * FROM user_sessions
+       WHERE user_id = $1 AND revoked_at IS NULL AND expires_at > NOW()
+       ORDER BY last_seen_at DESC`,
+      [Number(userId)],
+    );
+    return result.rows.map(mapSession);
+  }
+
+  return getStore().userSessions
+    .filter(
+      (item) =>
+        Number(item.user_id) === Number(userId) &&
+        !item.revoked_at &&
+        new Date(item.expires_at).getTime() > Date.now(),
+    )
+    .sort((a, b) => String(b.last_seen_at).localeCompare(String(a.last_seen_at)))
+    .map(mapSession);
+}
+
+async function revokeUserSession(userId, sessionId) {
+  await ensureInitialized();
+
+  if (usePostgres) {
+    const result = await getPool().query(
+      `UPDATE user_sessions SET revoked_at = NOW()
+       WHERE user_id = $1 AND session_id = $2 AND revoked_at IS NULL
+       RETURNING *`,
+      [Number(userId), sessionId],
+    );
+    return mapSession(result.rows[0]);
+  }
+
+  const database = getStore();
+  const session = database.userSessions.find(
+    (item) => Number(item.user_id) === Number(userId) && item.session_id === sessionId && !item.revoked_at,
+  );
+  if (!session) return null;
+  session.revoked_at = timestamp();
+  saveStore();
+  return mapSession(session);
+}
+
+async function revokeOtherUserSessions(userId, currentSessionId) {
+  await ensureInitialized();
+
+  if (usePostgres) {
+    const result = await getPool().query(
+      `UPDATE user_sessions SET revoked_at = NOW()
+       WHERE user_id = $1 AND session_id <> $2 AND revoked_at IS NULL
+       RETURNING session_id`,
+      [Number(userId), currentSessionId],
+    );
+    return result.rowCount;
+  }
+
+  const database = getStore();
+  let count = 0;
+  database.userSessions.forEach((session) => {
+    if (Number(session.user_id) === Number(userId) && session.session_id !== currentSessionId && !session.revoked_at) {
+      session.revoked_at = timestamp();
+      count += 1;
+    }
+  });
+  if (count) saveStore();
+  return count;
+}
+
+async function countRecentMfaFailures(username, ipAddress, minutes = 15) {
+  await ensureInitialized();
+  const normalizedUsername = normalizeText(username).toLowerCase();
+  const normalizedIp = normalizeText(ipAddress);
+  const safeMinutes = Math.max(1, Math.min(Number(minutes) || 15, 1440));
+
+  if (usePostgres) {
+    const result = await getPool().query(
+      `SELECT COUNT(*)::int AS count
+       FROM audit_logs
+       WHERE event_type = 'mfa_failed'
+         AND created_at >= NOW() - ($3::text || ' minutes')::interval
+         AND (lower(username) = $1 OR ip_address = $2)`,
+      [normalizedUsername, normalizedIp, String(safeMinutes)],
+    );
+    return Number(result.rows[0]?.count || 0);
+  }
+
+  const since = Date.now() - safeMinutes * 60 * 1000;
+  return getStore().auditLogs.filter((log) => {
+    const recent = new Date(log.created_at).getTime() >= since;
+    const matches =
+      String(log.username || "").toLowerCase() === normalizedUsername ||
+      String(log.ip_address || "") === normalizedIp;
+    return log.event_type === "mfa_failed" && recent && matches;
+  }).length;
+}
+
+async function listNotificationTargets() {
+  await ensureInitialized();
+  let companies;
+  if (usePostgres) {
+    const result = await getPool().query("SELECT * FROM companies ORDER BY id ASC");
+    companies = result.rows.map(mapCompany);
+  } else {
+    companies = getStore().companies.map(mapCompany);
+  }
+
+  const targets = [];
+  for (const company of companies) {
+    const users = (await listCompanyUsers(company.id)).filter(
+      (user) => user.status === "Ativo" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(user.username),
+    );
+    if (!users.length) continue;
+    const rows = await listCompanyData(company.id);
+    targets.push({
+      company,
+      users,
+      data: Object.fromEntries(rows.map((row) => [row.key, row.value])),
+    });
+  }
+  return targets;
+}
+
+async function hasRecentCompanyEvent(companyId, eventType, hours = 20) {
+  await ensureInitialized();
+  const safeHours = Math.max(1, Math.min(Number(hours) || 20, 168));
+
+  if (usePostgres) {
+    const result = await getPool().query(
+      `SELECT 1 FROM audit_logs
+       WHERE company_id = $1 AND event_type = $2
+         AND created_at >= NOW() - ($3::text || ' hours')::interval
+       LIMIT 1`,
+      [Number(companyId), eventType, String(safeHours)],
+    );
+    return Boolean(result.rows[0]);
+  }
+
+  const since = Date.now() - safeHours * 60 * 60 * 1000;
+  return getStore().auditLogs.some(
+    (log) =>
+      Number(log.company_id) === Number(companyId) &&
+      log.event_type === eventType &&
+      new Date(log.created_at).getTime() >= since,
+  );
 }
 
 async function recordAuditLog(values = {}) {
@@ -1374,6 +2022,410 @@ async function getBackupSnapshot(companyId = null) {
   };
 }
 
+function mapBillingEvent(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    stripeEventId: row.stripe_event_id ?? row.stripeEventId ?? "",
+    companyId: row.company_id ?? row.companyId ?? null,
+    eventType: row.event_type ?? row.eventType ?? "",
+    status: row.status || "",
+    amountTotal: row.amount_total ?? row.amountTotal ?? null,
+    currency: row.currency || "",
+    invoiceUrl: row.invoice_url ?? row.invoiceUrl ?? "",
+    metadata: row.metadata || {},
+    createdAt: row.created_at ?? row.createdAt,
+  };
+}
+
+function mapBackupSnapshot(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    storageKey: row.storage_key ?? row.storageKey ?? "",
+    storageUrl: row.storage_url ?? row.storageUrl ?? "",
+    checksum: row.checksum || "",
+    byteSize: Number(row.byte_size ?? row.byteSize ?? 0),
+    status: row.status || "completed",
+    verificationStatus: row.verification_status ?? row.verificationStatus ?? "pending",
+    verifiedAt: row.verified_at ?? row.verifiedAt ?? null,
+    errorMessage: row.error_message ?? row.errorMessage ?? "",
+    metadata: row.metadata || {},
+    createdAt: row.created_at ?? row.createdAt,
+  };
+}
+
+function mapSystemEvent(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    severity: row.severity || "info",
+    component: row.component || "app",
+    eventType: row.event_type ?? row.eventType ?? "",
+    message: row.message || "",
+    metadata: row.metadata || {},
+    resolvedAt: row.resolved_at ?? row.resolvedAt ?? null,
+    createdAt: row.created_at ?? row.createdAt,
+  };
+}
+
+async function updateCompanyBilling(companyId, values = {}) {
+  await ensureInitialized();
+  const current = await getCompany(companyId);
+  if (!current) return null;
+  const next = {
+    plan: values.plan ?? current.plan,
+    billingStatus: values.billingStatus ?? current.billingStatus,
+    accessLimit: normalizeAccessLimit(values.accessLimit ?? current.accessLimit),
+    customerId: values.customerId || current.billingCustomerId,
+    subscriptionId: values.subscriptionId || current.billingSubscriptionId,
+    priceId: values.priceId || current.billingPriceId,
+    currentPeriodEnd: values.currentPeriodEnd ?? current.billingCurrentPeriodEnd,
+    trialEnd: values.trialEnd ?? current.billingTrialEnd,
+    cancelAtPeriodEnd: values.cancelAtPeriodEnd ?? current.billingCancelAtPeriodEnd,
+  };
+
+  if (usePostgres) {
+    const result = await getPool().query(
+      `UPDATE companies SET
+        plan = $2, billing_status = $3, access_limit = $4,
+        billing_customer_id = $5, billing_subscription_id = $6, billing_price_id = $7,
+        billing_current_period_end = $8, billing_trial_end = $9,
+        billing_cancel_at_period_end = $10, updated_at = NOW()
+       WHERE id = $1 RETURNING *`,
+      [
+        Number(companyId),
+        next.plan,
+        normalizeBillingStatus(next.billingStatus),
+        next.accessLimit,
+        next.customerId || "",
+        next.subscriptionId || "",
+        next.priceId || "",
+        next.currentPeriodEnd || null,
+        next.trialEnd || null,
+        Boolean(next.cancelAtPeriodEnd),
+      ],
+    );
+    return mapCompany(result.rows[0]);
+  }
+
+  const row = getStore().companies.find((item) => item.id === Number(companyId));
+  if (!row) return null;
+  row.plan = next.plan;
+  row.billing_status = normalizeBillingStatus(next.billingStatus);
+  row.access_limit = next.accessLimit;
+  row.billing_customer_id = next.customerId || "";
+  row.billing_subscription_id = next.subscriptionId || "";
+  row.billing_price_id = next.priceId || "";
+  row.billing_current_period_end = next.currentPeriodEnd || null;
+  row.billing_trial_end = next.trialEnd || null;
+  row.billing_cancel_at_period_end = Boolean(next.cancelAtPeriodEnd);
+  row.updated_at = timestamp();
+  saveStore();
+  return mapCompany(row);
+}
+
+async function findCompanyByBillingIdentifiers({ customerId = "", subscriptionId = "" } = {}) {
+  await ensureInitialized();
+  if (!customerId && !subscriptionId) return null;
+  if (usePostgres) {
+    const result = await getPool().query(
+      `SELECT * FROM companies
+       WHERE ($1 <> '' AND billing_customer_id = $1)
+          OR ($2 <> '' AND billing_subscription_id = $2)
+       LIMIT 1`,
+      [customerId, subscriptionId],
+    );
+    return mapCompany(result.rows[0]);
+  }
+  const row = getStore().companies.find(
+    (item) =>
+      (customerId && item.billing_customer_id === customerId) ||
+      (subscriptionId && item.billing_subscription_id === subscriptionId),
+  );
+  return mapCompany(row);
+}
+
+async function recordBillingEvent(values = {}) {
+  await ensureInitialized();
+  const event = {
+    stripeEventId: normalizeText(values.stripeEventId),
+    companyId: values.companyId ? Number(values.companyId) : null,
+    eventType: normalizeText(values.eventType),
+    status: normalizeText(values.status),
+    amountTotal: Number.isFinite(Number(values.amountTotal)) ? Number(values.amountTotal) : null,
+    currency: normalizeText(values.currency).toLowerCase(),
+    invoiceUrl: normalizeText(values.invoiceUrl),
+    metadata: values.metadata && typeof values.metadata === "object" ? values.metadata : {},
+  };
+  if (!event.stripeEventId || !event.eventType) return { created: false, event: null };
+
+  if (usePostgres) {
+    const result = await getPool().query(
+      `INSERT INTO billing_events
+        (stripe_event_id, company_id, event_type, status, amount_total, currency, invoice_url, metadata)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+       ON CONFLICT (stripe_event_id) DO NOTHING RETURNING *`,
+      [
+        event.stripeEventId,
+        event.companyId,
+        event.eventType,
+        event.status,
+        event.amountTotal,
+        event.currency,
+        event.invoiceUrl,
+        JSON.stringify(event.metadata),
+      ],
+    );
+    if (result.rows[0]) return { created: true, event: mapBillingEvent(result.rows[0]) };
+    const existing = await getPool().query(
+      "SELECT * FROM billing_events WHERE stripe_event_id = $1 LIMIT 1",
+      [event.stripeEventId],
+    );
+    return { created: false, event: mapBillingEvent(existing.rows[0]) };
+  }
+
+  const database = getStore();
+  const existing = database.billingEvents.find((item) => item.stripe_event_id === event.stripeEventId);
+  if (existing) return { created: false, event: mapBillingEvent(existing) };
+  const row = {
+    id: database.nextBillingEventId++,
+    stripe_event_id: event.stripeEventId,
+    company_id: event.companyId,
+    event_type: event.eventType,
+    status: event.status,
+    amount_total: event.amountTotal,
+    currency: event.currency,
+    invoice_url: event.invoiceUrl,
+    metadata: event.metadata,
+    created_at: timestamp(),
+  };
+  database.billingEvents.push(row);
+  saveStore();
+  return { created: true, event: mapBillingEvent(row) };
+}
+
+async function listBillingEvents(companyId = null, limit = 50) {
+  await ensureInitialized();
+  const safeLimit = Math.max(1, Math.min(Number(limit) || 50, 200));
+  if (usePostgres) {
+    const params = companyId ? [Number(companyId), safeLimit] : [safeLimit];
+    const result = await getPool().query(
+      companyId
+        ? "SELECT * FROM billing_events WHERE company_id = $1 ORDER BY created_at DESC LIMIT $2"
+        : "SELECT * FROM billing_events ORDER BY created_at DESC LIMIT $1",
+      params,
+    );
+    return result.rows.map(mapBillingEvent);
+  }
+  return getStore().billingEvents
+    .filter((item) => !companyId || Number(item.company_id) === Number(companyId))
+    .sort(sortNewestFirst)
+    .slice(0, safeLimit)
+    .map(mapBillingEvent);
+}
+
+async function createBackupSnapshot(values = {}) {
+  await ensureInitialized();
+  const snapshot = {
+    storageKey: normalizeText(values.storageKey),
+    storageUrl: normalizeText(values.storageUrl),
+    checksum: normalizeText(values.checksum),
+    byteSize: Math.max(0, Number(values.byteSize) || 0),
+    status: normalizeText(values.status) || "completed",
+    verificationStatus: normalizeText(values.verificationStatus) || "pending",
+    errorMessage: normalizeText(values.errorMessage),
+    metadata: values.metadata && typeof values.metadata === "object" ? values.metadata : {},
+  };
+  if (usePostgres) {
+    const result = await getPool().query(
+      `INSERT INTO backup_snapshots
+        (storage_key, storage_url, checksum, byte_size, status, verification_status, error_message, metadata)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
+      [
+        snapshot.storageKey,
+        snapshot.storageUrl,
+        snapshot.checksum,
+        snapshot.byteSize,
+        snapshot.status,
+        snapshot.verificationStatus,
+        snapshot.errorMessage,
+        JSON.stringify(snapshot.metadata),
+      ],
+    );
+    return mapBackupSnapshot(result.rows[0]);
+  }
+  const database = getStore();
+  const row = {
+    id: database.nextBackupSnapshotId++,
+    storage_key: snapshot.storageKey,
+    storage_url: snapshot.storageUrl,
+    checksum: snapshot.checksum,
+    byte_size: snapshot.byteSize,
+    status: snapshot.status,
+    verification_status: snapshot.verificationStatus,
+    verified_at: null,
+    error_message: snapshot.errorMessage,
+    metadata: snapshot.metadata,
+    created_at: timestamp(),
+  };
+  database.backupSnapshots.push(row);
+  saveStore();
+  return mapBackupSnapshot(row);
+}
+
+async function updateBackupSnapshot(snapshotId, values = {}) {
+  await ensureInitialized();
+  if (usePostgres) {
+    const result = await getPool().query(
+      `UPDATE backup_snapshots SET
+        status = COALESCE($2, status),
+        verification_status = COALESCE($3, verification_status),
+        verified_at = CASE WHEN $3 IS NULL THEN verified_at ELSE NOW() END,
+        error_message = COALESCE($4, error_message),
+        metadata = COALESCE($5::jsonb, metadata)
+       WHERE id = $1 RETURNING *`,
+      [
+        Number(snapshotId),
+        values.status ?? null,
+        values.verificationStatus ?? null,
+        values.errorMessage ?? null,
+        values.metadata ? JSON.stringify(values.metadata) : null,
+      ],
+    );
+    return mapBackupSnapshot(result.rows[0]);
+  }
+  const row = getStore().backupSnapshots.find((item) => item.id === Number(snapshotId));
+  if (!row) return null;
+  if (values.status !== undefined) row.status = values.status;
+  if (values.verificationStatus !== undefined) {
+    row.verification_status = values.verificationStatus;
+    row.verified_at = timestamp();
+  }
+  if (values.errorMessage !== undefined) row.error_message = values.errorMessage;
+  if (values.metadata !== undefined) row.metadata = values.metadata;
+  saveStore();
+  return mapBackupSnapshot(row);
+}
+
+async function listBackupSnapshots(limit = 30) {
+  await ensureInitialized();
+  const safeLimit = Math.max(1, Math.min(Number(limit) || 30, 200));
+  if (usePostgres) {
+    const result = await getPool().query(
+      "SELECT * FROM backup_snapshots ORDER BY created_at DESC LIMIT $1",
+      [safeLimit],
+    );
+    return result.rows.map(mapBackupSnapshot);
+  }
+  return getStore().backupSnapshots.sort(sortNewestFirst).slice(0, safeLimit).map(mapBackupSnapshot);
+}
+
+async function deleteBackupSnapshotRecord(snapshotId) {
+  await ensureInitialized();
+  if (usePostgres) {
+    const result = await getPool().query("DELETE FROM backup_snapshots WHERE id = $1 RETURNING *", [
+      Number(snapshotId),
+    ]);
+    return mapBackupSnapshot(result.rows[0]);
+  }
+  const database = getStore();
+  const index = database.backupSnapshots.findIndex((item) => item.id === Number(snapshotId));
+  if (index < 0) return null;
+  const [deleted] = database.backupSnapshots.splice(index, 1);
+  saveStore();
+  return mapBackupSnapshot(deleted);
+}
+
+async function recordSystemEvent(values = {}) {
+  await ensureInitialized();
+  const event = {
+    severity: normalizeText(values.severity) || "info",
+    component: normalizeText(values.component) || "app",
+    eventType: normalizeText(values.eventType) || "unknown",
+    message: normalizeText(values.message).slice(0, 2000),
+    metadata: values.metadata && typeof values.metadata === "object" ? values.metadata : {},
+  };
+  if (usePostgres) {
+    const result = await getPool().query(
+      `INSERT INTO system_events (severity, component, event_type, message, metadata)
+       VALUES ($1,$2,$3,$4,$5) RETURNING *`,
+      [event.severity, event.component, event.eventType, event.message, JSON.stringify(event.metadata)],
+    );
+    return mapSystemEvent(result.rows[0]);
+  }
+  const database = getStore();
+  const row = {
+    id: database.nextSystemEventId++,
+    severity: event.severity,
+    component: event.component,
+    event_type: event.eventType,
+    message: event.message,
+    metadata: event.metadata,
+    resolved_at: null,
+    created_at: timestamp(),
+  };
+  database.systemEvents.push(row);
+  if (database.systemEvents.length > 2000) database.systemEvents = database.systemEvents.slice(-2000);
+  saveStore();
+  return mapSystemEvent(row);
+}
+
+async function listSystemEvents(limit = 50) {
+  await ensureInitialized();
+  const safeLimit = Math.max(1, Math.min(Number(limit) || 50, 200));
+  if (usePostgres) {
+    const result = await getPool().query(
+      "SELECT * FROM system_events ORDER BY created_at DESC LIMIT $1",
+      [safeLimit],
+    );
+    return result.rows.map(mapSystemEvent);
+  }
+  return getStore().systemEvents.sort(sortNewestFirst).slice(0, safeLimit).map(mapSystemEvent);
+}
+
+async function checkDatabaseHealth() {
+  const startedAt = Date.now();
+  await ensureInitialized();
+  if (usePostgres) await getPool().query("SELECT 1");
+  else getStore();
+  return { ok: true, latencyMs: Date.now() - startedAt, mode: usePostgres ? "postgres" : "local" };
+}
+
+async function getRecoveryBackupSnapshot() {
+  await ensureInitialized();
+  if (usePostgres) {
+    const [companiesResult, usersResult, dataResult] = await Promise.all([
+      getPool().query("SELECT * FROM companies ORDER BY id"),
+      getPool().query(
+        `SELECT id, company_id, username, display_name, password_hash, role, status,
+                session_version, last_login_at, mfa_secret, mfa_enabled, mfa_recovery_codes, created_at
+         FROM users ORDER BY id`,
+      ),
+      getPool().query(
+        "SELECT company_id, data_key, data_json, updated_at FROM company_data ORDER BY company_id, data_key",
+      ),
+    ]);
+    return {
+      version: 2,
+      exportedAt: timestamp(),
+      scope: "recovery",
+      companies: companiesResult.rows,
+      users: usersResult.rows,
+      companyData: dataResult.rows,
+    };
+  }
+  const database = getStore();
+  return {
+    version: 2,
+    exportedAt: timestamp(),
+    scope: "recovery",
+    companies: structuredClone(database.companies),
+    users: structuredClone(database.users),
+    companyData: structuredClone(database.companyData),
+  };
+}
+
 async function getCompanyData(companyId, key) {
   await ensureInitialized();
 
@@ -1426,33 +2478,60 @@ async function setCompanyData(companyId, key, value) {
 
 module.exports = {
   canAddCompanyUser,
+  checkDatabaseHealth,
   countRecentFailedLogins,
+  countRecentMfaFailures,
   countRecentPasswordResetRequests,
+  consumeInvitationToken,
+  consumeMfaRecoveryCode,
   createPasswordResetToken,
+  createInvitationToken,
   createCompany,
+  createBackupSnapshot,
   createUser,
   deleteCompanyUser,
+  deleteBackupSnapshotRecord,
   ensureDefaultCompany,
   ensureCompany,
   ensureInitialized,
   findUser,
+  findCompanyByBillingIdentifiers,
   findUserByUsername,
   getCompany,
   getCompanyData,
+  getInvitationByToken,
+  getUserSecurity,
   getBackupSnapshot,
+  getRecoveryBackupSnapshot,
   getUser,
   listCompanyData,
   listCompanyUsers,
+  listBackupSnapshots,
+  listBillingEvents,
+  listNotificationTargets,
   listAdminOverview,
+  listUserSessions,
+  listSystemEvents,
+  recordBillingEvent,
+  recordSystemEvent,
   recordAuditLog,
+  registerUserSession,
+  revokeOtherUserSessions,
+  revokeUserSession,
   consumePasswordResetToken,
   resetUserPassword,
   setCompanyData,
+  setUserMfa,
   syncConfiguredUsers,
   updateAdminCompany,
+  updateBackupSnapshot,
+  updateCompanyBilling,
   updateAdminUser,
   updateCompanyUser,
   updateCompany,
   updateUserProfile,
   validateSessionUser,
+  validateUserSession,
+  verifyUserPassword,
+  hasRecentCompanyEvent,
 };

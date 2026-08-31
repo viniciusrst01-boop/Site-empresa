@@ -5,6 +5,15 @@ const os = require("node:os");
 const path = require("node:path");
 const { spawn } = require("node:child_process");
 const test = require("node:test");
+const {
+  NobleCryptoPlugin,
+  ScureBase32Plugin,
+  generateSync,
+} = require("otplib");
+
+const csrfTokens = new Map();
+const otpCrypto = new NobleCryptoPlugin();
+const otpBase32 = new ScureBase32Plugin();
 
 function freePort() {
   return new Promise((resolve, reject) => {
@@ -39,19 +48,73 @@ async function login(baseUrl, username, password) {
     body: new URLSearchParams({ username, password }),
   });
   assert.equal(response.status, 302);
-  return response.headers.get("set-cookie").split(";")[0];
+  assert.equal(response.headers.get("location"), "/app");
+  const cookie = response.headers.get("set-cookie").split(";")[0];
+  const bootstrap = await fetch(`${baseUrl}/api/bootstrap`, { headers: { Cookie: cookie } });
+  assert.equal(bootstrap.status, 200);
+  csrfTokens.set(cookie, (await bootstrap.json()).csrfToken);
+  return cookie;
 }
 
 function api(baseUrl, pathname, cookie, options = {}) {
+  const method = String(options.method || "GET").toUpperCase();
   return fetch(`${baseUrl}${pathname}`, {
     ...options,
     headers: {
       Accept: "application/json",
       Cookie: cookie,
       ...(options.body ? { "Content-Type": "application/json" } : {}),
+      ...(!["GET", "HEAD", "OPTIONS"].includes(method) && csrfTokens.get(cookie)
+        ? { "X-CSRF-Token": csrfTokens.get(cookie) }
+        : {}),
       ...(options.headers || {}),
     },
   });
+}
+
+async function acceptInvitation(invitationLink, password) {
+  const url = new URL(invitationLink);
+  const response = await fetch(`${url.origin}/accept-invite`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      token: url.searchParams.get("token"),
+      password,
+      passwordConfirmation: password,
+    }),
+  });
+  assert.equal(response.status, 200);
+}
+
+async function loginWithMfa(baseUrl, username, password, secret) {
+  const loginResponse = await fetch(`${baseUrl}/login`, {
+    method: "POST",
+    redirect: "manual",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ username, password }),
+  });
+  assert.equal(loginResponse.status, 302);
+  assert.equal(loginResponse.headers.get("location"), "/mfa");
+  const challengeCookie = loginResponse.headers.get("set-cookie").split(";")[0];
+  const code = generateSync({ secret, crypto: otpCrypto, base32: otpBase32 });
+  const mfaResponse = await fetch(`${baseUrl}/mfa`, {
+    method: "POST",
+    redirect: "manual",
+    headers: {
+      Cookie: challengeCookie,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: new URLSearchParams({ code }),
+  });
+  assert.equal(mfaResponse.status, 302);
+  assert.equal(mfaResponse.headers.get("location"), "/app");
+  const sessionCookie = mfaResponse.headers.getSetCookie()
+    .map((value) => value.split(";")[0])
+    .find((value) => value.startsWith("sgq_session="));
+  const bootstrap = await fetch(`${baseUrl}/api/bootstrap`, { headers: { Cookie: sessionCookie } });
+  assert.equal(bootstrap.status, 200);
+  csrfTokens.set(sessionCookie, (await bootstrap.json()).csrfToken);
+  return sessionCookie;
 }
 
 test("admin, exportações, backup e revogação de sessão funcionam", async (t) => {
@@ -71,7 +134,15 @@ test("admin, exportações, backup e revogação de sessão funcionam", async (t
       SGQ_COMPANY_NAME: "Empresa de Teste",
       SGQ_ADMIN_USER: "testadmin",
       SGQ_EXTRA_LOGINS: "",
+      SGQ_EXPOSE_TEST_TOKENS: "true",
+      CRON_SECRET: "cron-secret-test-123456",
       SESSION_SECRET: "segredo-de-teste-com-tamanho-suficiente-123456",
+      BACKUP_ENCRYPTION_KEY: "chave-de-backup-de-teste-com-tamanho-suficiente",
+      SGQ_BACKUP_DIR: path.join(dataDir, "backups"),
+      STRIPE_MOCK_MODE: "true",
+      STRIPE_PRICE_ESSENTIAL: "price_essential_test",
+      STRIPE_PRICE_PROFESSIONAL: "price_professional_test",
+      STRIPE_PRICE_PREMIUM: "price_premium_test",
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -89,6 +160,14 @@ test("admin, exportações, backup e revogação de sessão funcionam", async (t
   await waitForServer(baseUrl, child);
   const adminCookie = await login(baseUrl, "testadmin", "Admin-Teste-123");
 
+  const csrfRejected = await fetch(`${baseUrl}/api/data`, {
+    method: "POST",
+    headers: { Cookie: adminCookie, "Content-Type": "application/json" },
+    body: JSON.stringify({ key: "risk", value: { riscos: [] } }),
+  });
+  assert.equal(csrfRejected.status, 403);
+  assert.equal((await csrfRejected.json()).error, "invalid_csrf_token");
+
   const overviewResponse = await api(baseUrl, "/api/admin/overview", adminCookie);
   assert.equal(overviewResponse.status, 200);
   const overview = await overviewResponse.json();
@@ -100,11 +179,11 @@ test("admin, exportações, backup e revogação de sessão funcionam", async (t
   const userResponse = await api(baseUrl, "/api/company/users", adminCookie, {
     method: "POST",
     body: JSON.stringify({
-      username: "colaborador.teste",
+      username: "colaborador.teste@example.com",
       displayName: "Colaborador Teste",
       role: "Qualidade",
-      status: "Ativo",
-      password: "Colab-Teste-123",
+      status: "Pendente",
+      currentPassword: "Admin-Teste-123",
       permissions: {
         modules: true,
         reports: false,
@@ -122,8 +201,18 @@ test("admin, exportações, backup e revogação de sessão funcionam", async (t
     }),
   });
   assert.equal(userResponse.status, 201);
-  const createdUser = (await userResponse.json()).user;
-  const collaboratorCookie = await login(baseUrl, "colaborador.teste", "Colab-Teste-123");
+  const createdPayload = await userResponse.json();
+  const createdUser = createdPayload.user;
+  assert.equal(createdPayload.invitation.delivery, "not_configured");
+  assert.ok(createdPayload.invitation.invitationLink);
+  const resendInvitation = await api(baseUrl, "/api/admin/invite", adminCookie, {
+    method: "POST",
+    body: JSON.stringify({ userId: createdUser.id, currentPassword: "Admin-Teste-123" }),
+  });
+  assert.equal(resendInvitation.status, 200);
+  const resentPayload = await resendInvitation.json();
+  await acceptInvitation(resentPayload.invitation.invitationLink, "Colab-Teste-123");
+  const collaboratorCookie = await login(baseUrl, "colaborador.teste@example.com", "Colab-Teste-123");
 
   const collaboratorBootstrap = await api(baseUrl, "/api/bootstrap", collaboratorCookie);
   assert.equal(collaboratorBootstrap.status, 200);
@@ -150,9 +239,8 @@ test("admin, exportações, backup e revogação de sessão funcionam", async (t
   const deniedUserCreate = await api(baseUrl, "/api/company/users", collaboratorCookie, {
     method: "POST",
     body: JSON.stringify({
-      username: "sem.permissao",
+      username: "sem.permissao@example.com",
       displayName: "Sem Permissão",
-      password: "Senha-Teste-123",
     }),
   });
   assert.equal(deniedUserCreate.status, 403);
@@ -160,15 +248,17 @@ test("admin, exportações, backup e revogação de sessão funcionam", async (t
   const delegatedAdminResponse = await api(baseUrl, "/api/company/users", adminCookie, {
     method: "POST",
     body: JSON.stringify({
-      username: "admin.empresa",
+      username: "admin.empresa@example.com",
       displayName: "Admin Empresa",
       role: "Administrador",
-      status: "Ativo",
-      password: "Admin-Empresa-123",
+      status: "Pendente",
+      currentPassword: "Admin-Teste-123",
     }),
   });
   assert.equal(delegatedAdminResponse.status, 201);
-  const delegatedCookie = await login(baseUrl, "admin.empresa", "Admin-Empresa-123");
+  const delegatedAdminPayload = await delegatedAdminResponse.json();
+  await acceptInvitation(delegatedAdminPayload.invitation.invitationLink, "Admin-Empresa-123");
+  const delegatedCookie = await login(baseUrl, "admin.empresa@example.com", "Admin-Empresa-123");
   const delegatedBootstrap = await api(baseUrl, "/api/bootstrap", delegatedCookie);
   const delegatedPayload = await delegatedBootstrap.json();
   assert.equal(delegatedPayload.user.canManageCompany, false);
@@ -177,11 +267,11 @@ test("admin, exportações, backup e revogação de sessão funcionam", async (t
   const delegatedUserCreate = await api(baseUrl, "/api/company/users", delegatedCookie, {
     method: "POST",
     body: JSON.stringify({
-      username: "criado.pelo.admin",
+      username: "criado.pelo.admin@example.com",
       displayName: "Criado pelo Admin",
       role: "Colaborador",
-      status: "Ativo",
-      password: "Senha-Teste-123",
+      status: "Pendente",
+      currentPassword: "Admin-Empresa-123",
     }),
   });
   assert.equal(delegatedUserCreate.status, 201);
@@ -195,7 +285,7 @@ test("admin, exportações, backup e revogação de sessão funcionam", async (t
   const resetRequest = await fetch(`${baseUrl}/forgot-password`, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({ username: "colaborador.teste" }),
+    body: new URLSearchParams({ username: "colaborador.teste@example.com" }),
   });
   assert.equal(resetRequest.status, 200);
   assert.match(await resetRequest.text(), /instruções serão enviadas/i);
@@ -214,6 +304,118 @@ test("admin, exportações, backup e revogação de sessão funcionam", async (t
   assert.doesNotMatch(backupText, /password_hash/i);
   assert.match(backupText, /Empresa de Teste/);
 
+  const billingResponse = await api(baseUrl, "/api/billing", adminCookie);
+  assert.equal(billingResponse.status, 200);
+  assert.equal((await billingResponse.json()).plans.length, 3);
+
+  const checkoutResponse = await api(baseUrl, "/api/billing/checkout", adminCookie, {
+    method: "POST",
+    body: JSON.stringify({ plan: "professional", currentPassword: "Admin-Teste-123" }),
+  });
+  assert.equal(checkoutResponse.status, 200);
+  assert.match((await checkoutResponse.json()).url, /mock_checkout=success/);
+
+  const subscriptionEvent = {
+    id: "evt_subscription_trial",
+    type: "customer.subscription.updated",
+    livemode: false,
+    data: {
+      object: {
+        id: "sub_mock_company",
+        customer: `cus_mock_${companyId}`,
+        status: "trialing",
+        trial_end: Math.floor(Date.now() / 1000) + 14 * 86400,
+        cancel_at_period_end: false,
+        metadata: { companyId: String(companyId), planKey: "professional" },
+        items: { data: [{ price: { id: "price_professional_test" }, current_period_end: Math.floor(Date.now() / 1000) + 30 * 86400 }] },
+      },
+    },
+  };
+  const webhookResponse = await fetch(`${baseUrl}/api/billing/webhook`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(subscriptionEvent),
+  });
+  assert.equal(webhookResponse.status, 200);
+  const billingAfterWebhook = await api(baseUrl, "/api/billing", adminCookie);
+  const billingAfterWebhookPayload = await billingAfterWebhook.json();
+  assert.equal(
+    billingAfterWebhookPayload.company.billingSubscriptionId,
+    "sub_mock_company",
+    JSON.stringify(billingAfterWebhookPayload.company),
+  );
+  const duplicateWebhook = await fetch(`${baseUrl}/api/billing/webhook`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(subscriptionEvent),
+  });
+  assert.equal((await duplicateWebhook.json()).duplicate, true);
+
+  const changePlanResponse = await api(baseUrl, "/api/billing/change-plan", adminCookie, {
+    method: "POST",
+    body: JSON.stringify({ plan: "premium", currentPassword: "Admin-Teste-123" }),
+  });
+  const changedPlanPayload = await changePlanResponse.json();
+  assert.equal(changePlanResponse.status, 200, JSON.stringify(changedPlanPayload));
+  assert.equal(changedPlanPayload.company.plan, "Plano Premium");
+
+  const failedInvoiceEvent = {
+    id: "evt_invoice_failed",
+    type: "invoice.payment_failed",
+    livemode: false,
+    data: { object: { id: "in_failed", customer: `cus_mock_${companyId}`, status: "open", amount_due: 9900, currency: "brl" } },
+  };
+  assert.equal((await fetch(`${baseUrl}/api/billing/webhook`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(failedInvoiceEvent),
+  })).status, 200);
+  assert.equal((await api(baseUrl, "/api/bootstrap", collaboratorCookie)).status, 401);
+
+  const paidInvoiceEvent = {
+    id: "evt_invoice_paid",
+    type: "invoice.payment_succeeded",
+    livemode: false,
+    data: { object: { id: "in_paid", customer: `cus_mock_${companyId}`, status: "paid", amount_paid: 9900, currency: "brl" } },
+  };
+  assert.equal((await fetch(`${baseUrl}/api/billing/webhook`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(paidInvoiceEvent),
+  })).status, 200);
+  assert.equal((await api(baseUrl, "/api/bootstrap", collaboratorCookie)).status, 200);
+
+  const automaticBackup = await api(baseUrl, "/api/admin/backups/run", adminCookie, {
+    method: "POST",
+    body: JSON.stringify({ currentPassword: "Admin-Teste-123" }),
+  });
+  assert.equal(automaticBackup.status, 200, stderr);
+  const automaticBackupPayload = await automaticBackup.json();
+  assert.equal(automaticBackupPayload.snapshot.verificationStatus, "verified");
+
+  const verifyBackup = await api(baseUrl, "/api/admin/backups/verify", adminCookie, {
+    method: "POST",
+    body: JSON.stringify({ snapshotId: automaticBackupPayload.snapshot.id, currentPassword: "Admin-Teste-123" }),
+  });
+  assert.equal(verifyBackup.status, 200);
+  assert.equal((await verifyBackup.json()).counts.companies, 1);
+
+  const clientError = await api(baseUrl, "/api/monitor/client-error", adminCookie, {
+    method: "POST",
+    body: JSON.stringify({ message: "Erro visual de teste", view: "gerenciamento", source: "integration" }),
+  });
+  assert.equal(clientError.status, 202);
+  const operationsResponse = await api(baseUrl, "/api/admin/operations", adminCookie);
+  assert.equal(operationsResponse.status, 200);
+  const operations = await operationsResponse.json();
+  assert.equal(operations.health.services.database.ok, true);
+  assert.equal(operations.backups[0].verificationStatus, "verified");
+  assert.ok(operations.incidents.some((incident) => incident.eventType === "client_error"));
+  assert.ok(operations.billingEvents.some((event) => event.eventType === "invoice.payment_succeeded"));
+
+  const healthResponse = await fetch(`${baseUrl}/api/health`);
+  assert.equal(healthResponse.status, 200);
+
   const blockResponse = await api(baseUrl, "/api/admin/user", adminCookie, {
     method: "PATCH",
     body: JSON.stringify({
@@ -223,12 +425,61 @@ test("admin, exportações, backup e revogação de sessão funcionam", async (t
       displayName: createdUser.displayName,
       role: createdUser.role,
       status: "Bloqueado",
+      currentPassword: "Admin-Teste-123",
     }),
   });
   assert.equal(blockResponse.status, 200);
 
   const revokedResponse = await api(baseUrl, "/api/bootstrap", collaboratorCookie);
   assert.equal(revokedResponse.status, 401, stderr);
+
+  const alertState = await api(baseUrl, "/api/data", adminCookie, {
+    method: "POST",
+    body: JSON.stringify({
+      key: "risk",
+      value: {
+        riscos: [{ id: "RIS-ALERTA", status: "Em Tratamento", prazo: new Date().toISOString().slice(0, 10) }],
+      },
+    }),
+  });
+  assert.equal(alertState.status, 200);
+  const cronResponse = await fetch(`${baseUrl}/api/cron/notifications`, {
+    headers: { Authorization: "Bearer cron-secret-test-123456" },
+  });
+  assert.equal(cronResponse.status, 200);
+  const cronResult = await cronResponse.json();
+  assert.equal(cronResult.companies, 1);
+  assert.ok(cronResult.recipients >= 1);
+
+  const setupResponse = await api(baseUrl, "/api/security/mfa/setup", adminCookie, {
+    method: "POST",
+    body: JSON.stringify({ currentPassword: "Admin-Teste-123" }),
+  });
+  assert.equal(setupResponse.status, 200);
+  const setup = await setupResponse.json();
+  assert.match(setup.qrCode, /^data:image\/png;base64,/);
+  const enableCode = generateSync({ secret: setup.secret, crypto: otpCrypto, base32: otpBase32 });
+  const enableResponse = await api(baseUrl, "/api/security/mfa/enable", adminCookie, {
+    method: "POST",
+    body: JSON.stringify({ code: enableCode, currentPassword: "Admin-Teste-123" }),
+  });
+  assert.equal(enableResponse.status, 200);
+  assert.equal((await enableResponse.json()).recoveryCodes.length, 8);
+
+  const secondAdminCookie = await loginWithMfa(baseUrl, "testadmin", "Admin-Teste-123", setup.secret);
+  const sessionsResponse = await api(baseUrl, "/api/security", adminCookie);
+  assert.equal(sessionsResponse.status, 200);
+  const sessions = (await sessionsResponse.json()).sessions;
+  assert.equal(sessions.length, 2);
+  const secondSession = sessions.find((item) => !item.current);
+  assert.ok(secondSession?.id);
+
+  const revokeSecond = await api(baseUrl, "/api/security/sessions", adminCookie, {
+    method: "DELETE",
+    body: JSON.stringify({ sessionId: secondSession.id, currentPassword: "Admin-Teste-123" }),
+  });
+  assert.equal(revokeSecond.status, 200);
+  assert.equal((await api(baseUrl, "/api/bootstrap", secondAdminCookie)).status, 401);
 });
 
 test("token de recuperação expira após um uso e troca a senha", async (t) => {
