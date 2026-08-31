@@ -1,14 +1,8 @@
 const crypto = require("crypto");
-const {
-  NobleCryptoPlugin,
-  ScureBase32Plugin,
-  generateSecret,
-  generateURI,
-  verifySync,
-} = require("otplib");
+const { authenticator } = require("otplib");
 
-const otpCrypto = new NobleCryptoPlugin();
-const otpBase32 = new ScureBase32Plugin();
+const totpAuthenticator = authenticator.clone();
+totpAuthenticator.options = { window: 1 };
 
 function encryptionKey(secret) {
   return crypto.createHash("sha256").update(String(secret || "")).digest();
@@ -44,29 +38,19 @@ function decryptValue(value, secret) {
 }
 
 function createMfaSetup(username) {
-  const secret = generateSecret({ crypto: otpCrypto, base32: otpBase32, length: 20 });
-  const uri = generateURI({
-    type: "totp",
+  const secret = totpAuthenticator.generateSecret(20);
+  const uri = totpAuthenticator.keyuri(
+    String(username || "administrador"),
+    "QualityPro Cloud",
     secret,
-    issuer: "QualityPro Cloud",
-    label: String(username || "administrador"),
-    algorithm: "sha1",
-    digits: 6,
-    period: 30,
-  });
+  );
   return { secret, uri };
 }
 
 function verifyTotp(secret, token) {
   if (!secret || !/^\d{6}$/.test(String(token || "").trim())) return false;
   try {
-    return verifySync({
-      secret,
-      token: String(token).trim(),
-      crypto: otpCrypto,
-      base32: otpBase32,
-      epochTolerance: 30,
-    }).valid;
+    return totpAuthenticator.check(String(token).trim(), secret);
   } catch {
     return false;
   }

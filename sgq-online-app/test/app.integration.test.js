@@ -5,15 +5,10 @@ const os = require("node:os");
 const path = require("node:path");
 const { spawn } = require("node:child_process");
 const test = require("node:test");
-const {
-  NobleCryptoPlugin,
-  ScureBase32Plugin,
-  generateSync,
-} = require("otplib");
+const { authenticator } = require("otplib");
 
 const csrfTokens = new Map();
-const otpCrypto = new NobleCryptoPlugin();
-const otpBase32 = new ScureBase32Plugin();
+const testAuthenticator = authenticator.clone();
 
 function freePort() {
   return new Promise((resolve, reject) => {
@@ -96,7 +91,7 @@ async function loginWithMfa(baseUrl, username, password, secret) {
   assert.equal(loginResponse.status, 302);
   assert.equal(loginResponse.headers.get("location"), "/mfa");
   const challengeCookie = loginResponse.headers.get("set-cookie").split(";")[0];
-  const code = generateSync({ secret, crypto: otpCrypto, base32: otpBase32 });
+  const code = testAuthenticator.generate(secret);
   const mfaResponse = await fetch(`${baseUrl}/mfa`, {
     method: "POST",
     redirect: "manual",
@@ -458,7 +453,7 @@ test("admin, exportações, backup e revogação de sessão funcionam", async (t
   assert.equal(setupResponse.status, 200);
   const setup = await setupResponse.json();
   assert.match(setup.qrCode, /^data:image\/png;base64,/);
-  const enableCode = generateSync({ secret: setup.secret, crypto: otpCrypto, base32: otpBase32 });
+  const enableCode = testAuthenticator.generate(setup.secret);
   const enableResponse = await api(baseUrl, "/api/security/mfa/enable", adminCookie, {
     method: "POST",
     body: JSON.stringify({ code: enableCode, currentPassword: "Admin-Teste-123" }),
