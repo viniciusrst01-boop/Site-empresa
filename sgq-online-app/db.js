@@ -42,16 +42,20 @@ function getStore() {
       nextCompanyId: 1,
       nextUserId: 1,
       nextAuditLogId: 1,
+      nextPasswordResetId: 1,
       companies: [],
       users: [],
       companyData: [],
       auditLogs: [],
+      passwordResetTokens: [],
     };
     saveStore();
   }
 
   store.nextAuditLogId = Number(store.nextAuditLogId) || 1;
+  store.nextPasswordResetId = Number(store.nextPasswordResetId) || 1;
   store.auditLogs = Array.isArray(store.auditLogs) ? store.auditLogs : [];
+  store.passwordResetTokens = Array.isArray(store.passwordResetTokens) ? store.passwordResetTokens : [];
   store.companies = Array.isArray(store.companies) ? store.companies : [];
   store.users = Array.isArray(store.users) ? store.users : [];
   store.companyData = Array.isArray(store.companyData) ? store.companyData : [];
@@ -149,6 +153,20 @@ async function initializeDatabase() {
 
     CREATE INDEX IF NOT EXISTS audit_logs_created_at_idx ON audit_logs (created_at DESC);
     CREATE INDEX IF NOT EXISTS audit_logs_login_idx ON audit_logs (username, ip_address, created_at DESC);
+
+    CREATE TABLE IF NOT EXISTS password_reset_tokens (
+      id BIGSERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      token_hash TEXT NOT NULL UNIQUE,
+      expires_at TIMESTAMPTZ NOT NULL,
+      used_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE INDEX IF NOT EXISTS password_reset_tokens_user_idx
+      ON password_reset_tokens (user_id, created_at DESC);
+    CREATE INDEX IF NOT EXISTS password_reset_tokens_expiry_idx
+      ON password_reset_tokens (expires_at);
   `);
 }
 
@@ -387,6 +405,25 @@ async function findUser(username, password) {
     companyName: company?.name || "",
     sessionVersion: Number(user.session_version || 1),
   };
+}
+
+async function findUserByUsername(username) {
+  await ensureInitialized();
+  const normalizedUsername = normalizeText(username);
+  if (!normalizedUsername) return null;
+
+  if (usePostgres) {
+    const result = await getPool().query(
+      "SELECT * FROM users WHERE lower(username) = lower($1) AND status = 'Ativo' LIMIT 1",
+      [normalizedUsername],
+    );
+    return mapUser(result.rows[0]);
+  }
+
+  const user = getStore().users.find(
+    (item) => item.username.toLowerCase() === normalizedUsername.toLowerCase() && item.status === "Ativo",
+  );
+  return mapUser(user);
 }
 
 async function markUserLogin(userId) {
@@ -1013,6 +1050,144 @@ async function resetUserPassword(userId, temporaryPassword) {
   return getUser(userId);
 }
 
+function passwordResetTokenHash(token) {
+  return crypto.createHash("sha256").update(String(token || "")).digest("hex");
+}
+
+async function createPasswordResetToken(username, ttlMinutes = 30) {
+  await ensureInitialized();
+  const user = await findUserByUsername(username);
+  if (!user) return null;
+
+  const token = crypto.randomBytes(32).toString("base64url");
+  const tokenHash = passwordResetTokenHash(token);
+  const safeTtl = Math.max(10, Math.min(Number(ttlMinutes) || 30, 120));
+  const expiresAt = new Date(Date.now() + safeTtl * 60 * 1000).toISOString();
+
+  if (usePostgres) {
+    await getPool().query(
+      "UPDATE password_reset_tokens SET used_at = NOW() WHERE user_id = $1 AND used_at IS NULL",
+      [Number(user.id)],
+    );
+    await getPool().query(
+      `INSERT INTO password_reset_tokens (user_id, token_hash, expires_at)
+       VALUES ($1, $2, $3)`,
+      [Number(user.id), tokenHash, expiresAt],
+    );
+  } else {
+    const database = getStore();
+    database.passwordResetTokens.forEach((item) => {
+      if (Number(item.user_id) === Number(user.id) && !item.used_at) item.used_at = timestamp();
+    });
+    database.passwordResetTokens.push({
+      id: database.nextPasswordResetId++,
+      user_id: Number(user.id),
+      token_hash: tokenHash,
+      expires_at: expiresAt,
+      used_at: null,
+      created_at: timestamp(),
+    });
+    saveStore();
+  }
+
+  return { token, expiresAt, user };
+}
+
+async function consumePasswordResetToken(token, newPassword) {
+  await ensureInitialized();
+  const tokenHash = passwordResetTokenHash(token);
+  if (!tokenHash || String(newPassword || "").length < 8) return null;
+
+  if (usePostgres) {
+    const client = await getPool().connect();
+    try {
+      await client.query("BEGIN");
+      const tokenResult = await client.query(
+        `UPDATE password_reset_tokens
+         SET used_at = NOW()
+         WHERE token_hash = $1 AND used_at IS NULL AND expires_at > NOW()
+         RETURNING user_id`,
+        [tokenHash],
+      );
+      const userId = tokenResult.rows[0]?.user_id;
+      if (!userId) {
+        await client.query("ROLLBACK");
+        return null;
+      }
+      const passwordHash = hashPassword(newPassword);
+      const userResult = await client.query(
+        `UPDATE users
+         SET password_hash = $2, session_version = session_version + 1
+         WHERE id = $1 AND status = 'Ativo'
+         RETURNING *`,
+        [Number(userId), passwordHash],
+      );
+      if (!userResult.rows[0]) {
+        await client.query("ROLLBACK");
+        return null;
+      }
+      await client.query(
+        "UPDATE password_reset_tokens SET used_at = NOW() WHERE user_id = $1 AND used_at IS NULL",
+        [Number(userId)],
+      );
+      await client.query("COMMIT");
+      return mapUser(userResult.rows[0]);
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  const database = getStore();
+  const now = Date.now();
+  const reset = database.passwordResetTokens.find(
+    (item) => item.token_hash === tokenHash && !item.used_at && new Date(item.expires_at).getTime() > now,
+  );
+  if (!reset) return null;
+  const user = database.users.find(
+    (item) => Number(item.id) === Number(reset.user_id) && item.status === "Ativo",
+  );
+  if (!user) return null;
+  reset.used_at = timestamp();
+  database.passwordResetTokens.forEach((item) => {
+    if (Number(item.user_id) === Number(user.id) && !item.used_at) item.used_at = timestamp();
+  });
+  user.password_hash = hashPassword(newPassword);
+  user.session_version = Number(user.session_version || 1) + 1;
+  saveStore();
+  return mapUser(user);
+}
+
+async function countRecentPasswordResetRequests(username, ipAddress, minutes = 15) {
+  await ensureInitialized();
+  const normalizedUsername = normalizeText(username).toLowerCase();
+  const normalizedIp = normalizeText(ipAddress);
+  const safeMinutes = Math.max(1, Math.min(Number(minutes) || 15, 1440));
+
+  if (usePostgres) {
+    const result = await getPool().query(
+      `SELECT COUNT(*)::int AS count
+       FROM audit_logs
+       WHERE event_type = 'password_reset_requested'
+         AND created_at >= NOW() - ($3::text || ' minutes')::interval
+         AND (lower(username) = $1 OR ip_address = $2)`,
+      [normalizedUsername, normalizedIp, String(safeMinutes)],
+    );
+    return Number(result.rows[0]?.count || 0);
+  }
+
+  const since = Date.now() - safeMinutes * 60 * 1000;
+  return getStore().auditLogs.filter((log) => {
+    const recent = new Date(log.created_at).getTime() >= since;
+    const matches =
+      String(log.username || "").toLowerCase() === normalizedUsername ||
+      String(log.ip_address || "") === normalizedIp;
+    return log.event_type === "password_reset_requested" && recent && matches;
+  }).length;
+}
+
 async function validateSessionUser(userId, companyId, sessionVersion) {
   const user = await getUser(userId);
   if (!user || user.status !== "Ativo") return null;
@@ -1252,6 +1427,8 @@ async function setCompanyData(companyId, key, value) {
 module.exports = {
   canAddCompanyUser,
   countRecentFailedLogins,
+  countRecentPasswordResetRequests,
+  createPasswordResetToken,
   createCompany,
   createUser,
   deleteCompanyUser,
@@ -1259,6 +1436,7 @@ module.exports = {
   ensureCompany,
   ensureInitialized,
   findUser,
+  findUserByUsername,
   getCompany,
   getCompanyData,
   getBackupSnapshot,
@@ -1267,6 +1445,7 @@ module.exports = {
   listCompanyUsers,
   listAdminOverview,
   recordAuditLog,
+  consumePasswordResetToken,
   resetUserPassword,
   setCompanyData,
   syncConfiguredUsers,

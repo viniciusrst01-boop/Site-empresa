@@ -8,8 +8,11 @@ loadLocalEnv();
 
 const {
   canAddCompanyUser,
+  consumePasswordResetToken,
   countRecentFailedLogins,
+  countRecentPasswordResetRequests,
   createCompany,
+  createPasswordResetToken,
   createUser,
   deleteCompanyUser,
   ensureInitialized,
@@ -44,6 +47,21 @@ const loginPassword = process.env.SGQ_USER_PASSWORD || "";
 const adminUser = process.env.SGQ_ADMIN_USER || "viniciusrst";
 const extraLogins = parseExtraLogins(process.env.SGQ_EXTRA_LOGINS || "");
 const configuredLogins = getAllowedLogins();
+const publicAppUrl = String(
+  process.env.PUBLIC_APP_URL ||
+    (process.env.VERCEL_PROJECT_PRODUCTION_URL
+      ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+      : ""),
+).replace(/\/$/, "");
+const sgqModuleIds = [
+  "contexto",
+  "lideranca",
+  "riscos",
+  "documentos",
+  "auditorias",
+  "nao-conformidades",
+  "equipamentos",
+];
 let bootstrapPromise;
 
 const contentTypes = {
@@ -262,12 +280,16 @@ function isAdminSession(session) {
 
 async function isCompanyOwnerSession(session) {
   if (isAdminSession(session)) return true;
-  const users = await listCompanyUsers(session.companyId);
+  return isCompanyOwnerUser(session.companyId, session.userId, session.role);
+}
+
+async function isCompanyOwnerUser(companyId, userId, role = "") {
+  const users = await listCompanyUsers(companyId);
   const firstUser = users.sort((a, b) => Number(a.id) - Number(b.id))[0];
   return Boolean(
     firstUser &&
-    Number(firstUser.id) === Number(session.userId) &&
-    String(session.role || "").toLowerCase().includes("administrador"),
+    Number(firstUser.id) === Number(userId) &&
+    String(role || firstUser.role || "").toLowerCase().includes("administrador"),
   );
 }
 
@@ -282,40 +304,123 @@ function isUniqueError(error) {
 async function listUsersWithCompanySettings(companyId) {
   const users = await listCompanyUsers(companyId);
   const settings = (await getCompanyData(companyId, "userSettings")) || {};
-  return users.map((user) => ({
-    ...user,
-    ...(settings[user.id] || {}),
-  }));
+  return users.map((user) => {
+    const userSettings = settings[user.id] || {};
+    return {
+      ...user,
+      ...userSettings,
+      permissions: normalizePermissions(user.role, userSettings.permissions),
+    };
+  });
 }
 
 async function saveCompanyUserSettings(companyId, userId, values) {
   const settings = (await getCompanyData(companyId, "userSettings")) || {};
+  const permissions = normalizePermissions(values.role, values.permissions);
   settings[userId] = {
     ...(settings[userId] || {}),
     department: values.department || "",
-    permissions: values.permissions || {},
+    permissions,
   };
   await setCompanyData(companyId, "userSettings", settings);
 }
 
+function defaultModuleAccessForRole(role) {
+  const normalizedRole = String(role || "").toLowerCase();
+  const editAll = ["administrador", "gestor", "qualidade"].includes(normalizedRole);
+  return Object.fromEntries(
+    sgqModuleIds.map((moduleId) => {
+      if (editAll) return [moduleId, "edit"];
+      if (normalizedRole === "auditor" && moduleId === "auditorias") return [moduleId, "edit"];
+      return [moduleId, "view"];
+    }),
+  );
+}
+
 function defaultPermissionsForRole(role) {
+  const normalizedRole = String(role || "").toLowerCase();
   return {
     modules: true,
-    reports: ["administrador", "gestor", "qualidade"].includes(
-      String(role || "").toLowerCase(),
-    ),
-    manageUsers: false,
+    reports: ["administrador", "gestor", "qualidade"].includes(normalizedRole),
+    manageUsers: normalizedRole === "administrador",
+    moduleAccess: defaultModuleAccessForRole(role),
+  };
+}
+
+function normalizePermissions(role, values = {}) {
+  const defaults = defaultPermissionsForRole(role);
+  const source = values && typeof values === "object" ? values : {};
+  const sourceModules = source.moduleAccess && typeof source.moduleAccess === "object"
+    ? source.moduleAccess
+    : {};
+  const moduleAccess = Object.fromEntries(
+    sgqModuleIds.map((moduleId) => {
+      const access = String(sourceModules[moduleId] || defaults.moduleAccess[moduleId]).toLowerCase();
+      return [moduleId, ["none", "view", "edit"].includes(access) ? access : defaults.moduleAccess[moduleId]];
+    }),
+  );
+  const modules = source.modules === undefined ? defaults.modules : Boolean(source.modules);
+  if (!modules) {
+    sgqModuleIds.forEach((moduleId) => {
+      moduleAccess[moduleId] = "none";
+    });
+  }
+  return {
+    modules,
+    reports: source.reports === undefined ? defaults.reports : Boolean(source.reports),
+    manageUsers: source.manageUsers === undefined ? defaults.manageUsers : Boolean(source.manageUsers),
+    moduleAccess,
   };
 }
 
 async function getSessionPermissions(session, canManage = null) {
   const managesCompany = canManage ?? (await isCompanyOwnerSession(session));
-  if (managesCompany) return { modules: true, reports: true, manageUsers: true };
+  if (managesCompany) {
+    return {
+      modules: true,
+      reports: true,
+      manageUsers: true,
+      moduleAccess: Object.fromEntries(sgqModuleIds.map((moduleId) => [moduleId, "edit"])),
+    };
+  }
   const settings = (await getCompanyData(session.companyId, "userSettings")) || {};
-  return {
-    ...defaultPermissionsForRole(session.role),
-    ...(settings[session.userId]?.permissions || {}),
+  return normalizePermissions(session.role, settings[session.userId]?.permissions || {});
+}
+
+async function canManageCompanyUsers(session) {
+  const permissions = await getSessionPermissions(session);
+  return Boolean(permissions.manageUsers);
+}
+
+function canEditModule(permissions, moduleId) {
+  return Boolean(
+    permissions?.modules &&
+    sgqModuleIds.includes(moduleId) &&
+    permissions.moduleAccess?.[moduleId] === "edit",
+  );
+}
+
+function canViewModule(permissions, moduleId) {
+  return Boolean(
+    permissions?.modules &&
+    sgqModuleIds.includes(moduleId) &&
+    ["view", "edit"].includes(permissions.moduleAccess?.[moduleId]),
+  );
+}
+
+function filterStateForPermissions(savedState, permissions) {
+  if (!savedState || typeof savedState !== "object") return savedState;
+  const nextState = { ...savedState };
+  const stateFields = {
+    documentos: "documents",
+    auditorias: "audits",
+    "nao-conformidades": "ncs",
+    equipamentos: "equipment",
   };
+  Object.entries(stateFields).forEach(([moduleId, field]) => {
+    if (!canViewModule(permissions, moduleId)) delete nextState[field];
+  });
+  return nextState;
 }
 
 async function removeCompanyUserSettings(companyId, userId) {
@@ -424,11 +529,100 @@ function loginPage(error = "") {
         </label>
         <button type="submit">Entrar no sistema</button>
       </form>
+      <a class="login-link" href="/forgot-password">Esqueci minha senha</a>
       <p class="hint">Acesso restrito a usuários autorizados.</p>
     </section>
   </main>
 </body>
 </html>`;
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function passwordPage({ mode, token = "", message = "", error = "" } = {}) {
+  const isReset = mode === "reset";
+  const isComplete = mode === "complete";
+  const title = isComplete ? "Senha atualizada" : isReset ? "Crie uma nova senha" : "Recupere seu acesso";
+  const intro = isComplete
+    ? "Sua senha foi redefinida e todas as sessões anteriores foram encerradas."
+    : isReset
+    ? "Informe uma nova senha com pelo menos 8 caracteres. O link só pode ser usado uma vez."
+    : "Digite seu login ou e-mail. Se a conta existir, enviaremos as instruções ou registraremos a solicitação para o administrador.";
+  return `<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#050b16" />
+  <title>${escapeHtml(title)} - QualityPro Cloud</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/login.css" />
+</head>
+<body>
+  <main class="login-page">
+    <section class="login-card">
+      <img class="login-logo" src="/assets/qualitypro-cloud-logo-transparent.png" alt="QualityPro Cloud" />
+      <p class="kicker">Acesso seguro</p>
+      <h1>${escapeHtml(title)}</h1>
+      <p class="intro">${escapeHtml(intro)}</p>
+      ${message ? `<p class="login-message">${escapeHtml(message)}</p>` : ""}
+      ${error ? `<p class="login-error">${escapeHtml(error)}</p>` : ""}
+      ${isComplete ? "" : isReset ? `
+        <form method="post" action="/reset-password" class="login-form">
+          <input name="token" type="hidden" value="${escapeHtml(token)}" />
+          <label><span>Nova senha</span><input name="password" type="password" autocomplete="new-password" minlength="8" required /></label>
+          <label><span>Confirmar senha</span><input name="passwordConfirmation" type="password" autocomplete="new-password" minlength="8" required /></label>
+          <button type="submit">Redefinir senha</button>
+        </form>
+      ` : `
+        <form method="post" action="/forgot-password" class="login-form">
+          <label><span>Login / e-mail</span><input name="username" type="text" autocomplete="username" required autofocus /></label>
+          <button type="submit">Solicitar recuperação</button>
+        </form>
+      `}
+      <a class="login-link" href="/login">Voltar para o login</a>
+    </section>
+  </main>
+</body>
+</html>`;
+}
+
+function resetLinkForRequest(req, token) {
+  const fallbackProtocol = req.socket?.encrypted ? "https" : "http";
+  const forwardedProtocol = String(req.headers["x-forwarded-proto"] || "").split(",")[0].trim();
+  const origin = publicAppUrl || `${forwardedProtocol || fallbackProtocol}://${req.headers.host}`;
+  return `${origin}/reset-password?token=${encodeURIComponent(token)}`;
+}
+
+async function sendPasswordResetEmail(username, link) {
+  const apiKey = process.env.RESEND_API_KEY || "";
+  const from = process.env.PASSWORD_RESET_FROM || "";
+  if (!publicAppUrl || !apiKey || !from || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(username)) {
+    return "admin_required";
+  }
+
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from,
+      to: [username],
+      subject: "Redefinição de senha - QualityPro Cloud",
+      html: `<p>Recebemos uma solicitação para redefinir sua senha.</p><p><a href="${escapeHtml(link)}">Criar nova senha</a></p><p>Este link expira em 30 minutos e só pode ser usado uma vez.</p>`,
+    }),
+  });
+  return response.ok ? "sent" : "delivery_failed";
 }
 
 async function handleRequest(req, res) {
@@ -446,6 +640,93 @@ async function handleRequest(req, res) {
 
   if (url.pathname.startsWith("/api/")) {
     await handleApiRequest(req, res, url, session);
+    return;
+  }
+
+  if (url.pathname === "/forgot-password" && req.method === "GET") {
+    send(res, 200, passwordPage({ mode: "forgot" }), { "Content-Type": "text/html; charset=utf-8" });
+    return;
+  }
+
+  if (url.pathname === "/forgot-password" && req.method === "POST") {
+    const body = querystring.parse(await readBody(req));
+    const username = String(body.username || "").trim();
+    const ipAddress = requestIp(req);
+    const recentRequests = await countRecentPasswordResetRequests(username, ipAddress, 15);
+    if (recentRequests >= 3) {
+      await auditRequest(req, null, "password_reset_rate_limited", "blocked", { username });
+      send(res, 429, passwordPage({
+        mode: "forgot",
+        error: "Muitas solicitações. Aguarde 15 minutos antes de tentar novamente.",
+      }), {
+        "Content-Type": "text/html; charset=utf-8",
+        "Retry-After": "900",
+      });
+      return;
+    }
+
+    const reset = await createPasswordResetToken(username, 30);
+    let delivery = "account_not_found";
+    if (reset) {
+      try {
+        delivery = await sendPasswordResetEmail(reset.user.username, resetLinkForRequest(req, reset.token));
+      } catch (error) {
+        console.error("Falha ao enviar recuperação de senha:", error);
+        delivery = "delivery_failed";
+      }
+    }
+    await auditRequest(req, reset?.user || null, "password_reset_requested", "success", {
+      username,
+      delivery,
+    });
+    send(res, 200, passwordPage({
+      mode: "forgot",
+      message: "Se a conta estiver ativa, as instruções serão enviadas ao e-mail cadastrado ou a solicitação ficará disponível para o administrador.",
+    }), { "Content-Type": "text/html; charset=utf-8" });
+    return;
+  }
+
+  if (url.pathname === "/reset-password" && req.method === "GET") {
+    const token = String(url.searchParams.get("token") || "");
+    send(res, token ? 200 : 400, passwordPage({
+      mode: "reset",
+      token,
+      error: token ? "" : "Link de recuperação inválido.",
+    }), { "Content-Type": "text/html; charset=utf-8" });
+    return;
+  }
+
+  if (url.pathname === "/reset-password" && req.method === "POST") {
+    const body = querystring.parse(await readBody(req));
+    const token = String(body.token || "");
+    const password = String(body.password || "");
+    const confirmation = String(body.passwordConfirmation || "");
+    if (password.length < 8 || password !== confirmation) {
+      send(res, 400, passwordPage({
+        mode: "reset",
+        token,
+        error: password.length < 8
+          ? "A senha deve ter pelo menos 8 caracteres."
+          : "As senhas informadas não coincidem.",
+      }), { "Content-Type": "text/html; charset=utf-8" });
+      return;
+    }
+
+    const user = await consumePasswordResetToken(token, password);
+    if (!user) {
+      await auditRequest(req, null, "password_reset_failed", "failed");
+      send(res, 400, passwordPage({
+        mode: "reset",
+        token: "",
+        error: "Este link é inválido, já foi utilizado ou expirou.",
+      }), { "Content-Type": "text/html; charset=utf-8" });
+      return;
+    }
+    await auditRequest(req, user, "password_reset_completed", "success");
+    send(res, 200, passwordPage({ mode: "complete", message: "Acesse o sistema com sua nova senha." }), {
+      "Content-Type": "text/html; charset=utf-8",
+      "Set-Cookie": sessionCookie(req, "", 0),
+    });
     return;
   }
 
@@ -636,10 +917,10 @@ async function handleApiRequest(req, res, url, session) {
       },
       company,
       needsOnboarding: !savedState && canManageCompany,
-      state: savedState,
-      context: savedContext,
-      risk: savedRisk,
-      leadership: savedLeadership,
+      state: filterStateForPermissions(savedState, permissions),
+      context: canViewModule(permissions, "contexto") ? savedContext : null,
+      risk: canViewModule(permissions, "riscos") ? savedRisk : null,
+      leadership: canViewModule(permissions, "lideranca") ? savedLeadership : null,
     });
     return;
   }
@@ -734,12 +1015,18 @@ async function handleApiRequest(req, res, url, session) {
 
   if (url.pathname === "/api/company/users" && req.method === "GET") {
     const users = await listUsersWithCompanySettings(companyId);
-    sendJson(res, 200, { users });
+    const canManageUsers = await canManageCompanyUsers(session);
+    sendJson(res, 200, {
+      users: canManageUsers
+        ? users
+        : users.filter((user) => Number(user.id) === Number(session.userId)),
+    });
     return;
   }
 
   if (url.pathname === "/api/company/users" && req.method === "POST") {
-    if (!(await isCompanyOwnerSession(session))) {
+    const ownsCompany = await isCompanyOwnerSession(session);
+    if (!(await canManageCompanyUsers(session))) {
       sendJson(res, 403, { error: "forbidden" });
       return;
     }
@@ -747,6 +1034,10 @@ async function handleApiRequest(req, res, url, session) {
     const body = await readJsonBody(req);
     if (!body?.username || !body?.displayName || !body?.password) {
       sendJson(res, 400, { error: "invalid_user" });
+      return;
+    }
+    if (!ownsCompany && (String(body.role).toLowerCase() === "administrador" || body.permissions?.manageUsers)) {
+      sendJson(res, 403, { error: "cannot_grant_admin" });
       return;
     }
 
@@ -790,7 +1081,8 @@ async function handleApiRequest(req, res, url, session) {
   }
 
   if (url.pathname === "/api/company/users" && req.method === "PATCH") {
-    if (!(await isCompanyOwnerSession(session))) {
+    const ownsCompany = await isCompanyOwnerSession(session);
+    if (!(await canManageCompanyUsers(session))) {
       sendJson(res, 403, { error: "forbidden" });
       return;
     }
@@ -799,6 +1091,17 @@ async function handleApiRequest(req, res, url, session) {
     const targetUserId = Number(body?.userId);
     if (!targetUserId || !body?.username || !body?.displayName) {
       sendJson(res, 400, { error: "invalid_user" });
+      return;
+    }
+    if (!ownsCompany) {
+      const target = (await listCompanyUsers(companyId)).find((user) => Number(user.id) === targetUserId);
+      if (target && (await isCompanyOwnerUser(companyId, target.id, target.role))) {
+        sendJson(res, 403, { error: "cannot_edit_company_owner" });
+        return;
+      }
+    }
+    if (!ownsCompany && (String(body.role).toLowerCase() === "administrador" || body.permissions?.manageUsers)) {
+      sendJson(res, 403, { error: "cannot_grant_admin" });
       return;
     }
 
@@ -837,7 +1140,8 @@ async function handleApiRequest(req, res, url, session) {
   }
 
   if (url.pathname === "/api/company/users" && req.method === "DELETE") {
-    if (!(await isCompanyOwnerSession(session))) {
+    const ownsCompany = await isCompanyOwnerSession(session);
+    if (!(await canManageCompanyUsers(session))) {
       sendJson(res, 403, { error: "forbidden" });
       return;
     }
@@ -847,6 +1151,13 @@ async function handleApiRequest(req, res, url, session) {
     if (!targetUserId) {
       sendJson(res, 400, { error: "invalid_user" });
       return;
+    }
+    if (!ownsCompany) {
+      const target = (await listCompanyUsers(companyId)).find((user) => Number(user.id) === targetUserId);
+      if (target && (await isCompanyOwnerUser(companyId, target.id, target.role))) {
+        sendJson(res, 403, { error: "cannot_delete_company_owner" });
+        return;
+      }
     }
     if (targetUserId === Number(session.userId)) {
       sendJson(res, 400, { error: "cannot_delete_self" });
@@ -1068,11 +1379,6 @@ async function handleApiRequest(req, res, url, session) {
   }
 
   if (url.pathname === "/api/data" && req.method === "POST") {
-    if (!(await isCompanyOwnerSession(session))) {
-      sendJson(res, 403, { error: "forbidden" });
-      return;
-    }
-
     const body = await readJsonBody(req);
     if (!body || typeof body.key !== "string") {
       sendJson(res, 400, { error: "invalid_payload" });
@@ -1084,8 +1390,36 @@ async function handleApiRequest(req, res, url, session) {
       return;
     }
 
+    const permissions = await getSessionPermissions(session);
+    const keyModules = { context: "contexto", risk: "riscos", leadership: "lideranca" };
+    const requestedModule = keyModules[body.key] || String(body.moduleId || "");
+    const ownsCompany = await isCompanyOwnerSession(session);
+    if (!ownsCompany && !canEditModule(permissions, requestedModule)) {
+      sendJson(res, 403, { error: "module_edit_forbidden", moduleId: requestedModule });
+      return;
+    }
+
+    if (body.key === "state" && !ownsCompany) {
+      const stateFields = {
+        documentos: "documents",
+        auditorias: "audits",
+        "nao-conformidades": "ncs",
+        equipamentos: "equipment",
+      };
+      const field = stateFields[requestedModule];
+      if (!field || !body.value || typeof body.value !== "object") {
+        sendJson(res, 403, { error: "state_edit_forbidden" });
+        return;
+      }
+      const currentState = (await getCompanyData(companyId, "state")) || {};
+      body.value = { ...currentState, [field]: body.value[field] };
+    }
+
     await setCompanyData(companyId, body.key, body.value);
-    await auditRequest(req, session, "module_data_updated", "success", { dataKey: body.key });
+    await auditRequest(req, session, "module_data_updated", "success", {
+      dataKey: body.key,
+      moduleId: requestedModule || null,
+    });
     sendJson(res, 200, { ok: true });
     return;
   }

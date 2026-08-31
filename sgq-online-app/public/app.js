@@ -379,9 +379,19 @@ async function loadRemoteData() {
 
     currentUser = payload.user || null;
     state = normalizeState(payload.state, payload.company, payload.user);
-    riskData = payload.risk || loadLocalRiskData();
-    contextData = payload.context || loadLocalContextData();
-    leadershipData = payload.leadership || loadLocalLeadershipData();
+    if (!canViewModule("documentos")) state.documents = [];
+    if (!canViewModule("auditorias")) state.audits = [];
+    if (!canViewModule("nao-conformidades")) state.ncs = [];
+    if (!canViewModule("equipamentos")) state.equipment = [];
+    riskData = canViewModule("riscos")
+      ? payload.risk || loadLocalRiskData()
+      : { riscos: [], objetivos: [], mudancas: [] };
+    contextData = canViewModule("contexto")
+      ? payload.context || loadLocalContextData()
+      : { swot: [], partes: [], escopo: {}, processos: [] };
+    leadershipData = canViewModule("lideranca")
+      ? payload.leadership || loadLocalLeadershipData()
+      : { ...structuredClone(leadershipSeeds), acoes: [], plano: [], cargos: [], comunicacao: [], _seedVersion: 2 };
 
     applyTheme();
     applyUserProfile();
@@ -457,6 +467,12 @@ function applyUserProfile() {
   document.body.classList.toggle("readonly-company-user", !canManageCompany());
   if (currentUser.permissions?.reports === false) {
     document.querySelector('[data-view="relatorios"]')?.remove();
+  }
+  if (!canManageUsers()) {
+    document.querySelector('[data-view="usuarios"]')?.remove();
+  }
+  if (!accessibleModules().length) {
+    document.querySelector('[data-view="modulos"]')?.remove();
   }
   updateAdminNav();
   renderUserMenu();
@@ -707,6 +723,30 @@ function canManageCompany() {
   return Boolean(currentUser?.canManageCompany || currentUser?.isAdmin);
 }
 
+function canManageUsers() {
+  return Boolean(canManageCompany() || currentUser?.permissions?.manageUsers);
+}
+
+function moduleAccessLevel(moduleId) {
+  if (canManageCompany()) return "edit";
+  if (currentUser?.permissions?.modules === false) return "none";
+  const configured = currentUser?.permissions?.moduleAccess?.[moduleId];
+  if (["none", "view", "edit"].includes(configured)) return configured;
+  return defaultUserPermissions(currentUser?.role || "Colaborador").moduleAccess[moduleId] || "none";
+}
+
+function canViewModule(moduleId) {
+  return ["view", "edit"].includes(moduleAccessLevel(moduleId));
+}
+
+function canEditModule(moduleId) {
+  return moduleAccessLevel(moduleId) === "edit";
+}
+
+function accessibleModules() {
+  return modules.filter((module) => canViewModule(module.id));
+}
+
 function renderUserMenu() {
   const trigger = document.querySelector(".tb-user");
   if (!trigger || !currentUser) return;
@@ -726,11 +766,12 @@ function renderUserMenu() {
       ]
     : [
         ["Página inicial", "inicio"],
-        ["Meus módulos", "modulos"],
+        ...(accessibleModules().length ? [["Meus módulos", "modulos"]] : []),
         ...(currentUser.permissions?.reports === false ? [] : [["Relatórios", "relatorios"]]),
         ["Meu perfil", "perfil"],
         ["Minhas permissões", "permissoes"],
-        ...(canManageCompany() ? [["Gerenciar usuários", "usuarios"], ["Dados da empresa", "empresa"]] : []),
+        ...(canManageUsers() ? [["Gerenciar usuários", "usuarios"]] : []),
+        ["Dados da empresa", "empresa"],
         ["Preferências", "configuracoes"],
         ["Central de ajuda", "ajuda"],
       ];
@@ -791,13 +832,19 @@ function renderUserMenu() {
   }
 }
 
-function saveRemoteData(key, value) {
-  fetch("/api/data", {
+function saveRemoteData(key, value, moduleId = "") {
+  return fetch("/api/data", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ key, value }),
+    body: JSON.stringify({ key, value, moduleId }),
     keepalive: true,
-  }).catch((error) => console.warn(error));
+  }).then((response) => {
+    if (!response.ok && response.status !== 403) throw new Error("Falha ao salvar dados no servidor.");
+    return response.ok;
+  }).catch((error) => {
+    console.warn(error);
+    return false;
+  });
 }
 
 function applyTheme() {
@@ -840,6 +887,14 @@ function render(view = "inicio") {
     toast("Seu perfil não possui permissão para visualizar relatórios.");
     view = "inicio";
   }
+  if (view === "usuarios" && !canManageUsers()) {
+    toast("Seu perfil não possui permissão para gerenciar usuários.");
+    view = "inicio";
+  }
+  if (view === "modulos" && !accessibleModules().length) {
+    toast("Seu perfil não possui módulos liberados.");
+    view = "inicio";
+  }
 
   setActiveNav(view);
   pageContent.classList.remove("risk-page-content");
@@ -880,7 +935,7 @@ function renderInicio() {
 
 function renderDashboardHtml() {
   const summary = dashboardSummary();
-  const moduleCards = modules
+  const moduleCards = accessibleModules()
     .map((module) => dashboardModuleCard(module, summary.modules[module.id]))
     .join("");
 
@@ -1080,7 +1135,7 @@ function renderModulos() {
   const moduleOrder = ["contexto", "lideranca", "riscos", "documentos", "nao-conformidades", "auditorias"];
   const activeModules = moduleOrder
     .map((id) => modules.find((module) => module.id === id))
-    .filter(Boolean);
+    .filter((module) => module && canViewModule(module.id));
   const nextRenewal = "15/09/2026";
   pageContent.innerHTML = `
     <div class="mymods-toolbar">
@@ -1244,6 +1299,12 @@ function hexToRgba(hex, alpha) {
 }
 
 function renderModuleDetail(moduleId) {
+  if (!canViewModule(moduleId)) {
+    toast("Seu perfil não possui acesso a este módulo.");
+    render("modulos");
+    return;
+  }
+
   if (moduleId === "contexto") {
     renderContextModule();
     return;
@@ -1469,7 +1530,7 @@ function leadershipCard(title, subtitle, buttonLabel, action, table) {
     <section class="dcc">
       <div class="dcc-hd">
         <div><div class="dcc-title">${escapeHtml(title)}</div><div class="dcc-sub">${escapeHtml(subtitle)}</div></div>
-        ${buttonLabel && canManageCompany() ? `<button class="btn-grad" data-lc-action="${action}" type="button">${moduleIcon("plus")}${escapeHtml(buttonLabel)}</button>` : ""}
+        ${buttonLabel && canEditModule("lideranca") ? `<button class="btn-grad" data-lc-action="${action}" type="button">${moduleIcon("plus")}${escapeHtml(buttonLabel)}</button>` : ""}
       </div>
       <div class="risk-table-wrap">${table}</div>
     </section>`;
@@ -1501,12 +1562,12 @@ function leadershipActionTypeChip(type) {
 
 function leadershipPositionHtml() {
   const item = leadershipGet("posicionamento");
-  const readonly = canManageCompany() ? "" : " readonly";
+  const readonly = canEditModule("lideranca") ? "" : " readonly";
   return `
     <section class="doc-card">
       <div class="dcc-hd plain-head">
         <div><div class="dcc-title">Posicionamento Estratégico</div><div class="dcc-sub">Missão, visão e valores da organização · 5.1</div></div>
-        ${canManageCompany() ? `<button class="btn-grad" data-lc-action="save-position" type="button">${moduleIcon("check-circle")}Salvar alterações</button>` : ""}
+        ${canEditModule("lideranca") ? `<button class="btn-grad" data-lc-action="save-position" type="button">${moduleIcon("check-circle")}Salvar alterações</button>` : ""}
       </div>
       <div class="field"><label>Missão</label><textarea class="input-basic" id="lcPosMissao"${readonly}>${escapeHtml(item.missao)}</textarea></div>
       <div class="field"><label>Visão</label><textarea class="input-basic" id="lcPosVisao"${readonly}>${escapeHtml(item.visao)}</textarea></div>
@@ -1534,7 +1595,7 @@ function leadershipPolicyHtml() {
     <section class="doc-card">
       <div class="dcc-hd plain-head">
         <div><div class="dcc-title">Política da Qualidade</div><div class="dcc-sub">Compromisso da Alta Direção com o SGQ · 5.2</div></div>
-        ${canManageCompany() ? `<button class="btn-grad" data-lc-action="edit-politica" type="button">${moduleIcon("edit")}Editar</button>` : ""}
+        ${canEditModule("lideranca") ? `<button class="btn-grad" data-lc-action="edit-politica" type="button">${moduleIcon("edit")}Editar</button>` : ""}
       </div>
       <div class="doc-meta-row">
         <div class="doc-pill approved">Status: <strong>${escapeHtml(item.status)}</strong></div>
@@ -1638,7 +1699,7 @@ function leadershipRoleIndicatorsHtml() {
 }
 
 function leadershipActions(type, id, canView = false) {
-  if (!canManageCompany()) {
+  if (!canEditModule("lideranca")) {
     return canView
       ? `<div class="row-actions"><button class="abtn" data-lc-action="view-${type}" data-id="${id}" type="button" title="Ver detalhes">${moduleIcon("eye")}</button></div>`
       : "-";
@@ -1666,7 +1727,7 @@ function handleLeadershipAction(action, id) {
     closeLeadershipModal();
     return;
   }
-  if (!canManageCompany() && !action.startsWith("view-") && action !== "switch-tab") {
+  if (!canEditModule("lideranca") && !action.startsWith("view-") && action !== "switch-tab") {
     toast("Você tem acesso somente para visualizar.");
     return;
   }
@@ -1787,7 +1848,7 @@ function viewLeadershipRecord(type, id) {
   if (!item) return;
   document.querySelector("#leadershipModalMount").innerHTML = `
     <div class="modal-overlay show" id="leadershipRecordModal">
-      <div class="modal-box">
+      <div class="modal-box wide">
         <div class="modal-hd">
           <div><h3>${escapeHtml(leadershipTypeLabel(type))}</h3><p>Detalhes do registro</p></div>
           <button class="modal-close" data-lc-action="close-modal" type="button">${moduleIcon("close")}</button>
@@ -2055,7 +2116,7 @@ function riskItemsHtml() {
     <section class="dcc">
       <div class="dcc-hd">
         <div><div class="dcc-title">Riscos e Oportunidades</div><div class="dcc-sub">Nível = probabilidade x impacto · cláusula 6.1</div></div>
-        ${canManageCompany() ? `<button class="btn-grad" data-risk-action="new-risk" type="button">${moduleIcon("plus")}Novo item</button>` : ""}
+        ${canEditModule("riscos") ? `<button class="btn-grad" data-risk-action="new-risk" type="button">${moduleIcon("plus")}Novo item</button>` : ""}
       </div>
       <div class="subfilter-row">
         <button class="subfilter-pill ${riskFilter === "todos" ? "active" : ""}" data-risk-filter="todos" type="button">Todos</button>
@@ -2092,7 +2153,7 @@ function renderContextModule() {
         <h1 class="welcome-title">Contexto da Organização</h1>
         <p class="welcome-sub">Compreensão da organização, das partes interessadas, do escopo do SGQ e do mapeamento de processos.</p>
       </div>
-      <div class="toolbar-actions" ${canManageCompany() ? "" : "hidden"}>
+      <div class="toolbar-actions" ${canEditModule("riscos") ? "" : "hidden"}>
         <button class="btn-ghost" data-context-action="undo-clear-context" type="button">Desfazer</button>
         <button class="btn-ghost danger-text" data-context-action="clear-context" type="button">Limpar módulo</button>
       </div>
@@ -2270,7 +2331,7 @@ function contextSwotHtml() {
     <section class="dcc">
       <div class="dcc-hd">
         <div><div class="dcc-title">SWOT - Forças, Fraquezas, Oportunidades e Ameaças</div><div class="dcc-sub">Análise estratégica do contexto interno e externo · cláusula 4.1</div></div>
-        ${canManageCompany() ? `<button class="btn-grad" data-context-action="new-swot" type="button">${moduleIcon("plus")}Novo item</button>` : ""}
+        ${canEditModule("contexto") ? `<button class="btn-grad" data-context-action="new-swot" type="button">${moduleIcon("plus")}Novo item</button>` : ""}
       </div>
       <div class="risk-table-wrap">
         <table class="ctxtbl">
@@ -2297,7 +2358,7 @@ function contextPartesHtml() {
     <section class="dcc">
       <div class="dcc-hd">
         <div><div class="dcc-title">Partes Interessadas</div><div class="dcc-sub">Necessidades, expectativas e forma de monitoramento · cláusula 4.2</div></div>
-        ${canManageCompany() ? `<button class="btn-grad" data-context-action="new-parte" type="button">${moduleIcon("plus")}Nova parte interessada</button>` : ""}
+        ${canEditModule("contexto") ? `<button class="btn-grad" data-context-action="new-parte" type="button">${moduleIcon("plus")}Nova parte interessada</button>` : ""}
       </div>
       <div class="risk-table-wrap">
         <table class="ctxtbl">
@@ -2311,8 +2372,8 @@ function contextPartesHtml() {
 
 function contextEscopoHtml() {
   const data = contextGet("escopo");
-  const readonly = canManageCompany() ? "" : " readonly";
-  const disabled = canManageCompany() ? "" : " disabled";
+  const readonly = canEditModule("contexto") ? "" : " readonly";
+  const disabled = canEditModule("contexto") ? "" : " disabled";
   const escopoFilled = hasEscopoData(data);
   const statusText = !escopoFilled
     ? "Sem escopo cadastrado"
@@ -2350,7 +2411,7 @@ function contextEscopoHtml() {
           </div>
         </div>
       </div>
-      <div class="escopo-save-row" ${canManageCompany() ? "" : "hidden"}>
+      <div class="escopo-save-row" ${canEditModule("contexto") ? "" : "hidden"}>
         <div class="escopo-saved-msg" id="ctxEscopoSavedMsg">Alterações salvas</div>
         <button class="btn-ghost danger-text" data-context-action="clear-escopo" type="button">Limpar escopo</button>
         <button class="btn-primary" data-context-action="save-escopo" type="button">Salvar alterações</button>
@@ -2378,7 +2439,7 @@ function contextProcessosHtml() {
       </div>
       <div class="dcc-hd">
         <div><div class="dcc-title">Mapa de Processos</div><div class="dcc-sub">Processos estratégicos, operacionais e de suporte · cláusula 4.4</div></div>
-        ${canManageCompany() ? `<button class="btn-grad" data-context-action="new-processo" type="button">${moduleIcon("plus")}Novo processo</button>` : ""}
+        ${canEditModule("contexto") ? `<button class="btn-grad" data-context-action="new-processo" type="button">${moduleIcon("plus")}Novo processo</button>` : ""}
       </div>
       <div class="risk-table-wrap">
         <table class="ctxtbl">
@@ -2412,7 +2473,7 @@ function contextProcessBadge(rows, category, label, description) {
 }
 
 function contextRowActions(type, id, canView) {
-  if (!canManageCompany()) {
+  if (!canEditModule("contexto")) {
     return canView
       ? `<div class="row-actions"><button class="abtn" data-context-action="view-${type}" data-id="${id}" type="button" title="Ver detalhes">${moduleIcon("eye")}</button></div>`
       : "-";
@@ -2544,7 +2605,7 @@ function bindContextOverlayClose() {
 }
 
 function handleContextAction(action, id) {
-  if (!canManageCompany() && !action.startsWith("view-")) {
+  if (!canEditModule("contexto") && !action.startsWith("view-")) {
     toast("Você tem acesso somente para visualizar.");
     return;
   }
@@ -2841,7 +2902,7 @@ function riskGoalsHtml() {
     <section class="dcc">
       <div class="dcc-hd">
         <div><div class="dcc-title">Objetivos da Qualidade e Planejamento para Alcançá-los</div><div class="dcc-sub">Metas, resultados e planejamento · cláusula 6.2</div></div>
-        ${canManageCompany() ? `<button class="btn-grad" data-risk-action="new-goal" type="button">${moduleIcon("plus")}Novo objetivo</button>` : ""}
+        ${canEditModule("riscos") ? `<button class="btn-grad" data-risk-action="new-goal" type="button">${moduleIcon("plus")}Novo objetivo</button>` : ""}
       </div>
       <div class="risk-table-wrap">
         <table class="ctxtbl">
@@ -2878,7 +2939,7 @@ function riskChangesHtml() {
     <section class="dcc">
       <div class="dcc-hd">
         <div><div class="dcc-title">Registro de Mudanças</div><div class="dcc-sub">Planejamento e controle de mudanças no SGQ · cláusula 6.3</div></div>
-        ${canManageCompany() ? `<button class="btn-grad" data-risk-action="new-change" type="button">${moduleIcon("plus")}Nova mudança</button>` : ""}
+        ${canEditModule("riscos") ? `<button class="btn-grad" data-risk-action="new-change" type="button">${moduleIcon("plus")}Nova mudança</button>` : ""}
       </div>
       <div class="risk-table-wrap">
         <table class="ctxtbl">
@@ -2901,7 +2962,7 @@ function personCell(name, role = "") {
 }
 
 function rowActions(type, id, canView) {
-  if (!canManageCompany()) {
+  if (!canEditModule("riscos")) {
     return canView
       ? `<div class="row-actions"><button class="abtn" data-risk-action="view-${type}" data-id="${id}" type="button" title="Ver detalhes">${moduleIcon("eye")}</button></div>`
       : "-";
@@ -3091,7 +3152,7 @@ function bindRiskOverlayClose() {
 }
 
 function handleRiskAction(action, id) {
-  if (!canManageCompany() && !action.startsWith("view-")) {
+  if (!canEditModule("riscos") && !action.startsWith("view-")) {
     toast("Você tem acesso somente para visualizar.");
     return;
   }
@@ -3935,7 +3996,12 @@ async function deleteCompanyRegistryRecord(key, id) {
 }
 
 async function renderUsuarios() {
-  const canManage = canManageCompany();
+  const canManage = canManageUsers();
+  if (!canManage) {
+    toast("Seu perfil não possui permissão para gerenciar usuários.");
+    render("inicio");
+    return;
+  }
   setTopbar("Usuários", "Controle de acesso da equipe");
   pageContent.classList.remove("risk-page-content");
   pageContent.classList.remove("context-page-content");
@@ -3993,7 +4059,7 @@ async function renderUsuarios() {
     </section>
 
     <div class="modal-overlay" id="userModalOverlay">
-      <div class="modal-box">
+      <div class="modal-box wide">
         <div class="modal-hd">
           <div>
             <h3 id="userModalTitle">Novo usuário</h3>
@@ -4041,7 +4107,21 @@ async function renderUsuarios() {
           <div class="permission-title">Permissões</div>
           <label><input type="checkbox" data-user-permission="modules" checked> Acessar módulos do SGQ</label>
           <label><input type="checkbox" data-user-permission="reports"> Visualizar relatórios</label>
-          <p>As permissões ficam registradas no cadastro do usuário e poderão ser refinadas por módulo nas próximas etapas.</p>
+          <label><input type="checkbox" data-user-permission="manageUsers" ${canManageCompany() ? "" : "disabled"}> Gerenciar usuários da empresa</label>
+          <div class="permission-title module-permission-title">Acesso por módulo</div>
+          <div class="module-permission-grid">
+            ${modules.map((module) => `
+              <label class="module-permission-row">
+                <span>${escapeHtml(module.title)}</span>
+                <select class="input-basic" data-user-module-permission="${module.id}">
+                  <option value="none">Sem acesso</option>
+                  <option value="view">Visualizar</option>
+                  <option value="edit">Editar</option>
+                </select>
+              </label>
+            `).join("")}
+          </div>
+          <p>A permissão de editar módulos não libera alterações nos dados cadastrais da empresa.</p>
         </div>
         <div class="modal-actions">
           <button class="btn-ghost" data-user-modal-close type="button">Cancelar</button>
@@ -4061,6 +4141,9 @@ function bindUsersScreen() {
   pageContent.querySelector("[data-user-save]")?.addEventListener("click", saveCompanyUser);
   pageContent.querySelector("#usersSearchInput")?.addEventListener("input", renderCompanyUsersTable);
   pageContent.querySelector("#usersStatusFilter")?.addEventListener("change", renderCompanyUsersTable);
+  pageContent.querySelector("#userRoleField")?.addEventListener("change", (event) => {
+    applyPermissionDefaultsForRole(event.currentTarget.value);
+  });
 }
 
 async function loadCompanyUsers() {
@@ -4099,7 +4182,7 @@ function normalizeCompanyUser(user) {
     department: user.department || departmentFromRole(role),
     role,
     status: normalizeUserStatus(user.status),
-    permissions: user.permissions || defaultUserPermissions(role),
+    permissions: normalizeUserPermissions(role, user.permissions),
   };
 }
 
@@ -4111,7 +4194,7 @@ function syncStateUsersFromCompanyUsers() {
     status: user.status === "Bloqueado" ? "Inativo" : user.status,
   }));
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  saveRemoteData("state", state);
+  if (canManageCompany()) saveRemoteData("state", state);
 }
 
 function userDepartmentOptions(selected = "RH / Compras") {
@@ -4121,7 +4204,9 @@ function userDepartmentOptions(selected = "RH / Compras") {
 }
 
 function userRoleOptions(selected = "Colaborador") {
-  return ["Administrador", "Gestor", "Colaborador", "Auditor", "Consulta", "Qualidade"]
+  const roles = ["Administrador", "Gestor", "Colaborador", "Auditor", "Consulta", "Qualidade"];
+  return roles
+    .filter((role) => canManageCompany() || role !== "Administrador" || role === selected)
     .map((item) => `<option value="${item}" ${item === selected ? "selected" : ""}>${item}</option>`)
     .join("");
 }
@@ -4134,11 +4219,42 @@ function departmentFromRole(role) {
 }
 
 function defaultUserPermissions(role) {
+  const editAll = ["Administrador", "Gestor", "Qualidade"].includes(role);
+  const moduleAccess = Object.fromEntries(modules.map((module) => {
+    if (editAll) return [module.id, "edit"];
+    if (role === "Auditor" && module.id === "auditorias") return [module.id, "edit"];
+    return [module.id, "view"];
+  }));
   return {
     modules: true,
     reports: ["Administrador", "Gestor", "Qualidade"].includes(role),
-    manageUsers: false,
+    manageUsers: role === "Administrador",
+    moduleAccess,
   };
+}
+
+function normalizeUserPermissions(role, permissions = {}) {
+  const defaults = defaultUserPermissions(role);
+  const modulesEnabled = permissions.modules === undefined ? defaults.modules : Boolean(permissions.modules);
+  return {
+    modules: modulesEnabled,
+    reports: permissions.reports === undefined ? defaults.reports : Boolean(permissions.reports),
+    manageUsers: permissions.manageUsers === undefined ? defaults.manageUsers : Boolean(permissions.manageUsers),
+    moduleAccess: Object.fromEntries(modules.map((module) => {
+      const access = permissions.moduleAccess?.[module.id] || defaults.moduleAccess[module.id];
+      return [module.id, modulesEnabled && ["none", "view", "edit"].includes(access) ? access : "none"];
+    })),
+  };
+}
+
+function applyPermissionDefaultsForRole(role) {
+  const permissions = defaultUserPermissions(role);
+  pageContent.querySelectorAll("[data-user-permission]").forEach((checkbox) => {
+    checkbox.checked = Boolean(permissions[checkbox.dataset.userPermission]);
+  });
+  pageContent.querySelectorAll("[data-user-module-permission]").forEach((select) => {
+    select.value = permissions.moduleAccess[select.dataset.userModulePermission] || "none";
+  });
 }
 
 function normalizeUserStatus(status) {
@@ -4203,7 +4319,7 @@ function renderCompanyUsersTable() {
 
 function renderCompanyUserRow(user) {
   const status = userStatusMeta(user.status);
-  const showActions = canManageCompany();
+  const showActions = canManageUsers() && (canManageCompany() || user.role !== "Administrador");
   return `
     <tr class="${user.status === "Bloqueado" ? "inactive-row" : ""}">
       <td>
@@ -4262,14 +4378,16 @@ function handleCompanyUserAction(button) {
 
 function describePermissions(permissions) {
   const labels = [];
-  if (permissions?.modules) labels.push("módulos");
+  const editCount = Object.values(permissions?.moduleAccess || {}).filter((access) => access === "edit").length;
+  const viewCount = Object.values(permissions?.moduleAccess || {}).filter((access) => access === "view").length;
+  if (permissions?.modules) labels.push(`${editCount} para editar e ${viewCount} para visualizar`);
   if (permissions?.reports) labels.push("relatórios");
   if (permissions?.manageUsers) labels.push("usuários");
   return labels.length ? labels.join(", ") : "sem permissões adicionais";
 }
 
 function openCompanyUserModal(id = null) {
-  if (!canManageCompany()) {
+  if (!canManageUsers()) {
     toast("Você não tem permissão para gerenciar usuários.");
     return;
   }
@@ -4284,8 +4402,12 @@ function openCompanyUserModal(id = null) {
   pageContent.querySelector("#userStatusField").value = user?.status || "Pendente";
   pageContent.querySelector("#userPasswordField").value = "";
   pageContent.querySelector("#userPasswordField").placeholder = id ? "Preencha para redefinir" : "Obrigatória ao criar";
+  const permissions = normalizeUserPermissions(user?.role || "Colaborador", user?.permissions);
   pageContent.querySelectorAll("[data-user-permission]").forEach((checkbox) => {
-    checkbox.checked = Boolean((user?.permissions || defaultUserPermissions(user?.role || "Colaborador"))[checkbox.dataset.userPermission]);
+    checkbox.checked = Boolean(permissions[checkbox.dataset.userPermission]);
+  });
+  pageContent.querySelectorAll("[data-user-module-permission]").forEach((select) => {
+    select.value = permissions.moduleAccess[select.dataset.userModulePermission] || "none";
   });
   pageContent.querySelector("#userModalOverlay").classList.add("show");
 }
@@ -4296,7 +4418,7 @@ function closeCompanyUserModal() {
 }
 
 async function saveCompanyUser() {
-  if (!canManageCompany()) {
+  if (!canManageUsers()) {
     toast("Você não tem permissão para gerenciar usuários.");
     return;
   }
@@ -4308,6 +4430,10 @@ async function saveCompanyUser() {
   const status = pageContent.querySelector("#userStatusField").value;
   const password = pageContent.querySelector("#userPasswordField").value;
   const permissions = Object.fromEntries([...pageContent.querySelectorAll("[data-user-permission]")].map((checkbox) => [checkbox.dataset.userPermission, checkbox.checked]));
+  permissions.moduleAccess = Object.fromEntries(
+    [...pageContent.querySelectorAll("[data-user-module-permission]")]
+      .map((select) => [select.dataset.userModulePermission, select.value]),
+  );
 
   if (!displayName || !username) {
     toast("Preencha nome e login para continuar.");
@@ -4357,7 +4483,7 @@ async function saveCompanyUser() {
 }
 
 async function deleteCompanyUser(user) {
-  if (!canManageCompany()) {
+  if (!canManageUsers()) {
     toast("Você não tem permissão para gerenciar usuários.");
     return;
   }
@@ -4700,6 +4826,10 @@ function adminEventLabel(eventType) {
     admin_user_created: "Usuário criado pelo administrador",
     admin_user_updated: "Usuário atualizado pelo administrador",
     admin_password_reset: "Senha resetada pelo administrador",
+    password_reset_requested: "Recuperação de senha solicitada",
+    password_reset_rate_limited: "Recuperação temporariamente bloqueada",
+    password_reset_completed: "Senha redefinida pelo usuário",
+    password_reset_failed: "Link de recuperação recusado",
     company_export: "Relatório exportado",
     company_backup: "Backup da empresa gerado",
     admin_backup: "Backup administrativo gerado",
@@ -5009,13 +5139,21 @@ async function renderMinhasPermissoes() {
     console.warn(error);
   }
 
-  const permissions = user?.permissions || defaultUserPermissions(currentUser?.role || "Colaborador");
+  const permissions = normalizeUserPermissions(
+    currentUser?.role || "Colaborador",
+    user?.permissions || currentUser?.permissions,
+  );
   const rows = [
     ["Acessar módulos do SGQ", Boolean(permissions.modules)],
     ["Visualizar relatórios", Boolean(permissions.reports)],
-    ["Gerenciar usuários", Boolean(permissions.manageUsers && canManageCompany())],
+    ["Gerenciar usuários", Boolean(permissions.manageUsers || canManageCompany())],
     ["Alterar dados da empresa", canManageCompany()],
   ];
+  const moduleRows = modules.map((module) => {
+    const access = moduleAccessLevel(module.id);
+    const label = access === "edit" ? "Editar" : access === "view" ? "Visualizar" : "Sem acesso";
+    return [module.title, label, access !== "none"];
+  });
 
   const box = pageContent.querySelector(".permissions-summary");
   if (!box) return;
@@ -5025,6 +5163,15 @@ async function renderMinhasPermissoes() {
         <div class="permission-row">
           <span>${escapeHtml(label)}</span>
           <strong class="${allowed ? "allowed" : "blocked"}">${allowed ? "Liberado" : "Bloqueado"}</strong>
+        </div>
+      `).join("")}
+    </div>
+    <div class="permission-title permission-summary-title">Permissões por módulo</div>
+    <div class="permission-list">
+      ${moduleRows.map(([label, access, allowed]) => `
+        <div class="permission-row">
+          <span>${escapeHtml(label)}</span>
+          <strong class="${allowed ? "allowed" : "blocked"}">${escapeHtml(access)}</strong>
         </div>
       `).join("")}
     </div>

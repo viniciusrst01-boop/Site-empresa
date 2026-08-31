@@ -42,19 +42,7 @@
   * { box-sizing: border-box; }
   [hidden] { display: none !important; }
   .readonly-company-user .ef-actions,
-  .readonly-company-user .ef-logo-actions,
-  .readonly-company-user [data-lc-action^="new-"],
-  .readonly-company-user [data-lc-action^="edit-"],
-  .readonly-company-user [data-lc-action^="delete-"],
-  .readonly-company-user [data-lc-action="save-position"],
-  .readonly-company-user [data-context-action^="new-"],
-  .readonly-company-user [data-context-action^="edit-"],
-  .readonly-company-user [data-context-action^="delete-"],
-  .readonly-company-user [data-context-action^="clear-"],
-  .readonly-company-user [data-context-action="save-escopo"],
-  .readonly-company-user [data-risk-action^="new-"],
-  .readonly-company-user [data-risk-action^="edit-"],
-  .readonly-company-user [data-risk-action^="delete-"] {
+  .readonly-company-user .ef-logo-actions {
     display: none !important;
   }
   html, body {
@@ -2037,6 +2025,61 @@ table.utbl {
   font-size: 12px;
   line-height: 1.5;
   margin: 3px 0 0;
+}
+
+.module-permission-title {
+  border-top: 1px solid var(--border-subtle);
+  margin-top: 6px;
+  padding-top: 14px;
+}
+
+.module-permission-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 12px;
+}
+
+.permission-box .module-permission-row {
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: 8px 9px;
+}
+
+.module-permission-row span {
+  min-width: 0;
+  color: var(--text-secondary);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.module-permission-row select.input-basic {
+  width: 116px;
+  min-height: 34px;
+  flex-shrink: 0;
+  padding: 0 8px;
+  font-size: 11px;
+}
+
+.permission-summary-title {
+  margin: 20px 0 10px;
+}
+
+@media (max-width: 700px) {
+  .module-permission-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .permission-box .module-permission-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .module-permission-row select.input-basic {
+    width: 100%;
+  }
 }
 
 .profile-grid {

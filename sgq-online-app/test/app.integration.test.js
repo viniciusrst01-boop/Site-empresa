@@ -97,20 +97,108 @@ test("admin, exportações, backup e revogação de sessão funcionam", async (t
   assert.ok(overview.logs.some((log) => log.eventType === "login_success"));
   const companyId = overview.companies[0].id;
 
-  const userResponse = await api(baseUrl, "/api/admin/user", adminCookie, {
+  const userResponse = await api(baseUrl, "/api/company/users", adminCookie, {
     method: "POST",
     body: JSON.stringify({
-      companyId,
       username: "colaborador.teste",
       displayName: "Colaborador Teste",
       role: "Qualidade",
       status: "Ativo",
       password: "Colab-Teste-123",
+      permissions: {
+        modules: true,
+        reports: false,
+        manageUsers: false,
+        moduleAccess: {
+          contexto: "view",
+          lideranca: "none",
+          riscos: "edit",
+          documentos: "view",
+          auditorias: "view",
+          "nao-conformidades": "view",
+          equipamentos: "none",
+        },
+      },
     }),
   });
   assert.equal(userResponse.status, 201);
   const createdUser = (await userResponse.json()).user;
   const collaboratorCookie = await login(baseUrl, "colaborador.teste", "Colab-Teste-123");
+
+  const collaboratorBootstrap = await api(baseUrl, "/api/bootstrap", collaboratorCookie);
+  assert.equal(collaboratorBootstrap.status, 200);
+  const collaboratorPayload = await collaboratorBootstrap.json();
+  assert.equal(collaboratorPayload.user.permissions.moduleAccess.contexto, "view");
+  assert.equal(collaboratorPayload.user.permissions.moduleAccess.riscos, "edit");
+  assert.equal(collaboratorPayload.leadership, null);
+
+  const deniedContextSave = await api(baseUrl, "/api/data", collaboratorCookie, {
+    method: "POST",
+    body: JSON.stringify({ key: "context", value: { swot: [] } }),
+  });
+  assert.equal(deniedContextSave.status, 403);
+
+  const allowedRiskSave = await api(baseUrl, "/api/data", collaboratorCookie, {
+    method: "POST",
+    body: JSON.stringify({ key: "risk", value: { riscos: [] } }),
+  });
+  assert.equal(allowedRiskSave.status, 200);
+
+  const deniedReports = await api(baseUrl, "/api/export?format=pdf", collaboratorCookie);
+  assert.equal(deniedReports.status, 403);
+
+  const deniedUserCreate = await api(baseUrl, "/api/company/users", collaboratorCookie, {
+    method: "POST",
+    body: JSON.stringify({
+      username: "sem.permissao",
+      displayName: "Sem Permissão",
+      password: "Senha-Teste-123",
+    }),
+  });
+  assert.equal(deniedUserCreate.status, 403);
+
+  const delegatedAdminResponse = await api(baseUrl, "/api/company/users", adminCookie, {
+    method: "POST",
+    body: JSON.stringify({
+      username: "admin.empresa",
+      displayName: "Admin Empresa",
+      role: "Administrador",
+      status: "Ativo",
+      password: "Admin-Empresa-123",
+    }),
+  });
+  assert.equal(delegatedAdminResponse.status, 201);
+  const delegatedCookie = await login(baseUrl, "admin.empresa", "Admin-Empresa-123");
+  const delegatedBootstrap = await api(baseUrl, "/api/bootstrap", delegatedCookie);
+  const delegatedPayload = await delegatedBootstrap.json();
+  assert.equal(delegatedPayload.user.canManageCompany, false);
+  assert.equal(delegatedPayload.user.permissions.manageUsers, true);
+
+  const delegatedUserCreate = await api(baseUrl, "/api/company/users", delegatedCookie, {
+    method: "POST",
+    body: JSON.stringify({
+      username: "criado.pelo.admin",
+      displayName: "Criado pelo Admin",
+      role: "Colaborador",
+      status: "Ativo",
+      password: "Senha-Teste-123",
+    }),
+  });
+  assert.equal(delegatedUserCreate.status, 201);
+
+  const delegatedCompanyEdit = await api(baseUrl, "/api/company", delegatedCookie, {
+    method: "PATCH",
+    body: JSON.stringify({ name: "Empresa não autorizada" }),
+  });
+  assert.equal(delegatedCompanyEdit.status, 403);
+
+  const resetRequest = await fetch(`${baseUrl}/forgot-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ username: "colaborador.teste" }),
+  });
+  assert.equal(resetRequest.status, 200);
+  assert.match(await resetRequest.text(), /instruções serão enviadas/i);
 
   const pdfResponse = await api(baseUrl, "/api/export?format=pdf", adminCookie);
   assert.equal(pdfResponse.status, 200);
@@ -141,4 +229,41 @@ test("admin, exportações, backup e revogação de sessão funcionam", async (t
 
   const revokedResponse = await api(baseUrl, "/api/bootstrap", collaboratorCookie);
   assert.equal(revokedResponse.status, 401, stderr);
+});
+
+test("token de recuperação expira após um uso e troca a senha", async (t) => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "sgq-password-reset-test-"));
+  const envBefore = {
+    SGQ_DATABASE_MODE: process.env.SGQ_DATABASE_MODE,
+    SGQ_DATA_DIR: process.env.SGQ_DATA_DIR,
+    DATABASE_URL: process.env.DATABASE_URL,
+  };
+  process.env.SGQ_DATABASE_MODE = "local";
+  process.env.SGQ_DATA_DIR = dataDir;
+  delete process.env.DATABASE_URL;
+  const dbPath = require.resolve("../db");
+  delete require.cache[dbPath];
+  const db = require("../db");
+
+  t.after(() => {
+    delete require.cache[dbPath];
+    Object.entries(envBefore).forEach(([key, value]) => {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    });
+    fs.rmSync(dataDir, { recursive: true, force: true });
+  });
+
+  await db.syncConfiguredUsers([{
+    user: "recuperacao.teste",
+    password: "Senha-Antiga-123",
+    companyName: "Empresa Recuperação",
+  }]);
+  const request = await db.createPasswordResetToken("recuperacao.teste", 30);
+  assert.ok(request?.token);
+  const updated = await db.consumePasswordResetToken(request.token, "Senha-Nova-456");
+  assert.equal(updated.username, "recuperacao.teste");
+  assert.equal(await db.findUser("recuperacao.teste", "Senha-Antiga-123"), null);
+  assert.ok(await db.findUser("recuperacao.teste", "Senha-Nova-456"));
+  assert.equal(await db.consumePasswordResetToken(request.token, "Outra-Senha-789"), null);
 });

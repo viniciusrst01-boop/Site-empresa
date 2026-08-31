@@ -77,6 +77,32 @@ Ao iniciar com `DATABASE_URL`, o app cria automaticamente as tabelas:
 
 As migrações também adicionam situação financeira e limite de acessos às empresas, além de último acesso e versão de sessão aos usuários. Ao bloquear um usuário ou resetar sua senha, sessões já abertas são invalidadas.
 
+## Recuperação de senha
+
+O login possui o link `Esqueci minha senha`. Cada solicitação gera um token de uso único com validade de 30 minutos, e a troca encerra as sessões anteriores da conta. Solicitações repetidas são limitadas a três por 15 minutos.
+
+Para enviar o link automaticamente quando o login for um e-mail, configure:
+
+```ini
+PUBLIC_APP_URL=https://sgq-online-app.vercel.app
+RESEND_API_KEY=re_...
+PASSWORD_RESET_FROM=QualityPro Cloud <acesso@seudominio.com.br>
+```
+
+Sem essas variáveis, a solicitação continua registrada em **Gerenciamento > Atividade e segurança**, onde o administrador pode usar a ação de reset já disponível para o usuário.
+
+## Permissões por módulo
+
+O administrador da empresa define para cada usuário três níveis por módulo: `Sem acesso`, `Visualizar` ou `Editar`. As regras são verificadas tanto na interface quanto na API. Permissão de edição em módulos não libera alteração dos dados cadastrais da empresa.
+
+Os padrões por perfil são:
+
+- Administrador, Gestor e Qualidade: edição dos módulos.
+- Auditor: edição de Auditorias e visualização dos demais módulos.
+- Colaborador e Consulta: visualização dos módulos.
+
+Os padrões podem ser refinados individualmente no cadastro do usuário. Somente o administrador da empresa, ou alguém que tenha recebido a permissão `Gerenciar usuários`, pode cadastrar e alterar acessos.
+
 ## Relatórios e backup
 
 A tela **Relatórios** gera arquivos diretamente a partir dos dados salvos no banco:
