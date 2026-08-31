@@ -63,6 +63,7 @@ Variáveis principais para produção:
 ```text
 DATABASE_URL=postgresql://usuario:senha@host:5432/banco?sslmode=require
 SESSION_SECRET=uma-chave-secreta-longa
+SESSION_TTL_HOURS=8
 SGQ_ADMIN_USER=viniciusrst
 SGQ_EXTRA_LOGINS=usuario:senha:Nome da Empresa
 ```
@@ -72,6 +73,33 @@ Ao iniciar com `DATABASE_URL`, o app cria automaticamente as tabelas:
 - `companies`: empresas/clientes;
 - `users`: acessos de cada empresa;
 - `company_data`: dados dos módulos separados por empresa.
+- `audit_logs`: acessos, falhas de login, backups, exportações e ações administrativas.
+
+As migrações também adicionam situação financeira e limite de acessos às empresas, além de último acesso e versão de sessão aos usuários. Ao bloquear um usuário ou resetar sua senha, sessões já abertas são invalidadas.
+
+## Relatórios e backup
+
+A tela **Relatórios** gera arquivos diretamente a partir dos dados salvos no banco:
+
+- PDF completo do SGQ;
+- Excel com abas por módulo;
+- backup JSON da empresa, sem hashes de senha.
+
+O administrador global também pode baixar um backup geral ou o backup individual de uma empresa pela tela **Gerenciamento**.
+
+## Segurança
+
+- cookies de sessão `HttpOnly`, `SameSite=Strict` e `Secure` em HTTPS;
+- validade de sessão configurável por `SESSION_TTL_HOURS` (padrão: 8 horas);
+- bloqueio temporário após 5 falhas de login em 15 minutos;
+- histórico das principais ações e tentativas de acesso no painel administrativo;
+- sessões revogadas ao bloquear usuário ou resetar senha.
+
+Para testes isolados com o banco JSON, mesmo quando existir uma `DATABASE_URL`, use:
+
+```text
+SGQ_DATABASE_MODE=local
+```
 
 Em bancos locais sem SSL, use:
 

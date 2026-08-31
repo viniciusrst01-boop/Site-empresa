@@ -455,6 +455,9 @@ function applyUserProfile() {
   if (userName) userName.textContent = name;
   if (userRole) userRole.textContent = role;
   document.body.classList.toggle("readonly-company-user", !canManageCompany());
+  if (currentUser.permissions?.reports === false) {
+    document.querySelector('[data-view="relatorios"]')?.remove();
+  }
   updateAdminNav();
   renderUserMenu();
 }
@@ -665,6 +668,7 @@ async function saveOnboarding(event) {
   const payload = await response.json();
   if (payload.user) {
     currentUser = {
+      ...(currentUser || {}),
       id: payload.user.id,
       companyId: payload.user.companyId,
       username: payload.user.username,
@@ -721,6 +725,9 @@ function renderUserMenu() {
         ["Configurações globais", "configuracoes"],
       ]
     : [
+        ["Página inicial", "inicio"],
+        ["Meus módulos", "modulos"],
+        ...(currentUser.permissions?.reports === false ? [] : [["Relatórios", "relatorios"]]),
         ["Meu perfil", "perfil"],
         ["Minhas permissões", "permissoes"],
         ...(canManageCompany() ? [["Gerenciar usuários", "usuarios"], ["Dados da empresa", "empresa"]] : []),
@@ -828,6 +835,10 @@ function render(view = "inicio") {
   const adminAllowedViews = ["gerenciamento", "configuracoes"];
   if (currentUser?.isAdmin && !adminAllowedViews.includes(view)) {
     view = "gerenciamento";
+  }
+  if (view === "relatorios" && currentUser?.permissions?.reports === false) {
+    toast("Seu perfil não possui permissão para visualizar relatórios.");
+    view = "inicio";
   }
 
   setActiveNav(view);
@@ -1210,6 +1221,7 @@ function moduleIcon(name) {
     trash: '<svg class="icon" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>',
     shield: '<svg class="icon" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>',
     key: '<svg class="icon" viewBox="0 0 24 24"><circle cx="7.5" cy="14.5" r="3.5"/><path d="M10 12l9-9"/><path d="M15 4l5 5"/><path d="M14 8l2 2"/></svg>',
+    download: '<svg class="icon" viewBox="0 0 24 24"><path d="M12 3v12"/><polyline points="7 10 12 15 17 10"/><path d="M5 21h14"/></svg>',
     search: '<svg class="icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>',
     notificacoes: '<svg class="icon" viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>',
     close: '<svg class="icon" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
@@ -1971,6 +1983,7 @@ function chip(text, cls) {
 
 function statusClass(status) {
   const normalized = String(status || "").toLowerCase();
+  if (normalized.includes("não iniciado") || normalized.includes("nao iniciado")) return "s-late";
   if (normalized.includes("inativo") || normalized.includes("não realizada") || normalized.includes("nao realizada")) return "s-late";
   if (normalized.includes("programada")) return "s-prog";
   if (normalized.includes("conclu") || normalized.includes("atingid") || normalized.includes("tratado") || normalized.includes("ativo")) return "s-done";
@@ -4202,7 +4215,7 @@ function renderCompanyUserRow(user) {
       <td>${escapeHtml(user.department)}</td>
       <td><span class="role-badge ${roleClass(user.role)}">${escapeHtml(user.role)}</span></td>
       <td><span class="status-pill ${status.cls}"><span class="status-dot2"></span>${escapeHtml(status.label)}</span></td>
-      <td class="last-access">${escapeHtml(user.status === "Pendente" ? "Nunca acessou" : "Cadastrado em " + formatDate(String(user.created_at || "").slice(0, 10)))}</td>
+      <td class="last-access">${escapeHtml(user.lastLoginAt ? formatDateTime(user.lastLoginAt) : "Nunca acessou")}</td>
       ${showActions ? `<td>
         <div class="u-actions">
           <button class="u-abtn" title="Editar" data-user-row-action="edit" data-user-id="${user.id}" type="button">${moduleIcon("edit")}</button>
@@ -4306,6 +4319,7 @@ async function saveCompanyUser() {
   }
 
   const method = editingCompanyUserId ? "PATCH" : "POST";
+  const isEditing = Boolean(editingCompanyUserId);
   const body = {
     userId: editingCompanyUserId,
     username,
@@ -4324,6 +4338,11 @@ async function saveCompanyUser() {
   });
 
   if (!response.ok) {
+    const result = await response.json().catch(() => ({}));
+    if (result.error === "access_limit_reached") {
+      toast("O limite de acessos do plano foi atingido.");
+      return;
+    }
     const messages = {
       400: "Verifique os dados do usuário.",
       409: "Já existe um usuário com esse login.",
@@ -4333,7 +4352,7 @@ async function saveCompanyUser() {
   }
 
   closeCompanyUserModal();
-  toast(editingCompanyUserId ? "Usuário atualizado." : "Usuário cadastrado.");
+  toast(isEditing ? "Usuário atualizado." : "Usuário cadastrado.");
   await loadCompanyUsers();
 }
 
@@ -4378,17 +4397,44 @@ function renderNotificacoes() {
 
 function renderRelatorios() {
   setTopbar("Relatórios", "Indicadores e exportações");
+  ensureContextData();
+  ensureRiskData();
+  ensureLeadershipData();
+  const contextRecords =
+    contextGet("swot").length + contextGet("partes").length + contextGet("processos").length;
+  const riskRecords = riskGet("riscos").length + riskGet("objetivos").length + riskGet("mudancas").length;
+  const leadershipRecords =
+    leadershipGet("acoes").length + leadershipGet("plano").length + leadershipGet("cargos").length;
   pageContent.innerHTML = `
     ${viewHeader("Relatórios", "Resumo executivo dos dados cadastrados no SGQ.")}
     <div class="qp-grid metrics">
-      ${metric("Documentos", state.documents.length)}
-      ${metric("Auditorias", state.audits.length)}
-      ${metric("Não conformidades", state.ncs.length)}
+      ${metric("Contexto", contextRecords)}
+      ${metric("Riscos e objetivos", riskRecords)}
+      ${metric("Liderança", leadershipRecords)}
       ${metric("Usuários", state.users.length)}
     </div>
-    <article class="qp-card">
-      <h3>Exportações</h3>
-      <p class="qp-muted">Nesta primeira versão, os relatórios são exibidos em tela. A exportação em PDF/Excel entra na próxima etapa.</p>
+    <section class="report-export-grid">
+      ${reportExportCard("Relatório completo", "PDF", "Documento pronto para visualizar, imprimir ou compartilhar.", "pdf", "documentos")}
+      ${reportExportCard("Planilha completa", "Excel", "Abas separadas para empresa, usuários e registros dos módulos.", "xlsx", "relatorios")}
+      ${reportExportCard("Backup da empresa", "JSON", "Cópia técnica dos dados da empresa, sem armazenar senhas.", "json", "shield")}
+    </section>
+    <article class="qp-card report-note">
+      <h3>Dados incluídos</h3>
+      <p class="qp-muted">Os arquivos são gerados no momento do download com os dados salvos no banco: empresa, usuários, contexto, riscos, objetivos, liderança, documentos, auditorias e não conformidades.</p>
+    </article>
+  `;
+}
+
+function reportExportCard(title, format, description, queryFormat, icon) {
+  return `
+    <article class="qp-card report-export-card">
+      <div class="report-export-icon">${moduleIcon(icon)}</div>
+      <div>
+        <span class="report-format">${escapeHtml(format)}</span>
+        <h3>${escapeHtml(title)}</h3>
+        <p>${escapeHtml(description)}</p>
+      </div>
+      <a class="btn-primary report-download" href="/api/export?format=${encodeURIComponent(queryFormat)}">${moduleIcon("download")} Baixar ${escapeHtml(format)}</a>
     </article>
   `;
 }
@@ -4432,6 +4478,7 @@ function adminOverviewHtml(data) {
   const summary = data.summary || {};
   const companies = data.companies || [];
   const users = data.users || [];
+  const logs = data.logs || [];
 
   return `
     ${viewHeader("Gerenciamento", "Acompanhe clientes pagantes, acessos ativos e usuários cadastrados automaticamente.")}
@@ -4441,6 +4488,18 @@ function adminOverviewHtml(data) {
       ${adminMetric("Pagantes", summary.payingCompanies || 0, "empresas com plano pago")}
       ${adminMetric("Acessos", summary.accesses || 0, "usuários cadastrados")}
       ${adminMetric("Ativos", summary.activeAccesses || 0, "acessos ativos")}
+      ${adminMetric("Bloqueados", summary.blockedAccesses || 0, "acessos bloqueados")}
+      ${adminMetric("Entradas 24h", summary.successfulLogins24h || 0, "logins realizados")}
+      ${adminMetric("Falhas 24h", summary.failedLogins24h || 0, "tentativas recusadas")}
+      ${adminMetric("Disponibilidade", "Online", "banco e autenticação ativos")}
+    </div>
+
+    <div class="admin-toolbar qp-card">
+      <label>
+        <span>Buscar no gerenciamento</span>
+        <input class="input-basic" type="search" data-admin-search placeholder="Empresa, usuário, login ou plano" />
+      </label>
+      <a class="btn-primary" href="/api/admin/backup">${moduleIcon("download")} Backup geral</a>
     </div>
 
     <div class="admin-form-grid">
@@ -4452,22 +4511,23 @@ function adminOverviewHtml(data) {
       <div class="dcc-head">
         <div>
           <div class="dcc-title">Clientes e planos</div>
-          <div class="dcc-sub">Empresas criadas automaticamente no primeiro acesso ou via login configurado.</div>
+          <div class="dcc-sub">Planos, pagamentos e ocupação dos acessos de cada empresa.</div>
         </div>
       </div>
       <div class="admin-table-wrap">
         <table class="data-table">
-          <thead><tr><th>Empresa</th><th>CNPJ</th><th>Plano</th><th>Acessos</th><th>Criado em</th><th>Ações</th></tr></thead>
+          <thead><tr><th>Empresa</th><th>Plano</th><th>Pagamento</th><th>Acessos</th><th>Última atividade</th><th>Ações</th></tr></thead>
           <tbody>
             ${companies.length ? companies.map((company) => `
-              <tr>
+              <tr data-admin-search-row="${escapeHtml(`${company.name} ${company.cnpj || ""} ${company.plan || ""} ${company.billingStatus || ""}`.toLowerCase())}">
                 <td><strong>${escapeHtml(company.name)}</strong></td>
-                <td>${escapeHtml(company.cnpj || "-")}</td>
                 <td>${planBadge(company.plan)}</td>
-                <td>${Number(company.active_access_count || 0)} ativos / ${Number(company.access_count || 0)} total</td>
-                <td>${formatDate(company.created_at)}</td>
+                <td>${billingBadge(company.billingStatus)}</td>
+                <td>${Number(company.active_access_count || 0)} ativos / ${Number(company.access_count || 0)} de ${Number(company.accessLimit || 5)}</td>
+                <td>${formatDateTime(company.last_activity_at)}</td>
                 <td>
                   <button class="abtn" data-admin-action="edit-company" data-company='${adminPayload(company)}' type="button" title="Editar cliente">${moduleIcon("edit")}</button>
+                  <a class="abtn" href="/api/admin/backup?companyId=${company.id}" title="Backup desta empresa">${moduleIcon("download")}</a>
                 </td>
               </tr>
             `).join("") : `<tr><td colspan="6"><div class="empty-state">Nenhum cliente cadastrado.</div></td></tr>`}
@@ -4485,14 +4545,15 @@ function adminOverviewHtml(data) {
       </div>
       <div class="admin-table-wrap">
         <table class="data-table">
-          <thead><tr><th>Usuário</th><th>Login</th><th>Empresa</th><th>Perfil</th><th>Status</th><th>Ações</th></tr></thead>
+          <thead><tr><th>Usuário</th><th>Login</th><th>Empresa</th><th>Perfil</th><th>Último acesso</th><th>Status</th><th>Ações</th></tr></thead>
           <tbody>
             ${users.length ? users.map((user) => `
-              <tr>
+              <tr data-admin-search-row="${escapeHtml(`${user.displayName} ${user.username} ${user.companyName} ${user.role} ${user.status}`.toLowerCase())}">
                 <td><strong>${escapeHtml(user.displayName)}</strong></td>
                 <td>${escapeHtml(user.username)}</td>
                 <td>${escapeHtml(user.companyName)}</td>
                 <td>${escapeHtml(user.role)}</td>
+                <td>${formatDateTime(user.lastLoginAt)}</td>
                 <td><span class="status-pill ${statusClass(user.status)}"><span class="status-dot2"></span>${escapeHtml(user.status)}</span></td>
                 <td>
                   <button class="abtn" data-admin-action="edit-user" data-user='${adminPayload(user)}' type="button" title="Editar usuário">${moduleIcon("edit")}</button>
@@ -4501,6 +4562,31 @@ function adminOverviewHtml(data) {
                 </td>
               </tr>
             `).join("") : `<tr><td colspan="6"><div class="empty-state">Nenhum usuário cadastrado.</div></td></tr>`}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="qp-card admin-card">
+      <div class="dcc-head">
+        <div>
+          <div class="dcc-title">Atividade e segurança</div>
+          <div class="dcc-sub">Últimos acessos, tentativas recusadas e ações administrativas registradas no banco.</div>
+        </div>
+      </div>
+      <div class="admin-table-wrap">
+        <table class="data-table admin-log-table">
+          <thead><tr><th>Data</th><th>Evento</th><th>Usuário</th><th>Resultado</th><th>IP</th></tr></thead>
+          <tbody>
+            ${logs.length ? logs.map((log) => `
+              <tr data-admin-search-row="${escapeHtml(`${log.username || ""} ${adminEventLabel(log.eventType)} ${log.outcome || ""}`.toLowerCase())}">
+                <td>${formatDateTime(log.createdAt)}</td>
+                <td>${escapeHtml(adminEventLabel(log.eventType))}</td>
+                <td>${escapeHtml(log.username || "Sistema")}</td>
+                <td>${auditOutcomeBadge(log.outcome)}</td>
+                <td class="mono-cell">${escapeHtml(log.ipAddress || "-")}</td>
+              </tr>
+            `).join("") : `<tr><td colspan="5"><div class="empty-state">A atividade começará a aparecer após os próximos acessos.</div></td></tr>`}
           </tbody>
         </table>
       </div>
@@ -4519,6 +4605,8 @@ function adminCompanyFormHtml() {
       <label><span>CNPJ</span><input name="cnpj" placeholder="00.000.000/0001-00" /></label>
       <label><span>Certificação</span><input name="certification" placeholder="ISO 9001:2015" /></label>
       <label><span>Plano</span><input name="plan" placeholder="Plano Profissional" /></label>
+      <label><span>Situação do pagamento</span><select name="billingStatus"><option>Ativo</option><option>Pendente</option><option>Inadimplente</option><option>Teste</option><option>Cancelado</option></select></label>
+      <label><span>Limite de acessos</span><input name="accessLimit" type="number" min="1" max="10000" value="5" required /></label>
       <label class="full"><span>Escopo</span><textarea name="scope" placeholder="Escopo do sistema de gestão"></textarea></label>
       <div class="admin-form-actions full">
         <button class="btn-primary" type="submit">Salvar cliente</button>
@@ -4583,13 +4671,63 @@ function planBadge(plan) {
   return `<span class="plan-badge ${paid ? "paid" : "trial"}">${escapeHtml(plan || "Sem plano")}</span>`;
 }
 
+function billingBadge(status) {
+  const value = status || "Ativo";
+  const normalized = value.toLowerCase();
+  const className = normalized === "ativo" ? "paid" : normalized === "teste" || normalized === "pendente" ? "trial" : "overdue";
+  return `<span class="plan-badge ${className}">${escapeHtml(value)}</span>`;
+}
+
+function auditOutcomeBadge(outcome) {
+  const value = outcome || "success";
+  const success = value === "success";
+  return `<span class="audit-outcome ${success ? "success" : "failed"}"><span></span>${success ? "Sucesso" : value === "blocked" ? "Bloqueado" : "Falha"}</span>`;
+}
+
+function adminEventLabel(eventType) {
+  const labels = {
+    login_success: "Login realizado",
+    login_failed: "Falha no login",
+    login_rate_limited: "Login temporariamente bloqueado",
+    logout: "Saída do sistema",
+    onboarding_completed: "Cadastro inicial concluído",
+    company_updated: "Dados da empresa atualizados",
+    company_user_created: "Usuário da empresa criado",
+    company_user_updated: "Usuário da empresa atualizado",
+    company_user_deleted: "Usuário da empresa removido",
+    admin_company_created: "Cliente criado pelo administrador",
+    admin_company_updated: "Cliente atualizado pelo administrador",
+    admin_user_created: "Usuário criado pelo administrador",
+    admin_user_updated: "Usuário atualizado pelo administrador",
+    admin_password_reset: "Senha resetada pelo administrador",
+    company_export: "Relatório exportado",
+    company_backup: "Backup da empresa gerado",
+    admin_backup: "Backup administrativo gerado",
+    module_data_updated: "Dados de módulo atualizados",
+  };
+  return labels[eventType] || String(eventType || "Evento").replace(/_/g, " ");
+}
+
+function formatDateTime(value) {
+  if (!value) return "Nunca";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Nunca";
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
+
 function isPaidPlanName(plan) {
   const value = String(plan || "").trim().toLowerCase();
   return Boolean(value) && !["gratis", "grátis", "free", "teste", "demo"].includes(value);
 }
 
 function adminPayload(value) {
-  return encodeURIComponent(JSON.stringify(value || {}));
+  return encodeURIComponent(JSON.stringify(value || {})).replace(/'/g, "%27");
 }
 
 function readAdminPayload(button, key) {
@@ -4607,6 +4745,14 @@ function bindAdminActions() {
 
   pageContent.querySelectorAll("[data-admin-action]").forEach((button) => {
     button.addEventListener("click", () => handleAdminAction(button));
+  });
+  pageContent.querySelector("[data-admin-search]")?.addEventListener("input", filterAdminRows);
+}
+
+function filterAdminRows(event) {
+  const query = String(event.currentTarget.value || "").trim().toLowerCase();
+  pageContent.querySelectorAll("[data-admin-search-row]").forEach((row) => {
+    row.hidden = Boolean(query) && !String(row.dataset.adminSearchRow || "").includes(query);
   });
 }
 
@@ -4681,12 +4827,15 @@ async function saveAdminCompany(event) {
       cnpj: data.cnpj,
       certification: data.certification,
       plan: data.plan,
+      billingStatus: data.billingStatus,
+      accessLimit: Number(data.accessLimit),
       scope: data.scope,
     }),
   });
 
   if (!response.ok) {
-    toast(response.status === 409 ? "Já existe uma empresa com esse nome." : "Não foi possível salvar o cliente.");
+    const result = await response.json().catch(() => ({}));
+    toast(result.error === "company_exists" ? "Já existe uma empresa com esse nome." : "Não foi possível salvar o cliente.");
     return;
   }
 
@@ -4720,7 +4869,14 @@ async function saveAdminUser(event) {
   });
 
   if (!response.ok) {
-    toast(response.status === 409 ? "Já existe um usuário com esse login." : "Não foi possível salvar o usuário.");
+    const result = await response.json().catch(() => ({}));
+    toast(
+      result.error === "access_limit_reached"
+        ? "O limite de acessos desta empresa foi atingido."
+        : result.error === "user_exists"
+          ? "Já existe um usuário com esse login."
+          : "Não foi possível salvar o usuário.",
+    );
     return;
   }
 
@@ -4765,6 +4921,8 @@ function fillAdminCompanyForm(company) {
   form.cnpj.value = company.cnpj || "";
   form.certification.value = company.certification || "";
   form.plan.value = company.plan || "";
+  form.billingStatus.value = company.billingStatus || "Ativo";
+  form.accessLimit.value = company.accessLimit || 5;
   form.scope.value = company.scope || "";
   form.scrollIntoView({ behavior: "smooth", block: "center" });
 }
@@ -4788,6 +4946,8 @@ function clearAdminCompanyForm() {
   if (!form) return;
   form.reset();
   form.companyId.value = "";
+  form.billingStatus.value = "Ativo";
+  form.accessLimit.value = 5;
 }
 
 function clearAdminUserForm() {

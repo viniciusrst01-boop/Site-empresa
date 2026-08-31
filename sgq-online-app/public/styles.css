@@ -2659,6 +2659,105 @@ textarea.input-basic {
   margin-bottom: 22px;
 }
 
+.report-export-grid {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+  margin: 20px 0 18px;
+}
+
+.report-export-card {
+  display: flex;
+  min-height: 250px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.report-export-icon {
+  display: flex;
+  width: 44px;
+  height: 44px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(70,217,245,0.38);
+  border-radius: 8px;
+  color: var(--accent-cyan);
+}
+
+.report-export-icon .icon {
+  width: 21px;
+  height: 21px;
+}
+
+.report-export-card h3 {
+  margin: 4px 0 8px;
+  font-size: 17px;
+}
+
+.report-export-card p {
+  margin: 0;
+  font-size: 13px;
+}
+
+.report-format {
+  color: var(--accent-cyan);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.report-download,
+.admin-toolbar .btn-primary {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-decoration: none;
+}
+
+.report-download {
+  width: 100%;
+  margin-top: auto;
+}
+
+.report-download .icon,
+.admin-toolbar .btn-primary .icon {
+  width: 16px;
+  height: 16px;
+}
+
+.report-note {
+  margin-bottom: 18px;
+}
+
+.admin-toolbar {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+  margin-bottom: 18px;
+  padding: 16px 18px;
+}
+
+.admin-toolbar label {
+  display: grid;
+  flex: 1;
+  gap: 7px;
+}
+
+.admin-toolbar label > span {
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 800;
+}
+
 .admin-form-grid {
   position: relative;
   z-index: 1;
@@ -2716,6 +2815,50 @@ textarea.input-basic {
   color: var(--accent-amber);
 }
 
+.plan-badge.overdue {
+  border-color: rgba(248,113,113,0.34);
+  color: var(--accent-red);
+}
+
+.audit-outcome {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.audit-outcome > span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 10px currentColor;
+}
+
+.audit-outcome.success {
+  color: var(--accent-green);
+}
+
+.audit-outcome.failed {
+  color: var(--accent-red);
+}
+
+.mono-cell {
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.admin-log-table td:first-child {
+  min-width: 135px;
+}
+
+a.abtn {
+  display: inline-flex;
+  text-decoration: none;
+}
+
 .admin-reset-result {
   position: relative;
   z-index: 1;
@@ -2745,9 +2888,21 @@ textarea.input-basic {
   .admin-form-grid {
     grid-template-columns: 1fr;
   }
+
+  .report-export-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 720px) {
+  .admin-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .admin-toolbar .btn-primary {
+    width: 100%;
+  }
   .admin-form-actions {
     justify-content: stretch;
   }

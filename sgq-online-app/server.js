@@ -3,16 +3,24 @@ const fs = require("fs");
 const http = require("http");
 const path = require("path");
 const querystring = require("querystring");
+
+loadLocalEnv();
+
 const {
+  canAddCompanyUser,
+  countRecentFailedLogins,
   createCompany,
   createUser,
   deleteCompanyUser,
   ensureInitialized,
   findUser,
+  getBackupSnapshot,
   getCompany,
   getCompanyData,
+  listCompanyData,
   listCompanyUsers,
   listAdminOverview,
+  recordAuditLog,
   resetUserPassword,
   setCompanyData,
   syncConfiguredUsers,
@@ -21,15 +29,16 @@ const {
   updateCompanyUser,
   updateCompany,
   updateUserProfile,
+  validateSessionUser,
 } = require("./db");
-
-loadLocalEnv();
+const { createExcelReport, createPdfReport } = require("./exporters");
 
 const port = Number(process.env.PORT || 4180);
 const host = process.env.HOST || "127.0.0.1";
 const root = __dirname;
 const publicDir = path.join(root, "public");
 const sessionSecret = process.env.SESSION_SECRET || "qualitypro-dev-secret-change-me";
+const sessionTtlHours = Math.max(1, Math.min(Number(process.env.SESSION_TTL_HOURS) || 8, 24));
 const loginUser = process.env.SGQ_LOGIN_USER || process.env.SGQ_USER_EMAIL || "";
 const loginPassword = process.env.SGQ_USER_PASSWORD || "";
 const adminUser = process.env.SGQ_ADMIN_USER || "viniciusrst";
@@ -63,7 +72,7 @@ function loadLocalEnv() {
 
     const key = trimmed.slice(0, index).trim();
     const value = trimmed.slice(index + 1).trim().replace(/^["']|["']$/g, "");
-    if (key && !process.env[key]) {
+    if (key && process.env[key] === undefined) {
       process.env[key] = value;
     }
   });
@@ -133,7 +142,10 @@ function createSession(user) {
       displayName: user.displayName,
       role: user.role,
       companyId: user.companyId,
-      expiresAt: Date.now() + 1000 * 60 * 60 * 12,
+      sessionVersion: Number(user.sessionVersion || 1),
+      sessionId: crypto.randomBytes(16).toString("base64url"),
+      issuedAt: Date.now(),
+      expiresAt: Date.now() + 1000 * 60 * 60 * sessionTtlHours,
     }),
   ).toString("base64url");
 
@@ -145,7 +157,9 @@ function readSession(req) {
   if (!token || !token.includes(".")) return null;
 
   const [payload, signature] = token.split(".");
-  if (signature !== sign(payload)) return null;
+  const expected = Buffer.from(sign(payload));
+  const received = Buffer.from(signature || "");
+  if (received.length !== expected.length || !crypto.timingSafeEqual(received, expected)) return null;
 
   try {
     const session = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
@@ -156,8 +170,31 @@ function readSession(req) {
   }
 }
 
+async function validateSession(session) {
+  if (!session) return null;
+  const user = await validateSessionUser(
+    session.userId,
+    session.companyId,
+    session.sessionVersion,
+  );
+  if (!user) return null;
+  return {
+    ...session,
+    username: user.username,
+    displayName: user.displayName,
+    role: user.role,
+    companyId: user.companyId,
+  };
+}
+
 function send(res, status, body, headers = {}) {
-  res.writeHead(status, headers);
+  res.writeHead(status, {
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "same-origin",
+    "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+    ...headers,
+  });
   res.end(body);
 }
 
@@ -169,7 +206,54 @@ function sendJson(res, status, value) {
 }
 
 function generateTemporaryPassword() {
-  return crypto.randomBytes(5).toString("base64url");
+  return crypto.randomBytes(9).toString("base64url");
+}
+
+function requestIp(req) {
+  const forwarded = String(req.headers["x-forwarded-for"] || "").split(",")[0].trim();
+  return forwarded || req.socket?.remoteAddress || "";
+}
+
+function requestUserAgent(req) {
+  return String(req.headers["user-agent"] || "").slice(0, 500);
+}
+
+function sessionCookie(req, token, maxAgeSeconds) {
+  const isSecure =
+    Boolean(process.env.VERCEL) || String(req.headers["x-forwarded-proto"] || "").toLowerCase() === "https";
+  const secure = isSecure ? "; Secure" : "";
+  return `sgq_session=${token ? encodeURIComponent(token) : ""}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${maxAgeSeconds}${secure}`;
+}
+
+async function auditRequest(req, session, eventType, outcome = "success", metadata = {}) {
+  return recordAuditLog({
+    companyId: session?.companyId || null,
+    userId: session?.userId || null,
+    username: session?.username || metadata.username || "",
+    eventType,
+    outcome,
+    ipAddress: requestIp(req),
+    userAgent: requestUserAgent(req),
+    metadata,
+  });
+}
+
+function safeFilename(value) {
+  return String(value || "empresa")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9_-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80) || "empresa";
+}
+
+function sendDownload(res, contentType, filename, buffer) {
+  send(res, 200, buffer, {
+    "Content-Type": contentType,
+    "Content-Disposition": `attachment; filename="${filename}"`,
+    "Content-Length": String(buffer.length),
+    "Cache-Control": "no-store",
+  });
 }
 
 function isAdminSession(session) {
@@ -214,10 +298,54 @@ async function saveCompanyUserSettings(companyId, userId, values) {
   await setCompanyData(companyId, "userSettings", settings);
 }
 
+function defaultPermissionsForRole(role) {
+  return {
+    modules: true,
+    reports: ["administrador", "gestor", "qualidade"].includes(
+      String(role || "").toLowerCase(),
+    ),
+    manageUsers: false,
+  };
+}
+
+async function getSessionPermissions(session, canManage = null) {
+  const managesCompany = canManage ?? (await isCompanyOwnerSession(session));
+  if (managesCompany) return { modules: true, reports: true, manageUsers: true };
+  const settings = (await getCompanyData(session.companyId, "userSettings")) || {};
+  return {
+    ...defaultPermissionsForRole(session.role),
+    ...(settings[session.userId]?.permissions || {}),
+  };
+}
+
 async function removeCompanyUserSettings(companyId, userId) {
   const settings = (await getCompanyData(companyId, "userSettings")) || {};
   delete settings[userId];
   await setCompanyData(companyId, "userSettings", settings);
+}
+
+async function buildCompanyReport(companyId) {
+  const [company, users, dataRows] = await Promise.all([
+    getCompany(companyId),
+    listUsersWithCompanySettings(companyId),
+    listCompanyData(companyId),
+  ]);
+  const modules = Object.fromEntries(dataRows.map((row) => [row.key, row.value]));
+  return {
+    generatedAt: new Date().toISOString(),
+    company,
+    users: users.map((user) => ({
+      id: user.id,
+      nome: user.displayName,
+      login: user.username,
+      perfil: user.role,
+      departamento: user.department || "",
+      status: user.status,
+      ultimoAcesso: user.lastLoginAt,
+      criadoEm: user.created_at,
+    })),
+    modules,
+  };
 }
 
 function serveFile(res, filePath) {
@@ -313,7 +441,8 @@ async function handleRequest(req, res) {
   }
 
   const url = new URL(req.url, `http://${req.headers.host}`);
-  const session = readSession(req);
+  const rawSession = readSession(req);
+  const session = await validateSession(rawSession);
 
   if (url.pathname.startsWith("/api/")) {
     await handleApiRequest(req, res, url, session);
@@ -327,33 +456,54 @@ async function handleRequest(req, res) {
 
   if (url.pathname === "/login" && req.method === "POST") {
     const body = querystring.parse(await readBody(req));
-    const validLogin = await findValidLogin(body.username, body.password);
+    const username = String(body.username || "").trim();
+    const ipAddress = requestIp(req);
+    const recentFailures = await countRecentFailedLogins(username, ipAddress, 15);
+
+    if (recentFailures >= 5) {
+      await auditRequest(req, null, "login_rate_limited", "blocked", { username });
+      send(res, 429, loginPage("Muitas tentativas. Aguarde 15 minutos e tente novamente."), {
+        "Content-Type": "text/html; charset=utf-8",
+        "Retry-After": "900",
+      });
+      return;
+    }
+
+    const validLogin = await findValidLogin(username, body.password);
 
     if (!validLogin) {
+      await auditRequest(req, null, "login_failed", "failed", { username });
       send(res, 401, loginPage("Usuário ou senha inválidos."), {
         "Content-Type": "text/html; charset=utf-8",
       });
       return;
     }
 
+    await auditRequest(req, validLogin, "login_success", "success");
+
     send(res, 302, "", {
       Location: "/app",
-      "Set-Cookie": `sgq_session=${encodeURIComponent(createSession(validLogin))}; Path=/; HttpOnly; SameSite=Lax; Max-Age=43200`,
+      "Set-Cookie": sessionCookie(
+        req,
+        createSession(validLogin),
+        Math.round(sessionTtlHours * 60 * 60),
+      ),
     });
     return;
   }
 
   if (url.pathname === "/logout" && req.method === "POST") {
+    if (session) await auditRequest(req, session, "logout", "success");
     send(res, 302, "", {
       Location: "/login",
-      "Set-Cookie": "sgq_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0",
+      "Set-Cookie": sessionCookie(req, "", 0),
     });
     return;
   }
 
   if (url.pathname === "/" || url.pathname === "/app") {
     if (!session) {
-      redirect(res, "/login");
+      send(res, 302, "", { Location: "/login", "Set-Cookie": sessionCookie(req, "", 0) });
       return;
     }
     serveFile(res, path.join(publicDir, "app.html"));
@@ -375,7 +525,7 @@ async function handleRequest(req, res) {
   }
 
   if (!session) {
-    redirect(res, "/login");
+    send(res, 302, "", { Location: "/login", "Set-Cookie": sessionCookie(req, "", 0) });
     return;
   }
 
@@ -390,6 +540,70 @@ async function handleApiRequest(req, res, url, session) {
 
   const companyId = session.companyId;
 
+  if (url.pathname === "/api/export" && req.method === "GET") {
+    const permissions = await getSessionPermissions(session);
+    if (!permissions.reports) {
+      sendJson(res, 403, { error: "reports_forbidden" });
+      return;
+    }
+    const format = String(url.searchParams.get("format") || "pdf").toLowerCase();
+    const report = await buildCompanyReport(companyId);
+    const companyName = safeFilename(report.company?.name);
+    const date = new Date().toISOString().slice(0, 10);
+
+    if (format === "xlsx") {
+      const buffer = await createExcelReport(report);
+      await auditRequest(req, session, "company_export", "success", { format });
+      sendDownload(
+        res,
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        `relatorio-sgq-${companyName}-${date}.xlsx`,
+        buffer,
+      );
+      return;
+    }
+
+    if (format === "json") {
+      const backup = await getBackupSnapshot(companyId);
+      const buffer = Buffer.from(JSON.stringify(backup, null, 2), "utf8");
+      await auditRequest(req, session, "company_backup", "success", { format });
+      sendDownload(res, "application/json; charset=utf-8", `backup-${companyName}-${date}.json`, buffer);
+      return;
+    }
+
+    if (format !== "pdf") {
+      sendJson(res, 400, { error: "invalid_format" });
+      return;
+    }
+
+    const buffer = await createPdfReport(report);
+    await auditRequest(req, session, "company_export", "success", { format });
+    sendDownload(res, "application/pdf", `relatorio-sgq-${companyName}-${date}.pdf`, buffer);
+    return;
+  }
+
+  if (url.pathname === "/api/admin/backup" && req.method === "GET") {
+    if (!isAdminSession(session)) {
+      sendJson(res, 403, { error: "forbidden" });
+      return;
+    }
+    const requestedCompanyId = Number(url.searchParams.get("companyId")) || null;
+    const backup = await getBackupSnapshot(requestedCompanyId);
+    const buffer = Buffer.from(JSON.stringify(backup, null, 2), "utf8");
+    await auditRequest(req, session, "admin_backup", "success", {
+      scope: requestedCompanyId ? "company" : "database",
+      companyId: requestedCompanyId,
+    });
+    const scope = requestedCompanyId ? `empresa-${requestedCompanyId}` : "banco-completo";
+    sendDownload(
+      res,
+      "application/json; charset=utf-8",
+      `backup-sgq-${scope}-${new Date().toISOString().slice(0, 10)}.json`,
+      buffer,
+    );
+    return;
+  }
+
   if (url.pathname === "/api/bootstrap" && req.method === "GET") {
     const savedState = await getCompanyData(companyId, "state");
     const savedContext = await getCompanyData(companyId, "context");
@@ -397,6 +611,7 @@ async function handleApiRequest(req, res, url, session) {
     const savedLeadership = await getCompanyData(companyId, "leadership");
     let company = await getCompany(companyId);
     const canManageCompany = await isCompanyOwnerSession(session);
+    const permissions = await getSessionPermissions(session, canManageCompany);
 
     if (savedState?.company?.name && savedState.company.name !== company?.name) {
       company = await updateCompany(companyId, {
@@ -417,6 +632,7 @@ async function handleApiRequest(req, res, url, session) {
         companyId,
         isAdmin: isAdminSession(session),
         canManageCompany,
+        permissions,
       },
       company,
       needsOnboarding: !savedState && canManageCompany,
@@ -457,6 +673,8 @@ async function handleApiRequest(req, res, url, session) {
     await setCompanyData(companyId, "risk", body.risk);
     await setCompanyData(companyId, "leadership", body.leadership);
 
+    await auditRequest(req, session, "onboarding_completed", "success");
+
     sendJson(res, 200, { ok: true, user, company });
     return;
   }
@@ -479,6 +697,8 @@ async function handleApiRequest(req, res, url, session) {
       scope: body.scope,
       certification: body.certification,
       plan: body.plan,
+      billingStatus: body.billingStatus,
+      accessLimit: body.accessLimit,
     });
 
     if (!company) {
@@ -506,6 +726,8 @@ async function handleApiRequest(req, res, url, session) {
     };
     await setCompanyData(companyId, "state", nextState);
 
+    await auditRequest(req, session, "company_updated", "success", { companyId });
+
     sendJson(res, 200, { ok: true, company, state: nextState });
     return;
   }
@@ -528,6 +750,11 @@ async function handleApiRequest(req, res, url, session) {
       return;
     }
 
+    if (!(await canAddCompanyUser(companyId))) {
+      sendJson(res, 409, { error: "access_limit_reached" });
+      return;
+    }
+
     try {
       const user = await createUser({
         companyId,
@@ -542,6 +769,10 @@ async function handleApiRequest(req, res, url, session) {
         return;
       }
       await saveCompanyUserSettings(companyId, user.id, body);
+      await auditRequest(req, session, "company_user_created", "success", {
+        targetUserId: user.id,
+        targetUsername: user.username,
+      });
       sendJson(res, 201, {
         ok: true,
         user: {
@@ -584,6 +815,11 @@ async function handleApiRequest(req, res, url, session) {
       }
       if (body.password) await resetUserPassword(targetUserId, body.password);
       await saveCompanyUserSettings(companyId, user.id, body);
+      await auditRequest(req, session, "company_user_updated", "success", {
+        targetUserId: user.id,
+        targetUsername: user.username,
+        status: user.status,
+      });
       sendJson(res, 200, {
         ok: true,
         user: {
@@ -623,6 +859,10 @@ async function handleApiRequest(req, res, url, session) {
       return;
     }
     await removeCompanyUserSettings(companyId, targetUserId);
+    await auditRequest(req, session, "company_user_deleted", "success", {
+      targetUserId,
+      targetUsername: user.username,
+    });
     sendJson(res, 200, { ok: true, user });
     return;
   }
@@ -655,6 +895,10 @@ async function handleApiRequest(req, res, url, session) {
         sendJson(res, 400, { error: "invalid_company" });
         return;
       }
+      await auditRequest(req, session, "admin_company_created", "success", {
+        targetCompanyId: company.id,
+        companyName: company.name,
+      });
       sendJson(res, 201, { ok: true, company });
     } catch (error) {
       sendJson(res, isUniqueError(error) ? 409 : 500, {
@@ -698,6 +942,12 @@ async function handleApiRequest(req, res, url, session) {
           companyAccess: company.plan,
         },
       });
+      await auditRequest(req, session, "admin_company_updated", "success", {
+        targetCompanyId,
+        companyName: company.name,
+        billingStatus: company.billingStatus,
+        accessLimit: company.accessLimit,
+      });
       sendJson(res, 200, { ok: true, company });
     } catch (error) {
       sendJson(res, isUniqueError(error) ? 409 : 500, {
@@ -719,12 +969,22 @@ async function handleApiRequest(req, res, url, session) {
       return;
     }
 
+    if (!(await canAddCompanyUser(body.companyId))) {
+      sendJson(res, 409, { error: "access_limit_reached" });
+      return;
+    }
+
     try {
       const user = await createUser(body);
       if (!user) {
         sendJson(res, 400, { error: "invalid_user" });
         return;
       }
+      await auditRequest(req, session, "admin_user_created", "success", {
+        targetUserId: user.id,
+        targetUsername: user.username,
+        targetCompanyId: user.companyId,
+      });
       sendJson(res, 201, { ok: true, user });
     } catch (error) {
       sendJson(res, isUniqueError(error) ? 409 : 500, {
@@ -752,12 +1012,23 @@ async function handleApiRequest(req, res, url, session) {
       return;
     }
 
+    if (!(await canAddCompanyUser(body.companyId, targetUserId))) {
+      sendJson(res, 409, { error: "access_limit_reached" });
+      return;
+    }
+
     try {
       const user = await updateAdminUser(targetUserId, body);
       if (!user) {
         sendJson(res, 404, { error: "user_not_found" });
         return;
       }
+      await auditRequest(req, session, "admin_user_updated", "success", {
+        targetUserId: user.id,
+        targetUsername: user.username,
+        targetCompanyId: user.companyId,
+        status: user.status,
+      });
       sendJson(res, 200, { ok: true, user });
     } catch (error) {
       sendJson(res, isUniqueError(error) ? 409 : 500, {
@@ -787,6 +1058,11 @@ async function handleApiRequest(req, res, url, session) {
       return;
     }
 
+    await auditRequest(req, session, "admin_password_reset", "success", {
+      targetUserId: user.id,
+      targetUsername: user.username,
+    });
+
     sendJson(res, 200, { ok: true, user, temporaryPassword });
     return;
   }
@@ -809,6 +1085,7 @@ async function handleApiRequest(req, res, url, session) {
     }
 
     await setCompanyData(companyId, body.key, body.value);
+    await auditRequest(req, session, "module_data_updated", "success", { dataKey: body.key });
     sendJson(res, 200, { ok: true });
     return;
   }
