@@ -957,6 +957,9 @@ function render(view = "inicio") {
   pageContent.classList.remove("context-page-content");
   pageContent.classList.remove("leadership-page-content");
   pageContent.classList.remove("nc-page-content");
+  pageContent.classList.remove("company-page-content");
+  pageContent.classList.remove("users-page-content");
+  pageContent.classList.remove("modules-page-content");
 
   const views = {
     inicio: renderInicio,
@@ -1255,7 +1258,8 @@ function firstName(name) {
 
 function renderModulos() {
   setTopbar("Meus módulos", "Módulos do QualityPro Cloud contratados pela sua empresa");
-  const moduleOrder = ["contexto", "lideranca", "riscos", "documentos", "nao-conformidades", "auditorias"];
+  pageContent.classList.add("modules-page-content");
+  const moduleOrder = ["contexto", "lideranca", "riscos", "documentos", "auditorias", "nao-conformidades"];
   const activeModules = moduleOrder
     .map((id) => modules.find((module) => module.id === id))
     .filter((module) => module && canViewModule(module.id));
@@ -1360,15 +1364,20 @@ function renderModulos() {
         .join("")}
       </div>
 
+      <div class="section-hd mymods-available-hd">
+        <h2 class="section-title">Módulos disponíveis para contratação</h2>
+        <p class="section-sub">Módulos não contratados que podem ser adicionados ao seu plano.</p>
+      </div>
+
       <div class="mymods-banner">
         <div class="mymods-banner-text">
-          <div class="mymods-banner-icon">${moduleIcon("info")}</div>
+          <div class="mymods-banner-icon">${moduleIcon("modulos")}</div>
           <div>
-            <p class="mymods-banner-title">Sua empresa contratou ${activeModules.length} de ${modules.length} módulos disponíveis no QualityPro Cloud.</p>
-            <p class="mymods-banner-sub">Conheça o módulo Equipamentos de Medição e outros recursos disponíveis para o seu plano.</p>
+            <p class="mymods-banner-title">1 módulo disponível para contratação</p>
+            <p class="mymods-banner-sub">Entre em contato com o suporte para adicionar novos módulos ao seu plano.</p>
           </div>
         </div>
-        <button class="btn-ghost-cta" data-module="equipamentos" type="button">Ver módulo disponível ${moduleIcon("arrow")}</button>
+        <button class="btn-ghost-cta" data-module="equipamentos" type="button">Falar com o suporte ${moduleIcon("arrow")}</button>
       </div>
     </section>
   `;
@@ -1425,6 +1434,9 @@ function hexToRgba(hex, alpha) {
 
 function renderModuleDetail(moduleId) {
   document.body.classList.remove("home-dashboard");
+  pageContent.classList.remove("company-page-content");
+  pageContent.classList.remove("users-page-content");
+  pageContent.classList.remove("modules-page-content");
   if (!canViewModule(moduleId)) {
     toast("Seu perfil não possui acesso a este módulo.");
     render("modulos");
@@ -4104,6 +4116,7 @@ function renderEmpresa() {
   pageContent.classList.remove("risk-page-content");
   pageContent.classList.remove("context-page-content");
   pageContent.classList.remove("leadership-page-content");
+  pageContent.classList.add("company-page-content");
   pageContent.innerHTML = `
     <div class="page-toolbar company-toolbar">
       <div>
@@ -4206,50 +4219,58 @@ function renderCompanyForm() {
         </div>
       </div>
 
-      ${companyFormSection("Dados gerais", `
-        ${companyField("fRazaoSocial", "Razão social", "Ex.: QualityPro Solutions LTDA")}
-        <div class="field field-row2">
-          ${companyField("fNomeFantasia", "Nome fantasia", "Ex.: QualityPro Solutions", true)}
-          ${companyField("fCnpj", "CNPJ", "00.000.000/0000-00", true)}
+      <div class="ef-form-grid">
+        <div class="ef-form-column">
+          ${companyFormSection("Dados gerais", `
+            ${companyField("fRazaoSocial", "Razão social", "Ex.: QualityPro Solutions LTDA")}
+            <div class="field field-row2">
+              ${companyField("fNomeFantasia", "Nome fantasia", "Ex.: QualityPro Solutions", true)}
+              ${companyField("fCnpj", "CNPJ", "00.000.000/0000-00", true)}
+            </div>
+            <div class="field field-row2">
+              ${companyField("fSegmento", "Setor / Segmento de atuação", "Ex.: Consultoria em Gestão da Qualidade", true)}
+              <div>
+                <label for="fPorte">Porte da empresa</label>
+                <select class="input-basic" id="fPorte" data-company-field="fPorte">
+                  ${companySizeOptions(companyFormValue("fPorte"))}
+                </select>
+              </div>
+            </div>
+          `)}
+
+          ${companyFormSection("Endereço", `
+            <div class="field field-row2">
+              ${companyField("fCep", "CEP", "00000-000", true)}
+              ${companyField("fCidadeUf", "Cidade / UF", "Ex.: São Paulo / SP", true)}
+            </div>
+            <div class="field field-row2">
+              ${companyField("fEndereco", "Logradouro e número", "Ex.: Av. Paulista, 1000 - Sala 12", true)}
+              ${companyField("fBairro", "Bairro", "Ex.: Bela Vista", true)}
+            </div>
+          `, true)}
         </div>
-        <div class="field field-row2">
-          ${companyField("fSegmento", "Setor / Segmento de atuação", "Ex.: Consultoria em Gestão da Qualidade", true)}
-          <div>
-            <label for="fPorte">Porte da empresa</label>
-            <select class="input-basic" id="fPorte" data-company-field="fPorte">
-              ${companySizeOptions(companyFormValue("fPorte"))}
-            </select>
+
+        <div class="ef-form-column ef-form-column-right">
+          ${companyFormSection("Contato", `
+            <div class="field field-row2">
+              ${companyField("fTelefone", "Telefone", "(00) 0000-0000", true)}
+              ${companyField("fEmail", "E-mail corporativo", "contato@empresa.com.br", true, "email")}
+            </div>
+            ${companyField("fSite", "Site", "https://www.empresa.com.br")}
+          `)}
+
+          ${companyFormSection("Responsável legal", `
+            <div class="field field-row2">
+              ${companyField("fRespNome", "Nome do responsável", "Ex.: Hugo Melo", true)}
+              ${companyField("fRespCargo", "Cargo", "Ex.: Diretor Geral", true)}
+            </div>
+          `, true)}
+
+          <div class="ef-actions" ${editable ? "" : "hidden"}>
+            <span class="ef-save-status" id="companySaveStatus"></span>
+            <button type="submit" class="btn-grad">${moduleIcon("check-circle")} Salvar alterações</button>
           </div>
         </div>
-      `)}
-
-      ${companyFormSection("Endereço", `
-        <div class="field field-row2">
-          ${companyField("fCep", "CEP", "00000-000", true)}
-          ${companyField("fCidadeUf", "Cidade / UF", "Ex.: São Paulo / SP", true)}
-        </div>
-        ${companyField("fEndereco", "Logradouro e número", "Ex.: Av. Paulista, 1000 - Sala 12")}
-        ${companyField("fBairro", "Bairro", "Ex.: Bela Vista")}
-      `)}
-
-      ${companyFormSection("Contato", `
-        <div class="field field-row2">
-          ${companyField("fTelefone", "Telefone", "(00) 0000-0000", true)}
-          ${companyField("fEmail", "E-mail corporativo", "contato@empresa.com.br", true, "email")}
-        </div>
-        ${companyField("fSite", "Site", "https://www.empresa.com.br")}
-      `)}
-
-      ${companyFormSection("Responsável legal", `
-        <div class="field field-row2">
-          ${companyField("fRespNome", "Nome do responsável", "Ex.: Hugo Melo", true)}
-          ${companyField("fRespCargo", "Cargo", "Ex.: Diretor Geral", true)}
-        </div>
-      `, true)}
-
-      <div class="ef-actions" ${editable ? "" : "hidden"}>
-        <span class="ef-save-status" id="companySaveStatus"></span>
-        <button type="submit" class="btn-grad">${moduleIcon("check-circle")} Salvar alterações</button>
       </div>
     </form>
   `.replaceAll("<input class=\"input-basic\"", `<input class="input-basic"${editable ? "" : " readonly"}`)
@@ -4521,6 +4542,7 @@ async function renderUsuarios() {
   pageContent.classList.remove("risk-page-content");
   pageContent.classList.remove("context-page-content");
   pageContent.classList.remove("leadership-page-content");
+  pageContent.classList.add("users-page-content");
   pageContent.innerHTML = `
     <div class="page-toolbar company-toolbar">
       <div>

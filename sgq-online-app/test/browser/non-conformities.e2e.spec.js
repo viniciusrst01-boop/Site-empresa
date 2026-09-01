@@ -13,6 +13,8 @@ test("módulo de não conformidades mantém o fluxo funcional", async ({ page },
   page.on("pageerror", (error) => browserErrors.push(error.message));
 
   await loginOwner(page);
+  await page.locator('[data-view="modulos"]').click();
+  await page.evaluate(() => document.body.classList.add("home-dashboard"));
   await page.locator('[data-module-card="nao-conformidades"]').first().click();
   await expect(page.getByRole("heading", { name: "Não Conformidades", exact: true })).toBeVisible();
   await expect(page.locator("body")).not.toHaveClass(/home-dashboard/);

@@ -134,6 +134,56 @@ test("Empresa é o primeiro indicador e abre os dados da empresa", async ({ page
   await expect(page.locator('[data-view="empresa"]')).toHaveClass(/active/);
 });
 
+test("cadastro da empresa cabe inteiro na viewport desktop", async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1440, height: 860 });
+  await login(page);
+  await finishOnboardingIfNeeded(page);
+  await page.locator('[data-view="empresa"]').click();
+
+  await expect(page.locator(".topbar-title")).toHaveText("Empresa");
+  await expect(page.locator(".topbar-subtitle")).toHaveText("Dados principais da organização");
+  await expect(page.getByRole("heading", { name: "Dados da empresa" })).toBeVisible();
+  await expect(page.locator("#fRazaoSocial")).toBeVisible();
+  await expect(page.locator("#fEndereco")).toBeVisible();
+  await expect(page.locator("#fSite")).toBeVisible();
+  await expect(page.locator("#fRespCargo")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Salvar alterações" })).toBeVisible();
+  await expectDashboardWithoutScroll(page);
+  await page.screenshot({ path: testInfo.outputPath("company-fit-layout.png") });
+
+  await page.setViewportSize({ width: 1180, height: 850 });
+  await expect(page.getByRole("button", { name: "Salvar alterações" })).toBeVisible();
+  await expectDashboardWithoutScroll(page);
+  await page.screenshot({ path: testInfo.outputPath("company-fit-layout-compact.png") });
+});
+
+test("usuários segue o layout de controle sem rolagem da página", async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1830, height: 860 });
+  await login(page);
+  await finishOnboardingIfNeeded(page);
+  await page.locator('[data-view="usuarios"]').click();
+
+  await expect(page.locator(".topbar-title")).toHaveText("Usuários");
+  await expect(page.getByRole("heading", { name: "Usuários", exact: true })).toBeVisible();
+  await expect(page.locator(".users-kpi-row .kpi-card")).toHaveCount(4);
+  await expect(page.getByRole("button", { name: "Novo usuário" })).toBeVisible();
+  await expect(page.locator("#usersSearchInput")).toBeVisible();
+  await expect(page.locator("#usersStatusFilter")).toBeVisible();
+  await expect(page.locator("#usersTbody tr").first()).toBeVisible();
+  await expectDashboardWithoutScroll(page);
+  await page.screenshot({ path: testInfo.outputPath("users-fit-layout.png") });
+
+  await page.setViewportSize({ width: 1180, height: 850 });
+  const tableOverflow = await page.locator(".users-table-wrap").evaluate((element) => ({
+    horizontal: element.scrollWidth - element.clientWidth,
+    verticalMode: getComputedStyle(element).overflowY,
+  }));
+  expect(tableOverflow.horizontal).toBeLessThanOrEqual(0);
+  expect(tableOverflow.verticalMode).toBe("auto");
+  await expectDashboardWithoutScroll(page);
+  await page.screenshot({ path: testInfo.outputPath("users-fit-layout-compact.png") });
+});
+
 test("cartões da página inicial exibem salto e brilho ao passar o mouse", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await login(page);
