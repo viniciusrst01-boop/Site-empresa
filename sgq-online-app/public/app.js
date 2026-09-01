@@ -45,6 +45,16 @@ const modules = [
   },
 ];
 
+const moduleHeaderMeta = {
+  contexto: { category: "ORGANIZAÇÃO", description: "Compreensão da organização, das partes interessadas, do escopo do SGQ e do mapeamento de processos." },
+  lideranca: { category: "DIREÇÃO", description: "Comprometimento da Alta Direção, política da qualidade e papéis, responsabilidades e autoridades do SGQ." },
+  riscos: { category: "PLANEJAMENTO", description: "Identificação e tratamento de riscos e oportunidades, objetivos da qualidade e planejamento de mudanças." },
+  documentos: { category: "DOCUMENTAÇÃO" },
+  auditorias: { category: "AVALIAÇÃO" },
+  "nao-conformidades": { category: "MELHORIA", description: "Registro, análise de causa, ações corretivas, avaliação de eficácia e rastreabilidade de RNCs." },
+  equipamentos: { category: "RECURSOS" },
+};
+
 const seedState = {
   company: {
     name: "QualityPro Solutions LTDA",
@@ -1436,13 +1446,42 @@ function hexToRgba(hex, alpha) {
   return `rgba(${red},${green},${blue},${alpha})`;
 }
 
+function moduleHeaderHtml(moduleId, options = {}) {
+  const module = modules.find((item) => item.id === moduleId) || modules[0];
+  const meta = moduleHeaderMeta[module.id] || {};
+  const category = options.category || meta.category || "GESTÃO DA QUALIDADE";
+  const description = options.description || meta.description || module.desc;
+  const toolbarClass = options.toolbarClass ? ` ${options.toolbarClass}` : "";
+  setTopbar(module.title, module.desc);
+  return `
+    <div class="breadcrumb module-breadcrumb">
+      <button type="button" data-view-target="modulos">Meus módulos</button>
+      <span class="sep">›</span>
+      <span class="cur">${escapeHtml(module.title)}</span>
+    </div>
+    <div class="page-toolbar module-summary-toolbar${toolbarClass}">
+      <div>
+        <div class="welcome-eyebrow">${escapeHtml(category)}</div>
+        <p class="welcome-sub">${escapeHtml(description)}</p>
+      </div>
+      ${options.actions || ""}
+    </div>
+  `;
+}
+
 function renderModuleDetail(moduleId) {
   document.body.classList.remove("home-dashboard");
   activeView = "modulos";
   setActiveNav("modulos");
-  pageContent.classList.remove("company-page-content");
-  pageContent.classList.remove("users-page-content");
-  pageContent.classList.remove("modules-page-content");
+  pageContent.classList.remove(
+    "company-page-content",
+    "users-page-content",
+    "modules-page-content",
+    "risk-page-content",
+    "context-page-content",
+    "leadership-page-content",
+    "nc-page-content",
+  );
   if (!canViewModule(moduleId)) {
     toast("Seu perfil não possui acesso a este módulo.");
     render("modulos");
@@ -1470,13 +1509,8 @@ function renderModuleDetail(moduleId) {
   }
 
   const module = modules.find((item) => item.id === moduleId) || modules[0];
-  setTopbar(module.title, module.desc);
   pageContent.innerHTML = `
-    <div class="breadcrumb module-breadcrumb">
-      <button type="button" data-view-target="modulos">Meus módulos</button>
-      <span class="sep">›</span>
-      <span class="cur">${escapeHtml(module.title)}</span>
-    </div>
+    ${moduleHeaderHtml(module.id)}
     <div class="qp-layout">
       <article class="qp-card">
         <h3>Fluxo do módulo</h3>
@@ -1561,23 +1595,11 @@ function loadLocalLeadershipData() {
 function renderLeadershipModule() {
   ensureLeadershipData();
   setActiveNav("modulos");
-  setTopbar("Liderança e Comprometimento", "Módulo do QualityPro Cloud · ISO 9001:2015, cláusula 5");
   pageContent.classList.remove("risk-page-content");
   pageContent.classList.remove("context-page-content");
   pageContent.classList.add("leadership-page-content");
   pageContent.innerHTML = `
-    <div class="breadcrumb">
-      <button type="button" data-view-target="modulos">Meus módulos</button>
-      <span class="sep">›</span>
-      <span class="cur">Liderança e Comprometimento</span>
-    </div>
-
-    <div class="page-toolbar context-toolbar module-summary-toolbar">
-      <div>
-        <div class="welcome-eyebrow">DIREÇÃO</div>
-        <p class="welcome-sub">Comprometimento da Alta Direção, política da qualidade e papéis, responsabilidades e autoridades do SGQ.</p>
-      </div>
-    </div>
+    ${moduleHeaderHtml("lideranca", { toolbarClass: "context-toolbar" })}
 
     <div class="context-kpi-row" id="leadershipKpis"></div>
 
@@ -2038,22 +2060,10 @@ function refreshLeadershipScreen(message) {
 function renderRiskOpportunityModule() {
   ensureRiskData();
   setActiveNav("modulos");
-  setTopbar("Riscos e Oportunidades", "Módulo do QualityPro Cloud · ISO 9001:2015, cláusula 6");
   pageContent.classList.remove("context-page-content");
   pageContent.classList.add("risk-page-content");
   pageContent.innerHTML = `
-    <div class="breadcrumb">
-      <button type="button" data-view-target="modulos">Meus módulos</button>
-      <span class="sep">›</span>
-      <span class="cur">Riscos e Oportunidades</span>
-    </div>
-
-    <div class="page-toolbar risk-toolbar module-summary-toolbar">
-      <div>
-        <div class="welcome-eyebrow">PLANEJAMENTO</div>
-        <p class="welcome-sub">Identificação e tratamento de riscos e oportunidades, objetivos da qualidade e planejamento de mudanças.</p>
-      </div>
-    </div>
+    ${moduleHeaderHtml("riscos", { toolbarClass: "risk-toolbar" })}
 
     <div class="risk-kpi-row">
       <article class="kpi-card" style="--accent-line:#F87171;">
@@ -2287,26 +2297,16 @@ function riskItemsHtml() {
 function renderContextModule() {
   ensureContextData();
   setActiveNav("modulos");
-  setTopbar("Contexto da Organização", "Módulo do QualityPro Cloud · ISO 9001:2015, cláusula 4");
   pageContent.classList.remove("risk-page-content");
   pageContent.classList.add("context-page-content");
   pageContent.innerHTML = `
-    <div class="breadcrumb">
-      <button type="button" data-view-target="modulos">Meus módulos</button>
-      <span class="sep">›</span>
-      <span class="cur">Contexto da Organização</span>
-    </div>
-
-    <div class="page-toolbar context-toolbar module-summary-toolbar">
-      <div>
-        <div class="welcome-eyebrow">ORGANIZAÇÃO</div>
-        <p class="welcome-sub">Compreensão da organização, das partes interessadas, do escopo do SGQ e do mapeamento de processos.</p>
-      </div>
-      <div class="toolbar-actions" ${canEditModule("riscos") ? "" : "hidden"}>
+    ${moduleHeaderHtml("contexto", {
+      toolbarClass: "context-toolbar",
+      actions: `<div class="toolbar-actions" ${canEditModule("contexto") ? "" : "hidden"}>
         <button class="btn-ghost" data-context-action="undo-clear-context" type="button">Desfazer</button>
         <button class="btn-ghost danger-text" data-context-action="clear-context" type="button">Limpar módulo</button>
-      </div>
-    </div>
+      </div>`,
+    })}
 
     <div class="context-kpi-row">
       <article class="kpi-card" style="--accent-line:#A78BFA;">
@@ -3660,12 +3660,10 @@ function ncSeverityHtml(value) {
 
 function renderNonConformityModule() {
   ensureNcData();
-  setTopbar("Não Conformidades", "Registro, tratamento e eficácia de RNCs");
   pageContent.classList.remove("risk-page-content", "context-page-content", "leadership-page-content");
   pageContent.classList.add("nc-page-content");
   pageContent.innerHTML = `
-    <div class="breadcrumb"><button type="button" data-view-target="modulos">Meus módulos</button><span class="sep">›</span><span class="cur">Não Conformidades</span></div>
-    <div class="page-toolbar module-summary-toolbar"><div><div class="welcome-eyebrow">MELHORIA</div><p class="welcome-sub">Registro, análise de causa, ações corretivas, avaliação de eficácia e rastreabilidade de RNCs.</p></div></div>
+    ${moduleHeaderHtml("nao-conformidades")}
     <div id="ncKpis"></div>
     <div class="ctx-tabs" id="ncMainTabs">
       ${[["cadastros", "Cadastros"], ["registrar", "Registrar NC"], ["controle", "Controle"], ["dashboards", "Dashboards"]].map(([id, label]) => `<button class="ctx-tab ${ncMainTab === id ? "active" : ""}" data-nc-tab="${id}" type="button">${label}</button>`).join("")}

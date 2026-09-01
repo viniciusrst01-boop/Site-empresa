@@ -124,6 +124,9 @@ test("todos os módulos usam título no topo e breadcrumb sem terceiro título",
     await expect(page.locator(".topbar-title")).toHaveText(title);
     await expect(page.locator(".breadcrumb button")).toHaveText("Meus módulos");
     await expect(page.locator(".breadcrumb .cur")).toHaveText(title);
+    await expect(page.locator(".module-summary-toolbar")).toHaveCount(1);
+    await expect(page.locator(".module-summary-toolbar .welcome-eyebrow")).not.toBeEmpty();
+    await expect(page.locator(".module-summary-toolbar .welcome-sub")).not.toBeEmpty();
     await expect(page.getByRole("heading", { name: title, exact: true })).toHaveCount(0);
   }
 
