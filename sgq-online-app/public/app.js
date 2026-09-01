@@ -1259,10 +1259,13 @@ function firstName(name) {
 function renderModulos() {
   setTopbar("Meus módulos", "Módulos do QualityPro Cloud contratados pela sua empresa");
   pageContent.classList.add("modules-page-content");
-  const moduleOrder = ["contexto", "lideranca", "riscos", "documentos", "auditorias", "nao-conformidades"];
-  const activeModules = moduleOrder
+  const moduleOrder = ["contexto", "lideranca", "riscos", "documentos", "auditorias", "nao-conformidades", "equipamentos"];
+  const hasAllModules = /premium/i.test(state.settings.companyAccess || "");
+  const contractedModuleIds = hasAllModules ? moduleOrder : moduleOrder.filter((id) => id !== "equipamentos");
+  const activeModules = contractedModuleIds
     .map((id) => modules.find((module) => module.id === id))
     .filter((module) => module && canViewModule(module.id));
+  const availableModules = modules.length - activeModules.length;
   const nextRenewal = "15/09/2026";
   pageContent.innerHTML = `
     <div class="mymods-toolbar">
@@ -1284,7 +1287,7 @@ function renderModulos() {
             <div class="kpi-value big">${activeModules.length}<span> / ${modules.length}</span></div>
           </div>
         </div>
-        <div class="kpi-caption muted">1 módulo disponível para contratação</div>
+        <div class="kpi-caption muted">${availableModules} ${availableModules === 1 ? "módulo disponível" : "módulos disponíveis"} para contratação</div>
       </article>
 
       <article class="kpi-card" style="--accent-line:#F2B705;">
@@ -1320,7 +1323,7 @@ function renderModulos() {
         <p class="section-sub">Estes são os módulos atualmente contratados e disponíveis para uso pela sua empresa.</p>
       </div>
 
-      <div class="mymods-grid">
+      <div class="mymods-grid ${activeModules.length === 7 ? "has-seven" : ""}">
         ${activeModules
         .map(
           (module) => {
@@ -1334,7 +1337,7 @@ function renderModulos() {
                   </div>
                   <div>
                     <h3 class="mymod-title">${module.title}</h3>
-                    <div class="mymod-plan">${isAudit ? "Módulo adicional contratado à parte" : "Incluído no Plano Professional"}</div>
+                    <div class="mymod-plan">${isAudit ? "Módulo adicional contratado à parte" : `Incluído no ${escapeHtml(state.settings.companyAccess)}`}</div>
                   </div>
                 </div>
                 <span class="status-pill ${isAudit ? "st-pending" : "st-active"}"><span class="status-dot2"></span>${isAudit ? "Renovação próxima" : "Ativo"}</span>
@@ -1364,7 +1367,7 @@ function renderModulos() {
         .join("")}
       </div>
 
-      <div class="section-hd mymods-available-hd">
+      ${availableModules ? `<div class="section-hd mymods-available-hd">
         <h2 class="section-title">Módulos disponíveis para contratação</h2>
         <p class="section-sub">Módulos não contratados que podem ser adicionados ao seu plano.</p>
       </div>
@@ -1373,12 +1376,12 @@ function renderModulos() {
         <div class="mymods-banner-text">
           <div class="mymods-banner-icon">${moduleIcon("modulos")}</div>
           <div>
-            <p class="mymods-banner-title">1 módulo disponível para contratação</p>
+            <p class="mymods-banner-title">${availableModules} ${availableModules === 1 ? "módulo disponível" : "módulos disponíveis"} para contratação</p>
             <p class="mymods-banner-sub">Entre em contato com o suporte para adicionar novos módulos ao seu plano.</p>
           </div>
         </div>
         <button class="btn-ghost-cta" data-module="equipamentos" type="button">Falar com o suporte ${moduleIcon("arrow")}</button>
-      </div>
+      </div>` : ""}
     </section>
   `;
   bindModuleButtons();

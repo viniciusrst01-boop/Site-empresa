@@ -68,4 +68,33 @@ test("Meus módulos segue a grade compacta sem rolagem", async ({ page }, testIn
   expect(Math.max(...laptopLayout.cardOverflows)).toBeLessThanOrEqual(2);
   expect(laptopLayout.compressedDescriptions).toBe(0);
   await page.screenshot({ path: testInfo.outputPath("modules-layout-laptop.png"), fullPage: true });
+
+  await page.evaluate(() => {
+    state.settings.companyAccess = "Plano Premium";
+    render("modulos");
+  });
+  const premiumCards = page.locator(".mymods-grid .mymod-card");
+  await expect(premiumCards).toHaveCount(7);
+  await expect(page.getByText("7 / 7", { exact: false })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Módulos disponíveis para contratação" })).toHaveCount(0);
+  const premiumLayout = await page.evaluate(() => {
+    const root = document.documentElement;
+    const grid = document.querySelector(".mymods-grid");
+    const cards = [...grid.querySelectorAll(".mymod-card")];
+    return {
+      rootX: root.scrollWidth - root.clientWidth,
+      rootY: root.scrollHeight - root.clientHeight,
+      columns: getComputedStyle(grid).gridTemplateColumns.split(" ").length,
+      rows: getComputedStyle(grid).gridTemplateRows.split(" ").length,
+      cardOverflows: cards.map((card) => card.scrollHeight - card.clientHeight),
+      compressedDescriptions: cards.filter((card) => card.querySelector(".mymod-desc").getBoundingClientRect().height < 12).length,
+    };
+  });
+  expect(premiumLayout.rootX).toBeLessThanOrEqual(0);
+  expect(premiumLayout.rootY).toBeLessThanOrEqual(0);
+  expect(premiumLayout.columns).toBe(3);
+  expect(premiumLayout.rows).toBe(3);
+  expect(Math.max(...premiumLayout.cardOverflows)).toBeLessThanOrEqual(2);
+  expect(premiumLayout.compressedDescriptions).toBe(0);
+  await page.screenshot({ path: testInfo.outputPath("modules-layout-seven-cards.png"), fullPage: true });
 });

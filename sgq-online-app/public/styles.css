@@ -5149,6 +5149,15 @@ body.theme-light .nc-status-chart > div { background: rgba(248, 252, 255, .98); 
     gap: 9px 12px;
   }
 
+  .modules-page-content .mymods-grid.has-seven {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-rows: repeat(3, minmax(0, 1fr));
+  }
+
+  .modules-page-content .mymods-grid.has-seven .mymod-card:last-child {
+    grid-column: 2;
+  }
+
   .modules-page-content .mymod-card {
     min-height: 0;
     height: 100%;
