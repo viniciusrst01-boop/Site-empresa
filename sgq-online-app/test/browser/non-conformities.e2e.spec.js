@@ -96,11 +96,20 @@ test("módulo de não conformidades mantém o fluxo funcional", async ({ page },
   await expect(page.getByText("Critério de aceitação não definido", { exact: true })).toBeVisible();
 
   await page.locator("#ncManageActions").click();
+  await expect(page.locator("#ncActionStatus option")).toHaveText(["Em andamento", "Concluída"]);
+  await expect(page.locator("#ncActionEvidenceWrap")).toBeHidden();
   await page.locator("#ncActionDesc").fill("Revisar procedimento de inspeção");
-  await page.locator("#ncActionDue").fill("2027-01-15");
-  await page.locator("#ncActionStatus").selectOption({ label: "Concluída" });
+  await page.locator("#ncActionDue").fill("2020-01-15");
   await page.locator("#ncSaveAction").click();
-  await expect(page.getByText("Revisar procedimento de inspeção", { exact: true })).toBeVisible();
+  const correctiveAction = page.locator(".acao-item", { hasText: "Revisar procedimento de inspeção" });
+  await expect(correctiveAction).toContainText("Atrasada");
+  await correctiveAction.getByTitle("Editar").click();
+  await expect(page.locator("#ncActionStatus")).toHaveValue("Em andamento");
+  await expect(page.locator("#ncActionEvidenceWrap")).toBeHidden();
+  await page.locator("#ncActionStatus").selectOption({ label: "Concluída" });
+  await expect(page.locator("#ncActionEvidenceWrap")).toBeVisible();
+  await page.locator("#ncSaveAction").click();
+  await expect(correctiveAction).toContainText("Concluída");
   await page.locator("[data-nc-close]").first().click();
 
   await page.getByRole("button", { name: "Dashboards" }).click();

@@ -3609,9 +3609,14 @@ function ncActionCounts(rnc) {
   const actions = rnc.acoes || [];
   return {
     total: actions.length,
-    done: actions.filter((action) => action.status === "Concluída").length,
-    late: actions.filter((action) => action.status !== "Concluída" && action.prazo && action.prazo < ncToday()).length,
+    done: actions.filter((action) => ncActionEffectiveStatus(action) === "Concluída").length,
+    late: actions.filter((action) => ncActionEffectiveStatus(action) === "Atrasada").length,
   };
+}
+
+function ncActionEffectiveStatus(action) {
+  if (action?.status === "Concluída") return "Concluída";
+  return action?.prazo && action.prazo < ncToday() ? "Atrasada" : "Em andamento";
 }
 
 function ncRecalculateStatus(rnc) {
@@ -3644,7 +3649,7 @@ function ncNextNumber() {
 }
 
 function ncStatusHtml(status) {
-  const cls = status === "Encerrado" ? "st-encerrado" : status === "Aguardando eficácia" ? "st-eficacia" : status === "Ações em andamento" ? "st-andamento" : "st-aguard";
+  const cls = ["Encerrado", "Concluída"].includes(status) ? "st-encerrado" : status === "Atrasada" ? "st-atrasada" : status === "Aguardando eficácia" ? "st-eficacia" : ["Ações em andamento", "Em andamento"].includes(status) ? "st-andamento" : "st-aguard";
   return `<span class="status-pill ${cls}"><span class="status-dot2"></span>${escapeHtml(status)}</span>`;
 }
 
@@ -3898,7 +3903,7 @@ function openNcDetail(id) {
   const ish = rnc.ishikawa || {};
   const ishFilled = Object.values(ish).some(Boolean);
   const history = [...(rnc.historico || [])].sort((a, b) => new Date(a.ts) - new Date(b.ts));
-  const actionRows = (rnc.acoes || []).map((action) => `<div class="acao-item"><div class="acao-item-hd"><div><div class="acao-item-desc">${escapeHtml(action.desc)}</div><div class="acao-item-meta"><span>Prazo: <b>${ncDate(action.prazo)}</b></span><span>Responsável: <b>${escapeHtml(action.responsavel)}</b></span>${action.evidencia ? `<span>Arquivo: <b>${escapeHtml(action.evidencia)}</b></span>` : ""}</div></div>${ncStatusHtml(action.status === "Concluída" ? "Encerrado" : "Ações em andamento")}</div></div>`).join("");
+  const actionRows = (rnc.acoes || []).map((action) => `<div class="acao-item"><div class="acao-item-hd"><div><div class="acao-item-desc">${escapeHtml(action.desc)}</div><div class="acao-item-meta"><span>Prazo: <b>${ncDate(action.prazo)}</b></span><span>Responsável: <b>${escapeHtml(action.responsavel)}</b></span>${action.evidencia ? `<span>Arquivo: <b>${escapeHtml(action.evidencia)}</b></span>` : ""}</div></div>${ncStatusHtml(ncActionEffectiveStatus(action))}</div></div>`).join("");
   const days = rnc.eficaciaIniciadaEm ? Math.floor((Date.now() - new Date(`${rnc.eficaciaIniciadaEm}T00:00:00`).getTime()) / 86400000) : 0;
   mountNcModal(`<div class="modal-box xwide nc-rnc-modal"><div class="modal-hd"><div><h3>${escapeHtml(rnc.id)}</h3><p>Registro de Não Conformidade · ${escapeHtml(rnc.status)}</p></div><div class="nc-modal-tools"><button class="btn-sm" id="ncPrint">${moduleIcon("download")} Imprimir PDF</button><button class="modal-close" data-nc-close>${moduleIcon("close")}</button></div></div>
     <div class="rnc-detail-grid">${[["Data de origem", ncDate(rnc.dataOrigem)], ["Código do item", rnc.codigoItem || "-"], ["Origem", rnc.origem === "Interno" ? "Interno" : `${rnc.origem} · ${rnc.origemRef}`], ["Setor", rnc.setor], ["Processo", rnc.processo], ["Gravidade", rnc.gravidade], ["Status", rnc.status], ["Reincidente", rnc.reincidente ? "Sim" : "Não"], ["Ações", `${count.done}/${count.total}`]].map(([label, value]) => `<div class="detail-item"><div class="l">${label}</div><div class="v">${escapeHtml(value)}</div></div>`).join("")}</div>
@@ -3935,22 +3940,31 @@ function ncResponsibleOptions(selected = "") {
 function openNcActions(editId = "") {
   const row = state.ncs.find((item) => item.id === ncCurrentId); if (!row) return;
   const edit = (row.acoes || []).find((item) => item.id === editId);
-  const list = (row.acoes || []).map((action) => `<div class="acao-item"><div class="acao-item-hd"><div><div class="acao-item-desc">${escapeHtml(action.desc)}</div><div class="acao-item-meta">Prazo: ${ncDate(action.prazo)} · ${escapeHtml(action.responsavel)} · ${escapeHtml(action.status)}</div></div><div class="row-actions"><button class="abtn" data-action-edit="${action.id}" title="Editar">${moduleIcon("edit")}</button><button class="abtn danger" data-action-delete="${action.id}" title="Excluir">${moduleIcon("trash")}</button></div></div></div>`).join("");
-  mountNcModal(`<div class="modal-box wide"><div class="modal-hd"><div><h3>Ações Corretivas</h3><p>${escapeHtml(row.id)}</p></div><button class="modal-close" data-nc-close>${moduleIcon("close")}</button></div>${list || `<div class="empty-state">Nenhuma ação cadastrada.</div>`}<div class="nc-action-form"><input id="ncActionId" type="hidden" value="${escapeHtml(editId)}"><label class="field">Ação<textarea class="input-basic" id="ncActionDesc">${escapeHtml(edit?.desc || "")}</textarea></label><div class="field-row3"><label class="field">Prazo<input class="input-basic" id="ncActionDue" type="date" value="${escapeHtml(edit?.prazo || "")}"></label><label class="field">Responsável<select class="input-basic" id="ncActionOwner">${ncResponsibleOptions(edit?.responsavel)}</select></label><label class="field">Status<select class="input-basic" id="ncActionStatus"><option ${edit?.status === "Pendente" ? "selected" : ""}>Pendente</option><option ${edit?.status === "Em andamento" ? "selected" : ""}>Em andamento</option><option ${edit?.status === "Concluída" ? "selected" : ""}>Concluída</option></select></label></div><label class="field">Evidência<input class="input-basic" id="ncActionEvidence" type="file"><small id="ncEvidenceName">${escapeHtml(edit?.evidencia || "Nenhum arquivo selecionado")}</small></label><div class="modal-actions"><button class="btn-ghost" id="ncResetAction">Cancelar edição</button><button class="btn-primary" id="ncSaveAction">Salvar ação</button></div></div></div>`);
+  const formStatus = edit?.status === "Concluída" ? "Concluída" : "Em andamento";
+  const list = (row.acoes || []).map((action) => `<div class="acao-item"><div class="acao-item-hd"><div><div class="acao-item-desc">${escapeHtml(action.desc)}</div><div class="acao-item-meta">Prazo: ${ncDate(action.prazo)} · ${escapeHtml(action.responsavel)} · ${escapeHtml(ncActionEffectiveStatus(action))}</div></div><div class="row-actions"><button class="abtn" data-action-edit="${action.id}" title="Editar">${moduleIcon("edit")}</button><button class="abtn danger" data-action-delete="${action.id}" title="Excluir">${moduleIcon("trash")}</button></div></div></div>`).join("");
+  mountNcModal(`<div class="modal-box wide"><div class="modal-hd"><div><h3>Ações Corretivas</h3><p>${escapeHtml(row.id)}</p></div><button class="modal-close" data-nc-close>${moduleIcon("close")}</button></div>${list || `<div class="empty-state">Nenhuma ação cadastrada.</div>`}<div class="nc-action-form"><input id="ncActionId" type="hidden" value="${escapeHtml(editId)}"><label class="field">Ação<textarea class="input-basic" id="ncActionDesc">${escapeHtml(edit?.desc || "")}</textarea></label><div class="field-row3"><label class="field">Prazo<input class="input-basic" id="ncActionDue" type="date" value="${escapeHtml(edit?.prazo || "")}"></label><label class="field">Responsável<select class="input-basic" id="ncActionOwner">${ncResponsibleOptions(edit?.responsavel)}</select></label><label class="field">Status<select class="input-basic" id="ncActionStatus"><option ${formStatus === "Em andamento" ? "selected" : ""}>Em andamento</option><option ${formStatus === "Concluída" ? "selected" : ""}>Concluída</option></select></label></div><label class="field" id="ncActionEvidenceWrap" ${formStatus === "Concluída" ? "" : "hidden"}>Evidência<input class="input-basic" id="ncActionEvidence" type="file"><small id="ncEvidenceName">${escapeHtml(edit?.evidencia || "Nenhum arquivo selecionado")}</small></label><div class="modal-actions"><button class="btn-ghost" id="ncResetAction">Cancelar edição</button><button class="btn-primary" id="ncSaveAction">Salvar ação</button></div></div></div>`);
   document.querySelectorAll("[data-action-edit]").forEach((button) => button.addEventListener("click", () => openNcActions(button.dataset.actionEdit)));
   document.querySelectorAll("[data-action-delete]").forEach((button) => button.addEventListener("click", () => deleteNcAction(button.dataset.actionDelete)));
   document.querySelector("#ncResetAction")?.addEventListener("click", () => openNcActions());
+  document.querySelector("#ncActionStatus")?.addEventListener("change", updateNcActionEvidenceVisibility);
   document.querySelector("#ncSaveAction")?.addEventListener("click", saveNcAction);
+}
+
+function updateNcActionEvidenceVisibility() {
+  const wrap = document.querySelector("#ncActionEvidenceWrap");
+  if (wrap) wrap.hidden = document.querySelector("#ncActionStatus")?.value !== "Concluída";
 }
 
 async function saveNcAction() {
   const row = state.ncs.find((item) => item.id === ncCurrentId); if (!row) return;
   const id = document.querySelector("#ncActionId")?.value; const desc = document.querySelector("#ncActionDesc")?.value.trim();
   if (!desc) return void toast("Descreva a ação.");
-  const existing = (row.acoes || []).find((item) => item.id === id); const status = document.querySelector("#ncActionStatus")?.value;
+  const existing = (row.acoes || []).find((item) => item.id === id); const selectedStatus = document.querySelector("#ncActionStatus")?.value;
+  const prazo = document.querySelector("#ncActionDue")?.value || "";
+  const status = selectedStatus === "Concluída" ? "Concluída" : prazo && prazo < ncToday() ? "Atrasada" : "Em andamento";
   const file = document.querySelector("#ncActionEvidence")?.files?.[0];
   if (file && file.size > 5 * 1024 * 1024) return void toast("O arquivo deve ter no máximo 5 MB.");
-  const action = { id: id || `AC-${Date.now()}`, desc, prazo: document.querySelector("#ncActionDue")?.value || "", responsavel: document.querySelector("#ncActionOwner")?.value || "", status, evidencia: file?.name || existing?.evidencia || "", concluidaEm: status === "Concluída" ? existing?.concluidaEm || ncToday() : "" };
+  const action = { id: id || `AC-${Date.now()}`, desc, prazo, responsavel: document.querySelector("#ncActionOwner")?.value || "", status, evidencia: file?.name || existing?.evidencia || "", concluidaEm: status === "Concluída" ? existing?.concluidaEm || ncToday() : "" };
   row.acoes ||= []; const index = row.acoes.findIndex((item) => item.id === id); if (index >= 0) row.acoes[index] = action; else row.acoes.push(action);
   ncRecalculateStatus(row); ncAddHistory(row, `${currentUser?.name || "Usuário"} ${existing ? "atualizou" : "criou"} uma ação corretiva.`);
   await saveNcData("Ação corretiva salva."); openNcActions(); renderNcKpis();

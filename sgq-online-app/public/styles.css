@@ -396,6 +396,7 @@
 .status-dot2 { width: 7px; height: 7px; flex: 0 0 auto; border-radius: 50%; background: currentColor; box-shadow: 0 0 7px currentColor; }
 .st-aguard { color: #94a3b8; }
 .st-andamento { color: #fbbf24; }
+.st-atrasada { color: #f87171; }
 .st-eficacia { color: #38bdf8; }
 .st-encerrado { color: #34d399; }
 
