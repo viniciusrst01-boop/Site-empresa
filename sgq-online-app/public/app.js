@@ -3665,7 +3665,9 @@ function renderNonConformityModule() {
   pageContent.classList.remove("risk-page-content", "context-page-content", "leadership-page-content");
   pageContent.classList.add("nc-page-content");
   pageContent.innerHTML = `
-    ${moduleHeaderHtml("nao-conformidades")}
+    ${moduleHeaderHtml("nao-conformidades", {
+      actions: `<div class="toolbar-actions"><button class="btn-transmit" data-nc-tv type="button"><span class="live-dot"></span>${moduleIcon("external")} Abrir painel na TV</button></div>`,
+    })}
     <div id="ncKpis"></div>
     <div class="ctx-tabs" id="ncMainTabs">
       ${[["cadastros", "Cadastros"], ["registrar", "Registrar NC"], ["controle", "Controle"], ["dashboards", "Dashboards"]].map(([id, label]) => `<button class="ctx-tab ${ncMainTab === id ? "active" : ""}" data-nc-tab="${id}" type="button">${label}</button>`).join("")}
@@ -3676,6 +3678,7 @@ function renderNonConformityModule() {
     renderNonConformityModule();
   }));
   bindViewTargetButtons();
+  pageContent.querySelector("[data-nc-tv]")?.addEventListener("click", openNcTvDashboard);
   renderNcKpis();
   renderNcTab();
   scrollPageToTop();
@@ -3998,13 +4001,15 @@ function ncDashboardHtml() {
   return `<div class="dash-toolbar"><label class="fg">Ano<select class="input-basic" data-nc-dash="year"><option value="todos">Todos os anos</option>${years.map((year) => `<option ${ncDashYear === year ? "selected" : ""}>${year}</option>`).join("")}</select></label><button class="btn-transmit" data-nc-transmit type="button"><span class="live-dot"></span>${moduleIcon("external")} Transmitir</button></div><div class="dash-cards">${[["Total de RNCs", agg.rows.length, `${agg.open} abertas`], ["Gravidade maior", agg.major, "maior severidade"], ["Reincidentes", agg.repeat, "atenção especial"], ["Taxa de encerramento", agg.rows.length ? `${Math.round(agg.closed / agg.rows.length * 100)}%` : "0%", "eficácia comprovada"]].map(([label, value, caption], index) => `<article class="dash-solid-card dash-color-${index}"><div class="sc-label">${label}</div><div class="sc-value">${value}</div><div class="sc-caption">${caption}</div></article>`).join("")}</div><div class="chart-grid"><section class="chart-card full"><div class="chart-card-hd"><div><h4>Gráfico de Pareto</h4><div class="sub">Frequência por dimensão</div></div><select class="input-basic" data-nc-dash="dimension">${[["processo", "Processo"], ["setor", "Setor"], ["origem", "Origem"], ["gravidade", "Gravidade"], ["referencia", "Cliente/Fornecedor"]].map(([value, label]) => `<option value="${value}" ${ncDashDimension === value ? "selected" : ""}>${label}</option>`).join("")}</select></div><div class="nc-bars">${data.map(([label, value]) => `<div class="nc-bar-row"><span>${escapeHtml(label)}</span><div><i style="width:${value / max * 100}%"></i></div><strong>${value}</strong></div>`).join("") || `<div class="empty-state">Sem dados para o período.</div>`}</div></section><section class="chart-card"><div class="chart-card-hd"><h4>Status dos RNCs</h4></div><div class="nc-status-chart">${status.map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${value}</strong></div>`).join("")}</div></section><section class="chart-card"><div class="chart-card-hd"><h4>Ações corretivas</h4></div><div class="nc-status-chart"><div><span>Concluídas</span><strong>${agg.actions.filter((row) => row.status === "Concluída").length}</strong></div><div><span>Pendentes</span><strong>${agg.actions.filter((row) => row.status !== "Concluída").length}</strong></div><div><span>Atrasadas</span><strong>${agg.actions.filter((row) => row.status !== "Concluída" && row.prazo < ncToday()).length}</strong></div></div></section></div>`;
 }
 
-function transmitNcDashboard() {
-  const html = document.querySelector("#ncTabContent")?.innerHTML || "";
-  const popup = window.open("", "_blank", "width=1440,height=900");
+function openNcTvDashboard() {
+  const params = new URLSearchParams({ ano: ncDashYear, dim: ncDashDimension });
+  const popup = window.open(`/nc-tv?${params}`, "qualitypro-nc-tv", "width=1600,height=900");
   if (!popup) return void toast("Permita pop-ups para abrir o painel de transmissão.");
-  popup.opener = null;
-  popup.document.write(`<!doctype html><html lang="pt-BR"><head><title>Painel de Não Conformidades</title><link rel="stylesheet" href="${location.origin}/styles.css"></head><body class="nc-tv"><main class="page-content nc-page-content"><h1>${escapeHtml(state.company.name)} · Não Conformidades</h1>${html}</main></body></html>`);
-  popup.document.close();
+  popup.focus();
+}
+
+function transmitNcDashboard() {
+  openNcTvDashboard();
 }
 
 function renderOperationalTable(moduleId) {

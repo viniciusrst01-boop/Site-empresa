@@ -38,6 +38,18 @@
       "dest": "/public/app.js"
     },
     {
+      "src": "/nc-tv.css",
+      "dest": "/public/nc-tv.css"
+    },
+    {
+      "src": "/nc-tv.js",
+      "dest": "/public/nc-tv.js"
+    },
+    {
+      "src": "/vendor/(.*)",
+      "dest": "/public/vendor/$1"
+    },
+    {
       "src": "/(.*)",
       "dest": "/server.js"
     }

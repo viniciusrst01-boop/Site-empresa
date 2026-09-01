@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Painel de Não Conformidades · Ao vivo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/nc-tv.css?v=20260901-nc-live-tv">
+</head>
+<body>
+  <main class="tv-shell">
+    <header class="tv-header">
+      <div class="tv-brand">
+        <img src="/assets/qualitypro-cloud-logo-app.png" alt="QualityPro Cloud">
+        <div><h1>Painel de Não Conformidades</h1><p id="tvSubtitle">Gestão à vista · dados da empresa</p></div>
+      </div>
+      <div class="tv-header-actions">
+        <label>Ano<select id="tvYear"><option value="todos">Todos</option></select></label>
+        <label>Pareto<select id="tvDimension"><option value="processo">Processo</option><option value="setor">Setor</option><option value="origem">Origem</option><option value="gravidade">Gravidade</option><option value="referencia">Cliente/Fornecedor</option></select></label>
+        <button id="tvFullscreen" type="button" title="Tela cheia" aria-label="Abrir em tela cheia"><svg viewBox="0 0 24 24"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/></svg></button>
+        <div class="tv-live"><i></i><span>AO VIVO</span></div>
+        <div class="tv-clock"><strong id="tvTime">--:--</strong><span id="tvDate">--</span></div>
+      </div>
+    </header>
+
+    <section class="tv-kpis" id="tvKpis" aria-label="Indicadores principais"></section>
+
+    <section class="tv-grid">
+      <article class="tv-panel tv-pareto"><header><h2>Gráfico de Pareto</h2><span>Priorização 80/20</span></header><div class="tv-chart" id="chartPareto"></div></article>
+      <article class="tv-panel"><header><h2>Status dos RNCs</h2><span>Distribuição atual</span></header><div class="tv-chart" id="chartStatus"></div></article>
+      <article class="tv-panel"><header><h2>Por gravidade</h2><span>Menor, média e maior</span></header><div class="tv-chart" id="chartSeverity"></div></article>
+      <article class="tv-panel"><header><h2>Por origem</h2><span>Interno, fornecedor e cliente</span></header><div class="tv-chart" id="chartOrigin"></div></article>
+      <article class="tv-panel"><header><h2>Reincidência</h2><span>Ocorrências repetidas</span></header><div class="tv-chart" id="chartRepeat"></div></article>
+      <article class="tv-panel tv-wide"><header><h2>Aberturas x encerramentos</h2><span>Últimos 12 meses</span></header><div class="tv-chart" id="chartEvolution"></div></article>
+      <article class="tv-panel"><header><h2>Ações corretivas</h2><span>Concluídas, pendentes e atrasadas</span></header><div class="tv-chart" id="chartActions"></div></article>
+      <article class="tv-panel"><header><h2>NCs por setor</h2><span>Áreas com maior incidência</span></header><div class="tv-chart" id="chartSector"></div></article>
+    </section>
+
+    <footer><span>© 2026 QualityPro Solutions · Painel somente leitura</span><span class="tv-refresh"><i></i>Atualização automática · última: <b id="tvLastUpdate">--</b></span></footer>
+    <div class="tv-message" id="tvMessage" hidden></div>
+  </main>
+  <script src="/vendor/chart.umd.js"></script>
+  <script src="/vendor/chartjs-plugin-datalabels.min.js"></script>
+  <script src="/nc-tv.js?v=20260901-nc-chartjs-tv"></script>
+</body>
+</html>

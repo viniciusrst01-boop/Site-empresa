@@ -31,6 +31,7 @@ test("módulo de não conformidades mantém o fluxo funcional", async ({ page },
   await page.locator('[data-module-card="nao-conformidades"]').first().click();
   await expect(page.locator(".topbar-title")).toHaveText("Não Conformidades");
   await expect(page.locator(".breadcrumb .cur")).toHaveText("Não Conformidades");
+  await expect(page.getByRole("button", { name: /Abrir painel na TV/ })).toBeVisible();
   await expect(page.locator("body")).not.toHaveClass(/home-dashboard/);
 
   await page.getByRole("button", { name: "Cadastros" }).click();
@@ -138,6 +139,25 @@ test("módulo de não conformidades mantém o fluxo funcional", async ({ page },
   await expectCompactNcFrame(page);
   await expect(page.getByRole("heading", { name: "Gráfico de Pareto" })).toBeVisible();
   await expect(page.getByRole("button", { name: /Transmitir/ })).toBeVisible();
+  const tvPagePromise = page.waitForEvent("popup");
+  await page.getByRole("button", { name: /Transmitir/ }).click();
+  const tvPage = await tvPagePromise;
+  await tvPage.waitForLoadState("domcontentloaded");
+  await expect(tvPage).toHaveURL(/\/nc-tv\?/);
+  await expect(tvPage.getByRole("heading", { name: "Painel de Não Conformidades" })).toBeVisible();
+  await expect(tvPage.locator("#tvSubtitle")).toContainText("Empresa Browser Teste");
+  await expect(tvPage.locator("#tvKpis .tv-kpi")).toHaveCount(5);
+  await expect(tvPage.locator("#chartPareto canvas")).toBeVisible();
+  await expect(tvPage.locator("#chartEvolution canvas")).toBeVisible();
+  await tvPage.waitForTimeout(800);
+  const statusArc = await tvPage.locator("#chartStatus canvas").evaluate((canvas) => {
+    const chart = Chart.getChart(canvas);
+    const arcs = chart.getDatasetMeta(0).data;
+    return arcs.reduce((total, arc) => total + arc.circumference, 0);
+  });
+  expect(statusArc).toBeGreaterThan(Math.PI * 1.95);
+  await tvPage.screenshot({ path: testInfo.outputPath("nc-tv-live.png"), fullPage: true });
+  await tvPage.close();
   const dashboardLayout = await page.locator("#ncTabContent").evaluate((content) => ({
     clientHeight: content.clientHeight,
     scrollHeight: content.scrollHeight,

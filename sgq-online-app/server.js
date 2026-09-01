@@ -1556,6 +1556,15 @@ async function handleRequest(req, res) {
     return;
   }
 
+  if (url.pathname === "/nc-tv") {
+    if (!session) {
+      send(res, 302, "", { Location: "/login", "Set-Cookie": sessionCookie(req, "", 0) });
+      return;
+    }
+    serveFile(res, path.join(publicDir, "nc-tv.html"));
+    return;
+  }
+
   if (url.pathname === "/login.css") {
     serveFile(res, path.join(publicDir, "login.css"));
     return;
