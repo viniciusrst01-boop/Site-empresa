@@ -3715,13 +3715,23 @@ function ncCatalogHtml() {
 function ncRegisterHtml() {
   const options = (key) => state.ncCatalogs[key].map((row) => `<option value="${escapeHtml(row.nome)}">${escapeHtml(row.nome)}</option>`).join("");
   const disabled = canEditModule("nao-conformidades") ? "" : "disabled";
-  return `<section class="form-card"><h2 class="dcc-title">Registrar Não Conformidade</h2><p class="dcc-sub nc-form-intro">O número é gerado automaticamente · próximo: <strong class="mono">${ncNextNumber()}</strong></p>
-    <div class="field-row2"><label class="field">Data de origem<input class="input-basic" id="ncData" type="date" value="${ncToday()}" ${disabled}></label><label class="field">Código do item<input class="input-basic" id="ncItem" placeholder="Ex.: PRD-4471" ${disabled}></label></div>
-    <div class="field-row2"><label class="field">Origem<select class="input-basic" id="ncOrigin" ${disabled}><option value="">Selecione...</option><option>Interno</option><option>Fornecedor</option><option>Cliente</option></select></label><label class="field" id="ncReferenceWrap" hidden>Referência<select class="input-basic" id="ncReference" ${disabled}></select></label></div>
-    <div class="field-row2"><label class="field">Setor<select class="input-basic" id="ncSector" ${disabled}><option value="">Selecione...</option>${options("setores")}</select></label><label class="field">Processo envolvido<select class="input-basic" id="ncProcess" ${disabled}><option value="">Selecione...</option>${options("processos")}</select></label></div>
-    <label class="field">Gravidade<select class="input-basic" id="ncSeverity" ${disabled}><option>Menor</option><option selected>Média</option><option>Maior</option></select></label><label class="field">Descrição da não conformidade<textarea class="input-basic" id="ncDescription" ${disabled}></textarea></label>
-    <label class="check-row"><input type="checkbox" id="ncRepeat" ${disabled}> Esta não conformidade é reincidente</label>
-    ${canEditModule("nao-conformidades") ? `<div class="form-actions"><button class="btn-danger-ghost" data-nc-clear type="button">Limpar</button><button class="btn-primary" data-nc-save type="button">Salvar NC</button></div>` : `<div class="banner-info">Seu perfil possui acesso somente para visualização.</div>`}
+  return `<section class="form-card nc-register-form">
+    <div class="nc-register-head"><h2 class="dcc-title">Registrar Não Conformidade</h2><p class="dcc-sub nc-form-intro">O número é gerado automaticamente · próximo: <strong class="mono">${ncNextNumber()}</strong></p></div>
+    <div class="nc-register-columns">
+      <div class="nc-register-column">
+        <div class="field-row2"><label class="field">Data de origem<input class="input-basic" id="ncData" type="date" value="${ncToday()}" ${disabled}></label><label class="field">Código do item<input class="input-basic" id="ncItem" placeholder="Ex.: PRD-4471" ${disabled}></label></div>
+        <div class="field-row2"><label class="field">Origem<select class="input-basic" id="ncOrigin" ${disabled}><option value="">Selecione...</option><option>Interno</option><option>Fornecedor</option><option>Cliente</option></select></label><label class="field" id="ncReferenceWrap" hidden>Referência<select class="input-basic" id="ncReference" ${disabled}></select></label></div>
+        <div class="field-row2"><label class="field">Setor<select class="input-basic" id="ncSector" ${disabled}><option value="">Selecione...</option>${options("setores")}</select></label><label class="field">Processo envolvido<select class="input-basic" id="ncProcess" ${disabled}><option value="">Selecione...</option>${options("processos")}</select></label></div>
+      </div>
+      <div class="nc-register-column nc-register-column-right">
+        <label class="field">Gravidade<select class="input-basic" id="ncSeverity" ${disabled}><option>Menor</option><option selected>Média</option><option>Maior</option></select></label>
+        <label class="field nc-description-field">Descrição da não conformidade<textarea class="input-basic" id="ncDescription" ${disabled}></textarea></label>
+        <div class="nc-register-footer">
+          <label class="check-row"><input type="checkbox" id="ncRepeat" ${disabled}> Esta não conformidade é reincidente</label>
+          ${canEditModule("nao-conformidades") ? `<div class="form-actions"><button class="btn-danger-ghost" data-nc-clear type="button">Limpar</button><button class="btn-primary" data-nc-save type="button">Salvar NC</button></div>` : `<div class="banner-info">Seu perfil possui acesso somente para visualização.</div>`}
+        </div>
+      </div>
+    </div>
   </section>`;
 }
 

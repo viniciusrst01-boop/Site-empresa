@@ -327,6 +327,11 @@
 .nc-page-content .ctxtbl tbody td.mono { color: var(--text-primary); }
 
 .nc-page-content .form-card { max-width: 1040px; padding: 24px; }
+.nc-page-content .nc-register-form { width: 100%; max-width: none; }
+.nc-register-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px; }
+.nc-register-column { min-width: 0; }
+.nc-register-column-right { border-left: 1px solid var(--border-subtle); padding-left: 28px; }
+.nc-register-footer { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; }
 .nc-form-intro { margin-bottom: 22px !important; }
 .nc-page-content .field {
   display: grid; gap: 7px; margin-bottom: 16px;
@@ -4892,6 +4897,128 @@ body.theme-light .nc-page-content .form-card,
 body.theme-light .nc-page-content .chart-card,
 body.theme-light .detail-item,
 body.theme-light .nc-status-chart > div { background: rgba(248, 252, 255, .98); }
+
+/* Módulo de não conformidades em uma única viewport */
+@media (min-width: 981px) {
+  body:has(.nc-page-content) { overflow: hidden; }
+  body:has(.nc-page-content) .app-shell { height: 100vh; min-height: 0; overflow: hidden; }
+  body:has(.nc-page-content) .main-area { height: 100vh; min-height: 0; }
+  body:has(.nc-page-content) .topbar-left { flex: 0 0 auto; }
+  body:has(.nc-page-content) .topbar-left > div:last-child { display: block; }
+
+  .nc-page-content {
+    display: flex;
+    min-height: 0;
+    flex: 1;
+    flex-direction: column;
+    overflow: hidden;
+    padding: 12px 24px 8px;
+  }
+
+  .nc-page-content .breadcrumb { margin-bottom: 5px; }
+  .nc-page-content .page-toolbar { flex: 0 0 auto; margin-bottom: 10px; }
+  .nc-page-content .welcome-eyebrow { margin-bottom: 4px; font-size: 9px; }
+  .nc-page-content .welcome-title { margin-bottom: 2px; font-size: 22px; }
+  .nc-page-content .welcome-sub { font-size: 12px; }
+
+  .nc-page-content #ncKpis { flex: 0 0 auto; }
+  .nc-page-content .kpi-row {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 10px;
+  }
+  .nc-page-content .kpi-card {
+    min-height: 84px;
+    gap: 6px;
+    padding: 11px 14px 10px;
+  }
+  .nc-page-content .kpi-top { gap: 10px; }
+  .nc-page-content .kpi-icon { width: 38px; height: 38px; border-radius: 8px; }
+  .nc-page-content .kpi-icon .icon { width: 18px; height: 18px; }
+  .nc-page-content .kpi-label { margin-bottom: 1px; font-size: 8.5px; }
+  .nc-page-content .kpi-value.big { font-size: 21px; }
+  .nc-page-content .kpi-caption { font-size: 10.5px; }
+
+  .nc-page-content > .ctx-tabs {
+    min-height: 40px;
+    flex: 0 0 auto;
+    margin-bottom: 10px;
+  }
+  .nc-page-content .ctx-tab { min-height: 40px; padding: 0 15px; font-size: 12.5px; }
+  .nc-page-content #ncSubTabs { flex: 0 0 auto; margin-bottom: 10px; }
+  .nc-page-content #ncTabContent {
+    min-height: 0;
+    flex: 1;
+    overflow: auto;
+    scrollbar-gutter: stable;
+  }
+  .nc-page-content:has(.nc-register-form) #ncSubTabs { display: none; }
+  .nc-page-content:has(.nc-register-form) #ncTabContent { display: flex; overflow: hidden; }
+
+  .nc-page-content #ncTabContent:has(.dash-toolbar) { overflow: hidden; }
+  .nc-page-content .dash-toolbar { gap: 12px; margin-bottom: 8px; }
+  .nc-page-content .dash-toolbar .input-basic,
+  .nc-page-content .btn-transmit { min-height: 36px; }
+  .nc-page-content .dash-cards { gap: 10px; margin-bottom: 10px; }
+  .nc-page-content .dash-solid-card { min-height: 88px; padding: 13px 16px; }
+  .nc-page-content .sc-label { font-size: 9.5px; }
+  .nc-page-content .sc-value { margin: 5px 0 2px; font-size: 25px; }
+  .nc-page-content .sc-caption { font-size: 10.5px; }
+  .nc-page-content .chart-grid { gap: 10px; }
+  .nc-page-content .chart-card { padding: 12px 16px; }
+  .nc-page-content .chart-card-hd { margin-bottom: 9px; }
+  .nc-page-content .chart-card-hd h4 { font-size: 13px; }
+  .nc-page-content .chart-card-hd .sub { font-size: 10px; }
+  .nc-page-content .chart-card-hd select { min-height: 36px; }
+  .nc-page-content .nc-bars { gap: 6px; }
+  .nc-page-content .nc-bar-row { font-size: 10.5px; }
+  .nc-page-content .nc-status-chart > div { padding: 8px 11px; font-size: 10.5px; }
+
+  .nc-page-content .nc-register-form {
+    display: flex;
+    min-height: 0;
+    flex: 1;
+    flex-direction: column;
+    padding: 15px 22px 12px;
+  }
+  .nc-register-head { flex: 0 0 auto; }
+  .nc-page-content .nc-register-form .nc-form-intro { margin-bottom: 12px !important; }
+  .nc-register-columns { min-height: 0; flex: 1; gap: 26px; }
+  .nc-register-column { display: flex; min-height: 0; flex-direction: column; }
+  .nc-register-column-right { padding-left: 26px; }
+  .nc-page-content .nc-register-form .field { gap: 4px; margin-bottom: 9px; font-size: 11px; }
+  .nc-page-content .nc-register-form .field-row2 { gap: 10px; }
+  .nc-page-content .nc-register-form .input-basic {
+    min-height: 36px;
+    border-radius: 7px;
+    padding: 7px 10px;
+    font-size: 12px;
+  }
+  .nc-page-content .nc-register-form .nc-description-field { min-height: 0; flex: 1; }
+  .nc-page-content .nc-register-form textarea.input-basic {
+    min-height: 72px;
+    height: 100%;
+    resize: none;
+  }
+  .nc-register-footer { flex: 0 0 auto; }
+  .nc-register-footer .check-row { margin: 0; font-size: 11px; }
+  .nc-register-footer .form-actions { flex: 0 0 auto; margin-top: 0; }
+  .nc-register-footer .btn-danger-ghost,
+  .nc-register-footer .btn-primary { min-height: 36px; padding: 8px 14px; font-size: 11.5px; }
+
+  body:has(.nc-page-content) .app-footer {
+    min-height: 36px;
+    flex: 0 0 auto;
+    padding: 8px 24px;
+    font-size: 10.5px;
+  }
+}
+
+@media (max-width: 980px) {
+  .nc-register-columns { grid-template-columns: 1fr; }
+  .nc-register-column-right { border-left: 0; padding-left: 0; }
+  .nc-register-footer { align-items: stretch; flex-direction: column; }
+}
 
 /* Cadastro da empresa em uma única viewport */
 @media (min-width: 981px) {
