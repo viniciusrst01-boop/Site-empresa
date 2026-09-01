@@ -962,6 +962,7 @@ function render(view = "inicio") {
   }
 
   document.body.classList.toggle("home-dashboard", view === "inicio");
+  document.body.classList.remove("module-detail-view");
   setActiveNav(view);
   pageContent.classList.remove("risk-page-content");
   pageContent.classList.remove("context-page-content");
@@ -1471,6 +1472,7 @@ function moduleHeaderHtml(moduleId, options = {}) {
 
 function renderModuleDetail(moduleId) {
   document.body.classList.remove("home-dashboard");
+  document.body.classList.add("module-detail-view");
   activeView = "modulos";
   setActiveNav("modulos");
   pageContent.classList.remove(

@@ -122,6 +122,9 @@ test("todos os módulos usam título no topo e breadcrumb sem terceiro título",
   for (const [id, title] of moduleDefinitions) {
     await page.evaluate((moduleId) => renderModuleDetail(moduleId), id);
     await expect(page.locator(".topbar-title")).toHaveText(title);
+    await expect(page.locator(".topbar-title")).toBeVisible();
+    await expect(page.locator(".topbar-subtitle")).toBeVisible();
+    await expect(page.locator("body")).toHaveClass(/module-detail-view/);
     await expect(page.locator(".breadcrumb button")).toHaveText("Meus módulos");
     await expect(page.locator(".breadcrumb .cur")).toHaveText(title);
     await expect(page.locator(".module-summary-toolbar")).toHaveCount(1);
@@ -137,6 +140,8 @@ test("todos os módulos usam título no topo e breadcrumb sem terceiro título",
     expect(visibleTitleOccurrences).toBe(2);
   }
 
+  await page.evaluate(() => renderModuleDetail("contexto"));
+  await page.screenshot({ path: testInfo.outputPath("context-module-header-pattern.png"), fullPage: true });
   await page.evaluate(() => renderModuleDetail("nao-conformidades"));
   await page.screenshot({ path: testInfo.outputPath("module-header-pattern.png"), fullPage: true });
 });

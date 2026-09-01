@@ -678,6 +678,14 @@ body.home-dashboard .app-shell {
   display: none;
 }
 
+body.module-detail-view .topbar-left {
+  flex: 0 0 auto;
+}
+
+body.module-detail-view .topbar-left > div:last-child {
+  display: block;
+}
+
 .topbar-search {
   display: flex;
   flex-shrink: 0;
