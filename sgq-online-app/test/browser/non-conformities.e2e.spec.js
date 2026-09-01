@@ -72,6 +72,13 @@ test("módulo de não conformidades mantém o fluxo funcional", async ({ page },
   await page.screenshot({ path: testInfo.outputPath("controle-desktop-fit.png"), fullPage: true });
   const rncLink = page.locator(".rnc-link", { hasText: /^RNC-/ }).first();
   await expect(rncLink).toBeVisible();
+  const rncNumberLayout = await rncLink.evaluate((link) => ({
+    whiteSpace: getComputedStyle(link).whiteSpace,
+    linkWidth: link.getBoundingClientRect().width,
+    cellWidth: link.closest("td")?.getBoundingClientRect().width || 0,
+  }));
+  expect(rncNumberLayout.whiteSpace).toBe("nowrap");
+  expect(rncNumberLayout.linkWidth).toBeLessThan(rncNumberLayout.cellWidth);
   const rncId = (await rncLink.textContent()).trim();
   const rncRow = page.locator(".nc-control-table tbody tr").filter({ hasText: rncId });
   await expect(rncRow.getByTitle("Editar RNC")).toBeVisible();

@@ -327,15 +327,15 @@
 .nc-page-content .ctxtbl tbody td strong,
 .nc-page-content .ctxtbl tbody td.mono { color: var(--text-primary); }
 .nc-control-table { min-width: 1040px !important; table-layout: fixed; }
-.nc-control-table th:nth-child(1) { width: 11%; }
+.nc-control-table th:nth-child(1) { width: 14%; }
 .nc-control-table th:nth-child(2) { width: 10%; }
 .nc-control-table th:nth-child(3) { width: 11%; }
-.nc-control-table th:nth-child(4) { width: 12%; }
+.nc-control-table th:nth-child(4) { width: 11%; }
 .nc-control-table th:nth-child(5) { width: 10%; }
-.nc-control-table th:nth-child(6) { width: 18%; }
+.nc-control-table th:nth-child(6) { width: 17%; }
 .nc-control-table th:nth-child(7) { width: 8%; }
 .nc-control-table th:nth-child(8) { width: 8%; }
-.nc-control-table th:nth-child(9) { width: 12%; }
+.nc-control-table th:nth-child(9) { width: 11%; }
 .nc-page-content .nc-control-table thead th,
 .nc-page-content .nc-control-table tbody td { padding-right: 10px; padding-left: 10px; }
 .nc-control-table .status-pill { white-space: nowrap; }
@@ -376,7 +376,7 @@
   min-height: 42px; border: 0; background: transparent; color: #f87171;
   font: inherit; font-size: 12px; font-weight: 700; cursor: pointer;
 }
-.rnc-link { border: 0; background: transparent; color: #38bdf8; font: inherit; font-weight: 800; cursor: pointer; }
+.rnc-link { border: 0; background: transparent; color: #38bdf8; font: inherit; font-weight: 800; white-space: nowrap; cursor: pointer; }
 .rnc-link:hover { text-decoration: underline; }
 .mchip,
 .grav-chip,
