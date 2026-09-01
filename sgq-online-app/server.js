@@ -52,6 +52,7 @@ const {
   setCompanyData,
   setUserMfa,
   syncConfiguredUsers,
+  testRecoveryRestore,
   updateAdminCompany,
   updateBackupSnapshot,
   updateCompanyBilling,
@@ -539,6 +540,7 @@ function filterStateForPermissions(savedState, permissions) {
   Object.entries(stateFields).forEach(([moduleId, field]) => {
     if (!canViewModule(permissions, moduleId)) delete nextState[field];
   });
+  if (!canViewModule(permissions, "nao-conformidades")) delete nextState.ncCatalogs;
   return nextState;
 }
 
@@ -968,6 +970,16 @@ async function runDeadlineAlerts(req) {
       metadata: { items: items.length, recipients: target.users.length },
     });
   }
+  if (summary.failed > 0) {
+    await reportOperationalFailure({
+      severity: "warning",
+      component: "email",
+      eventType: "deadline_email_delivery_failed",
+      title: "Falha no envio de alertas de prazo",
+      message: `${summary.failed} de ${summary.recipients} mensagem(ns) não foram entregues.`,
+      metadata: summary,
+    });
+  }
   return summary;
 }
 
@@ -988,6 +1000,18 @@ async function sendOperationalAlert({ title, component, message }) {
   });
 }
 
+async function reportOperationalFailure({ severity = "error", component, eventType, title, message, metadata = {} }) {
+  const event = await recordSystemEvent({ severity, component, eventType, message, metadata }).catch(() => null);
+  const delivery = await sendOperationalAlert({ title, component, message }).catch((error) => ({
+    status: "failed",
+    error: error.message,
+  }));
+  if (delivery.status !== "sent") {
+    console.error(`Alerta operacional não entregue (${component}): ${delivery.status || "failed"}`);
+  }
+  return { event, delivery };
+}
+
 async function runAutomaticBackup(req = null) {
   let record = null;
   try {
@@ -999,11 +1023,11 @@ async function runAutomaticBackup(req = null) {
       verificationStatus: "pending",
       metadata: { ...artifact.metadata, source: "automatic" },
     });
-    const verification = await verifyBackupArtifact(record);
+    const verification = await verifyBackupArtifact(record, { restoreTest: testRecoveryRestore });
     record = await updateBackupSnapshot(record.id, {
       verificationStatus: "verified",
       errorMessage: "",
-      metadata: { ...record.metadata, counts: verification.counts },
+      metadata: { ...record.metadata, counts: verification.counts, restoreTest: verification.restoreTest },
     });
 
     const cutoff = retentionCutoff();
@@ -1044,15 +1068,11 @@ async function runAutomaticBackup(req = null) {
         metadata: { source: "automatic" },
       }).catch(() => null);
     }
-    await recordSystemEvent({
+    await reportOperationalFailure({
       severity: "critical",
       component: "backup",
       eventType: "automatic_backup_failed",
-      message: error.message,
-    }).catch(() => null);
-    await sendOperationalAlert({
       title: "Falha no backup automático",
-      component: "backup",
       message: error.message,
     }).catch(() => null);
     throw error;
@@ -1063,11 +1083,16 @@ async function verifyStoredBackup(snapshotId) {
   const record = (await listBackupSnapshots(200)).find((item) => Number(item.id) === Number(snapshotId));
   if (!record || record.status !== "completed") throw new Error("backup_not_found");
   try {
-    const verification = await verifyBackupArtifact(record);
+    const verification = await verifyBackupArtifact(record, { restoreTest: testRecoveryRestore });
     const updated = await updateBackupSnapshot(record.id, {
       verificationStatus: "verified",
       errorMessage: "",
-      metadata: { ...record.metadata, counts: verification.counts, manuallyVerified: true },
+      metadata: {
+        ...record.metadata,
+        counts: verification.counts,
+        restoreTest: verification.restoreTest,
+        manuallyVerified: true,
+      },
     });
     return { snapshot: updated, ...verification };
   } catch (error) {
@@ -1075,10 +1100,11 @@ async function verifyStoredBackup(snapshotId) {
       verificationStatus: "failed",
       errorMessage: error.message,
     });
-    await recordSystemEvent({
+    await reportOperationalFailure({
       severity: "critical",
       component: "backup",
       eventType: "backup_verification_failed",
+      title: "Falha no teste de restauração",
       message: error.message,
       metadata: { snapshotId: record.id },
     });
@@ -1108,7 +1134,10 @@ async function getOperationalHealth() {
       mode: backupStorageMode(),
       latest: latestBackup,
     },
-    email: { ok: Boolean(process.env.RESEND_API_KEY && process.env.EMAIL_FROM) },
+    email: {
+      ok: Boolean(process.env.RESEND_API_KEY && process.env.EMAIL_FROM),
+      operationalAlertsConfigured: Boolean(process.env.ALERT_EMAIL || isEmail(adminUser)),
+    },
   };
   const productionRequired = Boolean(process.env.VERCEL);
   const ok = database.ok && (!productionRequired || (services.billing.ok && services.backup.ok));
@@ -1174,6 +1203,13 @@ async function handleRequest(req, res) {
     await bootstrapDatabase();
   } catch (error) {
     console.error("Falha ao inicializar banco de dados:", error);
+    await reportOperationalFailure({
+      severity: "critical",
+      component: "database",
+      eventType: "database_initialization_failed",
+      title: "Banco de dados indisponível",
+      message: error.message,
+    }).catch(() => null);
     sendJson(res, 500, { error: "database_unavailable" });
     return;
   }
@@ -1195,10 +1231,11 @@ async function handleRequest(req, res) {
       const result = await processBillingWebhook(event);
       sendJson(res, 200, { received: true, duplicate: result.duplicate });
     } catch (error) {
-      await recordSystemEvent({
+      await reportOperationalFailure({
         severity: "error",
         component: "billing",
         eventType: "billing_webhook_failed",
+        title: "Falha no webhook de cobrança",
         message: error.message,
       }).catch(() => null);
       sendJson(res, error.message.includes("signature") ? 400 : 500, { error: "billing_webhook_failed" });
@@ -1381,6 +1418,14 @@ async function handleRequest(req, res) {
 
     if (recentFailures >= 5) {
       await auditRequest(req, null, "login_rate_limited", "blocked", { username });
+      await reportOperationalFailure({
+        severity: "warning",
+        component: "security",
+        eventType: "login_rate_limited",
+        title: "Tentativas repetidas de login",
+        message: `Acesso temporariamente bloqueado para ${username || "login não informado"}.`,
+        metadata: { username, ipAddress },
+      }).catch(() => null);
       send(res, 429, loginPage("Muitas tentativas. Aguarde 15 minutos e tente novamente."), {
         "Content-Type": "text/html; charset=utf-8",
         "Retry-After": "900",
@@ -1518,6 +1563,7 @@ async function handleRequest(req, res) {
 
   if (
     url.pathname === "/assets/qualitypro-cloud-logo.png" ||
+    url.pathname === "/assets/qualitypro-cloud-logo-app.png" ||
     url.pathname === "/assets/qualitypro-cloud-logo-transparent.png" ||
     url.pathname === "/assets/qualitypro-cloud-logo-light.png"
   ) {
@@ -1700,10 +1746,11 @@ async function handleApiRequest(req, res, url, session) {
       await auditRequest(req, session, "billing_checkout_created", "success", { plan: body?.plan });
       sendJson(res, 200, { url: checkout.url });
     } catch (error) {
-      await recordSystemEvent({
+      await reportOperationalFailure({
         severity: "error",
         component: "billing",
         eventType: "billing_checkout_failed",
+        title: "Falha ao iniciar cobrança",
         message: error.message,
         metadata: { companyId },
       });
@@ -1726,6 +1773,14 @@ async function handleApiRequest(req, res, url, session) {
       await auditRequest(req, session, "billing_portal_opened", "success");
       sendJson(res, 200, { url: portal.url });
     } catch (error) {
+      await reportOperationalFailure({
+        severity: "error",
+        component: "billing",
+        eventType: "billing_portal_failed",
+        title: "Falha ao abrir portal de cobrança",
+        message: error.message,
+        metadata: { companyId },
+      });
       sendJson(res, 400, { error: error.message || "billing_portal_failed" });
     }
     return;
@@ -1751,6 +1806,14 @@ async function handleApiRequest(req, res, url, session) {
       });
       sendJson(res, 200, { ok: true, company: updated });
     } catch (error) {
+      await reportOperationalFailure({
+        severity: "error",
+        component: "billing",
+        eventType: "billing_plan_change_failed",
+        title: "Falha ao alterar plano",
+        message: error.message,
+        metadata: { companyId },
+      });
       sendJson(res, 400, { error: error.message || "billing_plan_change_failed" });
     }
     return;
@@ -2501,18 +2564,22 @@ async function handleApiRequest(req, res, url, session) {
 
     if (body.key === "state" && !ownsCompany) {
       const stateFields = {
-        documentos: "documents",
-        auditorias: "audits",
-        "nao-conformidades": "ncs",
-        equipamentos: "equipment",
+        documentos: ["documents"],
+        auditorias: ["audits"],
+        "nao-conformidades": ["ncs", "ncCatalogs"],
+        equipamentos: ["equipment"],
       };
-      const field = stateFields[requestedModule];
-      if (!field || !body.value || typeof body.value !== "object") {
+      const fields = stateFields[requestedModule];
+      if (!fields || !body.value || typeof body.value !== "object") {
         sendJson(res, 403, { error: "state_edit_forbidden" });
         return;
       }
+      const submittedState = body.value;
       const currentState = (await getCompanyData(companyId, "state")) || {};
-      body.value = { ...currentState, [field]: body.value[field] };
+      body.value = { ...currentState };
+      fields.forEach((field) => {
+        if (Object.prototype.hasOwnProperty.call(submittedState, field)) body.value[field] = submittedState[field];
+      });
     }
 
     await setCompanyData(companyId, body.key, body.value);
@@ -2532,10 +2599,11 @@ async function safeHandleRequest(req, res) {
     await handleRequest(req, res);
   } catch (error) {
     console.error("Falha não tratada na requisição:", error);
-    await recordSystemEvent({
+    await reportOperationalFailure({
       severity: "error",
       component: "server",
       eventType: "request_failed",
+      title: "Falha não tratada no servidor",
       message: error.message,
       metadata: { method: req.method, path: String(req.url || "").split("?")[0] },
     }).catch(() => null);

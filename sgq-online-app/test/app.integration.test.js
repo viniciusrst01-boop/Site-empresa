@@ -171,6 +171,36 @@ test("admin, exportações, backup e revogação de sessão funcionam", async (t
   assert.ok(overview.logs.some((log) => log.eventType === "login_success"));
   const companyId = overview.companies[0].id;
 
+  const ownerBootstrapResponse = await api(baseUrl, "/api/bootstrap", adminCookie);
+  const ownerBootstrap = await ownerBootstrapResponse.json();
+  const ncState = {
+    ...(ownerBootstrap.state || {}),
+    ncs: [{
+      id: "RNC-2026-0001",
+      dataOrigem: "2026-08-31",
+      origem: "Interno",
+      setor: "Qualidade",
+      processo: "Inspeção final",
+      gravidade: "Média",
+      descricao: "Registro persistido pelo teste",
+      status: "Aguardando análise",
+      ishikawa: {},
+      acoes: [],
+      historico: [],
+    }],
+    ncCatalogs: {
+      clientes: [{ id: "CLI-1", nome: "Cliente Teste", codigo: "CT-01" }],
+      fornecedores: [],
+      processos: [{ id: "PRO-1", nome: "Inspeção final" }],
+      setores: [{ id: "SET-1", nome: "Qualidade" }],
+    },
+  };
+  const ownerNcSave = await api(baseUrl, "/api/data", adminCookie, {
+    method: "POST",
+    body: JSON.stringify({ key: "state", moduleId: "nao-conformidades", value: ncState }),
+  });
+  assert.equal(ownerNcSave.status, 200);
+
   const userResponse = await api(baseUrl, "/api/company/users", adminCookie, {
     method: "POST",
     body: JSON.stringify({
@@ -215,6 +245,18 @@ test("admin, exportações, backup e revogação de sessão funcionam", async (t
   assert.equal(collaboratorPayload.user.permissions.moduleAccess.contexto, "view");
   assert.equal(collaboratorPayload.user.permissions.moduleAccess.riscos, "edit");
   assert.equal(collaboratorPayload.leadership, null);
+  assert.equal(collaboratorPayload.state.ncs[0].id, "RNC-2026-0001");
+  assert.equal(collaboratorPayload.state.ncCatalogs.clientes[0].nome, "Cliente Teste");
+
+  const deniedNcSave = await api(baseUrl, "/api/data", collaboratorCookie, {
+    method: "POST",
+    body: JSON.stringify({
+      key: "state",
+      moduleId: "nao-conformidades",
+      value: { ...ncState, ncs: [] },
+    }),
+  });
+  assert.equal(deniedNcSave.status, 403);
 
   const deniedContextSave = await api(baseUrl, "/api/data", collaboratorCookie, {
     method: "POST",
@@ -270,6 +312,16 @@ test("admin, exportações, backup e revogação de sessão funcionam", async (t
     }),
   });
   assert.equal(delegatedUserCreate.status, 201);
+  const delegatedCreatedUser = (await delegatedUserCreate.json()).user;
+
+  const deleteDelegatedUser = await api(baseUrl, "/api/company/users", delegatedCookie, {
+    method: "DELETE",
+    body: JSON.stringify({ userId: delegatedCreatedUser.id, currentPassword: "Admin-Empresa-123" }),
+  });
+  assert.equal(deleteDelegatedUser.status, 200);
+  const usersAfterDelete = await api(baseUrl, "/api/company/users", delegatedCookie);
+  assert.equal(usersAfterDelete.status, 200);
+  assert.equal((await usersAfterDelete.json()).users.some((user) => user.id === delegatedCreatedUser.id), false);
 
   const delegatedCompanyEdit = await api(baseUrl, "/api/company", delegatedCookie, {
     method: "PATCH",
@@ -387,13 +439,18 @@ test("admin, exportações, backup e revogação de sessão funcionam", async (t
   assert.equal(automaticBackup.status, 200, stderr);
   const automaticBackupPayload = await automaticBackup.json();
   assert.equal(automaticBackupPayload.snapshot.verificationStatus, "verified");
+  assert.equal(automaticBackupPayload.snapshot.metadata.restoreTest.ok, true);
+  assert.equal(automaticBackupPayload.snapshot.metadata.restoreTest.mode, "isolated-file");
 
   const verifyBackup = await api(baseUrl, "/api/admin/backups/verify", adminCookie, {
     method: "POST",
     body: JSON.stringify({ snapshotId: automaticBackupPayload.snapshot.id, currentPassword: "Admin-Teste-123" }),
   });
   assert.equal(verifyBackup.status, 200);
-  assert.equal((await verifyBackup.json()).counts.companies, 1);
+  const verifiedBackupPayload = await verifyBackup.json();
+  assert.equal(verifiedBackupPayload.counts.companies, 1);
+  assert.equal(verifiedBackupPayload.restoreTest.ok, true);
+  assert.equal(verifiedBackupPayload.restoreTest.counts.users, 3);
 
   const clientError = await api(baseUrl, "/api/monitor/client-error", adminCookie, {
     method: "POST",
@@ -475,6 +532,28 @@ test("admin, exportações, backup e revogação de sessão funcionam", async (t
   });
   assert.equal(revokeSecond.status, 200);
   assert.equal((await api(baseUrl, "/api/bootstrap", secondAdminCookie)).status, 401);
+
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const failedLogin = await fetch(`${baseUrl}/login`, {
+      method: "POST",
+      redirect: "manual",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ username: "ataque@example.com", password: "incorreta" }),
+    });
+    assert.equal(failedLogin.status, 401);
+  }
+  const limitedLogin = await fetch(`${baseUrl}/login`, {
+    method: "POST",
+    redirect: "manual",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ username: "ataque@example.com", password: "incorreta" }),
+  });
+  assert.equal(limitedLogin.status, 429);
+  const operationsAfterAttack = await api(baseUrl, "/api/admin/operations", adminCookie);
+  assert.equal(operationsAfterAttack.status, 200);
+  assert.ok((await operationsAfterAttack.json()).incidents.some(
+    (incident) => incident.eventType === "login_rate_limited",
+  ));
 });
 
 test("token de recuperação expira após um uso e troca a senha", async (t) => {

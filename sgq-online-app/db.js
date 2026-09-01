@@ -2,6 +2,7 @@ const crypto = require("crypto");
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
+const { isDeepStrictEqual } = require("util");
 
 const databaseUrl = process.env.DATABASE_URL || "";
 const usePostgres = Boolean(databaseUrl) && process.env.SGQ_DATABASE_MODE !== "local";
@@ -2426,6 +2427,94 @@ async function getRecoveryBackupSnapshot() {
   };
 }
 
+async function testRecoveryRestore(snapshot) {
+  await ensureInitialized();
+  const normalizedSnapshot = JSON.parse(JSON.stringify(snapshot));
+  const expectedCounts = {
+    companies: normalizedSnapshot.companies.length,
+    users: normalizedSnapshot.users.length,
+    records: normalizedSnapshot.companyData.length,
+  };
+
+  if (!usePostgres) {
+    const restoreDir = fs.mkdtempSync(path.join(os.tmpdir(), "sgq-restore-test-"));
+    const restorePath = path.join(restoreDir, "restored.json");
+    try {
+      fs.writeFileSync(restorePath, JSON.stringify(normalizedSnapshot));
+      const restored = JSON.parse(fs.readFileSync(restorePath, "utf8"));
+      if (!isDeepStrictEqual(restored, normalizedSnapshot)) throw new Error("backup_restore_content_mismatch");
+      return { ok: true, mode: "isolated-file", counts: expectedCounts, testedAt: timestamp() };
+    } finally {
+      fs.rmSync(restoreDir, { recursive: true, force: true });
+    }
+  }
+
+  const client = await getPool().connect();
+  const schema = `restore_test_${crypto.randomBytes(8).toString("hex")}`;
+  const qualified = (table) => `"${schema}".${table}`;
+  try {
+    await client.query(`CREATE SCHEMA "${schema}"`);
+    await client.query(`
+      CREATE TABLE ${qualified("companies")} (
+        id BIGINT PRIMARY KEY,
+        payload JSONB NOT NULL
+      );
+      CREATE TABLE ${qualified("users")} (
+        id BIGINT PRIMARY KEY,
+        company_id BIGINT NOT NULL REFERENCES ${qualified("companies")}(id) ON DELETE CASCADE,
+        payload JSONB NOT NULL
+      );
+      CREATE TABLE ${qualified("company_data")} (
+        company_id BIGINT NOT NULL REFERENCES ${qualified("companies")}(id) ON DELETE CASCADE,
+        data_key TEXT NOT NULL,
+        payload JSONB NOT NULL,
+        PRIMARY KEY (company_id, data_key)
+      );
+    `);
+
+    for (const company of normalizedSnapshot.companies) {
+      await client.query(`INSERT INTO ${qualified("companies")} (id, payload) VALUES ($1, $2::jsonb)`, [
+        Number(company.id),
+        JSON.stringify(company),
+      ]);
+    }
+    for (const user of normalizedSnapshot.users) {
+      await client.query(
+        `INSERT INTO ${qualified("users")} (id, company_id, payload) VALUES ($1, $2, $3::jsonb)`,
+        [Number(user.id), Number(user.company_id), JSON.stringify(user)],
+      );
+    }
+    for (const row of normalizedSnapshot.companyData) {
+      await client.query(
+        `INSERT INTO ${qualified("company_data")} (company_id, data_key, payload) VALUES ($1, $2, $3::jsonb)`,
+        [Number(row.company_id), String(row.data_key), JSON.stringify(row)],
+      );
+    }
+
+    const [companies, users, companyData] = await Promise.all([
+      client.query(`SELECT payload FROM ${qualified("companies")} ORDER BY id`),
+      client.query(`SELECT payload FROM ${qualified("users")} ORDER BY id`),
+      client.query(`SELECT payload FROM ${qualified("company_data")} ORDER BY company_id, data_key`),
+    ]);
+    const restored = {
+      companies: companies.rows.map((row) => row.payload),
+      users: users.rows.map((row) => row.payload),
+      companyData: companyData.rows.map((row) => row.payload),
+    };
+    if (
+      !isDeepStrictEqual(restored.companies, normalizedSnapshot.companies) ||
+      !isDeepStrictEqual(restored.users, normalizedSnapshot.users) ||
+      !isDeepStrictEqual(restored.companyData, normalizedSnapshot.companyData)
+    ) {
+      throw new Error("backup_restore_content_mismatch");
+    }
+    return { ok: true, mode: "isolated-postgres-schema", counts: expectedCounts, testedAt: timestamp() };
+  } finally {
+    await client.query(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`).catch(() => null);
+    client.release();
+  }
+}
+
 async function getCompanyData(companyId, key) {
   await ensureInitialized();
 
@@ -2503,6 +2592,7 @@ module.exports = {
   getUserSecurity,
   getBackupSnapshot,
   getRecoveryBackupSnapshot,
+  testRecoveryRestore,
   getUser,
   listCompanyData,
   listCompanyUsers,

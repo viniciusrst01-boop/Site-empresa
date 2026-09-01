@@ -83,6 +83,18 @@ const seedState = {
     { code: "NC-001", title: "Documento obsoleto em uso", severity: "Média", status: "Aberta", owner: "SGQ" },
     { code: "NC-002", title: "Registro sem aprovação", severity: "Baixa", status: "Tratando", owner: "Qualidade" },
   ],
+  ncCatalogs: {
+    clientes: [
+      { id: "CLI-1", nome: "Metalúrgica Andrade Ltda", codigo: "CLI-001" },
+      { id: "CLI-2", nome: "Construtora Horizonte", codigo: "CLI-002" },
+    ],
+    fornecedores: [
+      { id: "FOR-1", nome: "Aços & Cia Distribuidora", codigo: "FOR-001" },
+      { id: "FOR-2", nome: "Calibra Metrologia", codigo: "FOR-002" },
+    ],
+    processos: ["Comercial", "Engenharia", "Compras", "Produção", "Inspeção", "Expedição"].map((nome, index) => ({ id: `PRO-${index + 1}`, nome })),
+    setores: ["Qualidade", "Produção", "Comercial", "Financeiro", "Logística"].map((nome, index) => ({ id: `SET-${index + 1}`, nome })),
+  },
   notifications: [
     "3 documentos aguardam aprovação.",
     "1 auditoria interna está próxima do prazo.",
@@ -895,9 +907,7 @@ function applyTheme() {
   const isLight = state.settings.theme === "light";
   document.body.classList.toggle("theme-light", isLight);
   document.querySelectorAll(".app-theme-logo").forEach((logo) => {
-    logo.src = isLight
-      ? "/assets/qualitypro-cloud-logo-light.png"
-      : "/assets/qualitypro-cloud-logo-transparent.png";
+    logo.src = "/assets/qualitypro-cloud-logo-app.png";
   });
 }
 
@@ -941,10 +951,12 @@ function render(view = "inicio") {
     view = "inicio";
   }
 
+  document.body.classList.toggle("home-dashboard", view === "inicio");
   setActiveNav(view);
   pageContent.classList.remove("risk-page-content");
   pageContent.classList.remove("context-page-content");
   pageContent.classList.remove("leadership-page-content");
+  pageContent.classList.remove("nc-page-content");
 
   const views = {
     inicio: renderInicio,
@@ -962,6 +974,7 @@ function render(view = "inicio") {
 
   const renderView = views[view] || renderInicio;
   renderView();
+  bindGlobalSearch(view);
   scrollPageToTop();
 }
 
@@ -981,73 +994,138 @@ function renderInicio() {
 function renderDashboardHtml() {
   const summary = dashboardSummary();
   const moduleCards = accessibleModules()
-    .map((module) => dashboardModuleCard(module, summary.modules[module.id]))
+    .slice(0, 6)
+    .map((module) => dashboardCompactModuleCard(module, summary.modules[module.id]))
     .join("");
+  const audits = state.audits || [];
+  const ncs = state.ncs || [];
+  const docs = state.documents || [];
+  const openNcs = ncs.filter((item) => !isClosedStatus(item.status));
+  const plannedAudits = audits.filter((item) => !isClosedStatus(item.status));
+  const pendingDocs = docs.filter((item) => item.status !== "Aprovado");
+  const certification = state.company.certification || "Não informada";
+  const dateLabel = new Intl.DateTimeFormat("pt-BR", {
+    weekday: "long",
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  }).format(new Date());
+  const tasks = dashboardTaskItems(openNcs, plannedAudits, pendingDocs);
+  const alerts = dashboardAlertItems(summary, openNcs, pendingDocs, certification);
 
   return `
-    ${pageDecorHtml()}
-    <div class="welcome-block">
-      <div class="welcome-eyebrow">PAINEL · SISTEMA DE GESTÃO DA QUALIDADE</div>
-      <h1 class="welcome-title">Olá, ${escapeHtml(firstName(currentUser?.name || "Usuário"))}!</h1>
-      <p class="welcome-sub">Aqui está um resumo do seu Sistema de Gestão.</p>
-    </div>
-
-    <div class="kpi-row">
-      <article class="kpi-card" style="--accent-line:#2f8ff0;">
-        <div class="kpi-top">
-          <div class="kpi-icon" style="border-color:rgba(47,143,240,0.4); color:#4fa3ff;">${moduleIcon("home")}</div>
+    <div class="home-v2">
+      <section class="home-v2-summary">
+        <header class="home-v2-welcome">
           <div>
-            <div class="kpi-label">Empresa</div>
-            <div class="kpi-value">${escapeHtml(state.company.name)}</div>
+            <h1>Olá, ${escapeHtml(firstName(currentUser?.name || "Usuário"))}!</h1>
+            <p>Aqui está um resumo do seu Sistema de Gestão.</p>
           </div>
+          <time>${escapeHtml(dateLabel)}</time>
+        </header>
+        <div class="home-v2-kpis">
+          ${dashboardCompanyKpi(state.company.name || "Sua empresa")}
+          ${dashboardKpi("modulos", "Registros do SGQ", summary.totalRecords, `${summary.openActions} ações ou itens em acompanhamento`, "#43a7ff", Math.min(100, summary.totalRecords * 2))}
+          ${dashboardKpi("auditorias", "Auditorias", audits.length, `${plannedAudits.length} em andamento ou planejamento`, "#9a75ff", audits.length ? Math.max(24, 100 - plannedAudits.length * 18) : 0)}
+          ${dashboardKpi("nao-conformidades", "Não conformidades", openNcs.length, `${openNcs.length} abertas ou em tratamento`, "#ffad32", ncs.length ? Math.round(((ncs.length - openNcs.length) / ncs.length) * 100) : 100)}
+          ${dashboardKpi("check-circle", "Certificação", certification, state.company.scope ? "Escopo definido no sistema" : "Complete os dados da empresa", "#27d8be", state.company.scope ? 82 : 30)}
         </div>
-        <button class="kpi-link" type="button" data-view-target="empresa">Ver dados da empresa ${moduleIcon("arrow")}</button>
-      </article>
+      </section>
 
-      <article class="kpi-card" style="--accent-line:#46D9F5;">
-        <div class="kpi-top">
-          <div class="kpi-icon" style="border-color:rgba(70,217,245,0.4); color:#46D9F5;">${moduleIcon("modulos")}</div>
-          <div>
-            <div class="kpi-label">Registros do SGQ</div>
-            <div class="kpi-value big">${summary.totalRecords}</div>
+      <div class="home-v2-layout">
+        <main class="home-v2-main">
+          <section class="home-v2-panel home-v2-modules">
+            <div class="home-v2-heading">
+              <div><h2>Meus módulos</h2><p>Acesse e gerencie os principais módulos do seu SGQ.</p></div>
+              <button type="button" data-view-target="modulos">Ver todos os módulos ${moduleIcon("arrow")}</button>
+            </div>
+            <div class="home-v2-module-grid">${moduleCards}</div>
+          </section>
+
+          <div class="home-v2-bottom-grid">
+            <section class="home-v2-panel home-v2-panorama">
+              <div class="home-v2-heading"><div><h2>Panorama do SGQ</h2><p>Distribuição atual dos registros que exigem atenção.</p></div></div>
+              ${dashboardPanoramaRow("Não conformidades", openNcs.length, Math.max(summary.openActions, 1), "#ffad32")}
+              ${dashboardPanoramaRow("Ações em acompanhamento", summary.openActions, Math.max(summary.openActions, 1), "#42a8ff")}
+              ${dashboardPanoramaRow("Auditorias planejadas", plannedAudits.length, Math.max(summary.openActions, 1), "#31d392")}
+            </section>
+            <section class="home-v2-panel home-v2-activity">
+              <div class="home-v2-heading"><div><h2>Visão rápida</h2><p>Últimos dados disponíveis no sistema.</p></div></div>
+              <div class="home-v2-activity-list">${dashboardActivityRows(docs, audits, ncs)}</div>
+            </section>
           </div>
-        </div>
-        <div class="kpi-caption">${summary.openActions} ações ou itens em acompanhamento</div>
-      </article>
+        </main>
 
-      <article class="kpi-card" style="--accent-line:#F2B705;">
-        <div class="kpi-top">
-          <div class="kpi-icon" style="border-color:rgba(242,183,5,0.4); color:#F2B705;">${moduleIcon("plano")}</div>
-          <div>
-            <div class="kpi-label">Plano contratado</div>
-            <div class="kpi-value">${escapeHtml(state.settings.companyAccess)}</div>
-          </div>
-        </div>
-        <button class="kpi-link" type="button" data-view-target="configuracoes">Ver detalhes do plano ${moduleIcon("arrow")}</button>
-      </article>
-
-      <article class="kpi-card" style="--accent-line:#34D399;">
-        <div class="kpi-top">
-          <div class="kpi-icon" style="border-color:rgba(52,211,153,0.4); color:#34D399;">${moduleIcon("check-circle")}</div>
-          <div>
-            <div class="kpi-label">Certificação</div>
-            <div class="kpi-value">${escapeHtml(state.company.certification)}</div>
-          </div>
-        </div>
-        <div class="kpi-caption">Escopo: ${escapeHtml(shortText(state.company.scope, 54))}</div>
-      </article>
-    </div>
-
-    <div class="modules-section">
-      <div class="section-hd">
-        <h2 class="section-title">Meus módulos</h2>
-        <p class="section-sub">Os cartões abaixo refletem os dados cadastrados nos módulos do QualityPro Cloud.</p>
-      </div>
-      <div class="modules-grid">
-        ${moduleCards}
+        <aside class="home-v2-rail">
+          <section class="home-v2-panel">
+            <div class="home-v2-heading"><h2>Minhas tarefas</h2><button type="button" data-view-target="relatorios">Ver todas</button></div>
+            <div class="home-v2-list">${tasks}</div>
+          </section>
+          <section class="home-v2-panel">
+            <div class="home-v2-heading"><h2>Alertas importantes</h2><button type="button" data-view-target="notificacoes">Ver todos</button></div>
+            <div class="home-v2-alerts">${alerts}</div>
+          </section>
+        </aside>
       </div>
     </div>
   `;
+}
+
+function dashboardCompanyKpi(companyName) {
+  return `<article class="home-v2-kpi home-v2-company-kpi" style="--home-accent:#43a7ff;">
+    <div class="home-v2-kpi-top"><span>${moduleIcon("home")}</span><div><small>Empresa</small><strong>${escapeHtml(companyName)}</strong></div></div>
+    <button class="home-v2-company-link" type="button" data-view-target="empresa">Ver dados da empresa ${moduleIcon("arrow")}</button>
+  </article>`;
+}
+
+function dashboardKpi(icon, label, value, caption, accent, progress) {
+  return `<article class="home-v2-kpi" style="--home-accent:${accent}; --home-progress:${Math.max(0, Math.min(100, progress))}%">
+    <div class="home-v2-kpi-top"><span>${moduleIcon(icon)}</span><div><small>${escapeHtml(label)}</small><strong>${escapeHtml(value)}</strong></div></div>
+    <p>${escapeHtml(caption)}</p><i><b></b></i>
+  </article>`;
+}
+
+function dashboardCompactModuleCard(module, info) {
+  const meta = info || { value: "0 registros", caption: "Aguardando dados cadastrados" };
+  return `<article class="home-v2-module" data-module-card="${module.id}" role="button" tabindex="0" style="--home-accent:${module.accent};">
+    <div class="home-v2-module-icon">${moduleIcon(module.id)}</div>
+    <div class="home-v2-module-copy"><h3>${escapeHtml(module.title)}</h3><p>${escapeHtml(module.desc)}</p></div>
+    <div class="home-v2-module-foot"><span>${escapeHtml(meta.value)}</span>${moduleIcon("arrow")}</div>
+  </article>`;
+}
+
+function dashboardTaskItems(openNcs, plannedAudits, pendingDocs) {
+  const items = [
+    ...openNcs.slice(0, 2).map((item) => ({ label: `Tratar ${item.id || item.code || "não conformidade"}`, meta: item.status || "Em aberto", color: "#ff646f", module: "nao-conformidades" })),
+    ...plannedAudits.slice(0, 1).map((item) => ({ label: item.title || "Auditoria planejada", meta: item.date ? formatDate(item.date) : item.status, color: "#ffad32", module: "auditorias" })),
+    ...pendingDocs.slice(0, 1).map((item) => ({ label: `Revisar ${item.code || item.title || "documento"}`, meta: item.status, color: "#43a7ff", module: "documentos" })),
+  ].slice(0, 4);
+  if (!items.length) return `<div class="home-v2-empty">Nenhuma tarefa pendente no momento.</div>`;
+  return items.map((item) => `<button type="button" data-module="${item.module}" style="--item-color:${item.color}"><i></i><span>${escapeHtml(item.label)}</span><small>${escapeHtml(item.meta || "")}</small></button>`).join("");
+}
+
+function dashboardAlertItems(summary, openNcs, pendingDocs, certification) {
+  const items = [
+    { icon: "nao-conformidades", value: `${openNcs.length} não conformidades em aberto`, detail: "Acompanhe análise de causa, ações e eficácia.", color: "#ffad32", module: "nao-conformidades" },
+    { icon: "info", value: `${summary.openActions} itens em acompanhamento`, detail: "Existem registros que precisam da sua atenção.", color: "#43a7ff", view: "relatorios" },
+    { icon: "check-circle", value: certification, detail: pendingDocs.length ? `${pendingDocs.length} documento(s) ainda aguardam aprovação.` : "Documentação principal aprovada.", color: "#31d392", module: "documentos" },
+  ];
+  return items.map((item) => `<button type="button" ${item.module ? `data-module="${item.module}"` : `data-view-target="${item.view}"`} style="--item-color:${item.color}"><span>${moduleIcon(item.icon)}</span><div><strong>${escapeHtml(item.value)}</strong><p>${escapeHtml(item.detail)}</p></div></button>`).join("");
+}
+
+function dashboardPanoramaRow(label, value, max, color) {
+  const width = value ? Math.max(8, Math.round((value / max) * 100)) : 0;
+  return `<div class="home-v2-bar"><div><span>${escapeHtml(label)}</span><strong>${value}</strong></div><i><b style="width:${width}%; background:${color}"></b></i></div>`;
+}
+
+function dashboardActivityRows(docs, audits, ncs) {
+  const rows = [
+    docs[0] && { icon: "documentos", label: `Documento: ${docs[0].code || docs[0].title}`, detail: docs[0].status, color: "#43a7ff", module: "documentos" },
+    audits[0] && { icon: "auditorias", label: audits[0].title || "Auditoria", detail: audits[0].status, color: "#31d392", module: "auditorias" },
+    ncs[0] && { icon: "nao-conformidades", label: ncs[0].id || ncs[0].code || "Não conformidade", detail: ncs[0].status, color: "#ffad32", module: "nao-conformidades" },
+  ].filter(Boolean);
+  if (!rows.length) return `<div class="home-v2-empty">Os registros recentes aparecerão aqui.</div>`;
+  return rows.map((row) => `<button type="button" data-module="${row.module}" style="--item-color:${row.color}"><span>${moduleIcon(row.icon)}</span><div><strong>${escapeHtml(row.label)}</strong><small>${escapeHtml(row.detail || "")}</small></div>${moduleIcon("arrow")}</button>`).join("");
 }
 
 function pageDecorHtml() {
@@ -1163,7 +1241,7 @@ function dashboardSummary() {
 }
 
 function isClosedStatus(status) {
-  return ["Aprovado", "Atingido", "Concluído", "Concluída", "Fechado", "Fechada", "Resolvido", "Resolvida"].includes(status);
+  return ["Aprovado", "Atingido", "Concluído", "Concluída", "Fechado", "Fechada", "Resolvido", "Resolvida", "Encerrado", "Encerrada"].includes(status);
 }
 
 function shortText(value, maxLength) {
@@ -1346,6 +1424,7 @@ function hexToRgba(hex, alpha) {
 }
 
 function renderModuleDetail(moduleId) {
+  document.body.classList.remove("home-dashboard");
   if (!canViewModule(moduleId)) {
     toast("Seu perfil não possui acesso a este módulo.");
     render("modulos");
@@ -1367,8 +1446,14 @@ function renderModuleDetail(moduleId) {
     return;
   }
 
+  if (moduleId === "nao-conformidades") {
+    renderNonConformityModule();
+    return;
+  }
+
   pageContent.classList.remove("risk-page-content");
   pageContent.classList.remove("context-page-content");
+  pageContent.classList.remove("nc-page-content");
   const module = modules.find((item) => item.id === moduleId) || modules[0];
   setTopbar(module.title, "Rotina operacional do módulo");
   pageContent.innerHTML = `
@@ -3440,6 +3525,389 @@ function refreshRiskScreen(message) {
   toast(message);
 }
 
+let ncMainTab = "controle";
+let ncSubTab = "clientes";
+let ncCurrentId = "";
+let ncFilters = { origem: "", referencia: "", processo: "", setor: "", gravidade: "", status: "", busca: "" };
+let ncDashYear = "todos";
+let ncDashDimension = "processo";
+
+const ncCatalogConfig = {
+  clientes: { title: "Clientes", prefix: "CLI", hasCode: true },
+  fornecedores: { title: "Fornecedores", prefix: "FOR", hasCode: true },
+  processos: { title: "Processo envolvido", prefix: "PRO", hasCode: false },
+  setores: { title: "Setor", prefix: "SET", hasCode: false },
+};
+
+function ncToday() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function ncDate(value) {
+  return value ? formatDate(value) : "-";
+}
+
+function ensureNcData() {
+  state.ncCatalogs = state.ncCatalogs && typeof state.ncCatalogs === "object"
+    ? state.ncCatalogs
+    : structuredClone(seedState.ncCatalogs);
+  Object.keys(ncCatalogConfig).forEach((key) => {
+    if (!Array.isArray(state.ncCatalogs[key])) state.ncCatalogs[key] = structuredClone(seedState.ncCatalogs[key]);
+  });
+  state.ncs = (Array.isArray(state.ncs) ? state.ncs : []).map((row, index) => {
+    if (row.dataOrigem || row.ishikawa || row.acoes) {
+      return {
+        ...row,
+        id: row.id || row.code || `RNC-${new Date().getFullYear()}-${String(index + 1).padStart(4, "0")}`,
+        ishikawa: { metodo: "", maquina: "", maoObra: "", material: "", medicao: "", meioAmbiente: "", causaRaiz: "", ...(row.ishikawa || {}) },
+        acoes: Array.isArray(row.acoes) ? row.acoes : [],
+        historico: Array.isArray(row.historico) ? row.historico : [],
+      };
+    }
+    return {
+      id: row.code || `RNC-${new Date().getFullYear()}-${String(index + 1).padStart(4, "0")}`,
+      dataOrigem: ncToday(), codigoItem: row.code || "", origem: "Interno", origemRef: "",
+      setor: row.owner || "Qualidade", processo: "Qualidade", gravidade: row.severity === "Alta" ? "Maior" : row.severity === "Baixa" ? "Menor" : "Média",
+      reincidente: false, descricao: row.title || "Não conformidade migrada", status: "Aguardando análise",
+      ishikawa: { metodo: "", maquina: "", maoObra: "", material: "", medicao: "", meioAmbiente: "", causaRaiz: "" },
+      acoes: [], eficaciaIniciadaEm: "", encerradoEm: "",
+      historico: [{ ts: new Date().toISOString(), texto: "Registro migrado para o novo módulo de Não Conformidades." }],
+    };
+  });
+  state.ncs.forEach(ncRecalculateStatus);
+}
+
+async function saveNcData(message = "Alterações salvas.") {
+  if (!canEditModule("nao-conformidades")) {
+    toast("Seu perfil possui acesso somente para visualização.");
+    return false;
+  }
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  const saved = await saveRemoteData("state", state, "nao-conformidades");
+  toast(saved ? message : "Não foi possível salvar no banco.");
+  return saved;
+}
+
+function ncActionCounts(rnc) {
+  const actions = rnc.acoes || [];
+  return {
+    total: actions.length,
+    done: actions.filter((action) => action.status === "Concluída").length,
+    late: actions.filter((action) => action.status !== "Concluída" && action.prazo && action.prazo < ncToday()).length,
+  };
+}
+
+function ncRecalculateStatus(rnc) {
+  if (rnc.encerradoEm) return void (rnc.status = "Encerrado");
+  const counts = ncActionCounts(rnc);
+  if (!counts.total) {
+    rnc.status = "Aguardando análise";
+    rnc.eficaciaIniciadaEm = "";
+  } else if (counts.done < counts.total) {
+    rnc.status = "Ações em andamento";
+    rnc.eficaciaIniciadaEm = "";
+  } else {
+    rnc.status = "Aguardando eficácia";
+    rnc.eficaciaIniciadaEm ||= [...(rnc.acoes || [])].map((action) => action.concluidaEm).filter(Boolean).sort().pop() || ncToday();
+  }
+}
+
+function ncAddHistory(rnc, text) {
+  rnc.historico ||= [];
+  rnc.historico.push({ ts: new Date().toISOString(), texto: text });
+}
+
+function ncNextNumber() {
+  const year = new Date().getFullYear();
+  const max = state.ncs.reduce((value, row) => {
+    const match = String(row.id || "").match(new RegExp(`^RNC-${year}-(\\d+)$`));
+    return Math.max(value, Number(match?.[1] || 0));
+  }, 0);
+  return `RNC-${year}-${String(max + 1).padStart(4, "0")}`;
+}
+
+function ncStatusHtml(status) {
+  const cls = status === "Encerrado" ? "st-encerrado" : status === "Aguardando eficácia" ? "st-eficacia" : status === "Ações em andamento" ? "st-andamento" : "st-aguard";
+  return `<span class="status-pill ${cls}"><span class="status-dot2"></span>${escapeHtml(status)}</span>`;
+}
+
+function ncSeverityHtml(value) {
+  const cls = value === "Maior" ? "grav-maior" : value === "Menor" ? "grav-menor" : "grav-media";
+  return `<span class="grav-chip ${cls}">${escapeHtml(value || "Média")}</span>`;
+}
+
+function renderNonConformityModule() {
+  ensureNcData();
+  setTopbar("Não Conformidades", "Registro, tratamento e eficácia de RNCs");
+  pageContent.classList.remove("risk-page-content", "context-page-content", "leadership-page-content");
+  pageContent.classList.add("nc-page-content");
+  pageContent.innerHTML = `
+    <div class="breadcrumb"><button type="button" data-view-target="modulos">Meus módulos</button><span>›</span><strong>Não Conformidades</strong></div>
+    <div class="page-toolbar"><div><div class="welcome-eyebrow">MELHORIA · NÃO CONFORMIDADES</div><h1 class="welcome-title">Não Conformidades</h1><p class="welcome-sub">Registro, análise de causa, ações corretivas, avaliação de eficácia e rastreabilidade de RNCs.</p></div></div>
+    <div id="ncKpis"></div>
+    <div class="ctx-tabs" id="ncMainTabs">
+      ${[["cadastros", "Cadastros"], ["registrar", "Registrar NC"], ["controle", "Controle"], ["dashboards", "Dashboards"]].map(([id, label]) => `<button class="ctx-tab ${ncMainTab === id ? "active" : ""}" data-nc-tab="${id}" type="button">${label}</button>`).join("")}
+    </div>
+    <div class="subtab-row" id="ncSubTabs"></div><div id="ncTabContent"></div><div id="ncModalMount"></div>`;
+  pageContent.querySelectorAll("[data-nc-tab]").forEach((button) => button.addEventListener("click", () => {
+    ncMainTab = button.dataset.ncTab;
+    renderNonConformityModule();
+  }));
+  bindViewTargetButtons();
+  renderNcKpis();
+  renderNcTab();
+  scrollPageToTop();
+}
+
+function renderNcKpis() {
+  const open = state.ncs.filter((row) => row.status !== "Encerrado").length;
+  const awaiting = state.ncs.filter((row) => row.status === "Aguardando análise").length;
+  const actions = state.ncs.flatMap((row) => row.acoes || []);
+  const running = actions.filter((row) => row.status !== "Concluída").length;
+  const late = actions.filter((row) => row.status !== "Concluída" && row.prazo && row.prazo < ncToday()).length;
+  const closed = state.ncs.filter((row) => row.status === "Encerrado").length;
+  pageContent.querySelector("#ncKpis").innerHTML = `<div class="kpi-row">
+    ${ncKpi("RNCs em aberto", open, `${awaiting} aguardando análise`, "#F87171", "nao-conformidades")}
+    ${ncKpi("Ações em andamento", running, "ações corretivas não concluídas", "#FBBF24", "plano")}
+    ${ncKpi("Ações atrasadas", late, "prazo vencido", "#fb923c", "notificacoes")}
+    ${ncKpi("Encerradas", closed, "eficácia comprovada", "#34D399", "auditorias")}
+  </div>`;
+}
+
+function ncKpi(label, value, caption, color, icon) {
+  return `<article class="kpi-card" style="--accent-line:${color}"><div class="kpi-top"><div class="kpi-icon" style="border-color:${hexToRgba(color, .4)};color:${color}">${moduleIcon(icon)}</div><div><div class="kpi-label">${label}</div><div class="kpi-value big">${value}</div></div></div><div class="kpi-caption">${caption}</div></article>`;
+}
+
+function renderNcTab() {
+  const sub = pageContent.querySelector("#ncSubTabs");
+  sub.innerHTML = ncMainTab === "cadastros" ? Object.entries(ncCatalogConfig).map(([id, cfg]) => `<button class="subtab-pill ${ncSubTab === id ? "active" : ""}" data-nc-subtab="${id}" type="button">${cfg.title}</button>`).join("") : "";
+  sub.hidden = ncMainTab !== "cadastros";
+  sub.querySelectorAll("[data-nc-subtab]").forEach((button) => button.addEventListener("click", () => { ncSubTab = button.dataset.ncSubtab; renderNcTab(); }));
+  const content = pageContent.querySelector("#ncTabContent");
+  if (ncMainTab === "cadastros") content.innerHTML = ncCatalogHtml();
+  if (ncMainTab === "registrar") content.innerHTML = ncRegisterHtml();
+  if (ncMainTab === "controle") content.innerHTML = ncControlHtml();
+  if (ncMainTab === "dashboards") content.innerHTML = ncDashboardHtml();
+  bindNcTabActions();
+}
+
+function ncCatalogHtml() {
+  const cfg = ncCatalogConfig[ncSubTab];
+  const rows = state.ncCatalogs[ncSubTab];
+  return `<section class="dcc"><div class="dcc-hd"><div><h2 class="dcc-title">${cfg.title}</h2><p class="dcc-sub">Cadastros utilizados no registro de não conformidades.</p></div>${canEditModule("nao-conformidades") ? `<button class="btn-grad" data-nc-new-catalog type="button">${moduleIcon("plus")} Inserir novo</button>` : ""}</div><div class="nc-table-wrap"><table class="ctxtbl"><thead><tr><th>Nome</th>${cfg.hasCode ? "<th>Código interno</th>" : ""}<th>Ações</th></tr></thead><tbody>${rows.length ? rows.map((row) => `<tr><td><strong>${escapeHtml(row.nome)}</strong></td>${cfg.hasCode ? `<td class="mono">${escapeHtml(row.codigo || "-")}</td>` : ""}<td>${canEditModule("nao-conformidades") ? `<div class="row-actions"><button class="abtn" data-nc-edit-catalog="${row.id}" title="Editar">${moduleIcon("edit")}</button><button class="abtn danger" data-nc-delete-catalog="${row.id}" title="Excluir">${moduleIcon("trash")}</button></div>` : "-"}</td></tr>`).join("") : `<tr><td colspan="3"><div class="empty-state">Nenhum registro cadastrado.</div></td></tr>`}</tbody></table></div></section>`;
+}
+
+function ncRegisterHtml() {
+  const options = (key) => state.ncCatalogs[key].map((row) => `<option value="${escapeHtml(row.nome)}">${escapeHtml(row.nome)}</option>`).join("");
+  const disabled = canEditModule("nao-conformidades") ? "" : "disabled";
+  return `<section class="form-card"><h2 class="dcc-title">Registrar Não Conformidade</h2><p class="dcc-sub nc-form-intro">O número é gerado automaticamente · próximo: <strong class="mono">${ncNextNumber()}</strong></p>
+    <div class="field-row2"><label class="field">Data de origem<input class="input-basic" id="ncData" type="date" value="${ncToday()}" ${disabled}></label><label class="field">Código do item<input class="input-basic" id="ncItem" placeholder="Ex.: PRD-4471" ${disabled}></label></div>
+    <div class="field-row2"><label class="field">Origem<select class="input-basic" id="ncOrigin" ${disabled}><option value="">Selecione...</option><option>Interno</option><option>Fornecedor</option><option>Cliente</option></select></label><label class="field" id="ncReferenceWrap" hidden>Referência<select class="input-basic" id="ncReference" ${disabled}></select></label></div>
+    <div class="field-row2"><label class="field">Setor<select class="input-basic" id="ncSector" ${disabled}><option value="">Selecione...</option>${options("setores")}</select></label><label class="field">Processo envolvido<select class="input-basic" id="ncProcess" ${disabled}><option value="">Selecione...</option>${options("processos")}</select></label></div>
+    <label class="field">Gravidade<select class="input-basic" id="ncSeverity" ${disabled}><option>Menor</option><option selected>Média</option><option>Maior</option></select></label><label class="field">Descrição da não conformidade<textarea class="input-basic" id="ncDescription" ${disabled}></textarea></label>
+    <label class="check-row"><input type="checkbox" id="ncRepeat" ${disabled}> Esta não conformidade é reincidente</label>
+    ${canEditModule("nao-conformidades") ? `<div class="form-actions"><button class="btn-danger-ghost" data-nc-clear type="button">Limpar</button><button class="btn-primary" data-nc-save type="button">Salvar NC</button></div>` : `<div class="banner-info">Seu perfil possui acesso somente para visualização.</div>`}
+  </section>`;
+}
+
+function ncControlHtml() {
+  const values = (key) => state.ncCatalogs[key].map((row) => row.nome);
+  const option = (items, selected) => `<option value="">Todos</option>${items.map((item) => `<option ${selected === item ? "selected" : ""}>${escapeHtml(item)}</option>`).join("")}`;
+  const filtered = state.ncs.filter((row) => {
+    const haystack = `${row.id} ${row.codigoItem} ${row.descricao} ${row.origemRef} ${row.setor} ${row.processo}`.toLowerCase();
+    return (!ncFilters.origem || row.origem === ncFilters.origem) && (!ncFilters.referencia || row.origemRef === ncFilters.referencia) && (!ncFilters.processo || row.processo === ncFilters.processo) && (!ncFilters.setor || row.setor === ncFilters.setor) && (!ncFilters.gravidade || row.gravidade === ncFilters.gravidade) && (!ncFilters.status || row.status === ncFilters.status) && (!ncFilters.busca || haystack.includes(ncFilters.busca.toLowerCase()));
+  }).sort((a, b) => String(b.id).localeCompare(String(a.id)));
+  return `<div class="filter-bar">
+    ${ncFilterSelect("origem", "Origem", ["Interno", "Fornecedor", "Cliente"])}
+    ${ncFilterSelect("referencia", "Cliente / Fornecedor", [...values("clientes"), ...values("fornecedores")])}
+    ${ncFilterSelect("processo", "Processo", values("processos"))}${ncFilterSelect("setor", "Setor", values("setores"))}
+    ${ncFilterSelect("gravidade", "Gravidade", ["Menor", "Média", "Maior"])}${ncFilterSelect("status", "Status", ["Aguardando análise", "Ações em andamento", "Aguardando eficácia", "Encerrado"])}
+    <label class="fg search">Busca livre<input class="input-basic" data-nc-filter="busca" value="${escapeHtml(ncFilters.busca)}" placeholder="Número, item, descrição..."></label><div class="filter-clear"><button data-nc-clear-filters type="button">Limpar filtros</button></div></div>
+    <section class="dcc"><div class="dcc-hd"><div><h2 class="dcc-title">Controle de RNCs</h2><p class="dcc-sub">${filtered.length} registro(s) · clique no número para abrir</p></div>${canEditModule("nao-conformidades") ? `<button class="btn-grad" data-nc-go-register type="button">${moduleIcon("plus")} Registrar NC</button>` : ""}</div><div class="nc-table-wrap"><table class="ctxtbl nc-control-table"><thead><tr><th>Número</th><th>Data</th><th>Origem</th><th>Qual?</th><th>Setor</th><th>Status</th><th>Ações</th><th>Atrasadas</th></tr></thead><tbody>${filtered.length ? filtered.map((row) => { const count = ncActionCounts(row); return `<tr><td><button class="rnc-link" data-nc-open="${row.id}" type="button">${escapeHtml(row.id)}</button></td><td class="mono">${ncDate(row.dataOrigem)}</td><td><span class="mchip ${row.origem === "Cliente" ? "mchip-blue" : row.origem === "Fornecedor" ? "mchip-purple" : "mchip-gray"}">${escapeHtml(row.origem)}</span></td><td class="desc-cell">${escapeHtml(row.origemRef || "Problema interno")}</td><td>${escapeHtml(row.setor)}</td><td>${ncStatusHtml(row.status)}</td><td class="mono">${count.done}/${count.total}</td><td><span class="atrasadas-badge ${count.late ? "atrasadas-n" : "atrasadas-0"}">${count.late}</span></td></tr>`; }).join("") : `<tr><td colspan="8"><div class="empty-state">Nenhum RNC encontrado.</div></td></tr>`}</tbody></table></div></section>`;
+}
+
+function ncFilterSelect(key, label, items) {
+  return `<label class="fg">${label}<select class="input-basic" data-nc-filter="${key}"><option value="">Todos</option>${items.map((item) => `<option ${ncFilters[key] === item ? "selected" : ""}>${escapeHtml(item)}</option>`).join("")}</select></label>`;
+}
+
+function bindNcTabActions() {
+  pageContent.querySelector("[data-nc-new-catalog]")?.addEventListener("click", () => openNcCatalogModal());
+  pageContent.querySelectorAll("[data-nc-edit-catalog]").forEach((button) => button.addEventListener("click", () => openNcCatalogModal(button.dataset.ncEditCatalog)));
+  pageContent.querySelectorAll("[data-nc-delete-catalog]").forEach((button) => button.addEventListener("click", () => deleteNcCatalog(button.dataset.ncDeleteCatalog)));
+  pageContent.querySelector("#ncOrigin")?.addEventListener("change", updateNcReference);
+  pageContent.querySelector("[data-nc-save]")?.addEventListener("click", saveNewNc);
+  pageContent.querySelector("[data-nc-clear]")?.addEventListener("click", () => { ncMainTab = "registrar"; renderNcTab(); });
+  pageContent.querySelectorAll("[data-nc-filter]").forEach((field) => field.addEventListener(field.tagName === "INPUT" ? "input" : "change", () => { ncFilters[field.dataset.ncFilter] = field.value; renderNcTab(); }));
+  pageContent.querySelector("[data-nc-clear-filters]")?.addEventListener("click", () => { ncFilters = { origem: "", referencia: "", processo: "", setor: "", gravidade: "", status: "", busca: "" }; renderNcTab(); });
+  pageContent.querySelector("[data-nc-go-register]")?.addEventListener("click", () => { ncMainTab = "registrar"; renderNonConformityModule(); });
+  pageContent.querySelectorAll("[data-nc-open]").forEach((button) => button.addEventListener("click", () => openNcDetail(button.dataset.ncOpen)));
+  pageContent.querySelectorAll("[data-nc-dash]").forEach((field) => field.addEventListener("change", () => { if (field.dataset.ncDash === "year") ncDashYear = field.value; else ncDashDimension = field.value; renderNcTab(); }));
+  pageContent.querySelector("[data-nc-transmit]")?.addEventListener("click", transmitNcDashboard);
+}
+
+function updateNcReference() {
+  const origin = pageContent.querySelector("#ncOrigin")?.value;
+  const wrap = pageContent.querySelector("#ncReferenceWrap");
+  const select = pageContent.querySelector("#ncReference");
+  if (!wrap || !select) return;
+  wrap.hidden = origin === "Interno" || !origin;
+  const key = origin === "Cliente" ? "clientes" : "fornecedores";
+  select.innerHTML = `<option value="">Selecione...</option>${state.ncCatalogs[key].map((row) => `<option>${escapeHtml(row.nome)}</option>`).join("")}`;
+}
+
+async function saveNewNc() {
+  if (!canEditModule("nao-conformidades")) return;
+  const value = (selector) => pageContent.querySelector(selector)?.value.trim() || "";
+  const origin = value("#ncOrigin");
+  const reference = value("#ncReference");
+  if (!origin || (!reference && origin !== "Interno") || !value("#ncSector") || !value("#ncProcess") || !value("#ncDescription")) return void toast("Preencha os campos obrigatórios.");
+  const rnc = { id: ncNextNumber(), dataOrigem: value("#ncData") || ncToday(), codigoItem: value("#ncItem"), origem: origin, origemRef: origin === "Interno" ? "" : reference, setor: value("#ncSector"), processo: value("#ncProcess"), gravidade: value("#ncSeverity"), reincidente: pageContent.querySelector("#ncRepeat")?.checked || false, descricao: value("#ncDescription"), status: "Aguardando análise", ishikawa: { metodo: "", maquina: "", maoObra: "", material: "", medicao: "", meioAmbiente: "", causaRaiz: "" }, acoes: [], eficaciaIniciadaEm: "", encerradoEm: "", historico: [] };
+  ncAddHistory(rnc, `RNC aberta por ${currentUser?.name || "Usuário"}.`);
+  state.ncs.push(rnc);
+  if (await saveNcData(`${rnc.id} registrado com sucesso.`)) { ncMainTab = "controle"; renderNonConformityModule(); }
+}
+
+function openNcCatalogModal(id = "") {
+  const cfg = ncCatalogConfig[ncSubTab];
+  const row = state.ncCatalogs[ncSubTab].find((item) => item.id === id);
+  mountNcModal(`<div class="modal-box"><div class="modal-hd"><div><h3>${row ? "Editar" : "Novo"} · ${cfg.title}</h3><p>Cadastro utilizado no registro de RNC</p></div><button class="modal-close" data-nc-close>${moduleIcon("close")}</button></div><input id="ncCatalogId" type="hidden" value="${escapeHtml(id)}"><label class="field">Nome<input class="input-basic" id="ncCatalogName" value="${escapeHtml(row?.nome || "")}"></label>${cfg.hasCode ? `<label class="field">Código interno<input class="input-basic" id="ncCatalogCode" value="${escapeHtml(row?.codigo || "")}"></label>` : ""}<div class="modal-actions"><button class="btn-ghost" data-nc-close>Cancelar</button><button class="btn-primary" id="ncCatalogSave">Salvar</button></div></div>`);
+  document.querySelector("#ncCatalogSave")?.addEventListener("click", saveNcCatalog);
+}
+
+async function saveNcCatalog() {
+  const cfg = ncCatalogConfig[ncSubTab];
+  const rows = state.ncCatalogs[ncSubTab];
+  const id = document.querySelector("#ncCatalogId")?.value;
+  const nome = document.querySelector("#ncCatalogName")?.value.trim();
+  if (!nome) return void toast("Informe o nome.");
+  const record = { id: id || `${cfg.prefix}-${Date.now()}`, nome, ...(cfg.hasCode ? { codigo: document.querySelector("#ncCatalogCode")?.value.trim() || "" } : {}) };
+  const index = rows.findIndex((item) => item.id === id);
+  if (index >= 0) rows[index] = record; else rows.push(record);
+  closeNcModal(); await saveNcData("Cadastro salvo."); renderNcTab();
+}
+
+async function deleteNcCatalog(id) {
+  if (!window.confirm("Excluir este cadastro?")) return;
+  state.ncCatalogs[ncSubTab] = state.ncCatalogs[ncSubTab].filter((item) => item.id !== id);
+  await saveNcData("Cadastro excluído."); renderNcTab();
+}
+
+function mountNcModal(html) {
+  const mount = document.querySelector("#ncModalMount");
+  mount.innerHTML = `<div class="modal-overlay show nc-modal-overlay">${html}</div>`;
+  mount.querySelectorAll("[data-nc-close]").forEach((button) => button.addEventListener("click", closeNcModal));
+  mount.querySelector(".modal-overlay")?.addEventListener("click", (event) => { if (event.target.classList.contains("modal-overlay")) closeNcModal(); });
+}
+
+function closeNcModal() {
+  const mount = document.querySelector("#ncModalMount");
+  if (mount) mount.innerHTML = "";
+}
+
+function openNcDetail(id) {
+  ncCurrentId = id;
+  const rnc = state.ncs.find((row) => row.id === id);
+  if (!rnc) return;
+  ncRecalculateStatus(rnc);
+  const count = ncActionCounts(rnc);
+  const ish = rnc.ishikawa || {};
+  const ishFilled = Object.values(ish).some(Boolean);
+  const history = [...(rnc.historico || [])].sort((a, b) => new Date(a.ts) - new Date(b.ts));
+  const actionRows = (rnc.acoes || []).map((action) => `<div class="acao-item"><div class="acao-item-hd"><div><div class="acao-item-desc">${escapeHtml(action.desc)}</div><div class="acao-item-meta"><span>Prazo: <b>${ncDate(action.prazo)}</b></span><span>Responsável: <b>${escapeHtml(action.responsavel)}</b></span>${action.evidencia ? `<span>Arquivo: <b>${escapeHtml(action.evidencia)}</b></span>` : ""}</div></div>${ncStatusHtml(action.status === "Concluída" ? "Encerrado" : "Ações em andamento")}</div></div>`).join("");
+  const days = rnc.eficaciaIniciadaEm ? Math.floor((Date.now() - new Date(`${rnc.eficaciaIniciadaEm}T00:00:00`).getTime()) / 86400000) : 0;
+  mountNcModal(`<div class="modal-box xwide nc-rnc-modal"><div class="modal-hd"><div><h3>${escapeHtml(rnc.id)}</h3><p>Registro de Não Conformidade · ${escapeHtml(rnc.status)}</p></div><div class="nc-modal-tools"><button class="btn-sm" id="ncPrint">${moduleIcon("download")} Imprimir PDF</button><button class="modal-close" data-nc-close>${moduleIcon("close")}</button></div></div>
+    <div class="rnc-detail-grid">${[["Data de origem", ncDate(rnc.dataOrigem)], ["Código do item", rnc.codigoItem || "-"], ["Origem", rnc.origem === "Interno" ? "Interno" : `${rnc.origem} · ${rnc.origemRef}`], ["Setor", rnc.setor], ["Processo", rnc.processo], ["Gravidade", rnc.gravidade], ["Status", rnc.status], ["Reincidente", rnc.reincidente ? "Sim" : "Não"], ["Ações", `${count.done}/${count.total}`]].map(([label, value]) => `<div class="detail-item"><div class="l">${label}</div><div class="v">${escapeHtml(value)}</div></div>`).join("")}</div>
+    <section class="rnc-section"><div class="rnc-section-hd"><h4>Descrição da não conformidade</h4></div><p>${escapeHtml(rnc.descricao)}</p></section>
+    <section class="rnc-section"><div class="rnc-section-hd"><h4>Análise de causa · Ishikawa <span class="num">6M</span></h4>${canEditModule("nao-conformidades") ? `<button class="btn-sm" id="ncEditIsh">${moduleIcon("edit")} Editar análise</button>` : ""}</div>${ishFilled ? `<div class="ishikawa-grid">${[["Método", ish.metodo], ["Máquina", ish.maquina], ["Mão de obra", ish.maoObra], ["Material", ish.material], ["Medição", ish.medicao], ["Meio ambiente", ish.meioAmbiente]].map(([label, value]) => `<div class="ishikawa-cell"><div class="m-label">${label}</div><div class="m-text">${escapeHtml(value || "-")}</div></div>`).join("")}</div>${ish.causaRaiz ? `<div class="causa-raiz-box"><div class="crlabel">Conclusão / Causa raiz</div><div class="crtext">${escapeHtml(ish.causaRaiz)}</div></div>` : ""}` : `<div class="empty-state">Análise de causa ainda não preenchida.</div>`}</section>
+    <section class="rnc-section"><div class="rnc-section-hd"><h4>Ações corretivas <span class="num">${count.done}/${count.total}</span></h4>${canEditModule("nao-conformidades") ? `<button class="btn-sm" id="ncManageActions">${moduleIcon("edit")} Gerenciar ações</button>` : ""}</div>${actionRows || `<div class="empty-state">Nenhuma ação cadastrada.</div>`}</section>
+    <section class="rnc-section"><div class="rnc-section-hd"><h4>Avaliação de eficácia</h4>${canEditModule("nao-conformidades") && rnc.status === "Aguardando eficácia" ? `<button class="btn-sm grad" id="ncCloseRnc">Encerrar RNC</button>` : ""}</div><div class="banner-info ${rnc.status === "Encerrado" ? "banner-success" : rnc.status === "Aguardando eficácia" ? "banner-warn" : ""}">${rnc.status === "Encerrado" ? `Eficácia comprovada e RNC encerrado em ${ncDate(rnc.encerradoEm)}.` : rnc.status === "Aguardando eficácia" ? `${Math.max(0, 30 - days)} dia(s) restantes no período de avaliação de 30 dias.` : "A avaliação começa quando todas as ações forem concluídas."}</div></section>
+    <section class="rnc-section"><div class="rnc-section-hd"><h4>Histórico e rastreabilidade</h4></div><div class="timeline">${history.map((item) => `<div class="tl-item"><div class="tl-dot"></div><div class="tl-time">${formatDateTime(item.ts)}</div><div class="tl-text">${escapeHtml(String(item.texto || "").replace(/<[^>]+>/g, ""))}</div></div>`).join("") || `<div class="empty-state">Sem registros no histórico.</div>`}</div></section></div>`);
+  document.querySelector("#ncPrint")?.addEventListener("click", () => window.print());
+  document.querySelector("#ncEditIsh")?.addEventListener("click", openNcIshikawa);
+  document.querySelector("#ncManageActions")?.addEventListener("click", openNcActions);
+  document.querySelector("#ncCloseRnc")?.addEventListener("click", closeNcRnc);
+}
+
+function openNcIshikawa() {
+  const row = state.ncs.find((item) => item.id === ncCurrentId); const ish = row?.ishikawa || {};
+  mountNcModal(`<div class="modal-box wide"><div class="modal-hd"><div><h3>Análise de Causa · Ishikawa 6M</h3><p>${escapeHtml(ncCurrentId)}</p></div><button class="modal-close" data-nc-close>${moduleIcon("close")}</button></div><div class="field-row2">${[["metodo", "Método"], ["maquina", "Máquina"], ["maoObra", "Mão de obra"], ["material", "Material"], ["medicao", "Medição"], ["meioAmbiente", "Meio ambiente"]].map(([key, label]) => `<label class="field">${label}<textarea class="input-basic" data-ish="${key}">${escapeHtml(ish[key] || "")}</textarea></label>`).join("")}</div><label class="field">Conclusão / Causa raiz<textarea class="input-basic" data-ish="causaRaiz">${escapeHtml(ish.causaRaiz || "")}</textarea></label><div class="modal-actions"><button class="btn-danger-ghost" id="ncClearIsh">Limpar</button><button class="btn-primary" id="ncSaveIsh">Salvar análise</button></div></div>`);
+  document.querySelector("#ncClearIsh")?.addEventListener("click", () => document.querySelectorAll("[data-ish]").forEach((field) => { field.value = ""; }));
+  document.querySelector("#ncSaveIsh")?.addEventListener("click", saveNcIshikawa);
+}
+
+async function saveNcIshikawa() {
+  const row = state.ncs.find((item) => item.id === ncCurrentId); if (!row) return;
+  row.ishikawa = Object.fromEntries([...document.querySelectorAll("[data-ish]")].map((field) => [field.dataset.ish, field.value.trim()]));
+  ncAddHistory(row, `${currentUser?.name || "Usuário"} atualizou a análise de causa Ishikawa.`);
+  await saveNcData("Análise de causa salva."); openNcDetail(row.id);
+}
+
+function ncResponsibleOptions(selected = "") {
+  const names = [...new Set([currentUser?.name, ...(state.users || []).map((user) => user.name), "Hugo Melo", "Carlos Andrade", "Marina Souza"].filter(Boolean))];
+  return names.map((name) => `<option ${name === selected ? "selected" : ""}>${escapeHtml(name)}</option>`).join("");
+}
+
+function openNcActions(editId = "") {
+  const row = state.ncs.find((item) => item.id === ncCurrentId); if (!row) return;
+  const edit = (row.acoes || []).find((item) => item.id === editId);
+  const list = (row.acoes || []).map((action) => `<div class="acao-item"><div class="acao-item-hd"><div><div class="acao-item-desc">${escapeHtml(action.desc)}</div><div class="acao-item-meta">Prazo: ${ncDate(action.prazo)} · ${escapeHtml(action.responsavel)} · ${escapeHtml(action.status)}</div></div><div class="row-actions"><button class="abtn" data-action-edit="${action.id}" title="Editar">${moduleIcon("edit")}</button><button class="abtn danger" data-action-delete="${action.id}" title="Excluir">${moduleIcon("trash")}</button></div></div></div>`).join("");
+  mountNcModal(`<div class="modal-box wide"><div class="modal-hd"><div><h3>Ações Corretivas</h3><p>${escapeHtml(row.id)}</p></div><button class="modal-close" data-nc-close>${moduleIcon("close")}</button></div>${list || `<div class="empty-state">Nenhuma ação cadastrada.</div>`}<div class="nc-action-form"><input id="ncActionId" type="hidden" value="${escapeHtml(editId)}"><label class="field">Ação<textarea class="input-basic" id="ncActionDesc">${escapeHtml(edit?.desc || "")}</textarea></label><div class="field-row3"><label class="field">Prazo<input class="input-basic" id="ncActionDue" type="date" value="${escapeHtml(edit?.prazo || "")}"></label><label class="field">Responsável<select class="input-basic" id="ncActionOwner">${ncResponsibleOptions(edit?.responsavel)}</select></label><label class="field">Status<select class="input-basic" id="ncActionStatus"><option ${edit?.status === "Pendente" ? "selected" : ""}>Pendente</option><option ${edit?.status === "Em andamento" ? "selected" : ""}>Em andamento</option><option ${edit?.status === "Concluída" ? "selected" : ""}>Concluída</option></select></label></div><label class="field">Evidência<input class="input-basic" id="ncActionEvidence" type="file"><small id="ncEvidenceName">${escapeHtml(edit?.evidencia || "Nenhum arquivo selecionado")}</small></label><div class="modal-actions"><button class="btn-ghost" id="ncResetAction">Cancelar edição</button><button class="btn-primary" id="ncSaveAction">Salvar ação</button></div></div></div>`);
+  document.querySelectorAll("[data-action-edit]").forEach((button) => button.addEventListener("click", () => openNcActions(button.dataset.actionEdit)));
+  document.querySelectorAll("[data-action-delete]").forEach((button) => button.addEventListener("click", () => deleteNcAction(button.dataset.actionDelete)));
+  document.querySelector("#ncResetAction")?.addEventListener("click", () => openNcActions());
+  document.querySelector("#ncSaveAction")?.addEventListener("click", saveNcAction);
+}
+
+async function saveNcAction() {
+  const row = state.ncs.find((item) => item.id === ncCurrentId); if (!row) return;
+  const id = document.querySelector("#ncActionId")?.value; const desc = document.querySelector("#ncActionDesc")?.value.trim();
+  if (!desc) return void toast("Descreva a ação.");
+  const existing = (row.acoes || []).find((item) => item.id === id); const status = document.querySelector("#ncActionStatus")?.value;
+  const file = document.querySelector("#ncActionEvidence")?.files?.[0];
+  if (file && file.size > 5 * 1024 * 1024) return void toast("O arquivo deve ter no máximo 5 MB.");
+  const action = { id: id || `AC-${Date.now()}`, desc, prazo: document.querySelector("#ncActionDue")?.value || "", responsavel: document.querySelector("#ncActionOwner")?.value || "", status, evidencia: file?.name || existing?.evidencia || "", concluidaEm: status === "Concluída" ? existing?.concluidaEm || ncToday() : "" };
+  row.acoes ||= []; const index = row.acoes.findIndex((item) => item.id === id); if (index >= 0) row.acoes[index] = action; else row.acoes.push(action);
+  ncRecalculateStatus(row); ncAddHistory(row, `${currentUser?.name || "Usuário"} ${existing ? "atualizou" : "criou"} uma ação corretiva.`);
+  await saveNcData("Ação corretiva salva."); openNcActions(); renderNcKpis();
+}
+
+async function deleteNcAction(id) {
+  if (!window.confirm("Excluir esta ação corretiva?")) return;
+  const row = state.ncs.find((item) => item.id === ncCurrentId); if (!row) return;
+  row.acoes = (row.acoes || []).filter((item) => item.id !== id); ncRecalculateStatus(row); ncAddHistory(row, `${currentUser?.name || "Usuário"} excluiu uma ação corretiva.`);
+  await saveNcData("Ação excluída."); openNcActions(); renderNcKpis();
+}
+
+async function closeNcRnc() {
+  const row = state.ncs.find((item) => item.id === ncCurrentId); if (!row || !window.confirm("Confirmar eficácia e encerrar este RNC?")) return;
+  row.encerradoEm = ncToday(); ncRecalculateStatus(row); ncAddHistory(row, `${currentUser?.name || "Usuário"} confirmou a eficácia e encerrou o RNC.`);
+  await saveNcData("RNC encerrado."); openNcDetail(row.id); renderNcKpis();
+}
+
+function ncAggregate() {
+  const rows = ncDashYear === "todos" ? state.ncs : state.ncs.filter((row) => String(row.dataOrigem || "").startsWith(ncDashYear));
+  const dimensions = { processo: {}, setor: {}, origem: {}, gravidade: {}, referencia: {} };
+  rows.forEach((row) => Object.entries({ processo: row.processo, setor: row.setor, origem: row.origem, gravidade: row.gravidade, referencia: row.origemRef || "Interno" }).forEach(([key, value]) => { dimensions[key][value || "-"] = (dimensions[key][value || "-"] || 0) + 1; }));
+  const actions = rows.flatMap((row) => row.acoes || []);
+  return { rows, dimensions, actions, closed: rows.filter((row) => row.status === "Encerrado").length, open: rows.filter((row) => row.status !== "Encerrado").length, major: rows.filter((row) => row.gravidade === "Maior").length, repeat: rows.filter((row) => row.reincidente).length };
+}
+
+function ncDashboardHtml() {
+  const agg = ncAggregate(); const years = [...new Set(state.ncs.map((row) => String(row.dataOrigem || "").slice(0, 4)).filter(Boolean))].sort().reverse();
+  const data = Object.entries(agg.dimensions[ncDashDimension] || {}).sort((a, b) => b[1] - a[1]); const max = Math.max(1, ...data.map(([, value]) => value));
+  const status = ["Aguardando análise", "Ações em andamento", "Aguardando eficácia", "Encerrado"].map((name) => [name, agg.rows.filter((row) => row.status === name).length]);
+  return `<div class="dash-toolbar"><label class="fg">Ano<select class="input-basic" data-nc-dash="year"><option value="todos">Todos os anos</option>${years.map((year) => `<option ${ncDashYear === year ? "selected" : ""}>${year}</option>`).join("")}</select></label><button class="btn-transmit" data-nc-transmit type="button"><span class="live-dot"></span>${moduleIcon("external")} Transmitir</button></div><div class="dash-cards">${[["Total de RNCs", agg.rows.length, `${agg.open} abertas`], ["Gravidade maior", agg.major, "maior severidade"], ["Reincidentes", agg.repeat, "atenção especial"], ["Taxa de encerramento", agg.rows.length ? `${Math.round(agg.closed / agg.rows.length * 100)}%` : "0%", "eficácia comprovada"]].map(([label, value, caption], index) => `<article class="dash-solid-card dash-color-${index}"><div class="sc-label">${label}</div><div class="sc-value">${value}</div><div class="sc-caption">${caption}</div></article>`).join("")}</div><div class="chart-grid"><section class="chart-card full"><div class="chart-card-hd"><div><h4>Gráfico de Pareto</h4><div class="sub">Frequência por dimensão</div></div><select class="input-basic" data-nc-dash="dimension">${[["processo", "Processo"], ["setor", "Setor"], ["origem", "Origem"], ["gravidade", "Gravidade"], ["referencia", "Cliente/Fornecedor"]].map(([value, label]) => `<option value="${value}" ${ncDashDimension === value ? "selected" : ""}>${label}</option>`).join("")}</select></div><div class="nc-bars">${data.map(([label, value]) => `<div class="nc-bar-row"><span>${escapeHtml(label)}</span><div><i style="width:${value / max * 100}%"></i></div><strong>${value}</strong></div>`).join("") || `<div class="empty-state">Sem dados para o período.</div>`}</div></section><section class="chart-card"><div class="chart-card-hd"><h4>Status dos RNCs</h4></div><div class="nc-status-chart">${status.map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${value}</strong></div>`).join("")}</div></section><section class="chart-card"><div class="chart-card-hd"><h4>Ações corretivas</h4></div><div class="nc-status-chart"><div><span>Concluídas</span><strong>${agg.actions.filter((row) => row.status === "Concluída").length}</strong></div><div><span>Pendentes</span><strong>${agg.actions.filter((row) => row.status !== "Concluída").length}</strong></div><div><span>Atrasadas</span><strong>${agg.actions.filter((row) => row.status !== "Concluída" && row.prazo < ncToday()).length}</strong></div></div></section></div>`;
+}
+
+function transmitNcDashboard() {
+  const html = document.querySelector("#ncTabContent")?.innerHTML || "";
+  const popup = window.open("", "_blank", "width=1440,height=900");
+  if (!popup) return void toast("Permita pop-ups para abrir o painel de transmissão.");
+  popup.opener = null;
+  popup.document.write(`<!doctype html><html lang="pt-BR"><head><title>Painel de Não Conformidades</title><link rel="stylesheet" href="${location.origin}/styles.css"></head><body class="nc-tv"><main class="page-content nc-page-content"><h1>${escapeHtml(state.company.name)} · Não Conformidades</h1>${html}</main></body></html>`);
+  popup.document.close();
+}
+
 function renderOperationalTable(moduleId) {
   if (moduleId === "documentos") {
     return dataTable("Documentos cadastrados", ["Código", "Título", "Versão", "Status", "Responsável"], state.documents);
@@ -4490,13 +4958,13 @@ async function saveCompanyUser() {
     return;
   }
 
+  const isEditing = Boolean(editingCompanyUserId);
   const currentPassword = await confirmSensitiveAction(
     isEditing ? "Atualizar acesso do usuário" : "Convidar novo usuário",
   );
   if (!currentPassword) return;
 
   const method = editingCompanyUserId ? "PATCH" : "POST";
-  const isEditing = Boolean(editingCompanyUserId);
   const body = {
     userId: editingCompanyUserId,
     username,
@@ -4823,7 +5291,15 @@ function operationsPanelHtml(operations) {
         ${operationHealthItem("Banco de dados", services.database?.ok, services.database?.ok ? `${services.database.latencyMs} ms` : "Indisponível")}
         ${operationHealthItem("Cobrança Stripe", services.billing?.ok, services.billing?.ok ? "Configurada" : "Não configurada")}
         ${operationHealthItem("Backup automático", services.backup?.ok, services.backup?.mode || "Indisponível")}
-        ${operationHealthItem("E-mail", services.email?.ok, services.email?.ok ? "Configurado" : "Não configurado")}
+        ${operationHealthItem(
+          "E-mail e alertas",
+          services.email?.ok && services.email?.operationalAlertsConfigured,
+          !services.email?.ok
+            ? "Envio não configurado"
+            : services.email?.operationalAlertsConfigured
+              ? "Envio e destinatário configurados"
+              : "Falta o destinatário dos incidentes",
+        )}
       </div>
       <div class="operations-columns">
         <div>
@@ -4867,8 +5343,9 @@ function operationHealthItem(label, ok, detail) {
 
 function backupStatusBadge(backup) {
   const verified = backup.verificationStatus === "verified";
+  const restoreTested = backup.metadata?.restoreTest?.ok === true;
   const failed = backup.status === "failed" || backup.verificationStatus === "failed";
-  const label = failed ? "Falhou" : verified ? "Verificado" : "Pendente";
+  const label = failed ? "Falhou" : restoreTested ? "Restauração testada" : verified ? "Verificado" : "Pendente";
   return `<span class="status-pill ${failed ? "s-danger" : verified ? "s-ok" : "s-prog"}"><span class="status-dot2"></span>${label}</span>`;
 }
 
@@ -5144,7 +5621,7 @@ async function runAdminBackup() {
     toast("Não foi possível concluir o backup.");
     return;
   }
-  toast("Backup criado e verificado.");
+  toast("Backup criado e restauração isolada testada.");
   await renderGerenciamento();
 }
 
@@ -5163,7 +5640,7 @@ async function verifyAdminBackup(snapshotId) {
     return;
   }
   const counts = result.counts || {};
-  toast(`Backup íntegro: ${counts.companies || 0} empresa(s), ${counts.users || 0} usuário(s).`);
+  toast(`Restauração isolada concluída: ${counts.companies || 0} empresa(s), ${counts.users || 0} usuário(s).`);
   await renderGerenciamento();
 }
 
@@ -5624,7 +6101,7 @@ async function renderConfiguracoes() {
         <span>Tema do sistema</span>
         <select name="theme">
           <option value="dark" ${state.settings.theme !== "light" ? "selected" : ""}>Escuro</option>
-          <option value="light" ${state.settings.theme === "light" ? "selected" : ""}>Claro azul/branco</option>
+          <option value="light" ${state.settings.theme === "light" ? "selected" : ""}>Claro azul</option>
         </select>
       </label>
       <label class="check-row"><input name="emailAlerts" type="checkbox" ${state.settings.emailAlerts ? "checked" : ""} /> <span>Enviar alertas por e-mail</span></label>
@@ -5804,6 +6281,42 @@ function metric(label, value) {
   `;
 }
 
+function bindGlobalSearch(view) {
+  const search = document.querySelector("#dashboardGlobalSearch");
+  if (!search) return;
+
+  search.value = "";
+  search.oninput = () => {
+    if (view !== "inicio") return;
+    const query = search.value.trim().toLocaleLowerCase("pt-BR");
+    document.querySelectorAll(".home-v2-module").forEach((card) => {
+      card.hidden = Boolean(query) && !card.textContent.toLocaleLowerCase("pt-BR").includes(query);
+    });
+  };
+  search.onkeydown = (event) => {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    const query = search.value.trim().toLocaleLowerCase("pt-BR");
+    if (!query) return;
+
+    if (view === "inicio") {
+      const visibleCard = document.querySelector(".home-v2-module:not([hidden])");
+      if (visibleCard) return void visibleCard.click();
+    }
+
+    const matchingModule = accessibleModules().find((module) =>
+      `${module.title} ${module.desc}`.toLocaleLowerCase("pt-BR").includes(query),
+    );
+    if (matchingModule) return void renderModuleDetail(matchingModule.id);
+
+    const matchingNav = [...document.querySelectorAll(".nav-item")].find((item) =>
+      item.textContent.toLocaleLowerCase("pt-BR").includes(query),
+    );
+    if (matchingNav?.dataset.view) return void render(matchingNav.dataset.view);
+    toast("Nenhum módulo ou tela encontrado para essa busca.");
+  };
+}
+
 function bindDashboardActions() {
   bindModuleCards();
   bindViewTargetButtons();
@@ -5814,6 +6327,7 @@ function bindDashboardActions() {
       render(link.textContent.includes("empresa") ? "empresa" : "relatorios");
     });
   });
+
 }
 
 function bindModuleButtons() {

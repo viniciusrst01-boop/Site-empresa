@@ -5,7 +5,9 @@
   "scripts": {
     "dev": "node server.js",
     "start": "node server.js",
-    "test": "node --test"
+    "test": "node --test test/app.integration.test.js",
+    "test:browser": "playwright test",
+    "test:all": "npm test && npm run test:browser"
   },
   "dependencies": {
     "@vercel/blob": "^2.8.0",
@@ -21,5 +23,8 @@
   },
   "engines": {
     "node": ">=20"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.1"
   }
 }

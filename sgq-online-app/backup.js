@@ -144,10 +144,12 @@ async function readBackupArtifact(record) {
   return fs.promises.readFile(record.storageKey);
 }
 
-async function verifyBackupArtifact(record) {
+async function verifyBackupArtifact(record, options = {}) {
   const envelope = await readBackupArtifact(record);
   const decoded = decodeSnapshot(envelope, record.checksum);
-  return { ok: true, checksum: decoded.checksum, counts: validateSnapshot(decoded.snapshot) };
+  const counts = validateSnapshot(decoded.snapshot);
+  const restoreTest = options.restoreTest ? await options.restoreTest(decoded.snapshot) : null;
+  return { ok: true, checksum: decoded.checksum, counts, restoreTest };
 }
 
 async function deleteBackupArtifact(record) {
