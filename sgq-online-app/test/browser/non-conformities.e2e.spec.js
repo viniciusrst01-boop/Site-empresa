@@ -103,6 +103,12 @@ test("módulo de não conformidades mantém o fluxo funcional", async ({ page },
   await rncLink.click();
   await expect(page.getByText("ITEM-E2E-EDITADO", { exact: true })).toBeVisible();
   await expect(page.getByText("Descrição atualizada pelo teste de navegador", { exact: true })).toBeVisible();
+  const printDisplay = await page.locator("#ncPrint").evaluate((button) => getComputedStyle(button).display);
+  expect(["flex", "inline-flex"]).toContain(printDisplay);
+  await expect(page.locator("#ncPrint")).toHaveCSS("border-radius", "7px");
+  await expect(page.locator("#ncPrint")).not.toHaveCSS("background-color", "rgb(239, 239, 239)");
+  await expect(page.locator(".nc-modal-tools .modal-close")).toHaveCSS("width", "36px");
+  await page.screenshot({ path: testInfo.outputPath("rnc-detail-buttons.png"), fullPage: true });
 
   await page.locator("#ncEditIsh").click();
   await page.locator('[data-ish="metodo"]').fill("Procedimento de inspeção incompleto");

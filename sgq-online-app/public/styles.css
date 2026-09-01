@@ -4844,6 +4844,44 @@ body.theme-light .home-v2-alerts > button {
 .nc-modal-overlay .modal-box.wide { width: min(860px, 100%); }
 .nc-modal-overlay .modal-box.xwide { width: min(1120px, 100%); }
 .nc-modal-tools { display: flex; align-items: center; gap: 8px; }
+.nc-modal-overlay .btn-sm {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 1px solid var(--border-strong);
+  border-radius: 7px;
+  padding: 7px 12px;
+  background: rgba(255, 255, 255, .025);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: border-color .18s ease, background .18s ease, color .18s ease, filter .18s ease;
+}
+.nc-modal-overlay .btn-sm .icon { width: 15px; height: 15px; }
+.nc-modal-overlay .btn-sm:hover {
+  border-color: rgba(56, 189, 248, .55);
+  background: rgba(56, 189, 248, .08);
+  color: var(--accent-blue-bright);
+}
+.nc-modal-overlay .btn-sm.grad {
+  border-color: transparent;
+  background: var(--accent-gradient);
+  color: #fff;
+}
+.nc-modal-overlay .btn-sm.grad:hover { color: #fff; filter: brightness(1.08); }
+.nc-modal-tools .modal-close {
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border-strong);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, .025);
+}
+.nc-modal-tools .modal-close .icon { width: 16px; height: 16px; }
+.nc-modal-tools .modal-close:hover { border-color: rgba(248, 113, 113, .5); background: rgba(248, 113, 113, .08); color: var(--accent-red); }
 .rnc-detail-grid {
   display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px;
   margin-bottom: 18px; overflow: hidden; border: 1px solid var(--border-subtle);
