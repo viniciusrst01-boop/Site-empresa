@@ -4995,11 +4995,11 @@ body.theme-light .home-v2-alerts > button {
 .nc-tv { min-width: 1000px; background: var(--bg-deep); }
 .nc-tv .page-content { margin: 0 auto; padding: 32px; }
 
-body.theme-light .nc-page-content .dcc,
-body.theme-light .nc-page-content .form-card,
-body.theme-light .nc-page-content .chart-card,
-body.theme-light .detail-item,
-body.theme-light .nc-status-chart > div { background: rgba(248, 252, 255, .98); }
+body.theme-white .nc-page-content .dcc,
+body.theme-white .nc-page-content .form-card,
+body.theme-white .nc-page-content .chart-card,
+body.theme-white .detail-item,
+body.theme-white .nc-status-chart > div { background: rgba(248, 252, 255, .98); }
 
 /* Módulo de não conformidades em uma única viewport */
 @media (min-width: 981px) {
@@ -5944,4 +5944,273 @@ body.theme-white .tb-badge {
 body.theme-white .btn-support {
   background: rgba(255, 255, 255, .03);
   color: #fff;
+}
+
+/* ===================== RESPONSIVE COMPACT SHELL ===================== */
+@media (min-width: 721px) and (max-width: 980px) {
+  .sidebar {
+    width: 78px;
+    padding: 12px 8px;
+  }
+
+  .sb-logo-row {
+    margin-bottom: 14px;
+    padding: 4px 0 14px;
+  }
+
+  .sb-logo-img {
+    width: 54px;
+    max-width: 54px;
+    object-fit: contain;
+    object-position: left center;
+  }
+
+  .sb-section-label,
+  .sb-help-card {
+    display: none;
+  }
+
+  .sb-nav {
+    gap: 7px;
+  }
+
+  .nav-item {
+    justify-content: center;
+    min-height: 44px;
+    padding: 10px;
+    border-radius: 12px;
+    font-size: 0;
+  }
+
+  .nav-item .icon {
+    width: 21px;
+    height: 21px;
+  }
+
+  .topbar {
+    height: 56px;
+    padding: 0 14px;
+  }
+
+  .topbar-search {
+    width: min(360px, 34vw);
+    height: 36px;
+    margin-right: 12px;
+  }
+
+  .tb-user-info {
+    max-width: 130px;
+  }
+
+  .tb-user-info strong,
+  .tb-role {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  body.home-dashboard .page-content {
+    height: calc(100vh - 56px);
+    padding: 10px;
+  }
+}
+
+@media (max-width: 900px) {
+  .page-content {
+    padding: 18px 14px 24px;
+  }
+
+  .welcome-title {
+    font-size: clamp(24px, 5vw, 34px);
+    line-height: 1.08;
+  }
+
+  .welcome-sub {
+    max-width: 100%;
+    font-size: 13px;
+  }
+
+  .kpi-row,
+  .context-kpi-row,
+  .users-kpi-row,
+  .mymods-kpi-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .kpi-card {
+    min-height: 92px;
+    padding: 13px;
+  }
+
+  .topbar-title {
+    max-width: 42vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 720px) {
+  .topbar-left {
+    flex: 1 1 auto;
+  }
+
+  .topbar-search {
+    width: min(42vw, 220px);
+    height: 34px;
+    margin: 0 6px;
+    padding: 0 9px;
+  }
+
+  .topbar-search .icon {
+    width: 15px;
+    height: 15px;
+  }
+
+  .tb-user {
+    padding: 0;
+  }
+
+  .user-menu {
+    right: 0;
+    width: min(230px, calc(100vw - 16px));
+  }
+
+  .home-v2-kpis {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .home-v2-kpi:nth-child(n+4) {
+    display: none;
+  }
+
+  .home-v2-module-grid {
+    gap: 6px;
+  }
+
+  .home-v2-module-foot {
+    display: none;
+  }
+
+  .company-page-content,
+  .users-page-content,
+  .modules-page-content,
+  .nc-page-content,
+  .leadership-page-content,
+  .context-page-content,
+  .risk-page-content {
+    padding: 16px 12px 24px;
+    overflow: visible;
+  }
+
+  .company-toolbar,
+  .users-page-content .company-toolbar,
+  .modules-page-content .mymods-toolbar,
+  .context-toolbar {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .company-toolbar .btn-grad,
+  .users-page-content .company-toolbar .btn-grad {
+    width: 100%;
+  }
+
+  .emp-tabbar,
+  .ctx-tabs,
+  .subtab-row,
+  .company-tabs {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    padding-bottom: 2px;
+  }
+
+  .emp-tab-btn,
+  .ctx-tab,
+  .subtab-pill {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  .field-row2,
+  .field-row3,
+  .ef-form-grid,
+  .users-kpi-row,
+  .mymods-kpi-row,
+  .context-kpi-row {
+    grid-template-columns: 1fr;
+  }
+
+  .users-table-wrap,
+  .risk-table-wrap,
+  .ctx-table-wrap {
+    overflow-x: auto;
+  }
+
+  .utbl,
+  .ctxtbl {
+    min-width: 680px;
+  }
+}
+
+@media (max-width: 480px) {
+  .topbar {
+    gap: 8px;
+  }
+
+  .topbar-search {
+    display: none;
+  }
+
+  .topbar-title {
+    max-width: 56vw;
+    font-size: 14px;
+  }
+
+  .tb-avatar {
+    width: 32px;
+    height: 32px;
+  }
+
+  body.home-dashboard .page-content {
+    padding: 7px;
+  }
+
+  .home-v2 {
+    gap: 7px;
+  }
+
+  .home-v2-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .home-v2-kpi:nth-child(3) {
+    display: none;
+  }
+
+  .home-v2-module-grid {
+    grid-template-columns: 1fr;
+    grid-template-rows: repeat(6, minmax(0, 1fr));
+  }
+
+  .home-v2-module {
+    min-height: 0;
+    grid-template-columns: 28px minmax(0, 1fr);
+    padding: 6px 7px;
+  }
+
+  .home-v2-module-icon {
+    width: 28px;
+    height: 28px;
+  }
+
+  .home-v2-module-copy h3 {
+    font-size: 11px;
+  }
+
+  .app-footer {
+    font-size: 10px;
+  }
 }

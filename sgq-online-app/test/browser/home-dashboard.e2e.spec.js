@@ -48,6 +48,40 @@ test("página inicial ocupa a viewport sem rolagem", async ({ page }, testInfo) 
   await page.screenshot({ path: testInfo.outputPath("home-dashboard-mobile.png") });
 });
 
+test("página inicial compacta em larguras menores", async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1024, height: 768 });
+  await login(page);
+  await finishOnboardingIfNeeded(page);
+
+  for (const size of [
+    { width: 1024, height: 768, name: "tablet-landscape" },
+    { width: 768, height: 760, name: "tablet-compact" },
+    { width: 480, height: 760, name: "phone-wide" },
+    { width: 360, height: 740, name: "phone-narrow" },
+  ]) {
+    await page.setViewportSize(size);
+    await expectDashboardWithoutScroll(page);
+    await expect(page.locator(".home-v2")).toBeVisible();
+
+    const shell = await page.evaluate(() => {
+      const sidebar = document.querySelector(".sidebar");
+      const search = document.querySelector(".topbar-search");
+      const firstModule = document.querySelector(".home-v2-module");
+      return {
+        sidebarWidth: sidebar ? sidebar.getBoundingClientRect().width : 0,
+        searchDisplay: search ? getComputedStyle(search).display : "none",
+        moduleWidth: firstModule ? firstModule.getBoundingClientRect().width : 0,
+      };
+    });
+
+    expect(shell.moduleWidth).toBeGreaterThan(0);
+    if (size.width === 768) expect(shell.sidebarWidth).toBeLessThanOrEqual(90);
+    if (size.width <= 480) expect(shell.searchDisplay).toBe("none");
+
+    await page.screenshot({ path: testInfo.outputPath(`home-responsive-${size.name}.png`) });
+  }
+});
+
 test("menu e cabeçalho mantêm o mesmo layout entre as telas", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await login(page);
