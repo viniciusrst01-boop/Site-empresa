@@ -824,22 +824,16 @@ function renderUserMenu() {
 
   const items = currentUser.isAdmin
     ? [
-        ["Painel de gerenciamento", "gerenciamento"],
-        ["Clientes e planos", "gerenciamento"],
-        ["Usuários do sistema", "gerenciamento"],
-        ["Segurança da conta", "perfil"],
-        ["Configurações globais", "configuracoes"],
+        ["Meu perfil", "perfil"],
+        ["Minhas permissões", "permissoes"],
+        ["Gerenciar usuários", "gerenciamento"],
+        ["Preferências", "configuracoes"],
       ]
     : [
-        ["Página inicial", "inicio"],
-        ...(accessibleModules().length ? [["Meus módulos", "modulos"]] : []),
-        ...(currentUser.permissions?.reports === false ? [] : [["Relatórios", "relatorios"]]),
         ["Meu perfil", "perfil"],
         ["Minhas permissões", "permissoes"],
         ...(canManageUsers() ? [["Gerenciar usuários", "usuarios"]] : []),
-        ["Dados da empresa", "empresa"],
         ["Preferências", "configuracoes"],
-        ["Central de ajuda", "ajuda"],
       ];
 
   const menu = document.createElement("div");
