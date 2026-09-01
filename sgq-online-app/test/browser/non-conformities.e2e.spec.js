@@ -31,7 +31,7 @@ test("módulo de não conformidades mantém o fluxo funcional", async ({ page },
   await page.locator('[data-module-card="nao-conformidades"]').first().click();
   await expect(page.locator(".topbar-title")).toHaveText("Não Conformidades");
   await expect(page.locator(".breadcrumb .cur")).toHaveText("Não Conformidades");
-  await expect(page.getByRole("button", { name: /Abrir painel na TV/ })).toBeVisible();
+  await expect(page.getByRole("link", { name: /Abrir painel na TV/ })).toBeVisible();
   await expect(page.locator("body")).not.toHaveClass(/home-dashboard/);
 
   await page.getByRole("button", { name: "Cadastros" }).click();
@@ -138,9 +138,9 @@ test("módulo de não conformidades mantém o fluxo funcional", async ({ page },
   await page.getByRole("button", { name: "Dashboards" }).click();
   await expectCompactNcFrame(page);
   await expect(page.getByRole("heading", { name: "Gráfico de Pareto" })).toBeVisible();
-  await expect(page.getByRole("button", { name: /Transmitir/ })).toBeVisible();
+  await expect(page.getByRole("link", { name: /Transmitir/ })).toBeVisible();
   const tvPagePromise = page.waitForEvent("popup");
-  await page.getByRole("button", { name: /Transmitir/ }).click();
+  await page.getByRole("link", { name: /Transmitir/ }).click();
   const tvPage = await tvPagePromise;
   await tvPage.waitForLoadState("domcontentloaded");
   await expect(tvPage).toHaveURL(/\/nc-tv\?/);

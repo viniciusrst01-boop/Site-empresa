@@ -915,7 +915,9 @@ function saveRemoteData(key, value, moduleId = "") {
 
 function applyTheme() {
   const isLight = state.settings.theme === "light";
+  const isWhite = state.settings.theme === "white";
   document.body.classList.toggle("theme-light", isLight);
+  document.body.classList.toggle("theme-white", isWhite);
   document.querySelectorAll(".app-theme-logo").forEach((logo) => {
     logo.src = "/assets/qualitypro-cloud-logo-app.png";
   });
@@ -3660,13 +3662,30 @@ function ncSeverityHtml(value) {
   return `<span class="grav-chip ${cls}">${escapeHtml(value || "Média")}</span>`;
 }
 
+function ncTvUrl() {
+  const params = new URLSearchParams({ ano: ncDashYear, dim: ncDashDimension });
+  return `/nc-tv?${params}`;
+}
+
+function replaceNcTvButtonWithLink(button) {
+  if (!button) return;
+  const link = document.createElement("a");
+  link.className = button.className;
+  link.href = ncTvUrl();
+  link.target = "_blank";
+  link.rel = "noopener";
+  link.dataset.ncTransmit = "";
+  link.innerHTML = button.innerHTML;
+  button.replaceWith(link);
+}
+
 function renderNonConformityModule() {
   ensureNcData();
   pageContent.classList.remove("risk-page-content", "context-page-content", "leadership-page-content");
   pageContent.classList.add("nc-page-content");
   pageContent.innerHTML = `
     ${moduleHeaderHtml("nao-conformidades", {
-      actions: `<div class="toolbar-actions"><button class="btn-transmit" data-nc-tv type="button"><span class="live-dot"></span>${moduleIcon("external")} Abrir painel na TV</button></div>`,
+      actions: `<div class="toolbar-actions"><a class="btn-transmit" data-nc-tv href="${ncTvUrl()}" target="_blank" rel="noopener"><span class="live-dot"></span>${moduleIcon("external")} Abrir painel na TV</a></div>`,
     })}
     <div id="ncKpis"></div>
     <div class="ctx-tabs" id="ncMainTabs">
@@ -3678,7 +3697,6 @@ function renderNonConformityModule() {
     renderNonConformityModule();
   }));
   bindViewTargetButtons();
-  pageContent.querySelector("[data-nc-tv]")?.addEventListener("click", openNcTvDashboard);
   renderNcKpis();
   renderNcTab();
   scrollPageToTop();
@@ -3779,7 +3797,7 @@ function bindNcTabActions() {
   pageContent.querySelectorAll("[data-nc-edit]").forEach((button) => button.addEventListener("click", () => openNcEdit(button.dataset.ncEdit)));
   pageContent.querySelectorAll("[data-nc-delete]").forEach((button) => button.addEventListener("click", () => deleteNc(button.dataset.ncDelete)));
   pageContent.querySelectorAll("[data-nc-dash]").forEach((field) => field.addEventListener("change", () => { if (field.dataset.ncDash === "year") ncDashYear = field.value; else ncDashDimension = field.value; renderNcTab(); }));
-  pageContent.querySelector("[data-nc-transmit]")?.addEventListener("click", transmitNcDashboard);
+  replaceNcTvButtonWithLink(pageContent.querySelector("[data-nc-transmit]"));
 }
 
 function updateNcReference() {
@@ -3999,17 +4017,6 @@ function ncDashboardHtml() {
   const data = Object.entries(agg.dimensions[ncDashDimension] || {}).sort((a, b) => b[1] - a[1]); const max = Math.max(1, ...data.map(([, value]) => value));
   const status = ["Aguardando análise", "Ações em andamento", "Aguardando eficácia", "Encerrado"].map((name) => [name, agg.rows.filter((row) => row.status === name).length]);
   return `<div class="dash-toolbar"><label class="fg">Ano<select class="input-basic" data-nc-dash="year"><option value="todos">Todos os anos</option>${years.map((year) => `<option ${ncDashYear === year ? "selected" : ""}>${year}</option>`).join("")}</select></label><button class="btn-transmit" data-nc-transmit type="button"><span class="live-dot"></span>${moduleIcon("external")} Transmitir</button></div><div class="dash-cards">${[["Total de RNCs", agg.rows.length, `${agg.open} abertas`], ["Gravidade maior", agg.major, "maior severidade"], ["Reincidentes", agg.repeat, "atenção especial"], ["Taxa de encerramento", agg.rows.length ? `${Math.round(agg.closed / agg.rows.length * 100)}%` : "0%", "eficácia comprovada"]].map(([label, value, caption], index) => `<article class="dash-solid-card dash-color-${index}"><div class="sc-label">${label}</div><div class="sc-value">${value}</div><div class="sc-caption">${caption}</div></article>`).join("")}</div><div class="chart-grid"><section class="chart-card full"><div class="chart-card-hd"><div><h4>Gráfico de Pareto</h4><div class="sub">Frequência por dimensão</div></div><select class="input-basic" data-nc-dash="dimension">${[["processo", "Processo"], ["setor", "Setor"], ["origem", "Origem"], ["gravidade", "Gravidade"], ["referencia", "Cliente/Fornecedor"]].map(([value, label]) => `<option value="${value}" ${ncDashDimension === value ? "selected" : ""}>${label}</option>`).join("")}</select></div><div class="nc-bars">${data.map(([label, value]) => `<div class="nc-bar-row"><span>${escapeHtml(label)}</span><div><i style="width:${value / max * 100}%"></i></div><strong>${value}</strong></div>`).join("") || `<div class="empty-state">Sem dados para o período.</div>`}</div></section><section class="chart-card"><div class="chart-card-hd"><h4>Status dos RNCs</h4></div><div class="nc-status-chart">${status.map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${value}</strong></div>`).join("")}</div></section><section class="chart-card"><div class="chart-card-hd"><h4>Ações corretivas</h4></div><div class="nc-status-chart"><div><span>Concluídas</span><strong>${agg.actions.filter((row) => row.status === "Concluída").length}</strong></div><div><span>Pendentes</span><strong>${agg.actions.filter((row) => row.status !== "Concluída").length}</strong></div><div><span>Atrasadas</span><strong>${agg.actions.filter((row) => row.status !== "Concluída" && row.prazo < ncToday()).length}</strong></div></div></section></div>`;
-}
-
-function openNcTvDashboard() {
-  const params = new URLSearchParams({ ano: ncDashYear, dim: ncDashDimension });
-  const popup = window.open(`/nc-tv?${params}`, "qualitypro-nc-tv", "width=1600,height=900");
-  if (!popup) return void toast("Permita pop-ups para abrir o painel de transmissão.");
-  popup.focus();
-}
-
-function transmitNcDashboard() {
-  openNcTvDashboard();
 }
 
 function renderOperationalTable(moduleId) {
@@ -6214,8 +6221,9 @@ async function renderConfiguracoes() {
       <label>
         <span>Tema do sistema</span>
         <select name="theme">
-          <option value="dark" ${state.settings.theme !== "light" ? "selected" : ""}>Escuro</option>
+          <option value="dark" ${!state.settings.theme || state.settings.theme === "dark" ? "selected" : ""}>Escuro</option>
           <option value="light" ${state.settings.theme === "light" ? "selected" : ""}>Claro azul</option>
+          <option value="white" ${state.settings.theme === "white" ? "selected" : ""}>Claro</option>
         </select>
       </label>
       <label class="check-row"><input name="emailAlerts" type="checkbox" ${state.settings.emailAlerts ? "checked" : ""} /> <span>Enviar alertas por e-mail</span></label>
