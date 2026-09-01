@@ -286,6 +286,7 @@
 .nc-page-content .kpi-row { gap: 16px; margin-bottom: 30px; }
 .nc-page-content .kpi-card { min-height: 112px; padding: 20px 18px 18px; }
 .nc-page-content .kpi-value.big { font-size: 24px; line-height: 1.1; }
+.nc-page-content .kpi-caption { color: var(--accent-line); }
 
 .nc-page-content > .ctx-tabs {
   display: flex; gap: 8px; margin-bottom: 18px;
@@ -325,6 +326,21 @@
 .nc-page-content .ctxtbl tbody td { padding: 15px 18px; color: var(--text-secondary); }
 .nc-page-content .ctxtbl tbody td strong,
 .nc-page-content .ctxtbl tbody td.mono { color: var(--text-primary); }
+.nc-control-table { min-width: 1040px !important; table-layout: fixed; }
+.nc-control-table th:nth-child(1) { width: 11%; }
+.nc-control-table th:nth-child(2) { width: 10%; }
+.nc-control-table th:nth-child(3) { width: 11%; }
+.nc-control-table th:nth-child(4) { width: 12%; }
+.nc-control-table th:nth-child(5) { width: 10%; }
+.nc-control-table th:nth-child(6) { width: 18%; }
+.nc-control-table th:nth-child(7) { width: 8%; }
+.nc-control-table th:nth-child(8) { width: 8%; }
+.nc-control-table th:nth-child(9) { width: 12%; }
+.nc-page-content .nc-control-table thead th,
+.nc-page-content .nc-control-table tbody td { padding-right: 10px; padding-left: 10px; }
+.nc-control-table .status-pill { white-space: nowrap; }
+.nc-control-table .nc-row-actions { flex-wrap: nowrap; }
+.nc-edit-repeat { align-self: end; min-height: 42px; }
 
 .nc-page-content .form-card { max-width: 1040px; padding: 24px; }
 .nc-page-content .nc-register-form { width: 100%; max-width: none; }

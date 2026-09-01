@@ -1437,6 +1437,8 @@ function hexToRgba(hex, alpha) {
 
 function renderModuleDetail(moduleId) {
   document.body.classList.remove("home-dashboard");
+  activeView = "modulos";
+  setActiveNav("modulos");
   pageContent.classList.remove("company-page-content");
   pageContent.classList.remove("users-page-content");
   pageContent.classList.remove("modules-page-content");
@@ -3721,10 +3723,10 @@ function ncRegisterHtml() {
       <div class="nc-register-column">
         <div class="field-row2"><label class="field">Data de origem<input class="input-basic" id="ncData" type="date" value="${ncToday()}" ${disabled}></label><label class="field">Código do item<input class="input-basic" id="ncItem" placeholder="Ex.: PRD-4471" ${disabled}></label></div>
         <div class="field-row2"><label class="field">Origem<select class="input-basic" id="ncOrigin" ${disabled}><option value="">Selecione...</option><option>Interno</option><option>Fornecedor</option><option>Cliente</option></select></label><label class="field" id="ncReferenceWrap" hidden>Referência<select class="input-basic" id="ncReference" ${disabled}></select></label></div>
-        <div class="field-row2"><label class="field">Setor<select class="input-basic" id="ncSector" ${disabled}><option value="">Selecione...</option>${options("setores")}</select></label><label class="field">Processo envolvido<select class="input-basic" id="ncProcess" ${disabled}><option value="">Selecione...</option>${options("processos")}</select></label></div>
+        <label class="field">Setor<select class="input-basic" id="ncSector" ${disabled}><option value="">Selecione...</option>${options("setores")}</select></label>
       </div>
       <div class="nc-register-column nc-register-column-right">
-        <label class="field">Gravidade<select class="input-basic" id="ncSeverity" ${disabled}><option>Menor</option><option selected>Média</option><option>Maior</option></select></label>
+        <div class="field-row2"><label class="field">Gravidade<select class="input-basic" id="ncSeverity" ${disabled}><option>Menor</option><option selected>Média</option><option>Maior</option></select></label><label class="field">Processo envolvido<select class="input-basic" id="ncProcess" ${disabled}><option value="">Selecione...</option>${options("processos")}</select></label></div>
         <label class="field nc-description-field">Descrição da não conformidade<textarea class="input-basic" id="ncDescription" ${disabled}></textarea></label>
         <div class="nc-register-footer">
           <label class="check-row"><input type="checkbox" id="ncRepeat" ${disabled}> Esta não conformidade é reincidente</label>
@@ -3748,7 +3750,7 @@ function ncControlHtml() {
     ${ncFilterSelect("processo", "Processo", values("processos"))}${ncFilterSelect("setor", "Setor", values("setores"))}
     ${ncFilterSelect("gravidade", "Gravidade", ["Menor", "Média", "Maior"])}${ncFilterSelect("status", "Status", ["Aguardando análise", "Ações em andamento", "Aguardando eficácia", "Encerrado"])}
     <label class="fg search">Busca livre<input class="input-basic" data-nc-filter="busca" value="${escapeHtml(ncFilters.busca)}" placeholder="Número, item, descrição..."></label><div class="filter-clear"><button data-nc-clear-filters type="button">Limpar filtros</button></div></div>
-    <section class="dcc"><div class="dcc-hd"><div><h2 class="dcc-title">Controle de RNCs</h2><p class="dcc-sub">${filtered.length} registro(s) · clique no número para abrir</p></div>${canEditModule("nao-conformidades") ? `<button class="btn-grad" data-nc-go-register type="button">${moduleIcon("plus")} Registrar NC</button>` : ""}</div><div class="nc-table-wrap"><table class="ctxtbl nc-control-table"><thead><tr><th>Número</th><th>Data</th><th>Origem</th><th>Qual?</th><th>Setor</th><th>Status</th><th>Ações</th><th>Atrasadas</th></tr></thead><tbody>${filtered.length ? filtered.map((row) => { const count = ncActionCounts(row); return `<tr><td><button class="rnc-link" data-nc-open="${row.id}" type="button">${escapeHtml(row.id)}</button></td><td class="mono">${ncDate(row.dataOrigem)}</td><td><span class="mchip ${row.origem === "Cliente" ? "mchip-blue" : row.origem === "Fornecedor" ? "mchip-purple" : "mchip-gray"}">${escapeHtml(row.origem)}</span></td><td class="desc-cell">${escapeHtml(row.origemRef || "Problema interno")}</td><td>${escapeHtml(row.setor)}</td><td>${ncStatusHtml(row.status)}</td><td class="mono">${count.done}/${count.total}</td><td><span class="atrasadas-badge ${count.late ? "atrasadas-n" : "atrasadas-0"}">${count.late}</span></td></tr>`; }).join("") : `<tr><td colspan="8"><div class="empty-state">Nenhum RNC encontrado.</div></td></tr>`}</tbody></table></div></section>`;
+    <section class="dcc"><div class="dcc-hd"><div><h2 class="dcc-title">Controle de RNCs</h2><p class="dcc-sub">${filtered.length} registro(s) · clique no número para abrir</p></div>${canEditModule("nao-conformidades") ? `<button class="btn-grad" data-nc-go-register type="button">${moduleIcon("plus")} Registrar NC</button>` : ""}</div><div class="nc-table-wrap"><table class="ctxtbl nc-control-table"><thead><tr><th>Número</th><th>Data</th><th>Origem</th><th>Qual?</th><th>Setor</th><th>Status</th><th>Concluídas</th><th>Atrasadas</th><th>Ações</th></tr></thead><tbody>${filtered.length ? filtered.map((row) => { const count = ncActionCounts(row); return `<tr><td><button class="rnc-link" data-nc-open="${row.id}" type="button">${escapeHtml(row.id)}</button></td><td class="mono">${ncDate(row.dataOrigem)}</td><td><span class="mchip ${row.origem === "Cliente" ? "mchip-blue" : row.origem === "Fornecedor" ? "mchip-purple" : "mchip-gray"}">${escapeHtml(row.origem)}</span></td><td class="desc-cell">${escapeHtml(row.origemRef || "Problema interno")}</td><td>${escapeHtml(row.setor)}</td><td>${ncStatusHtml(row.status)}</td><td class="mono">${count.done}/${count.total}</td><td><span class="atrasadas-badge ${count.late ? "atrasadas-n" : "atrasadas-0"}">${count.late}</span></td><td>${canEditModule("nao-conformidades") ? `<div class="row-actions nc-row-actions"><button class="abtn" data-nc-edit="${row.id}" type="button" title="Editar RNC" aria-label="Editar ${escapeHtml(row.id)}">${moduleIcon("edit")}</button><button class="abtn danger" data-nc-delete="${row.id}" type="button" title="Excluir RNC" aria-label="Excluir ${escapeHtml(row.id)}">${moduleIcon("trash")}</button></div>` : "-"}</td></tr>`; }).join("") : `<tr><td colspan="9"><div class="empty-state">Nenhum RNC encontrado.</div></td></tr>`}</tbody></table></div></section>`;
 }
 
 function ncFilterSelect(key, label, items) {
@@ -3766,6 +3768,8 @@ function bindNcTabActions() {
   pageContent.querySelector("[data-nc-clear-filters]")?.addEventListener("click", () => { ncFilters = { origem: "", referencia: "", processo: "", setor: "", gravidade: "", status: "", busca: "" }; renderNcTab(); });
   pageContent.querySelector("[data-nc-go-register]")?.addEventListener("click", () => { ncMainTab = "registrar"; renderNonConformityModule(); });
   pageContent.querySelectorAll("[data-nc-open]").forEach((button) => button.addEventListener("click", () => openNcDetail(button.dataset.ncOpen)));
+  pageContent.querySelectorAll("[data-nc-edit]").forEach((button) => button.addEventListener("click", () => openNcEdit(button.dataset.ncEdit)));
+  pageContent.querySelectorAll("[data-nc-delete]").forEach((button) => button.addEventListener("click", () => deleteNc(button.dataset.ncDelete)));
   pageContent.querySelectorAll("[data-nc-dash]").forEach((field) => field.addEventListener("change", () => { if (field.dataset.ncDash === "year") ncDashYear = field.value; else ncDashDimension = field.value; renderNcTab(); }));
   pageContent.querySelector("[data-nc-transmit]")?.addEventListener("click", transmitNcDashboard);
 }
@@ -3790,6 +3794,62 @@ async function saveNewNc() {
   ncAddHistory(rnc, `RNC aberta por ${currentUser?.name || "Usuário"}.`);
   state.ncs.push(rnc);
   if (await saveNcData(`${rnc.id} registrado com sucesso.`)) { ncMainTab = "controle"; renderNonConformityModule(); }
+}
+
+function openNcEdit(id) {
+  const row = state.ncs.find((item) => item.id === id);
+  if (!row || !canEditModule("nao-conformidades")) return;
+  const selected = (value, current) => value === current ? "selected" : "";
+  const options = (key, current) => state.ncCatalogs[key].map((item) => `<option value="${escapeHtml(item.nome)}" ${selected(item.nome, current)}>${escapeHtml(item.nome)}</option>`).join("");
+  const referenceKey = row.origem === "Cliente" ? "clientes" : "fornecedores";
+  mountNcModal(`<div class="modal-box wide"><div class="modal-hd"><div><h3>Editar ${escapeHtml(row.id)}</h3><p>Atualize os dados principais da não conformidade.</p></div><button class="modal-close" data-nc-close>${moduleIcon("close")}</button></div>
+    <div class="field-row2"><label class="field">Data de origem<input class="input-basic" id="ncEditData" type="date" value="${escapeHtml(row.dataOrigem || ncToday())}"></label><label class="field">Código do item<input class="input-basic" id="ncEditItem" value="${escapeHtml(row.codigoItem || "")}"></label></div>
+    <div class="field-row2"><label class="field">Origem<select class="input-basic" id="ncEditOrigin"><option ${selected("Interno", row.origem)}>Interno</option><option ${selected("Fornecedor", row.origem)}>Fornecedor</option><option ${selected("Cliente", row.origem)}>Cliente</option></select></label><label class="field" id="ncEditReferenceWrap" ${row.origem === "Interno" ? "hidden" : ""}>Referência<select class="input-basic" id="ncEditReference"><option value="">Selecione...</option>${options(referenceKey, row.origemRef)}</select></label></div>
+    <div class="field-row2"><label class="field">Setor<select class="input-basic" id="ncEditSector"><option value="">Selecione...</option>${options("setores", row.setor)}</select></label><label class="field">Processo envolvido<select class="input-basic" id="ncEditProcess"><option value="">Selecione...</option>${options("processos", row.processo)}</select></label></div>
+    <div class="field-row2"><label class="field">Gravidade<select class="input-basic" id="ncEditSeverity"><option ${selected("Menor", row.gravidade)}>Menor</option><option ${selected("Média", row.gravidade)}>Média</option><option ${selected("Maior", row.gravidade)}>Maior</option></select></label><label class="check-row nc-edit-repeat"><input type="checkbox" id="ncEditRepeat" ${row.reincidente ? "checked" : ""}> Esta não conformidade é reincidente</label></div>
+    <label class="field">Descrição da não conformidade<textarea class="input-basic" id="ncEditDescription">${escapeHtml(row.descricao || "")}</textarea></label>
+    <div class="modal-actions"><button class="btn-ghost" data-nc-close type="button">Cancelar</button><button class="btn-primary" id="ncEditSave" type="button">Salvar alterações</button></div></div>`);
+  document.querySelector("#ncEditOrigin")?.addEventListener("change", updateNcEditReference);
+  document.querySelector("#ncEditSave")?.addEventListener("click", () => saveNcEdit(id));
+}
+
+function updateNcEditReference() {
+  const origin = document.querySelector("#ncEditOrigin")?.value || "Interno";
+  const wrap = document.querySelector("#ncEditReferenceWrap");
+  const select = document.querySelector("#ncEditReference");
+  if (!wrap || !select) return;
+  wrap.hidden = origin === "Interno";
+  const key = origin === "Cliente" ? "clientes" : "fornecedores";
+  select.innerHTML = `<option value="">Selecione...</option>${state.ncCatalogs[key].map((item) => `<option value="${escapeHtml(item.nome)}">${escapeHtml(item.nome)}</option>`).join("")}`;
+}
+
+async function saveNcEdit(id) {
+  const row = state.ncs.find((item) => item.id === id);
+  if (!row || !canEditModule("nao-conformidades")) return;
+  const value = (selector) => document.querySelector(selector)?.value.trim() || "";
+  const origin = value("#ncEditOrigin");
+  const reference = value("#ncEditReference");
+  if (!origin || (!reference && origin !== "Interno") || !value("#ncEditSector") || !value("#ncEditProcess") || !value("#ncEditDescription")) return void toast("Preencha os campos obrigatórios.");
+  Object.assign(row, {
+    dataOrigem: value("#ncEditData") || ncToday(),
+    codigoItem: value("#ncEditItem"),
+    origem: origin,
+    origemRef: origin === "Interno" ? "" : reference,
+    setor: value("#ncEditSector"),
+    processo: value("#ncEditProcess"),
+    gravidade: value("#ncEditSeverity"),
+    reincidente: document.querySelector("#ncEditRepeat")?.checked || false,
+    descricao: value("#ncEditDescription"),
+  });
+  ncAddHistory(row, `${currentUser?.name || "Usuário"} atualizou os dados da RNC.`);
+  ncRecalculateStatus(row);
+  if (await saveNcData(`${row.id} atualizado com sucesso.`)) { closeNcModal(); renderNcKpis(); renderNcTab(); }
+}
+
+async function deleteNc(id) {
+  if (!canEditModule("nao-conformidades") || !window.confirm(`Excluir definitivamente a RNC ${id}?`)) return;
+  state.ncs = state.ncs.filter((row) => row.id !== id);
+  if (await saveNcData(`${id} excluído com sucesso.`)) { renderNcKpis(); renderNcTab(); }
 }
 
 function openNcCatalogModal(id = "") {

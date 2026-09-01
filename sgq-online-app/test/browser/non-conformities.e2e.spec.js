@@ -72,7 +72,22 @@ test("módulo de não conformidades mantém o fluxo funcional", async ({ page },
   await page.screenshot({ path: testInfo.outputPath("controle-desktop-fit.png"), fullPage: true });
   const rncLink = page.locator(".rnc-link", { hasText: /^RNC-/ }).first();
   await expect(rncLink).toBeVisible();
+  const rncId = (await rncLink.textContent()).trim();
+  const rncRow = page.locator(".nc-control-table tbody tr").filter({ hasText: rncId });
+  await expect(rncRow.getByTitle("Editar RNC")).toBeVisible();
+  await expect(rncRow.getByTitle("Excluir RNC")).toBeVisible();
+  await rncRow.getByTitle("Editar RNC").click();
+  await expect(page.getByRole("heading", { name: `Editar ${rncId}` })).toBeVisible();
+  await page.locator("#ncEditItem").fill("ITEM-E2E-EDITADO");
+  await page.locator("#ncEditDescription").fill("Descrição atualizada pelo teste de navegador");
+  await page.locator("#ncEditSave").click();
+  await page.waitForTimeout(100);
+  expect(browserErrors).toEqual([]);
+  await expect(page.getByText(`${rncId} atualizado com sucesso.`)).toBeVisible();
+  await expect(rncLink).toBeVisible();
   await rncLink.click();
+  await expect(page.getByText("ITEM-E2E-EDITADO", { exact: true })).toBeVisible();
+  await expect(page.getByText("Descrição atualizada pelo teste de navegador", { exact: true })).toBeVisible();
 
   await page.locator("#ncEditIsh").click();
   await page.locator('[data-ish="metodo"]').fill("Procedimento de inspeção incompleto");
@@ -102,5 +117,13 @@ test("módulo de não conformidades mantém o fluxo funcional", async ({ page },
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.locator(".dash-cards")).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("dashboard-mobile.png"), fullPage: true });
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.getByRole("button", { name: "Controle" }).click();
+  const rowToDelete = page.locator(".nc-control-table tbody tr").filter({ hasText: rncId });
+  page.once("dialog", (dialog) => dialog.accept());
+  await rowToDelete.getByTitle("Excluir RNC").click();
+  await expect(page.getByText(`${rncId} excluído com sucesso.`)).toBeVisible();
+  await expect(page.locator(".rnc-link", { hasText: rncId })).toHaveCount(0);
   expect(browserErrors).toEqual([]);
 });

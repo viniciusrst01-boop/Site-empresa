@@ -77,6 +77,17 @@ test("menu e cabeçalho mantêm o mesmo layout entre as telas", async ({ page },
   expect(modules.searchDisplay).toBe("flex");
 });
 
+test("módulo aberto pela página inicial seleciona Meus módulos", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await login(page);
+  await finishOnboardingIfNeeded(page);
+
+  await page.locator('[data-module-card="nao-conformidades"]').first().click();
+  await expect(page.getByRole("heading", { name: "Não Conformidades", exact: true })).toBeVisible();
+  await expect(page.locator('[data-view="modulos"]')).toHaveClass(/active/);
+  await expect(page.locator('[data-view="inicio"]')).not.toHaveClass(/active/);
+});
+
 test("temas claro azul e escuro mantêm o LED lateral", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await login(page);
