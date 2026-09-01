@@ -58,6 +58,14 @@ test("módulo de não conformidades mantém o fluxo funcional", async ({ page },
   expect(registerLayout.formBottom).toBeLessThanOrEqual(registerLayout.viewportHeight - 34);
   expect(registerLayout.actionsBottom).toBeLessThanOrEqual(registerLayout.viewportHeight - 34);
   await expect(page.locator("[data-nc-save]")).toBeVisible();
+  const descriptionGap = await page.locator(".nc-description-field").evaluate((field) => {
+    const textarea = field.querySelector("textarea");
+    const labelText = [...field.childNodes].find((node) => node.nodeType === Node.TEXT_NODE && node.textContent.trim());
+    const range = document.createRange();
+    range.selectNodeContents(labelText);
+    return textarea.getBoundingClientRect().top - range.getBoundingClientRect().bottom;
+  });
+  expect(descriptionGap).toBeLessThanOrEqual(8);
   await page.screenshot({ path: testInfo.outputPath("register-desktop-fit.png"), fullPage: true });
   await page.locator("#ncItem").fill("ITEM-E2E");
   await page.locator("#ncOrigin").selectOption({ label: "Interno" });

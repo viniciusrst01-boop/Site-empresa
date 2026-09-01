@@ -5011,10 +5011,17 @@ body.theme-light .nc-status-chart > div { background: rgba(248, 252, 255, .98); 
     padding: 7px 10px;
     font-size: 12px;
   }
-  .nc-page-content .nc-register-form .nc-description-field { min-height: 0; flex: 1; }
+  .nc-page-content .nc-register-form .nc-description-field {
+    display: flex;
+    min-height: 0;
+    flex: 1;
+    flex-direction: column;
+    justify-content: flex-start;
+  }
   .nc-page-content .nc-register-form textarea.input-basic {
     min-height: 72px;
-    height: 100%;
+    height: auto;
+    flex: 1;
     resize: none;
   }
   .nc-register-footer { flex: 0 0 auto; }
