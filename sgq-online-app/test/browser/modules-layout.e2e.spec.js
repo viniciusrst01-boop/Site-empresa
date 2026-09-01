@@ -128,6 +128,13 @@ test("todos os módulos usam título no topo e breadcrumb sem terceiro título",
     await expect(page.locator(".module-summary-toolbar .welcome-eyebrow")).not.toBeEmpty();
     await expect(page.locator(".module-summary-toolbar .welcome-sub")).not.toBeEmpty();
     await expect(page.getByRole("heading", { name: title, exact: true })).toHaveCount(0);
+    const visibleTitleOccurrences = await page.evaluate((expectedTitle) => [...document.querySelectorAll("body *")]
+      .filter((element) => element.children.length === 0
+        && element.textContent.trim() === expectedTitle
+        && getComputedStyle(element).display !== "none"
+        && getComputedStyle(element).visibility !== "hidden")
+      .length, title);
+    expect(visibleTitleOccurrences).toBe(2);
   }
 
   await page.evaluate(() => renderModuleDetail("nao-conformidades"));

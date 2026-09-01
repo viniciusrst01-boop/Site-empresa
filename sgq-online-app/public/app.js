@@ -1604,7 +1604,7 @@ function renderLeadershipModule() {
     <div class="context-kpi-row" id="leadershipKpis"></div>
 
     <div class="ctx-tabs" id="leadershipMainTabs">
-      <button class="ctx-tab active" data-leadership-main="lideranca" type="button">Liderança e Comprometimento</button>
+      <button class="ctx-tab active" data-leadership-main="lideranca" type="button">Comprometimento da Direção</button>
       <button class="ctx-tab" data-leadership-main="politica" type="button">Política da Qualidade</button>
       <button class="ctx-tab" data-leadership-main="papeis" type="button">Papéis e Responsabilidades</button>
     </div>
@@ -1843,7 +1843,7 @@ function leadershipIndicatorsHtml() {
   const totalInvestment = data.plano.reduce((sum, item) => sum + (Number(item.quanto) || 0), 0);
   return `
     <section class="dcc indicator-panel">
-      <div class="dcc-title">Indicadores de Liderança e Comprometimento</div>
+      <div class="dcc-title">Indicadores de desempenho</div>
       <div class="dcc-sub">Resumo calculado a partir das ações da direção e plano estratégico</div>
       <div class="context-kpi-row">
         ${leadershipKpi("Ações concluídas", `${percent(completeActions, data.acoes.length)}%`, `${completeActions} de ${data.acoes.length} ações`, "#F2B705", "check-circle")}
@@ -1952,7 +1952,7 @@ function openLeadershipForm(type, id = "") {
     <div class="modal-overlay show" id="leadershipRecordModal">
       <div class="modal-box wide">
         <div class="modal-hd">
-          <div><h3>${escapeHtml(title)}</h3><p>Liderança e Comprometimento · cláusula 5</p></div>
+          <div><h3>${escapeHtml(title)}</h3><p>Direção · cláusula 5</p></div>
           <button class="modal-close" data-lc-action="close-modal" type="button">${moduleIcon("close")}</button>
         </div>
         <input type="hidden" id="lcRecordType" value="${type}">
@@ -2097,7 +2097,7 @@ function renderRiskOpportunityModule() {
     </div>
 
     <div class="ctx-tabs" id="riskTabs">
-      <button class="ctx-tab active" data-risk-tab="riscos" type="button">Riscos e Oportunidades</button>
+      <button class="ctx-tab active" data-risk-tab="riscos" type="button">Matriz de riscos</button>
       <button class="ctx-tab" data-risk-tab="objetivos" type="button">Objetivos da Qualidade</button>
       <button class="ctx-tab" data-risk-tab="mudancas" type="button">Planejamento de Mudanças</button>
     </div>
@@ -2275,7 +2275,7 @@ function riskItemsHtml() {
   return `
     <section class="dcc">
       <div class="dcc-hd">
-        <div><div class="dcc-title">Riscos e Oportunidades</div><div class="dcc-sub">Nível = probabilidade x impacto · cláusula 6.1</div></div>
+        <div><div class="dcc-title">Matriz de avaliação</div><div class="dcc-sub">Nível = probabilidade x impacto · cláusula 6.1</div></div>
         ${canEditModule("riscos") ? `<button class="btn-grad" data-risk-action="new-risk" type="button">${moduleIcon("plus")}Novo item</button>` : ""}
       </div>
       <div class="subfilter-row">
@@ -3141,7 +3141,7 @@ function riskModalsHtml() {
     <div class="modal-overlay" id="riskItemModal">
       <div class="modal-box wide">
         <div class="modal-hd">
-          <div><h3 id="riskItemTitle">Novo item</h3><p>Riscos e Oportunidades · cláusula 6.1</p></div>
+          <div><h3 id="riskItemTitle">Novo item</h3><p>Planejamento · cláusula 6.1</p></div>
           <button class="modal-close" data-risk-close="riskItemModal" type="button">${moduleIcon("close")}</button>
         </div>
         <input type="hidden" id="riskEditId">
