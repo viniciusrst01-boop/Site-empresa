@@ -29,7 +29,8 @@ test("módulo de não conformidades mantém o fluxo funcional", async ({ page },
   await page.locator('[data-view="modulos"]').click();
   await page.evaluate(() => document.body.classList.add("home-dashboard"));
   await page.locator('[data-module-card="nao-conformidades"]').first().click();
-  await expect(page.getByRole("heading", { name: "Não Conformidades", exact: true })).toBeVisible();
+  await expect(page.locator(".topbar-title")).toHaveText("Não Conformidades");
+  await expect(page.locator(".breadcrumb .cur")).toHaveText("Não Conformidades");
   await expect(page.locator("body")).not.toHaveClass(/home-dashboard/);
 
   await page.getByRole("button", { name: "Cadastros" }).click();

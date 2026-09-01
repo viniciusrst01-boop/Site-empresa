@@ -960,6 +960,7 @@ function render(view = "inicio") {
   pageContent.classList.remove("company-page-content");
   pageContent.classList.remove("users-page-content");
   pageContent.classList.remove("modules-page-content");
+  pageContent.classList.remove("risk-page-content", "context-page-content", "leadership-page-content", "nc-page-content");
 
   const views = {
     inicio: renderInicio,
@@ -1468,13 +1469,14 @@ function renderModuleDetail(moduleId) {
     return;
   }
 
-  pageContent.classList.remove("risk-page-content");
-  pageContent.classList.remove("context-page-content");
-  pageContent.classList.remove("nc-page-content");
   const module = modules.find((item) => item.id === moduleId) || modules[0];
-  setTopbar(module.title, "Rotina operacional do módulo");
+  setTopbar(module.title, module.desc);
   pageContent.innerHTML = `
-    ${viewHeader(module.title, module.desc)}
+    <div class="breadcrumb module-breadcrumb">
+      <button type="button" data-view-target="modulos">Meus módulos</button>
+      <span class="sep">›</span>
+      <span class="cur">${escapeHtml(module.title)}</span>
+    </div>
     <div class="qp-layout">
       <article class="qp-card">
         <h3>Fluxo do módulo</h3>
@@ -1497,6 +1499,7 @@ function renderModuleDetail(moduleId) {
     </div>
     ${renderOperationalTable(moduleId)}
   `;
+  bindViewTargetButtons();
   scrollPageToTop();
 }
 
@@ -1569,10 +1572,9 @@ function renderLeadershipModule() {
       <span class="cur">Liderança e Comprometimento</span>
     </div>
 
-    <div class="page-toolbar context-toolbar">
+    <div class="page-toolbar context-toolbar module-summary-toolbar">
       <div>
-        <div class="welcome-eyebrow">LIDERANÇA</div>
-        <h1 class="welcome-title">Liderança e Comprometimento</h1>
+        <div class="welcome-eyebrow">DIREÇÃO</div>
         <p class="welcome-sub">Comprometimento da Alta Direção, política da qualidade e papéis, responsabilidades e autoridades do SGQ.</p>
       </div>
     </div>
@@ -2046,10 +2048,9 @@ function renderRiskOpportunityModule() {
       <span class="cur">Riscos e Oportunidades</span>
     </div>
 
-    <div class="page-toolbar risk-toolbar">
+    <div class="page-toolbar risk-toolbar module-summary-toolbar">
       <div>
         <div class="welcome-eyebrow">PLANEJAMENTO</div>
-        <h1 class="welcome-title">Riscos e Oportunidades</h1>
         <p class="welcome-sub">Identificação e tratamento de riscos e oportunidades, objetivos da qualidade e planejamento de mudanças.</p>
       </div>
     </div>
@@ -2296,10 +2297,9 @@ function renderContextModule() {
       <span class="cur">Contexto da Organização</span>
     </div>
 
-    <div class="page-toolbar context-toolbar">
+    <div class="page-toolbar context-toolbar module-summary-toolbar">
       <div>
-        <div class="welcome-eyebrow">CONTEXTO DA ORGANIZAÇÃO</div>
-        <h1 class="welcome-title">Contexto da Organização</h1>
+        <div class="welcome-eyebrow">ORGANIZAÇÃO</div>
         <p class="welcome-sub">Compreensão da organização, das partes interessadas, do escopo do SGQ e do mapeamento de processos.</p>
       </div>
       <div class="toolbar-actions" ${canEditModule("riscos") ? "" : "hidden"}>
@@ -3664,8 +3664,8 @@ function renderNonConformityModule() {
   pageContent.classList.remove("risk-page-content", "context-page-content", "leadership-page-content");
   pageContent.classList.add("nc-page-content");
   pageContent.innerHTML = `
-    <div class="breadcrumb"><button type="button" data-view-target="modulos">Meus módulos</button><span>›</span><strong>Não Conformidades</strong></div>
-    <div class="page-toolbar"><div><div class="welcome-eyebrow">MELHORIA · NÃO CONFORMIDADES</div><h1 class="welcome-title">Não Conformidades</h1><p class="welcome-sub">Registro, análise de causa, ações corretivas, avaliação de eficácia e rastreabilidade de RNCs.</p></div></div>
+    <div class="breadcrumb"><button type="button" data-view-target="modulos">Meus módulos</button><span class="sep">›</span><span class="cur">Não Conformidades</span></div>
+    <div class="page-toolbar module-summary-toolbar"><div><div class="welcome-eyebrow">MELHORIA</div><p class="welcome-sub">Registro, análise de causa, ações corretivas, avaliação de eficácia e rastreabilidade de RNCs.</p></div></div>
     <div id="ncKpis"></div>
     <div class="ctx-tabs" id="ncMainTabs">
       ${[["cadastros", "Cadastros"], ["registrar", "Registrar NC"], ["controle", "Controle"], ["dashboards", "Dashboards"]].map(([id, label]) => `<button class="ctx-tab ${ncMainTab === id ? "active" : ""}" data-nc-tab="${id}" type="button">${label}</button>`).join("")}
@@ -4012,7 +4012,7 @@ function renderOperationalTable(moduleId) {
     return dataTable("Documentos cadastrados", ["Código", "Título", "Versão", "Status", "Responsável"], state.documents);
   }
   if (moduleId === "auditorias") {
-    return dataTable("Auditorias", ["Título", "Data", "Status", "Responsável"], state.audits);
+    return dataTable("Programa de auditorias", ["Título", "Data", "Status", "Responsável"], state.audits);
   }
   if (moduleId === "nao-conformidades") {
     return dataTable("Não conformidades", ["Código", "Título", "Severidade", "Status", "Responsável"], state.ncs);

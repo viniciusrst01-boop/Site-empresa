@@ -98,3 +98,35 @@ test("Meus módulos segue a grade compacta sem rolagem", async ({ page }, testIn
   expect(premiumLayout.compressedDescriptions).toBe(0);
   await page.screenshot({ path: testInfo.outputPath("modules-layout-seven-cards.png"), fullPage: true });
 });
+
+test("todos os módulos usam título no topo e breadcrumb sem terceiro título", async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await login(page);
+  const moduleDefinitions = [
+    ["contexto", "Contexto da Organização"],
+    ["lideranca", "Liderança e Comprometimento"],
+    ["riscos", "Riscos e Oportunidades"],
+    ["documentos", "Documentos"],
+    ["auditorias", "Auditorias"],
+    ["nao-conformidades", "Não Conformidades"],
+    ["equipamentos", "Equipamentos de Medição"],
+  ];
+
+  await page.locator('[data-view="modulos"]').click();
+  await expect(page.getByRole("heading", { name: "Módulos contratados" })).toBeVisible();
+  await page.evaluate(() => {
+    state.settings.companyAccess = "Plano Premium";
+    render("modulos");
+  });
+
+  for (const [id, title] of moduleDefinitions) {
+    await page.evaluate((moduleId) => renderModuleDetail(moduleId), id);
+    await expect(page.locator(".topbar-title")).toHaveText(title);
+    await expect(page.locator(".breadcrumb button")).toHaveText("Meus módulos");
+    await expect(page.locator(".breadcrumb .cur")).toHaveText(title);
+    await expect(page.getByRole("heading", { name: title, exact: true })).toHaveCount(0);
+  }
+
+  await page.evaluate(() => renderModuleDetail("nao-conformidades"));
+  await page.screenshot({ path: testInfo.outputPath("module-header-pattern.png"), fullPage: true });
+});

@@ -57,6 +57,7 @@ test("menu e cabeçalho mantêm o mesmo layout entre as telas", async ({ page },
     const sidebar = getComputedStyle(document.querySelector(".sidebar"));
     const topbar = getComputedStyle(document.querySelector(".topbar"));
     const search = getComputedStyle(document.querySelector(".topbar-search"));
+    const menuIcon = getComputedStyle(document.querySelector(".menu-toggle"));
     return {
       sidebarWidth: sidebar.width,
       sidebarBackground: sidebar.backgroundImage,
@@ -64,17 +65,26 @@ test("menu e cabeçalho mantêm o mesmo layout entre as telas", async ({ page },
       topbarBackground: topbar.backgroundColor,
       searchDisplay: search.display,
       searchWidth: search.width,
+      menuIconDisplay: menuIcon.display,
+      menuIconPointerEvents: menuIcon.pointerEvents,
+      menuIconCursor: menuIcon.cursor,
     };
   });
 
   const home = await sharedStyles();
+  await expect(page.locator(".menu-toggle")).toBeHidden();
   await page.locator('[data-view="modulos"]').click();
   await expect(page.getByRole("heading", { name: "Módulos contratados" })).toBeVisible();
+  await expect(page.locator(".menu-toggle")).toBeVisible();
   const modules = await sharedStyles();
   await page.screenshot({ path: testInfo.outputPath("modules-global-shell.png") });
 
   expect(modules).toEqual(home);
   expect(modules.searchDisplay).toBe("flex");
+  expect(modules.menuIconDisplay).toBe("flex");
+  expect(modules.menuIconPointerEvents).toBe("none");
+  expect(modules.menuIconCursor).toBe("default");
+  await expect(page.locator(".menu-toggle")).toHaveAttribute("aria-hidden", "true");
 });
 
 test("módulo aberto pela página inicial seleciona Meus módulos", async ({ page }) => {
@@ -83,7 +93,8 @@ test("módulo aberto pela página inicial seleciona Meus módulos", async ({ pag
   await finishOnboardingIfNeeded(page);
 
   await page.locator('[data-module-card="nao-conformidades"]').first().click();
-  await expect(page.getByRole("heading", { name: "Não Conformidades", exact: true })).toBeVisible();
+  await expect(page.locator(".topbar-title")).toHaveText("Não Conformidades");
+  await expect(page.locator(".breadcrumb .cur")).toHaveText("Não Conformidades");
   await expect(page.locator('[data-view="modulos"]')).toHaveClass(/active/);
   await expect(page.locator('[data-view="inicio"]')).not.toHaveClass(/active/);
 });
