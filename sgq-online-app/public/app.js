@@ -43,6 +43,20 @@ const modules = [
     accent: "#2DD4BF",
     desc: "Controle de calibrações, manutenções e situação dos equipamentos de medição.",
   },
+  {
+    id: "treinamentos",
+    title: "Treinamentos",
+    accent: "#60A5FA",
+    desc: "Matriz de competências, capacitações, evidências e reciclagens da equipe.",
+    future: true,
+  },
+  {
+    id: "fornecedores",
+    title: "Fornecedores",
+    accent: "#F97316",
+    desc: "Homologação, avaliação e acompanhamento de fornecedores críticos.",
+    future: true,
+  },
 ];
 
 const moduleHeaderMeta = {
@@ -1268,12 +1282,15 @@ function renderModulos() {
   setTopbar("Meus módulos", "Módulos do QualityPro Cloud contratados pela sua empresa");
   pageContent.classList.add("modules-page-content");
   const moduleOrder = ["contexto", "lideranca", "riscos", "documentos", "auditorias", "nao-conformidades", "equipamentos"];
-  const hasAllModules = /premium/i.test(state.settings.companyAccess || "");
-  const contractedModuleIds = hasAllModules ? moduleOrder : moduleOrder.filter((id) => id !== "equipamentos");
-  const activeModules = contractedModuleIds
+  const futureModuleOrder = ["treinamentos", "fornecedores"];
+  const activeModules = moduleOrder
     .map((id) => modules.find((module) => module.id === id))
     .filter((module) => module && canViewModule(module.id));
-  const availableModules = modules.length - activeModules.length;
+  const futureModules = futureModuleOrder
+    .map((id) => modules.find((module) => module.id === id))
+    .filter(Boolean);
+  const visibleModules = [...activeModules, ...futureModules];
+  const availableModules = futureModules.length;
   const nextRenewal = "15/09/2026";
   pageContent.innerHTML = `
     <div class="mymods-toolbar">
@@ -1292,7 +1309,7 @@ function renderModulos() {
           </div>
           <div>
             <div class="kpi-label">Módulos contratados</div>
-            <div class="kpi-value big">${activeModules.length}<span> / ${modules.length}</span></div>
+            <div class="kpi-value big">${activeModules.length}<span> / ${visibleModules.length}</span></div>
           </div>
         </div>
         <div class="kpi-caption muted">${availableModules} ${availableModules === 1 ? "módulo disponível" : "módulos disponíveis"} para contratação</div>
@@ -1331,13 +1348,14 @@ function renderModulos() {
         <p class="section-sub">Estes são os módulos atualmente contratados e disponíveis para uso pela sua empresa.</p>
       </div>
 
-      <div class="mymods-grid ${activeModules.length === 7 ? "has-seven" : ""}">
-        ${activeModules
+      <div class="mymods-grid has-nine">
+        ${visibleModules
         .map(
           (module) => {
             const isAudit = module.id === "auditorias";
+            const isFuture = Boolean(module.future);
             return `
-            <article class="mymod-card" data-module-card="${module.id}" role="button" tabindex="0" style="--accent-line:${module.accent}">
+            <article class="mymod-card ${isFuture ? "is-future" : ""}" ${isFuture ? "" : `data-module-card="${module.id}"`} role="${isFuture ? "status" : "button"}" tabindex="${isFuture ? "-1" : "0"}" style="--accent-line:${module.accent}">
               <div class="mymod-top">
                 <div class="mymod-id">
                   <div class="mymod-icon" style="border-color:${hexToRgba(module.accent, 0.4)}; color:${module.accent};">
@@ -1345,28 +1363,28 @@ function renderModulos() {
                   </div>
                   <div>
                     <h3 class="mymod-title">${module.title}</h3>
-                    <div class="mymod-plan">${isAudit ? "Módulo adicional contratado à parte" : `Incluído no ${escapeHtml(state.settings.companyAccess)}`}</div>
+                    <div class="mymod-plan">${isFuture ? "Módulo futuro" : isAudit ? "Módulo adicional contratado à parte" : `Incluído no ${escapeHtml(state.settings.companyAccess)}`}</div>
                   </div>
                 </div>
-                <span class="status-pill ${isAudit ? "st-pending" : "st-active"}"><span class="status-dot2"></span>${isAudit ? "Renovação próxima" : "Ativo"}</span>
+                <span class="status-pill ${isFuture ? "st-future" : isAudit ? "st-pending" : "st-active"}"><span class="status-dot2"></span>${isFuture ? "Em breve" : isAudit ? "Renovação próxima" : "Ativo"}</span>
               </div>
               <p class="mymod-desc">${module.desc}</p>
               <div class="mymod-meta">
                 <div class="mymod-meta-item">
                   <div class="lbl">Modalidade</div>
-                  <div class="val">${isAudit ? "Mensal" : "Anual"}</div>
+                  <div class="val">${isFuture ? "Futuro" : isAudit ? "Mensal" : "Anual"}</div>
                 </div>
                 <div class="mymod-meta-item">
                   <div class="lbl">Período de acesso</div>
-                  <div class="val mono">${isAudit ? "Desde 15/06/2026" : "01/01/2026 - 31/12/2026"}</div>
+                  <div class="val mono">${isFuture ? "Em planejamento" : isAudit ? "Desde 15/06/2026" : "01/01/2026 - 31/12/2026"}</div>
                 </div>
                 <div class="mymod-meta-item">
                   <div class="lbl">Renovação</div>
-                  <div class="val mono ${isAudit ? "renewal-alert" : ""}">${isAudit ? nextRenewal : "31/12/2026"}</div>
+                  <div class="val mono ${isAudit ? "renewal-alert" : ""}">${isFuture ? "A definir" : isAudit ? nextRenewal : "31/12/2026"}</div>
                 </div>
               </div>
               <div class="mymod-foot">
-                <button class="module-cta" data-module="${module.id}" type="button">Acessar módulo ${moduleIcon("arrow")}</button>
+                ${isFuture ? `<span class="module-cta is-disabled">Disponível em breve ${moduleIcon("arrow")}</span>` : `<button class="module-cta" data-module="${module.id}" type="button">Acessar módulo ${moduleIcon("arrow")}</button>`}
               </div>
             </article>
           `;
@@ -1374,22 +1392,6 @@ function renderModulos() {
         )
         .join("")}
       </div>
-
-      ${availableModules ? `<div class="section-hd mymods-available-hd">
-        <h2 class="section-title">Módulos disponíveis para contratação</h2>
-        <p class="section-sub">Módulos não contratados que podem ser adicionados ao seu plano.</p>
-      </div>
-
-      <div class="mymods-banner">
-        <div class="mymods-banner-text">
-          <div class="mymods-banner-icon">${moduleIcon("modulos")}</div>
-          <div>
-            <p class="mymods-banner-title">${availableModules} ${availableModules === 1 ? "módulo disponível" : "módulos disponíveis"} para contratação</p>
-            <p class="mymods-banner-sub">Entre em contato com o suporte para adicionar novos módulos ao seu plano.</p>
-          </div>
-        </div>
-        <button class="btn-ghost-cta" data-module="equipamentos" type="button">Falar com o suporte ${moduleIcon("arrow")}</button>
-      </div>` : ""}
     </section>
   `;
   bindModuleButtons();

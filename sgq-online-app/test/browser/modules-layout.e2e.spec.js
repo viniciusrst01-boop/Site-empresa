@@ -15,7 +15,7 @@ test("Meus módulos segue a grade compacta sem rolagem", async ({ page }, testIn
   await expect(page.getByRole("heading", { name: "Módulos contratados" })).toBeVisible();
 
   const cards = page.locator(".mymods-grid .mymod-card");
-  await expect(cards).toHaveCount(6);
+  await expect(cards).toHaveCount(9);
   const layout = await page.evaluate(() => {
     const root = document.documentElement;
     const body = document.body;
@@ -39,9 +39,12 @@ test("Meus módulos segue a grade compacta sem rolagem", async ({ page }, testIn
   expect(layout.bodyY).toBeLessThanOrEqual(0);
   expect(layout.contentX).toBeLessThanOrEqual(0);
   expect(layout.contentY).toBeLessThanOrEqual(0);
-  expect(layout.columns).toBe(2);
+  expect(layout.columns).toBe(3);
   expect(layout.rows).toBe(3);
-  await expect(page.getByRole("heading", { name: "Módulos disponíveis para contratação" })).toBeVisible();
+  await expect(page.locator(".mymod-title", { hasText: "Treinamentos" })).toBeVisible();
+  await expect(page.locator(".mymod-title", { hasText: "Fornecedores" })).toBeVisible();
+  await expect(page.getByText("7 / 9", { exact: false })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Módulos disponíveis para contratação" })).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath("modules-layout-desktop.png"), fullPage: true });
 
   await page.setViewportSize({ width: 1366, height: 768 });
@@ -74,8 +77,8 @@ test("Meus módulos segue a grade compacta sem rolagem", async ({ page }, testIn
     render("modulos");
   });
   const premiumCards = page.locator(".mymods-grid .mymod-card");
-  await expect(premiumCards).toHaveCount(7);
-  await expect(page.getByText("7 / 7", { exact: false })).toBeVisible();
+  await expect(premiumCards).toHaveCount(9);
+  await expect(page.getByText("7 / 9", { exact: false })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Módulos disponíveis para contratação" })).toHaveCount(0);
   const premiumLayout = await page.evaluate(() => {
     const root = document.documentElement;
