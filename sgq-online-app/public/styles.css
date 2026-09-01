@@ -5326,40 +5326,42 @@ body.theme-white .nc-status-chart > div { background: rgba(248, 252, 255, .98); 
     flex: 1;
     flex-direction: column;
     overflow: hidden;
-    padding: 12px 22px 7px;
+    padding: 10px 22px 6px;
   }
 
   .modules-page-content .mymods-toolbar {
     flex: 0 0 auto;
-    margin-bottom: 8px;
+    margin-bottom: 10px;
   }
 
-  .modules-page-content .welcome-eyebrow { margin-bottom: 4px; font-size: 9px; }
+  .modules-page-content .welcome-eyebrow { margin-bottom: 5px; font-size: 9px; }
   .modules-page-content .welcome-title { margin-bottom: 2px; font-size: 22px; }
   .modules-page-content .welcome-sub { font-size: 12px; }
 
   .modules-page-content .mymods-kpi-row {
     flex: 0 0 auto;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 10px;
-    margin-bottom: 9px;
+    gap: 12px;
+    margin-bottom: 12px;
   }
 
   .modules-page-content .mymods-kpi-row .kpi-card {
-    min-height: 74px;
-    gap: 5px;
-    padding: 10px 13px 9px;
+    min-height: 82px;
+    gap: 7px;
+    padding: 13px 18px 12px;
     border-radius: 8px;
+    background:
+      linear-gradient(135deg, rgba(12, 45, 83, .92), rgba(9, 33, 63, .92));
   }
 
-  .modules-page-content .mymods-kpi-row .kpi-top { gap: 8px; }
-  .modules-page-content .mymods-kpi-row .kpi-icon { width: 32px; height: 32px; border-radius: 8px; }
-  .modules-page-content .mymods-kpi-row .kpi-icon .icon { width: 16px; height: 16px; }
-  .modules-page-content .mymods-kpi-row .kpi-label { margin-bottom: 1px; font-size: 7.5px; }
-  .modules-page-content .mymods-kpi-row .kpi-value { font-size: 12px; }
-  .modules-page-content .mymods-kpi-row .kpi-value.big { font-size: 18px; }
+  .modules-page-content .mymods-kpi-row .kpi-top { gap: 12px; }
+  .modules-page-content .mymods-kpi-row .kpi-icon { width: 42px; height: 42px; border-radius: 8px; }
+  .modules-page-content .mymods-kpi-row .kpi-icon .icon { width: 20px; height: 20px; }
+  .modules-page-content .mymods-kpi-row .kpi-label { margin-bottom: 4px; font-size: 9px; }
+  .modules-page-content .mymods-kpi-row .kpi-value { font-size: 15px; }
+  .modules-page-content .mymods-kpi-row .kpi-value.big { font-size: 23px; }
   .modules-page-content .mymods-kpi-row .kpi-caption,
-  .modules-page-content .mymods-kpi-row .kpi-link { font-size: 9.5px; }
+  .modules-page-content .mymods-kpi-row .kpi-link { font-size: 10.5px; }
 
   .modules-page-content .mymods-section {
     display: flex;
@@ -5371,10 +5373,10 @@ body.theme-white .nc-status-chart > div { background: rgba(248, 252, 255, .98); 
   .modules-page-content .section-hd {
     flex: 0 0 auto;
     gap: 7px;
-    margin-bottom: 5px;
+    margin-bottom: 7px;
   }
 
-  .modules-page-content .section-title { margin: 0; font-size: 13px; }
+  .modules-page-content .section-title { margin: 0; font-size: 14px; }
   .modules-page-content .section-sub { font-size: 9.5px; }
 
   .modules-page-content .mymods-grid {
@@ -5383,7 +5385,7 @@ body.theme-white .nc-status-chart > div { background: rgba(248, 252, 255, .98); 
     flex: 1;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     grid-template-rows: repeat(3, minmax(0, 1fr));
-    gap: 8px 10px;
+    gap: 10px 12px;
   }
 
   .modules-page-content .mymods-grid.has-seven {
@@ -5403,49 +5405,64 @@ body.theme-white .nc-status-chart > div { background: rgba(248, 252, 255, .98); 
   .modules-page-content .mymod-card {
     min-height: 0;
     height: 100%;
-    gap: 4px;
-    padding: 8px 13px 6px;
+    gap: 7px;
+    padding: 14px 18px 10px;
     border-radius: 8px;
+    background:
+      linear-gradient(135deg, rgba(12, 45, 83, .92), rgba(8, 31, 59, .94));
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.025);
   }
 
   .modules-page-content .mymod-card::before { height: 2px; }
-  .modules-page-content .mymod-top { gap: 7px; }
-  .modules-page-content .mymod-id { gap: 8px; }
-  .modules-page-content .mymod-icon { width: 32px; height: 32px; border-radius: 8px; }
-  .modules-page-content .mymod-icon .icon { width: 16px; height: 16px; }
-  .modules-page-content .mymod-title { margin-bottom: 0; font-size: 12.5px; line-height: 1.15; }
-  .modules-page-content .mymod-plan { font-size: 8.5px; }
-  .modules-page-content .status-pill { gap: 5px; padding-top: 0; font-size: 8.5px; }
+  .modules-page-content .mymod-top { gap: 9px; }
+  .modules-page-content .mymod-id { gap: 11px; }
+  .modules-page-content .mymod-icon { width: 40px; height: 40px; border-radius: 8px; }
+  .modules-page-content .mymod-icon .icon { width: 19px; height: 19px; }
+  .modules-page-content .mymod-title { margin-bottom: 1px; font-size: 14.5px; line-height: 1.15; }
+  .modules-page-content .mymod-number { color: var(--text-primary); }
+  .modules-page-content .mymod-plan { font-size: 10px; }
+  .modules-page-content .status-pill { gap: 5px; padding-top: 1px; font-size: 10px; }
   .modules-page-content .status-dot2 { width: 6px; height: 6px; }
   .modules-page-content .mymod-desc {
     display: -webkit-box;
     overflow: hidden;
-    min-height: 12px;
+    min-height: 34px;
     flex: 0 0 auto;
     margin: 0;
-    font-size: 9.5px;
-    line-height: 1.25;
+    font-size: 11.5px;
+    line-height: 1.42;
     -webkit-box-orient: vertical;
-    -webkit-line-clamp: 1;
+    -webkit-line-clamp: 2;
   }
 
   .modules-page-content .mymod-meta {
     grid-template-columns: .8fr 1.25fr .8fr;
-    gap: 7px;
+    gap: 0;
     margin-top: auto;
-    padding-top: 5px;
+    padding-top: 10px;
   }
 
-  .modules-page-content .mymod-meta-item .lbl { margin-bottom: 1px; font-size: 7px; }
+  .modules-page-content .mymod-meta-item {
+    min-width: 0;
+    padding: 0 10px;
+    border-left: 1px solid var(--border-subtle);
+  }
+
+  .modules-page-content .mymod-meta-item:first-child {
+    border-left: 0;
+    padding-left: 0;
+  }
+
+  .modules-page-content .mymod-meta-item .lbl { margin-bottom: 3px; font-size: 7.5px; }
   .modules-page-content .mymod-meta-item .val,
-  .modules-page-content .mymod-meta-item .val.mono { font-size: 8.5px; line-height: 1.15; }
-  .modules-page-content .mymod-foot { min-height: 13px; }
-  .modules-page-content .mymod-foot .module-cta { gap: 4px; font-size: 10px; }
-  .modules-page-content .mymod-foot .module-cta .icon { width: 11px; height: 11px; }
+  .modules-page-content .mymod-meta-item .val.mono { font-size: 10px; line-height: 1.2; }
+  .modules-page-content .mymod-foot { min-height: 18px; }
+  .modules-page-content .mymod-foot .module-cta { gap: 5px; font-size: 11px; }
+  .modules-page-content .mymod-foot .module-cta .icon { width: 12px; height: 12px; }
 
   .modules-page-content .mymod-card.is-future {
     cursor: default;
-    opacity: .78;
+    opacity: .88;
   }
 
   .modules-page-content .mymod-card.is-future:hover {
@@ -5718,6 +5735,30 @@ body.theme-white .billing-settings > section {
   background: #fff;
   color: var(--text-primary);
   box-shadow: 0 7px 24px rgba(35, 69, 106, .055);
+}
+
+body.theme-white .modules-page-content .kpi-card,
+body.theme-white .modules-page-content .mymod-card {
+  border-color: rgba(71, 119, 170, .38);
+  background:
+    linear-gradient(135deg, rgba(12, 45, 83, .94), rgba(8, 31, 59, .96));
+  color: #f5f7fa;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.035), 0 10px 24px rgba(20, 52, 86, .12);
+}
+
+body.theme-white .modules-page-content .mymod-title,
+body.theme-white .modules-page-content .mymod-number,
+body.theme-white .modules-page-content .mymod-meta-item .val,
+body.theme-white .modules-page-content .kpi-value {
+  color: #f5f7fa;
+}
+
+body.theme-white .modules-page-content .mymod-plan,
+body.theme-white .modules-page-content .mymod-desc,
+body.theme-white .modules-page-content .mymod-meta-item .lbl,
+body.theme-white .modules-page-content .kpi-label,
+body.theme-white .modules-page-content .kpi-caption {
+  color: #a9bdd6;
 }
 
 body.theme-white .sb-section-label {

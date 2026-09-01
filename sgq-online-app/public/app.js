@@ -1351,7 +1351,7 @@ function renderModulos() {
       <div class="mymods-grid has-nine">
         ${visibleModules
         .map(
-          (module) => {
+          (module, index) => {
             const isAudit = module.id === "auditorias";
             const isFuture = Boolean(module.future);
             return `
@@ -1362,7 +1362,7 @@ function renderModulos() {
                     ${moduleIcon(module.id)}
                   </div>
                   <div>
-                    <h3 class="mymod-title">${module.title}</h3>
+                    <h3 class="mymod-title"><span class="mymod-number">${index + 1}.</span> ${module.title}</h3>
                     <div class="mymod-plan">${isFuture ? "Módulo futuro" : isAudit ? "Módulo adicional contratado à parte" : `Incluído no ${escapeHtml(state.settings.companyAccess)}`}</div>
                   </div>
                 </div>
@@ -1411,6 +1411,8 @@ function moduleIcon(name) {
     auditorias: '<svg class="icon" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>',
     "nao-conformidades": '<svg class="icon" viewBox="0 0 24 24"><path d="M12 9v4"/><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="17" x2="12" y2="17"/></svg>',
     equipamentos: '<svg class="icon" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94z"/></svg>',
+    treinamentos: '<svg class="icon" viewBox="0 0 24 24"><path d="M4 19.5V6a2 2 0 0 1 2-2h12v15H6a2 2 0 0 0-2 2"/><path d="M8 8h6"/><path d="M8 12h5"/></svg>',
+    fornecedores: '<svg class="icon" viewBox="0 0 24 24"><path d="M3 7h18"/><path d="M5 7v13h14V7"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M9 13h6"/></svg>',
     info: '<svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12" y2="16"/></svg>',
     arrow: '<svg class="icon" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>',
     plus: '<svg class="icon" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>',
