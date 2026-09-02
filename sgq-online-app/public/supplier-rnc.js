@@ -1,6 +1,7 @@
 "use strict";
 const feedback = document.querySelector("#feedback");
 const form = document.querySelector("#response");
+const thankYou = document.querySelector("#thank-you");
 const fragment = location.hash.slice(1);
 if (fragment) { sessionStorage.setItem("supplierRncToken", fragment); history.replaceState(null, "", location.pathname); }
 const token = fragment || sessionStorage.getItem("supplierRncToken") || "";
@@ -16,6 +17,7 @@ const messages = {
   invalid_supplier_link: "Link inválido. Solicite um novo link à empresa.",
   supplier_link_unavailable: "Este link expirou ou a RNC não está mais disponível. Entre em contato com a empresa.",
   supplier_response_conflict: "A RNC foi atualizada enquanto você preenchia. Recarregue a página para consultar a versão mais recente antes de reenviar.",
+  supplier_response_already_submitted: "Esta resposta já foi confirmada e não pode mais ser alterada por este link.",
   empty_supplier_response: "Preencha a análise de causa ou adicione uma ação corretiva.",
   incomplete_action: "Preencha descrição, prazo, responsável e status de cada ação.",
   evidence_limit: "Esta RNC atingiu o limite de 10 evidências.",
@@ -39,7 +41,6 @@ function addAction(action = {}) {
   const statuses = ["Em andamento", "Concluída"];
   if (action.status && !statuses.includes(action.status)) statuses.push(action.status);
   element.innerHTML = `<div class="action-heading"><strong>Ação corretiva</strong><button type="button" data-remove>Remover ação</button></div><label>Descrição da ação<textarea data-field="desc" maxlength="4000" required>${escape(action.desc)}</textarea></label><div class="action-fields"><label>Prazo<input data-field="prazo" maxlength="120" value="${escape(action.prazo)}" required></label><label>Responsável pela ação<input data-field="responsavel" maxlength="200" value="${escape(action.responsavel)}" required></label><label>Status<select data-field="status" aria-label="Status" required><option value="">Selecione...</option>${statuses.map((status) => `<option value="${escape(status)}" ${status === action.status ? "selected" : ""}>${escape(status)}</option>`).join("")}</select></label></div><label>Evidências da ação<input type="file" accept=".pdf,.png,.jpg,.jpeg,.webp,.txt,.csv,.xls,.xlsx,.doc,.docx"><small>Até 2 MB por arquivo. Máximo de 10 arquivos por RNC.</small></label><ul class="files"></ul>`;
-  element.querySelector("[data-remove]").onclick = () => { if (confirm("Remover esta ação da resposta?")) element.remove(); };
   const deadline = element.querySelector('[data-field="prazo"]');
   const deadlineControl = document.createElement("span");
   deadlineControl.className = "deadline-control";
@@ -63,6 +64,7 @@ function addAction(action = {}) {
     deadline.value = `${day}/${month}/${year}`;
     deadline.dispatchEvent(new Event("input", { bubbles: true }));
   });
+  element.querySelector("[data-remove]").onclick = () => { if (confirm("Remover esta ação da resposta?")) element.remove(); };
   element.querySelector('input[type="file"]').onchange = async (event) => {
     const file = event.target.files[0];
     if (!file || busy) return;
@@ -155,6 +157,7 @@ function renderNcEvidences() {
 function render() {
   document.querySelector("#title").textContent = record.id;
   document.querySelector("#supplier").textContent = record.fornecedor;
+  if (record.respondedAt) { showConfirmation(); return; }
   document.querySelector("#description").textContent = record.descricao;
   renderNcEvidences();
   document.querySelector("#causes").innerHTML = causes.map(([key, label]) => `<label>${label}<textarea name="${key}" maxlength="4000" rows="3">${escape(record.ishikawa[key])}</textarea></label>`).join("");
@@ -163,6 +166,17 @@ function render() {
   record.acoes.forEach(addAction);
   document.querySelector("#saved-at").textContent = record.respondedAt ? `Resposta salva em ${new Date(record.respondedAt).toLocaleString("pt-BR")}` : "";
   form.hidden = false;
+  thankYou.hidden = true;
+}
+function showConfirmation() {
+  const confirmedAt = record.respondedAt ? new Date(record.respondedAt) : new Date();
+  document.querySelector("#confirmed-rnc").textContent = record.id;
+  document.querySelector("#confirmed-at").textContent = confirmedAt.toLocaleString("pt-BR");
+  form.hidden = true;
+  ncEvidenceCleanup();
+  thankYou.hidden = false;
+  notify("Resposta salva e disponibilizada à empresa.");
+  thankYou.scrollIntoView({ block: "start", behavior: "smooth" });
 }
 document.querySelector("#add-action").onclick = () => { if (document.querySelectorAll(".action").length < 30) addAction(); };
 form.onsubmit = async (event) => {
@@ -171,7 +185,7 @@ form.onsubmit = async (event) => {
   const ishikawa = Object.fromEntries([...causes.map(([key]) => key), "causaRaiz"].map((key) => [key, form.elements[key].value.trim()]));
   const acoes = [...document.querySelectorAll(".action")].map((element) => ({ id: element.dataset.id || undefined, ...Object.fromEntries([...element.querySelectorAll("[data-field]")].map((input) => [input.dataset.field, input.value.trim()])), evidenceIds: element.evidenceIds }));
   lock(true);
-  try { record = await (await request("", { method: "POST", body: JSON.stringify({ version: record.version, ishikawa, acoes }) })).json(); render(); notify("Resposta salva e disponibilizada à empresa."); }
+  try { record = await (await request("", { method: "POST", body: JSON.stringify({ version: record.version, ishikawa, acoes }) })).json(); showConfirmation(); }
   catch (error) { notify(error.message, true); }
   finally { lock(false); }
 };

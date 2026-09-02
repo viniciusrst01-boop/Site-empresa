@@ -47,6 +47,14 @@ footer { padding: 20px 22px; }
 #saved-at { color: #3b635d; }
 #feedback { margin: 0 0 14px; padding: 12px 16px; border-left: 3px solid #248378; background: #fff; }
 #feedback.error { border-color: #b63737; color: #962f2f; }
+.thank-you { background: #fff; border: 1px solid #d5dde5; border-top: 4px solid #248378; border-radius: 10px; padding: 34px 28px; text-align: center; }
+.thank-icon { width: 58px; height: 58px; margin: 0 auto 16px; display: grid; place-items: center; border-radius: 50%; background: #e4f6f1; color: #16816f; font-size: 32px; font-weight: 800; }
+.thank-you h2 { margin-bottom: 8px; font-size: 24px; }
+.thank-you p { margin: 0 auto 22px; color: #536171; }
+.thank-you dl { max-width: 620px; margin: 0 auto; display: grid; gap: 10px; text-align: left; }
+.thank-you dl div { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 14px; padding: 13px 15px; border: 1px solid #d5dde5; border-radius: 8px; background: #f7f9fb; }
+.thank-you dt { color: #536171; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
+.thank-you dd { margin: 0; font-weight: 700; overflow-wrap: anywhere; }
 [hidden] { display: none !important; }
 .theme-control { margin-left: auto; font-size: 12px; }
 select { font: inherit; color: inherit; background: #fbfcfd; border: 1px solid #afbbc8; border-radius: 6px; padding: 8px; }
@@ -55,6 +63,11 @@ body[data-theme="dark"] { color-scheme: dark; background: #080e18; color: #e6edf
 body[data-theme="light"] { color-scheme: dark; background: #08243f; color: #eaf3ff; --surface: #123353; --field: #194366; --border: #476783; --muted: #c2d6eb; --link: #67d9ff; }
 body:is([data-theme="dark"], [data-theme="light"]) :is(header, form, #feedback) { background: var(--surface); }
 body:is([data-theme="dark"], [data-theme="light"]) :is(header, section, .action) { border-color: var(--border); }
+body:is([data-theme="dark"], [data-theme="light"]) .thank-you { background: var(--surface); border-color: var(--border); }
+body:is([data-theme="dark"], [data-theme="light"]) .thank-icon { background: color-mix(in srgb, #20c997 18%, var(--field)); color: #77d6b9; }
+body:is([data-theme="dark"], [data-theme="light"]) .thank-you p { color: var(--muted); }
+body:is([data-theme="dark"], [data-theme="light"]) .thank-you dl div { background: var(--field); border-color: var(--border); }
+body:is([data-theme="dark"], [data-theme="light"]) .thank-you dt { color: var(--muted); }
 body:is([data-theme="dark"], [data-theme="light"]) :is(input, textarea, select, button:not(.primary)) { background: var(--field); border-color: var(--border); color: inherit; }
 body:is([data-theme="dark"], [data-theme="light"]) :is(header p, small) { color: var(--muted); }
 body:is([data-theme="dark"], [data-theme="light"]) .files button { color: var(--link); }
@@ -64,4 +77,4 @@ body:is([data-theme="dark"], [data-theme="light"]) .supplier-nc-evidence-viewer 
 body:is([data-theme="dark"], [data-theme="light"]) #saved-at { color: #77d6b9; }
 body:is([data-theme="dark"], [data-theme="light"]) #feedback.error { color: #ffaaaa; }
 @media (max-width: 720px) { .cause-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .nc-evidence-gallery { grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); } header { padding: 12px 16px; gap: 12px; } header img { width: 100px; height: 60px; } h1 { font-size: 19px; } main { padding: 14px 12px; } section { padding: 16px; } }
-@media (max-width: 480px) { header { flex-wrap: wrap; } .theme-control { width: 100%; grid-template-columns: auto 1fr; align-items: center; } .cause-grid, .action-fields { grid-template-columns: minmax(0, 1fr); } .section-heading, footer { align-items: stretch; flex-direction: column; } .action { padding: 12px; } }
+@media (max-width: 480px) { header { flex-wrap: wrap; } .theme-control { width: 100%; grid-template-columns: auto 1fr; align-items: center; } .cause-grid, .action-fields, .thank-you dl div { grid-template-columns: minmax(0, 1fr); } .section-heading, footer { align-items: stretch; flex-direction: column; } .action { padding: 12px; } .thank-you { padding: 26px 16px; } }

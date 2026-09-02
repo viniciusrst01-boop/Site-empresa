@@ -102,6 +102,7 @@ function createSupplierRnc({ secret, appUrl, sendEmail = mailer.sendEmail, now =
     if (!Object.values(ishikawa).some(Boolean) && !body.acoes.length) throw error("empty_supplier_response");
     return db.mutateSupplierData(auth.companyId, (data) => {
       const { row, entry } = resolve(data, auth);
+      if (entry.respondedAt) throw error("supplier_response_already_submitted", 409);
       if (body.version !== (row.supplierVersion || 0)) throw error("supplier_response_conflict", 409);
       const seen = new Set();
       const actions = body.acoes.map((action) => {

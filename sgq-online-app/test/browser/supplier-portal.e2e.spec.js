@@ -51,6 +51,14 @@ test("fornecedor preenche causas, seleciona status e anexa evidência em todos o
   expect(colors.size).toBe(3);
   await page.getByRole("button", { name: "Salvar resposta" }).click();
   await expect(page.getByRole("status")).toHaveText("Resposta salva e disponibilizada à empresa.");
+  await expect(page.locator("#response")).toBeHidden();
+  await expect(page.getByRole("heading", { name: "Obrigado pela resposta" })).toBeVisible();
+  await expect(page.locator("#confirmed-rnc")).toHaveText("RNC-2026-0001");
+  await expect(page.locator("#confirmed-at")).toContainText(new Date(record.respondedAt).toLocaleDateString("pt-BR"));
+  await page.reload();
+  await expect(page.locator("#response")).toBeHidden();
+  await expect(page.getByRole("heading", { name: "Obrigado pela resposta" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Adicionar ação" })).toHaveCount(0);
   expect(record.ishikawa.metodo).toBe("Revisão do procedimento de inspeção");
   expect(errors).toEqual([]);
 });

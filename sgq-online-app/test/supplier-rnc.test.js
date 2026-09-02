@@ -45,6 +45,8 @@ test("supplier portal isolates RNCs, persists evidence, handles concurrency and 
   assert.equal(response.acoes[0].status, "Em validação no fornecedor");
   assert.equal(response.acoes[0].evidenceIds[0], evidence.id);
   assert.ok(response.respondedAt);
+  await assert.rejects(service.respond(tokenA, { version: response.version, ishikawa: { metodo: "Tentativa de edição" }, acoes: [] }), { status: 409, message: "supplier_response_already_submitted" });
+  assert.equal((await service.read(tokenA)).respondedAt, response.respondedAt);
   assert.equal((await db.getCompanyData(companyId, "state")).ncs[0].ishikawa.metodo, "Procedimento revisado");
   await assert.rejects(db.mutateSupplierData(companyId, (data) => service.prepareState(data, stale, true)), { status: 409 });
   await assert.rejects(service.respond(tokenA, { version: initial.version, ishikawa: { metodo: "Desatualizado" }, acoes: [] }), { status: 409 });
