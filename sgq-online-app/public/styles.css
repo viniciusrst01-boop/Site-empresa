@@ -2342,10 +2342,10 @@ body.theme-light .app-footer {
 }
 
 body.theme-light .qp-toast {
-  background: #e8f4ff;
-  border-color: #74a9d6;
-  box-shadow: 0 18px 40px rgba(15, 81, 130, 0.14);
-  color: #0b2745;
+  background: #16466e;
+  border-color: #48bce9;
+  box-shadow: 0 18px 40px rgba(4, 25, 48, 0.34);
+  color: #f3f9ff;
 }
 
 /* Meus módulos */
