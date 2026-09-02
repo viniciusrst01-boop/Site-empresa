@@ -724,6 +724,27 @@ body.home-dashboard .app-shell {
   display: none;
 }
 
+body.home-dashboard .topbar-left {
+  flex: 1 1 auto;
+  min-width: 0;
+  gap: 0;
+}
+
+body.home-dashboard .menu-toggle {
+  display: none;
+}
+
+body.home-dashboard .topbar-left > div:last-child {
+  display: block;
+  min-width: 0;
+}
+
+body.home-dashboard .topbar-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 body.module-detail-view .topbar-left {
   flex: 0 0 auto;
 }
@@ -1421,6 +1442,7 @@ body.home-dashboard .page-content {
   .home-v2-welcome time,
   .home-v2-welcome p { display: none; }
   .home-v2-welcome h1 { font-size: 16px; }
+  body.home-dashboard .topbar-subtitle { display: none; }
   .home-v2-kpis { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 5px; }
   .home-v2-kpi { padding: 7px 5px; }
   .home-v2-kpi-top { display: block; }
@@ -6295,6 +6317,8 @@ body.theme-white .btn-support {
   .app-footer {
     font-size: 10px;
   }
+
+  body.home-dashboard .topbar-title { max-width: 42vw; }
 }
 
 body.theme-white .modules-page-content .mymods-kpi-row .kpi-card {

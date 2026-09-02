@@ -1022,7 +1022,7 @@ function scrollPageToTop() {
 }
 
 function renderInicio() {
-  setTopbar("Página inicial", "Bem-vindo ao QualityPro Cloud");
+  setTopbar(`Olá, ${firstName(currentUser?.name || "Usuário")}!`, "Aqui está um resumo do seu Sistema de Gestão.");
   ensureRiskData();
   ensureContextData();
   pageContent.innerHTML = renderDashboardHtml();
@@ -1042,25 +1042,12 @@ function renderDashboardHtml() {
   const plannedAudits = audits.filter((item) => !isClosedStatus(item.status));
   const pendingDocs = docs.filter((item) => item.status !== "Aprovado");
   const certification = state.company.certification || "Não informada";
-  const dateLabel = new Intl.DateTimeFormat("pt-BR", {
-    weekday: "long",
-    day: "2-digit",
-    month: "long",
-    year: "numeric",
-  }).format(new Date());
   const tasks = dashboardTaskItems(openNcs, plannedAudits, pendingDocs);
   const alerts = dashboardAlertItems(summary, openNcs, pendingDocs, certification);
 
   return `
     <div class="home-v2">
       <section class="home-v2-summary">
-        <header class="home-v2-welcome">
-          <div>
-            <h1>Olá, ${escapeHtml(firstName(currentUser?.name || "Usuário"))}!</h1>
-            <p>Aqui está um resumo do seu Sistema de Gestão.</p>
-          </div>
-          <time>${escapeHtml(dateLabel)}</time>
-        </header>
         <div class="home-v2-kpis">
           ${dashboardCompanyKpi(state.company.name || "Sua empresa")}
           ${dashboardKpi("modulos", "Registros do SGQ", summary.totalRecords, `${summary.openActions} ações ou itens em acompanhamento`, "#43a7ff", Math.min(100, summary.totalRecords * 2))}

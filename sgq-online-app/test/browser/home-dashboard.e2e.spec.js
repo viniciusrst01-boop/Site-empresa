@@ -40,6 +40,9 @@ test("página inicial ocupa a viewport sem rolagem", async ({ page }, testInfo) 
   await login(page);
   await finishOnboardingIfNeeded(page);
   await expect(page.locator(".home-v2")).toBeVisible();
+  await expect(page.locator(".topbar-title")).toHaveText("Olá, Browser!");
+  await expect(page.locator(".topbar-subtitle")).toHaveText("Aqui está um resumo do seu Sistema de Gestão.");
+  await expect(page.locator(".home-v2-welcome")).toHaveCount(0);
   await expectDashboardWithoutScroll(page);
   await page.screenshot({ path: testInfo.outputPath("home-dashboard-desktop.png") });
 
@@ -113,7 +116,7 @@ test("menu e cabeçalho mantêm o mesmo layout entre as telas", async ({ page },
   const modules = await sharedStyles();
   await page.screenshot({ path: testInfo.outputPath("modules-global-shell.png") });
 
-  expect(modules).toEqual(home);
+  expect(modules).toEqual({ ...home, menuIconDisplay: "flex" });
   expect(modules.searchDisplay).toBe("flex");
   expect(modules.menuIconDisplay).toBe("flex");
   expect(modules.menuIconPointerEvents).toBe("none");
