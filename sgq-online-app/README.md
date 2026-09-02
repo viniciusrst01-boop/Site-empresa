@@ -168,6 +168,18 @@ O endpoint público `/api/health` verifica aplicação, banco, cobrança e armaz
 
 Em desenvolvimento, os backups ficam em `data/backups`. `STRIPE_MOCK_MODE=true` existe somente para testes automatizados e não deve ser usado em produção.
 
+## RNC de fornecedor
+
+Ao registrar uma RNC de origem Fornecedor, informe o e-mail do fornecedor. O salvamento cria um convite restrito àquela RNC e tenta enviá-lo pelo Resend. As respostas de causa (6Ms) e ações corretivas são gravadas na própria RNC. A página externa oferece os temas Escuro, Claro azul e Claro, sem sessão de usuário ou acesso aos demais módulos.
+
+Para envio real, configure `PUBLIC_APP_URL` (URL pública HTTPS), `RESEND_API_KEY`, `EMAIL_FROM` (remetente verificado no Resend), `SESSION_SECRET` e `CRON_SECRET` no ambiente do servidor. Sem a configuração de envio, a RNC é salva e o convite permanece pendente, com aviso na interface. Os testes usam transporte de e-mail simulado, sem mensagens reais.
+
+A rotina existente `/api/cron/notifications`, agendada diariamente na Vercel às 12:00 UTC, também tenta os convites pendentes e envia um único lembrete na primeira execução após sete dias completos do envio inicial, se nenhuma resposta tiver sido salva. Apenas abrir o link ou anexar um arquivo sem salvar a resposta não suspende o lembrete. O texto informa que a pontuação comercial poderá ser afetada; nenhuma pontuação é alterada automaticamente. Fora da Vercel, é necessário agendar a chamada ao endpoint com `Authorization: Bearer <CRON_SECRET>`.
+
+Os links expiram após 90 dias da emissão e deixam de funcionar ao encerrar/excluir a RNC, alterar sua origem ou trocar o e-mail do fornecedor. O token fica no fragmento do link e é enviado à API somente no cabeçalho de autorização. Uma resposta não concede sessão ou permissão de usuário. A API aceita apenas análise de causa e ações do fornecedor; alterações concorrentes exigem recarregar a versão atual.
+
+As evidências são privadas e armazenadas no banco, com download autenticado ou pelo link específico da RNC: até 10 arquivos de 2 MB por RNC (PDF, imagens PNG/JPEG/WebP, TXT/CSV, Word e Excel). Podem ser anexadas em qualquer status. Prazo e status aceitam texto livre; use datas ISO (`AAAA-MM-DD`) e o status `Concluída` quando desejar o acompanhamento automático de prazo e conclusão. O retorno e os anexos podem ser consultados em **Controle > RNC > Retorno do fornecedor**.
+
 ## Segurança
 
 - cookies de sessão `HttpOnly`, `SameSite=Strict` e `Secure` em HTTPS;

@@ -65,7 +65,7 @@ const moduleHeaderMeta = {
   riscos: { category: "PLANEJAMENTO", description: "Identificação e tratamento de riscos e oportunidades, objetivos da qualidade e planejamento de mudanças." },
   documentos: { category: "DOCUMENTAÇÃO" },
   auditorias: { category: "AVALIAÇÃO" },
-  "nao-conformidades": { category: "MELHORIA", description: "Registro, análise de causa, ações corretivas, avaliação de eficácia e rastreabilidade de RNCs." },
+  "nao-conformidades": { category: "MELHORIA CONTÍNUA", description: "Registro, análise de causa, ações corretivas, avaliação de eficácia e rastreabilidade de RNCs." },
   equipamentos: { category: "RECURSOS" },
 };
 
@@ -906,14 +906,27 @@ function renderUserMenu() {
   }
 }
 
+let lastSaveError = "";
+let lastSupplierDeliveries = [];
 function saveRemoteData(key, value, moduleId = "") {
+  lastSaveError = "";
+  lastSupplierDeliveries = [];
   return fetch("/api/data", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ key, value, moduleId }),
     keepalive: true,
-  }).then((response) => {
+  }).then(async (response) => {
+    const result = await response.json().catch(() => ({}));
+    if (response.status === 409) lastSaveError = "Esta RNC recebeu uma atualização. Recarregue a página antes de salvar para preservar a resposta do fornecedor.";
+    if (result.error === "invalid_supplier_email") lastSaveError = "Informe um e-mail válido para o fornecedor.";
     if (!response.ok && response.status !== 403) throw new Error("Falha ao salvar dados no servidor.");
+    if (response.ok && key === "state") {
+      if (result.ncs) state.ncs = result.ncs;
+      if (result.supplierStateVersion !== undefined) state.supplierStateVersion = result.supplierStateVersion;
+      lastSupplierDeliveries = result.supplierDeliveries || [];
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }
     return response.ok;
   }).catch((error) => {
     console.warn(error);
@@ -1506,6 +1519,7 @@ function renderModuleDetail(moduleId) {
   }
 
   if (moduleId === "nao-conformidades") {
+    ncMainTab = "registrar";
     renderNonConformityModule();
     return;
   }
@@ -3544,7 +3558,7 @@ function refreshRiskScreen(message) {
   toast(message);
 }
 
-let ncMainTab = "controle";
+let ncMainTab = "registrar";
 let ncSubTab = "clientes";
 let ncCurrentId = "";
 let ncFilters = { origem: "", referencia: "", processo: "", setor: "", gravidade: "", status: "", busca: "" };
@@ -3563,7 +3577,7 @@ function ncToday() {
 }
 
 function ncDate(value) {
-  return value ? formatDate(value) : "-";
+  return value ? /^\d{4}-\d{2}-\d{2}$/.test(value) ? formatDate(value) : escapeHtml(value) : "-";
 }
 
 function ensureNcData() {
@@ -3603,7 +3617,8 @@ async function saveNcData(message = "Alterações salvas.") {
   }
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   const saved = await saveRemoteData("state", state, "nao-conformidades");
-  toast(saved ? message : "Não foi possível salvar no banco.");
+  const failedDelivery = lastSupplierDeliveries.some((item) => item.status !== "sent");
+  toast(saved ? failedDelivery ? `${message} O e-mail do fornecedor está pendente de envio. Verifique a configuração de e-mail; o sistema tentará novamente na rotina diária.` : lastSupplierDeliveries.length ? `${message} E-mail enviado ao fornecedor.` : message : lastSaveError || "Não foi possível salvar no banco.");
   return saved;
 }
 
@@ -3618,6 +3633,7 @@ function ncActionCounts(rnc) {
 
 function ncActionEffectiveStatus(action) {
   if (action?.status === "Concluída") return "Concluída";
+  if (action?.supplier && (!/^\d{4}-\d{2}-\d{2}$/.test(action.prazo || "") || action.prazo >= ncToday())) return action.status || "Em andamento";
   return action?.prazo && action.prazo < ncToday() ? "Atrasada" : "Em andamento";
 }
 
@@ -3687,7 +3703,7 @@ function renderNonConformityModule() {
     })}
     <div id="ncKpis"></div>
     <div class="ctx-tabs" id="ncMainTabs">
-      ${[["cadastros", "Cadastros"], ["registrar", "Registrar NC"], ["controle", "Controle"], ["dashboards", "Dashboards"]].map(([id, label]) => `<button class="ctx-tab ${ncMainTab === id ? "active" : ""}" data-nc-tab="${id}" type="button">${label}</button>`).join("")}
+      ${[["registrar", "Registrar NC"], ["controle", "Controle"], ["cadastros", "Cadastros"], ["dashboards", "Dashboards"]].map(([id, label]) => `<button class="ctx-tab ${ncMainTab === id ? "active" : ""}" data-nc-tab="${id}" type="button">${label}</button>`).join("")}
     </div>
     <div class="subtab-row" id="ncSubTabs"></div><div id="ncTabContent"></div><div id="ncModalMount"></div>`;
   pageContent.querySelectorAll("[data-nc-tab]").forEach((button) => button.addEventListener("click", () => {
@@ -3747,11 +3763,14 @@ function ncRegisterHtml() {
       <div class="nc-register-column">
         <div class="field-row2"><label class="field">Data de origem<input class="input-basic" id="ncData" type="date" value="${ncToday()}" ${disabled}></label><label class="field">Código do item<input class="input-basic" id="ncItem" placeholder="Ex.: PRD-4471" ${disabled}></label></div>
         <div class="field-row2"><label class="field">Origem<select class="input-basic" id="ncOrigin" ${disabled}><option value="">Selecione...</option><option>Interno</option><option>Fornecedor</option><option>Cliente</option></select></label><label class="field" id="ncReferenceWrap" hidden>Referência<select class="input-basic" id="ncReference" ${disabled}></select></label></div>
+        <label class="field" id="ncSupplierEmailWrap" hidden>E-mail do fornecedor<input class="input-basic" id="ncSupplierEmail" type="email" maxlength="254" autocomplete="email" ${disabled}></label>
         <label class="field">Setor<select class="input-basic" id="ncSector" ${disabled}><option value="">Selecione...</option>${options("setores")}</select></label>
       </div>
       <div class="nc-register-column nc-register-column-right">
         <div class="field-row2"><label class="field">Gravidade<select class="input-basic" id="ncSeverity" ${disabled}><option>Menor</option><option selected>Média</option><option>Maior</option></select></label><label class="field">Processo envolvido<select class="input-basic" id="ncProcess" ${disabled}><option value="">Selecione...</option>${options("processos")}</select></label></div>
         <label class="field nc-description-field">Descrição da não conformidade<textarea class="input-basic" id="ncDescription" ${disabled}></textarea></label>
+        <label class="field nc-client-pdf-field" id="ncClientPdfWrap" hidden>RNC enviada pelo cliente<input class="input-basic" id="ncClientPdf" type="file" accept="application/pdf,.pdf" ${disabled}><small id="ncClientPdfName">Nenhum PDF selecionado</small></label>
+        <label class="field">Evidência da não conformidade<input class="input-basic" id="ncEvidence" type="file" ${disabled}><small id="ncEvidenceName">Nenhum arquivo selecionado</small></label>
         <div class="nc-register-footer">
           <label class="check-row"><input type="checkbox" id="ncRepeat" ${disabled}> Esta não conformidade é reincidente</label>
           ${canEditModule("nao-conformidades") ? `<div class="form-actions"><button class="btn-danger-ghost" data-nc-clear type="button">Limpar</button><button class="btn-primary" data-nc-save type="button">Salvar NC</button></div>` : `<div class="banner-info">Seu perfil possui acesso somente para visualização.</div>`}
@@ -3788,6 +3807,16 @@ function bindNcTabActions() {
   pageContent.querySelector("#ncOrigin")?.addEventListener("change", updateNcReference);
   pageContent.querySelector("[data-nc-save]")?.addEventListener("click", saveNewNc);
   pageContent.querySelector("[data-nc-clear]")?.addEventListener("click", () => { ncMainTab = "registrar"; renderNcTab(); });
+  pageContent.querySelector("#ncClientPdf")?.addEventListener("change", () => {
+    const file = pageContent.querySelector("#ncClientPdf")?.files?.[0];
+    const label = pageContent.querySelector("#ncClientPdfName");
+    if (label) label.textContent = file?.name || "Nenhum PDF selecionado";
+  });
+  pageContent.querySelector("#ncEvidence")?.addEventListener("change", () => {
+    const file = pageContent.querySelector("#ncEvidence")?.files?.[0];
+    const label = pageContent.querySelector("#ncEvidenceName");
+    if (label) label.textContent = file?.name || "Nenhum arquivo selecionado";
+  });
   pageContent.querySelectorAll("[data-nc-filter]").forEach((field) => field.addEventListener(field.tagName === "INPUT" ? "input" : "change", () => { ncFilters[field.dataset.ncFilter] = field.value; renderNcTab(); }));
   pageContent.querySelector("[data-nc-clear-filters]")?.addEventListener("click", () => { ncFilters = { origem: "", referencia: "", processo: "", setor: "", gravidade: "", status: "", busca: "" }; renderNcTab(); });
   pageContent.querySelector("[data-nc-go-register]")?.addEventListener("click", () => { ncMainTab = "registrar"; renderNonConformityModule(); });
@@ -3804,6 +3833,10 @@ function updateNcReference() {
   const select = pageContent.querySelector("#ncReference");
   if (!wrap || !select) return;
   wrap.hidden = origin === "Interno" || !origin;
+  const clientPdfWrap = pageContent.querySelector("#ncClientPdfWrap");
+  if (clientPdfWrap) clientPdfWrap.hidden = origin !== "Cliente";
+  const supplierEmailWrap = pageContent.querySelector("#ncSupplierEmailWrap");
+  if (supplierEmailWrap) supplierEmailWrap.hidden = origin !== "Fornecedor";
   const key = origin === "Cliente" ? "clientes" : "fornecedores";
   select.innerHTML = `<option value="">Selecione...</option>${state.ncCatalogs[key].map((row) => `<option>${escapeHtml(row.nome)}</option>`).join("")}`;
 }
@@ -3813,11 +3846,25 @@ async function saveNewNc() {
   const value = (selector) => pageContent.querySelector(selector)?.value.trim() || "";
   const origin = value("#ncOrigin");
   const reference = value("#ncReference");
+  const supplierEmail = value("#ncSupplierEmail");
+  if (origin === "Fornecedor" && (!supplierEmail || !pageContent.querySelector("#ncSupplierEmail").checkValidity())) return void toast("Informe um e-mail válido para o fornecedor.");
   if (!origin || (!reference && origin !== "Interno") || !value("#ncSector") || !value("#ncProcess") || !value("#ncDescription")) return void toast("Preencha os campos obrigatórios.");
-  const rnc = { id: ncNextNumber(), dataOrigem: value("#ncData") || ncToday(), codigoItem: value("#ncItem"), origem: origin, origemRef: origin === "Interno" ? "" : reference, setor: value("#ncSector"), processo: value("#ncProcess"), gravidade: value("#ncSeverity"), reincidente: pageContent.querySelector("#ncRepeat")?.checked || false, descricao: value("#ncDescription"), status: "Aguardando análise", ishikawa: { metodo: "", maquina: "", maoObra: "", material: "", medicao: "", meioAmbiente: "", causaRaiz: "" }, acoes: [], eficaciaIniciadaEm: "", encerradoEm: "", historico: [] };
+  const evidence = pageContent.querySelector("#ncEvidence")?.files?.[0];
+  const clientPdf = pageContent.querySelector("#ncClientPdf")?.files?.[0];
+  if (evidence && evidence.size > 5 * 1024 * 1024) return void toast("A evidência deve ter no máximo 5 MB.");
+  if (clientPdf && (clientPdf.type !== "application/pdf" && !/\.pdf$/i.test(clientPdf.name))) return void toast("Anexe apenas PDF no RNC enviado pelo cliente.");
+  if (clientPdf && clientPdf.size > 5 * 1024 * 1024) return void toast("O PDF do cliente deve ter no máximo 5 MB.");
+  const rnc = { id: ncNextNumber(), dataOrigem: value("#ncData") || ncToday(), codigoItem: value("#ncItem"), origem: origin, origemRef: origin === "Interno" ? "" : reference, setor: value("#ncSector"), processo: value("#ncProcess"), gravidade: value("#ncSeverity"), reincidente: pageContent.querySelector("#ncRepeat")?.checked || false, descricao: value("#ncDescription"), evidencia: evidence?.name || "", rncClientePdf: origin === "Cliente" ? clientPdf?.name || "" : "", status: "Aguardando análise", ishikawa: { metodo: "", maquina: "", maoObra: "", material: "", medicao: "", meioAmbiente: "", causaRaiz: "" }, acoes: [], eficaciaIniciadaEm: "", encerradoEm: "", historico: [] };
   ncAddHistory(rnc, `RNC aberta por ${currentUser?.name || "Usuário"}.`);
+  if (origin === "Fornecedor") rnc.fornecedorEmail = supplierEmail;
+  const saveButton = pageContent.querySelector("[data-nc-save]");
+  if (saveButton?.disabled) return;
+  if (saveButton) saveButton.disabled = true;
   state.ncs.push(rnc);
-  if (await saveNcData(`${rnc.id} registrado com sucesso.`)) { ncMainTab = "controle"; renderNonConformityModule(); }
+  try {
+    if (await saveNcData(`${rnc.id} registrado com sucesso.`)) { ncMainTab = "controle"; renderNonConformityModule(); }
+    else state.ncs = state.ncs.filter((item) => item !== rnc);
+  } finally { if (saveButton) saveButton.disabled = false; }
 }
 
 function openNcEdit(id) {
@@ -3831,6 +3878,7 @@ function openNcEdit(id) {
     <div class="field-row2"><label class="field">Origem<select class="input-basic" id="ncEditOrigin"><option ${selected("Interno", row.origem)}>Interno</option><option ${selected("Fornecedor", row.origem)}>Fornecedor</option><option ${selected("Cliente", row.origem)}>Cliente</option></select></label><label class="field" id="ncEditReferenceWrap" ${row.origem === "Interno" ? "hidden" : ""}>Referência<select class="input-basic" id="ncEditReference"><option value="">Selecione...</option>${options(referenceKey, row.origemRef)}</select></label></div>
     <div class="field-row2"><label class="field">Setor<select class="input-basic" id="ncEditSector"><option value="">Selecione...</option>${options("setores", row.setor)}</select></label><label class="field">Processo envolvido<select class="input-basic" id="ncEditProcess"><option value="">Selecione...</option>${options("processos", row.processo)}</select></label></div>
     <div class="field-row2"><label class="field">Gravidade<select class="input-basic" id="ncEditSeverity"><option ${selected("Menor", row.gravidade)}>Menor</option><option ${selected("Média", row.gravidade)}>Média</option><option ${selected("Maior", row.gravidade)}>Maior</option></select></label><label class="check-row nc-edit-repeat"><input type="checkbox" id="ncEditRepeat" ${row.reincidente ? "checked" : ""}> Esta não conformidade é reincidente</label></div>
+    <label class="field" id="ncEditSupplierEmailWrap" ${row.origem === "Fornecedor" ? "" : "hidden"}>E-mail do fornecedor<input class="input-basic" id="ncEditSupplierEmail" type="email" maxlength="254" value="${escapeHtml(row.fornecedorEmail || "")}"></label>
     <label class="field">Descrição da não conformidade<textarea class="input-basic" id="ncEditDescription">${escapeHtml(row.descricao || "")}</textarea></label>
     <div class="modal-actions"><button class="btn-ghost" data-nc-close type="button">Cancelar</button><button class="btn-primary" id="ncEditSave" type="button">Salvar alterações</button></div></div>`);
   document.querySelector("#ncEditOrigin")?.addEventListener("change", updateNcEditReference);
@@ -3839,6 +3887,7 @@ function openNcEdit(id) {
 
 function updateNcEditReference() {
   const origin = document.querySelector("#ncEditOrigin")?.value || "Interno";
+  document.querySelector("#ncEditSupplierEmailWrap").hidden = origin !== "Fornecedor";
   const wrap = document.querySelector("#ncEditReferenceWrap");
   const select = document.querySelector("#ncEditReference");
   if (!wrap || !select) return;
@@ -3853,12 +3902,15 @@ async function saveNcEdit(id) {
   const value = (selector) => document.querySelector(selector)?.value.trim() || "";
   const origin = value("#ncEditOrigin");
   const reference = value("#ncEditReference");
+  const supplierEmail = value("#ncEditSupplierEmail");
+  if (origin === "Fornecedor" && (!supplierEmail || !document.querySelector("#ncEditSupplierEmail").checkValidity())) return void toast("Informe um e-mail válido para o fornecedor.");
   if (!origin || (!reference && origin !== "Interno") || !value("#ncEditSector") || !value("#ncEditProcess") || !value("#ncEditDescription")) return void toast("Preencha os campos obrigatórios.");
   Object.assign(row, {
     dataOrigem: value("#ncEditData") || ncToday(),
     codigoItem: value("#ncEditItem"),
     origem: origin,
     origemRef: origin === "Interno" ? "" : reference,
+    fornecedorEmail: origin === "Fornecedor" ? supplierEmail : "",
     setor: value("#ncEditSector"),
     processo: value("#ncEditProcess"),
     gravidade: value("#ncEditSeverity"),
@@ -3925,7 +3977,7 @@ function openNcDetail(id) {
   const actionRows = (rnc.acoes || []).map((action) => `<div class="acao-item"><div class="acao-item-hd"><div><div class="acao-item-desc">${escapeHtml(action.desc)}</div><div class="acao-item-meta"><span>Prazo: <b>${ncDate(action.prazo)}</b></span><span>Responsável: <b>${escapeHtml(action.responsavel)}</b></span>${action.evidencia ? `<span>Arquivo: <b>${escapeHtml(action.evidencia)}</b></span>` : ""}</div></div>${ncStatusHtml(ncActionEffectiveStatus(action))}</div></div>`).join("");
   const days = rnc.eficaciaIniciadaEm ? Math.floor((Date.now() - new Date(`${rnc.eficaciaIniciadaEm}T00:00:00`).getTime()) / 86400000) : 0;
   mountNcModal(`<div class="modal-box xwide nc-rnc-modal"><div class="modal-hd"><div><h3>${escapeHtml(rnc.id)}</h3><p>Registro de Não Conformidade · ${escapeHtml(rnc.status)}</p></div><div class="nc-modal-tools"><button class="btn-sm" id="ncPrint" type="button">${moduleIcon("download")} Imprimir PDF</button><button class="modal-close" data-nc-close type="button" title="Fechar" aria-label="Fechar">${moduleIcon("close")}</button></div></div>
-    <div class="rnc-detail-grid">${[["Data de origem", ncDate(rnc.dataOrigem)], ["Código do item", rnc.codigoItem || "-"], ["Origem", rnc.origem === "Interno" ? "Interno" : `${rnc.origem} · ${rnc.origemRef}`], ["Setor", rnc.setor], ["Processo", rnc.processo], ["Gravidade", rnc.gravidade], ["Status", rnc.status], ["Reincidente", rnc.reincidente ? "Sim" : "Não"], ["Ações", `${count.done}/${count.total}`]].map(([label, value]) => `<div class="detail-item"><div class="l">${label}</div><div class="v">${escapeHtml(value)}</div></div>`).join("")}</div>
+    <div class="rnc-detail-grid">${[["Data de origem", ncDate(rnc.dataOrigem)], ["Código do item", rnc.codigoItem || "-"], ["Origem", rnc.origem === "Interno" ? "Interno" : `${rnc.origem} · ${rnc.origemRef}`], ["Setor", rnc.setor], ["Processo", rnc.processo], ["Gravidade", rnc.gravidade], ["Status", rnc.status], ["Reincidente", rnc.reincidente ? "Sim" : "Não"], ["RNC do cliente", rnc.rncClientePdf || "-"], ["Evidência", rnc.evidencia || "-"], ["Ações", `${count.done}/${count.total}`]].map(([label, value]) => `<div class="detail-item"><div class="l">${label}</div><div class="v">${escapeHtml(value)}</div></div>`).join("")}</div>
     <section class="rnc-section"><div class="rnc-section-hd"><h4>Descrição da não conformidade</h4></div><p>${escapeHtml(rnc.descricao)}</p></section>
     <section class="rnc-section"><div class="rnc-section-hd"><h4>Análise de causa · Ishikawa <span class="num">6M</span></h4>${canEditModule("nao-conformidades") ? `<button class="btn-sm" id="ncEditIsh">${moduleIcon("edit")} Editar análise</button>` : ""}</div>${ishFilled ? `<div class="ishikawa-grid">${[["Método", ish.metodo], ["Máquina", ish.maquina], ["Mão de obra", ish.maoObra], ["Material", ish.material], ["Medição", ish.medicao], ["Meio ambiente", ish.meioAmbiente]].map(([label, value]) => `<div class="ishikawa-cell"><div class="m-label">${label}</div><div class="m-text">${escapeHtml(value || "-")}</div></div>`).join("")}</div>${ish.causaRaiz ? `<div class="causa-raiz-box"><div class="crlabel">Conclusão / Causa raiz</div><div class="crtext">${escapeHtml(ish.causaRaiz)}</div></div>` : ""}` : `<div class="empty-state">Análise de causa ainda não preenchida.</div>`}</section>
     <section class="rnc-section"><div class="rnc-section-hd"><h4>Ações corretivas <span class="num">${count.done}/${count.total}</span></h4>${canEditModule("nao-conformidades") ? `<button class="btn-sm" id="ncManageActions">${moduleIcon("edit")} Gerenciar ações</button>` : ""}</div>${actionRows || `<div class="empty-state">Nenhuma ação cadastrada.</div>`}</section>
@@ -3935,6 +3987,22 @@ function openNcDetail(id) {
   document.querySelector("#ncEditIsh")?.addEventListener("click", openNcIshikawa);
   document.querySelector("#ncManageActions")?.addEventListener("click", openNcActions);
   document.querySelector("#ncCloseRnc")?.addEventListener("click", closeNcRnc);
+  if (rnc.origem === "Fornecedor") renderNcSupplierStatus(rnc.id);
+}
+
+async function renderNcSupplierStatus(id) {
+  const modal = document.querySelector(".nc-rnc-modal");
+  try {
+    const response = await fetch(`/api/nc-supplier?${new URLSearchParams({ nc: id })}`);
+    if (!response.ok) return;
+    const entry = await response.json();
+    if (!entry || !modal?.isConnected || ncCurrentId !== id) return;
+    const section = document.createElement("section");
+    section.className = "rnc-section";
+    const status = entry.respondedAt ? `Resposta recebida em ${formatDateTime(entry.respondedAt)}` : entry.sentAt ? `Convite enviado em ${formatDateTime(entry.sentAt)}${entry.remindedAt ? ` · Lembrete enviado em ${formatDateTime(entry.remindedAt)}` : " · Aguardando resposta"}` : "E-mail pendente de envio. Verifique a configuração de e-mail; haverá nova tentativa na rotina diária.";
+    section.innerHTML = `<div class="rnc-section-hd"><h4>Retorno do fornecedor</h4></div><p>${escapeHtml(entry.email)}</p><div class="banner-info">${escapeHtml(status)}</div>${entry.files.length ? `<ul>${entry.files.map((file) => `<li><a class="rnc-link" href="/api/nc-evidence?${new URLSearchParams({ nc: id, file: file.id })}">${escapeHtml(file.name)}</a></li>`).join("")}</ul>` : ""}`;
+    modal.querySelector(".rnc-section").after(section);
+  } catch { /* The RNC remains available if delivery status cannot be loaded. */ }
 }
 
 function openNcIshikawa() {
@@ -3967,11 +4035,20 @@ function openNcActions(editId = "") {
   document.querySelector("#ncResetAction")?.addEventListener("click", () => openNcActions());
   document.querySelector("#ncActionStatus")?.addEventListener("change", updateNcActionEvidenceVisibility);
   document.querySelector("#ncSaveAction")?.addEventListener("click", saveNcAction);
+  if (row.origem === "Fornecedor") {
+    for (const [id, value] of [["ncActionDue", edit?.prazo], ["ncActionOwner", edit?.responsavel], ["ncActionStatus", edit?.status]]) {
+      const previous = document.getElementById(id);
+      const input = document.createElement("input");
+      input.id = id; input.className = "input-basic"; input.value = value || "";
+      previous.replaceWith(input);
+    }
+    document.querySelector("#ncActionEvidenceWrap").hidden = false;
+  }
 }
 
 function updateNcActionEvidenceVisibility() {
   const wrap = document.querySelector("#ncActionEvidenceWrap");
-  if (wrap) wrap.hidden = document.querySelector("#ncActionStatus")?.value !== "Concluída";
+  if (wrap) wrap.hidden = state.ncs.find((item) => item.id === ncCurrentId)?.origem !== "Fornecedor" && document.querySelector("#ncActionStatus")?.value !== "Concluída";
 }
 
 async function saveNcAction() {
@@ -3980,10 +4057,10 @@ async function saveNcAction() {
   if (!desc) return void toast("Descreva a ação.");
   const existing = (row.acoes || []).find((item) => item.id === id); const selectedStatus = document.querySelector("#ncActionStatus")?.value;
   const prazo = document.querySelector("#ncActionDue")?.value || "";
-  const status = selectedStatus === "Concluída" ? "Concluída" : prazo && prazo < ncToday() ? "Atrasada" : "Em andamento";
+  const status = row.origem === "Fornecedor" ? selectedStatus : selectedStatus === "Concluída" ? "Concluída" : prazo && prazo < ncToday() ? "Atrasada" : "Em andamento";
   const file = document.querySelector("#ncActionEvidence")?.files?.[0];
   if (file && file.size > 5 * 1024 * 1024) return void toast("O arquivo deve ter no máximo 5 MB.");
-  const action = { id: id || `AC-${Date.now()}`, desc, prazo, responsavel: document.querySelector("#ncActionOwner")?.value || "", status, evidencia: file?.name || existing?.evidencia || "", concluidaEm: status === "Concluída" ? existing?.concluidaEm || ncToday() : "" };
+  const action = { ...existing, id: id || `AC-${Date.now()}`, desc, prazo, responsavel: document.querySelector("#ncActionOwner")?.value || "", status, evidencia: file?.name || existing?.evidencia || "", concluidaEm: status === "Concluída" ? existing?.concluidaEm || ncToday() : "" };
   row.acoes ||= []; const index = row.acoes.findIndex((item) => item.id === id); if (index >= 0) row.acoes[index] = action; else row.acoes.push(action);
   ncRecalculateStatus(row); ncAddHistory(row, `${currentUser?.name || "Usuário"} ${existing ? "atualizou" : "criou"} uma ação corretiva.`);
   await saveNcData("Ação corretiva salva."); openNcActions(); renderNcKpis();

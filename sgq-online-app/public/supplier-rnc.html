@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>Resposta da RNC | QualityPro Cloud</title>
+  <link rel="stylesheet" href="/supplier-rnc.css">
+  <script src="/supplier-rnc.js" defer></script>
+</head>
+<body>
+  <header><img src="/assets/qualitypro-cloud-logo-app.png" alt="QualityPro Cloud"><div><h1 id="title">Resposta da RNC</h1><p id="supplier"></p></div><label class="theme-control">Tema<select id="theme" aria-label="Tema"><option value="white">Claro</option><option value="light">Claro azul</option><option value="dark">Escuro</option></select></label></header>
+  <main>
+    <p id="feedback" role="status" aria-live="polite">Carregando RNC...</p>
+    <form id="response" hidden>
+      <section class="context"><h2>Descrição da não conformidade</h2><p id="description"></p></section>
+      <section><h2>Análise da causa · 6Ms</h2><div id="causes" class="cause-grid"></div><label>Conclusão / Causa raiz<textarea name="causaRaiz" maxlength="4000" rows="3"></textarea></label></section>
+      <section><div class="section-heading"><h2>Ações corretivas</h2><button type="button" id="add-action">Adicionar ação</button></div><div id="actions"></div></section>
+      <footer><span id="saved-at"></span><button class="primary" type="submit">Salvar resposta</button></footer>
+    </form>
+  </main>
+</body>
+</html>

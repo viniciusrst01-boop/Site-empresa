@@ -23,6 +23,7 @@ async function sendEmail({ to, subject, html, tag, idempotencyKey }) {
   if (idempotencyKey) headers["Idempotency-Key"] = String(idempotencyKey).slice(0, 256);
 
   const response = await fetch("https://api.resend.com/emails", {
+    signal: AbortSignal.timeout(15000),
     method: "POST",
     headers,
     body: JSON.stringify({

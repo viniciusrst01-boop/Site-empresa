@@ -5737,30 +5737,6 @@ body.theme-white .billing-settings > section {
   box-shadow: 0 7px 24px rgba(35, 69, 106, .055);
 }
 
-body.theme-white .modules-page-content .kpi-card,
-body.theme-white .modules-page-content .mymod-card {
-  border-color: rgba(71, 119, 170, .38);
-  background:
-    linear-gradient(135deg, rgba(12, 45, 83, .94), rgba(8, 31, 59, .96));
-  color: #f5f7fa;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.035), 0 10px 24px rgba(20, 52, 86, .12);
-}
-
-body.theme-white .modules-page-content .mymod-title,
-body.theme-white .modules-page-content .mymod-number,
-body.theme-white .modules-page-content .mymod-meta-item .val,
-body.theme-white .modules-page-content .kpi-value {
-  color: #f5f7fa;
-}
-
-body.theme-white .modules-page-content .mymod-plan,
-body.theme-white .modules-page-content .mymod-desc,
-body.theme-white .modules-page-content .mymod-meta-item .lbl,
-body.theme-white .modules-page-content .kpi-label,
-body.theme-white .modules-page-content .kpi-caption {
-  color: #a9bdd6;
-}
-
 body.theme-white .sb-section-label {
   color: #718ba5;
 }
@@ -6285,4 +6261,21 @@ body.theme-white .btn-support {
   .app-footer {
     font-size: 10px;
   }
+}
+
+body.theme-white .modules-page-content .mymods-kpi-row .kpi-card {
+  border-color: #d7e0ec;
+  background: #ffffff;
+  color: #12233a;
+  box-shadow: 0 8px 22px rgba(35, 69, 106, .08);
+}
+
+body.theme-white .modules-page-content .mymods-kpi-row .kpi-label,
+body.theme-white .modules-page-content .mymods-kpi-row .kpi-caption,
+body.theme-white .modules-page-content .mymods-kpi-row .kpi-value.big span {
+  color: #64748b;
+}
+
+body.theme-white .modules-page-content .mymods-kpi-row .kpi-value {
+  color: #12233a;
 }

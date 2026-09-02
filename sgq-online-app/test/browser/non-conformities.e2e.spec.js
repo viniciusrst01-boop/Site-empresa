@@ -1,4 +1,5 @@
 const { test, expect } = require("@playwright/test");
+const path = require("node:path");
 
 async function loginOwner(page) {
   await page.goto("/login");
@@ -33,6 +34,8 @@ test("módulo de não conformidades mantém o fluxo funcional", async ({ page },
   await expect(page.locator(".breadcrumb .cur")).toHaveText("Não Conformidades");
   await expect(page.getByRole("link", { name: /Abrir painel na TV/ })).toBeVisible();
   await expect(page.locator("body")).not.toHaveClass(/home-dashboard/);
+  await expect(page.locator("#ncMainTabs .ctx-tab.active")).toHaveText("Registrar NC");
+  await expect(page.getByRole("heading", { name: "Registrar Não Conformidade" })).toBeVisible();
 
   await page.getByRole("button", { name: "Cadastros" }).click();
   await expectCompactNcFrame(page);
@@ -70,11 +73,18 @@ test("módulo de não conformidades mantém o fluxo funcional", async ({ page },
   expect(descriptionGap).toBeLessThanOrEqual(8);
   await page.screenshot({ path: testInfo.outputPath("register-desktop-fit.png"), fullPage: true });
   await page.locator("#ncItem").fill("ITEM-E2E");
-  await page.locator("#ncOrigin").selectOption({ label: "Interno" });
+  await expect(page.locator("#ncClientPdfWrap")).toBeHidden();
+  await page.locator("#ncOrigin").selectOption({ label: "Cliente" });
+  await expect(page.locator("#ncClientPdfWrap")).toBeVisible();
+  await page.locator("#ncReference").selectOption({ label: "Metalúrgica Andrade Ltda" });
+  await page.locator("#ncClientPdf").setInputFiles(path.join(__dirname, "..", "fixtures", "rnc-cliente.pdf"));
+  await expect(page.locator("#ncClientPdfName")).toHaveText("rnc-cliente.pdf");
   await page.locator("#ncSector").selectOption({ index: 1 });
   await page.locator("#ncProcess").selectOption({ index: 1 });
   await page.locator("#ncSeverity").selectOption({ label: "Maior" });
   await page.locator("#ncDescription").fill("Não conformidade criada no teste de navegador");
+  await page.locator("#ncEvidence").setInputFiles(path.join(__dirname, "..", "fixtures", "nc-evidencia.txt"));
+  await expect(page.locator("#ncEvidenceName")).toHaveText("nc-evidencia.txt");
   await page.locator("[data-nc-save]").click();
 
   await expect(page.getByText(/RNC-\d{4}-\d{4} registrado com sucesso/)).toBeVisible();
@@ -105,6 +115,8 @@ test("módulo de não conformidades mantém o fluxo funcional", async ({ page },
   await rncLink.click();
   await expect(page.getByText("ITEM-E2E-EDITADO", { exact: true })).toBeVisible();
   await expect(page.getByText("Descrição atualizada pelo teste de navegador", { exact: true })).toBeVisible();
+  await expect(page.getByText("rnc-cliente.pdf", { exact: true })).toBeVisible();
+  await expect(page.getByText("nc-evidencia.txt", { exact: true })).toBeVisible();
   const printDisplay = await page.locator("#ncPrint").evaluate((button) => getComputedStyle(button).display);
   expect(["flex", "inline-flex"]).toContain(printDisplay);
   await expect(page.locator("#ncPrint")).toHaveCSS("border-radius", "7px");

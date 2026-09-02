@@ -1795,7 +1795,7 @@ async function countRecentMfaFailures(username, ipAddress, minutes = 15) {
   }).length;
 }
 
-async function listNotificationTargets() {
+async function listNotificationTargets(includeWithoutUsers = false) {
   await ensureInitialized();
   let companies;
   if (usePostgres) {
@@ -1810,7 +1810,7 @@ async function listNotificationTargets() {
     const users = (await listCompanyUsers(company.id)).filter(
       (user) => user.status === "Ativo" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(user.username),
     );
-    if (!users.length) continue;
+    if (!users.length && !includeWithoutUsers) continue;
     const rows = await listCompanyData(company.id);
     targets.push({
       company,
@@ -2532,8 +2532,52 @@ async function getCompanyData(companyId, key) {
   return row?.data_json ?? null;
 }
 
+// Serializes portal responses and internal state saves for the same company.
+async function mutateSupplierData(companyId, mutate) {
+  await ensureInitialized();
+  const keys = ["state", "supplierRncPrivate"];
+  if (usePostgres) {
+    const client = await getPool().connect();
+    try {
+      await client.query("BEGIN");
+      const company = await client.query("SELECT id FROM companies WHERE id = $1 FOR UPDATE", [Number(companyId)]);
+      if (!company.rowCount) throw new Error("company_not_found");
+      const rows = await client.query("SELECT data_key, data_json FROM company_data WHERE company_id = $1 AND data_key = ANY($2)", [Number(companyId), keys]);
+      const data = Object.fromEntries(rows.rows.map((row) => [row.data_key, row.data_json]));
+      const result = mutate(data);
+      for (const key of keys) {
+        if (!Object.hasOwn(data, key)) continue;
+        await client.query("INSERT INTO company_data (company_id, data_key, data_json) VALUES ($1, $2, $3) ON CONFLICT (company_id, data_key) DO UPDATE SET data_json = EXCLUDED.data_json, updated_at = NOW()", [Number(companyId), key, JSON.stringify(data[key])]);
+      }
+      await client.query("COMMIT");
+      return result;
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+  const database = getStore();
+  const data = Object.fromEntries(database.companyData.filter((row) => row.company_id === Number(companyId) && keys.includes(row.data_key)).map((row) => [row.data_key, structuredClone(row.data_json)]));
+  const result = mutate(data);
+  for (const key of keys) {
+    if (!Object.hasOwn(data, key)) continue;
+    let row = database.companyData.find((item) => item.company_id === Number(companyId) && item.data_key === key);
+    if (!row) { row = { company_id: Number(companyId), data_key: key }; database.companyData.push(row); }
+    Object.assign(row, { data_json: data[key], updated_at: timestamp() });
+  }
+  saveStore();
+  return result;
+}
+
 async function setCompanyData(companyId, key, value) {
   await ensureInitialized();
+  if (key === "state") {
+    return mutateSupplierData(companyId, (data) => {
+      data.state = value;
+    });
+  }
 
   if (usePostgres) {
     await getPool().query(
@@ -2566,6 +2610,7 @@ async function setCompanyData(companyId, key, value) {
 }
 
 module.exports = {
+  mutateSupplierData,
   canAddCompanyUser,
   checkDatabaseHealth,
   countRecentFailedLogins,

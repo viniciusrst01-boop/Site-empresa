@@ -30,6 +30,7 @@ const {
   getRecoveryBackupSnapshot,
   getCompany,
   getCompanyData,
+  mutateSupplierData,
   getInvitationByToken,
   getUser,
   getUserSecurity,
@@ -116,6 +117,8 @@ const publicAppUrl = String(
       ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
       : ""),
 ).replace(/\/$/, "");
+const { createSupplierRnc } = require("./supplier-rnc");
+const supplierRnc = createSupplierRnc({ secret: sessionSecret, appUrl: publicAppUrl });
 const sgqModuleIds = [
   "contexto",
   "lideranca",
@@ -322,7 +325,7 @@ function send(res, status, body, headers = {}) {
   res.writeHead(status, {
     "X-Content-Type-Options": "nosniff",
     "X-Frame-Options": "DENY",
-    "Referrer-Policy": "same-origin",
+    "Referrer-Policy": res.getHeader("Referrer-Policy") || "same-origin",
     "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
     ...headers,
   });
@@ -388,7 +391,7 @@ function safeFilename(value) {
 function sendDownload(res, contentType, filename, buffer) {
   send(res, 200, buffer, {
     "Content-Type": contentType,
-    "Content-Disposition": `attachment; filename="${filename}"`,
+    "Content-Disposition": `attachment; filename="${String(filename).replace(/[^a-zA-Z0-9._ -]/g, "_")}"; filename*=UTF-8''${encodeURIComponent(filename)}`,
     "Content-Length": String(buffer.length),
     "Cache-Control": "no-store",
   });
@@ -550,13 +553,19 @@ async function removeCompanyUserSettings(companyId, userId) {
   await setCompanyData(companyId, "userSettings", settings);
 }
 
+async function saveCompanyProfileState(companyId, value) {
+  await mutateSupplierData(companyId, (data) => {
+    data.state = { ...value, ...(data.state?.ncs ? { ncs: data.state.ncs, ncCatalogs: data.state.ncCatalogs, supplierStateVersion: data.state.supplierStateVersion || 0 } : {}) };
+  });
+}
+
 async function buildCompanyReport(companyId) {
   const [company, users, dataRows] = await Promise.all([
     getCompany(companyId),
     listUsersWithCompanySettings(companyId),
     listCompanyData(companyId),
   ]);
-  const modules = Object.fromEntries(dataRows.map((row) => [row.key, row.value]));
+  const modules = Object.fromEntries(dataRows.filter((row) => row.key !== "supplierRncPrivate").map((row) => [row.key, row.value]));
   return {
     generatedAt: new Date().toISOString(),
     company,
@@ -619,8 +628,8 @@ async function readBody(req) {
   return (await readRawBody(req, 100_000)).toString("utf8");
 }
 
-async function readJsonBody(req) {
-  const rawBody = await readBody(req);
+async function readJsonBody(req, maxBytes = 100000) {
+  const rawBody = (await readRawBody(req, maxBytes)).toString("utf8");
   if (!rawBody) return {};
   try {
     return JSON.parse(rawBody);
@@ -1218,6 +1227,32 @@ async function handleRequest(req, res) {
   const rawSession = readSession(req);
   const session = await validateSession(rawSession);
 
+  if (["/supplier-rnc", "/supplier-rnc.js", "/supplier-rnc.css"].includes(url.pathname) && req.method === "GET") {
+    res.setHeader("Referrer-Policy", "no-referrer");
+    res.setHeader("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
+    serveFile(res, path.join(publicDir, url.pathname === "/supplier-rnc" ? "supplier-rnc.html" : url.pathname.slice(1)));
+    return;
+  }
+  if (url.pathname === "/api/supplier-rnc" || url.pathname.startsWith("/api/supplier-rnc/")) {
+    res.setHeader("Referrer-Policy", "no-referrer");
+    const token = String(req.headers.authorization || "").replace(/^Bearer /, "");
+    try {
+      if (url.pathname === "/api/supplier-rnc" && req.method === "GET") {
+        sendJson(res, 200, await supplierRnc.read(token));
+      } else if (url.pathname === "/api/supplier-rnc" && req.method === "POST") {
+        sendJson(res, 200, await supplierRnc.respond(token, await readJsonBody(req, 300000)));
+      } else if (url.pathname === "/api/supplier-rnc/evidence" && req.method === "POST") {
+        await supplierRnc.read(token);
+        const raw = await readRawBody(req, 2900000);
+        sendJson(res, 201, await supplierRnc.upload(token, JSON.parse(raw.toString("utf8"))));
+      } else if (/^\/api\/supplier-rnc\/evidence\/[^/]+$/.test(url.pathname) && req.method === "GET") {
+        const file = await supplierRnc.download(token, url.pathname.split("/").pop());
+        sendDownload(res, "application/octet-stream", file.name, Buffer.from(file.base64, "base64"));
+      } else sendJson(res, 404, { error: "not_found" });
+    } catch (error) { sendJson(res, error.status || (error instanceof SyntaxError ? 400 : 500), { error: error.status ? error.message : "supplier_request_failed" }); }
+    return;
+  }
+
   if (url.pathname === "/api/health" && req.method === "GET") {
     const health = await getOperationalHealth();
     sendJson(res, health.ok ? 200 : 503, { ok: health.ok, checkedAt: health.checkedAt });
@@ -1249,7 +1284,7 @@ async function handleRequest(req, res) {
       sendJson(res, 401, { error: "invalid_cron_secret" });
       return;
     }
-    sendJson(res, 200, { ok: true, ...(await runDeadlineAlerts(req)) });
+    sendJson(res, 200, { ok: true, ...(await runDeadlineAlerts(req)), suppliers: await supplierRnc.runNotifications() });
     return;
   }
 
@@ -2028,7 +2063,7 @@ async function handleApiRequest(req, res, url, session) {
       plan: body.company?.plan,
     });
 
-    await setCompanyData(companyId, "state", body.state);
+    await saveCompanyProfileState(companyId, body.state);
     await setCompanyData(companyId, "context", body.context);
     await setCompanyData(companyId, "risk", body.risk);
     await setCompanyData(companyId, "leadership", body.leadership);
@@ -2084,7 +2119,7 @@ async function handleApiRequest(req, res, url, session) {
         companyAccess: company.plan,
       },
     };
-    await setCompanyData(companyId, "state", nextState);
+    await saveCompanyProfileState(companyId, nextState);
 
     await auditRequest(req, session, "company_updated", "success", { companyId });
 
@@ -2362,7 +2397,7 @@ async function handleApiRequest(req, res, url, session) {
         return;
       }
       const savedState = (await getCompanyData(targetCompanyId, "state")) || {};
-      await setCompanyData(targetCompanyId, "state", {
+      await saveCompanyProfileState(targetCompanyId, {
         ...savedState,
         company: {
           ...(savedState.company || {}),
@@ -2550,6 +2585,26 @@ async function handleApiRequest(req, res, url, session) {
     return;
   }
 
+  if (url.pathname === "/api/nc-supplier" && req.method === "GET") {
+    if (!canViewModule(await getSessionPermissions(session), "nao-conformidades")) { sendJson(res, 403, { error: "forbidden" }); return; }
+    const privateData = await getCompanyData(companyId, "supplierRncPrivate");
+    const entry = privateData?.entries?.find((item) => item.ncId === url.searchParams.get("nc"));
+    sendJson(res, 200, entry ? { email: entry.email, sentAt: entry.sentAt, remindedAt: entry.remindedAt, respondedAt: entry.respondedAt, deliveryStatus: entry.deliveryStatus, files: (entry.files || []).map(({ id, name, size }) => ({ id, name, size })) } : null);
+    return;
+  }
+
+  if (url.pathname === "/api/nc-evidence" && req.method === "GET") {
+    if (!canViewModule(await getSessionPermissions(session), "nao-conformidades")) {
+      sendJson(res, 403, { error: "forbidden" });
+      return;
+    }
+    const privateData = await getCompanyData(companyId, "supplierRncPrivate");
+    const file = privateData?.entries?.find((entry) => entry.ncId === url.searchParams.get("nc"))?.files?.find((item) => item.id === url.searchParams.get("file"));
+    if (!file) { sendJson(res, 404, { error: "evidence_not_found" }); return; }
+    sendDownload(res, "application/octet-stream", file.name, Buffer.from(file.base64, "base64"));
+    return;
+  }
+
   if (url.pathname === "/api/data" && req.method === "POST") {
     const body = await readJsonBody(req);
     if (!body || typeof body.key !== "string") {
@@ -2575,7 +2630,7 @@ async function handleApiRequest(req, res, url, session) {
       const stateFields = {
         documentos: ["documents"],
         auditorias: ["audits"],
-        "nao-conformidades": ["ncs", "ncCatalogs"],
+        "nao-conformidades": ["ncs", "ncCatalogs", "supplierStateVersion"],
         equipamentos: ["equipment"],
       };
       const fields = stateFields[requestedModule];
@@ -2591,12 +2646,31 @@ async function handleApiRequest(req, res, url, session) {
       });
     }
 
-    await setCompanyData(companyId, body.key, body.value);
+    let supplierDeliveries = [];
+    let savedNcs;
+    let supplierStateVersion;
+    if (body.key === "state") {
+      try {
+        await mutateSupplierData(companyId, (data) => {
+          const value = !ownsCompany ? { ...(data.state || {}), ...Object.fromEntries(({
+            documentos: ["documents"], auditorias: ["audits"], "nao-conformidades": ["ncs", "ncCatalogs", "supplierStateVersion"], equipamentos: ["equipment"],
+          }[requestedModule] || []).filter((key) => Object.hasOwn(body.value, key)).map((key) => [key, body.value[key]])) } : body.value;
+          supplierRnc.prepareState(data, value, requestedModule === "nao-conformidades");
+          savedNcs = data.state.ncs;
+          supplierStateVersion = data.state.supplierStateVersion;
+        });
+        supplierDeliveries = await supplierRnc.deliver(companyId);
+      } catch (error) {
+        if (!error.status) throw error;
+        sendJson(res, error.status, { error: error.message });
+        return;
+      }
+    } else await setCompanyData(companyId, body.key, body.value);
     await auditRequest(req, session, "module_data_updated", "success", {
       dataKey: body.key,
       moduleId: requestedModule || null,
     });
-    sendJson(res, 200, { ok: true });
+    sendJson(res, 200, { ok: true, supplierDeliveries, ...(canViewModule(permissions, "nao-conformidades") ? { ncs: savedNcs, supplierStateVersion } : {}) });
     return;
   }
 
