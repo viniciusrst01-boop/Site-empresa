@@ -4858,8 +4858,8 @@ async function renderUsuarios() {
           <input class="input-basic" id="userNameField" type="text" placeholder="Ex.: Marina Souza">
         </div>
         <div class="field">
-          <label for="userLoginField">Login / e-mail</label>
-          <input class="input-basic" id="userLoginField" type="email" placeholder="nome@empresa.com.br">
+          <label for="userLoginField">E-mail de contato e acesso (obrigatório)</label>
+          <input class="input-basic" id="userLoginField" type="email" required autocomplete="email" placeholder="nome@empresa.com.br">
         </div>
         <div class="field field-row2">
           <div>
@@ -5221,11 +5221,11 @@ async function saveCompanyUser() {
   );
 
   if (!displayName || !username) {
-    toast("Preencha nome e login para continuar.");
+    toast("Preencha nome e e-mail de contato para continuar.");
     return;
   }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(username)) {
-    toast("Informe um e-mail válido para enviar o convite.");
+    toast("Informe um e-mail de contato válido para continuar.");
     return;
   }
 
@@ -5653,7 +5653,7 @@ function adminUserFormHtml(companies) {
       <input type="hidden" name="userId" />
       <div class="form-section-title full">Usuário e acesso</div>
       <label><span>Nome</span><input name="displayName" required placeholder="Nome do usuário" /></label>
-      <label><span>E-mail de acesso</span><input name="username" type="email" required placeholder="usuario@empresa.com.br" /></label>
+      <label><span>E-mail de contato e acesso (obrigatório)</span><input name="username" type="email" required autocomplete="email" placeholder="usuario@empresa.com.br" /></label>
       <label>
         <span>Empresa</span>
         <select name="companyId" required>

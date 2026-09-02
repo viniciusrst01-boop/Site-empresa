@@ -14,6 +14,13 @@ test("proprietário cria e exclui usuário pela interface", async ({ page }) => 
   await expect(page.getByRole("heading", { name: "Usuários", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Novo usuário" }).click();
   await page.locator("#userNameField").fill("Usuário Exclusão E2E");
+  await expect(page.locator("#userLoginField")).toHaveAttribute("required", "");
+  await page.locator("[data-user-save]").click();
+  await expect(page.getByText("Preencha nome e e-mail de contato para continuar.")).toBeVisible();
+  await page.locator("#userLoginField").fill("sem-email");
+  await page.locator("[data-user-save]").click();
+  await expect(page.getByText("Informe um e-mail de contato válido para continuar.")).toBeVisible();
+  await expect(page.locator("#securityConfirmPassword")).not.toBeVisible();
   await page.locator("#userLoginField").fill("exclusao.e2e@example.com");
   await page.locator("#userRoleField").selectOption({ label: "Colaborador" });
   await page.locator("#userStatusField").selectOption("Pendente");

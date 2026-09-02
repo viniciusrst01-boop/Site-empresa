@@ -228,6 +228,25 @@ test("admin, exportações, backup e revogação de sessão funcionam", async (t
   assert.equal(userResponse.status, 201);
   const createdPayload = await userResponse.json();
   const createdUser = createdPayload.user;
+  for (const endpoint of ["/api/company/users", "/api/admin/user"]) {
+    for (const method of ["POST", "PATCH"]) {
+      for (const username of ["", "sem-email", "contato@empresa", " "]) {
+        const invalidEmailResponse = await api(baseUrl, endpoint, adminCookie, {
+          method,
+          body: JSON.stringify({
+            userId: createdUser.id,
+            companyId,
+            username,
+            displayName: "Contato invalido",
+            role: "Colaborador",
+            currentPassword: "Admin-Teste-123",
+          }),
+        });
+        assert.equal(invalidEmailResponse.status, 400, `${method} ${endpoint}: ${username}`);
+        assert.equal((await invalidEmailResponse.json()).error, "invalid_user");
+      }
+    }
+  }
   assert.equal(createdPayload.invitation.delivery, "not_configured");
   assert.ok(createdPayload.invitation.invitationLink);
   const resendInvitation = await api(baseUrl, "/api/admin/invite", adminCookie, {

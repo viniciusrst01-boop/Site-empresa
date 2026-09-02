@@ -2246,7 +2246,7 @@ async function handleApiRequest(req, res, url, session) {
     const body = await readJsonBody(req);
     if (!(await requireCurrentPassword(res, session, body))) return;
     const targetUserId = Number(body?.userId);
-    if (!targetUserId || !body?.username || !body?.displayName) {
+    if (!targetUserId || !body?.username || !isEmail(body.username) || !body?.displayName) {
       sendJson(res, 400, { error: "invalid_user" });
       return;
     }
@@ -2490,7 +2490,7 @@ async function handleApiRequest(req, res, url, session) {
     const body = await readJsonBody(req);
     if (!(await requireCurrentPassword(res, session, body))) return;
     const targetUserId = Number(body?.userId);
-    if (!targetUserId || !body?.companyId || !body?.username || !body?.displayName) {
+    if (!targetUserId || !body?.companyId || !body?.username || !isEmail(body.username) || !body?.displayName) {
       sendJson(res, 400, { error: "invalid_user" });
       return;
     }
