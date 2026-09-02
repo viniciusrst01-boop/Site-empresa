@@ -22,6 +22,7 @@ test("fornecedor preenche causas, seleciona status e anexa evidência em todos o
   });
   await page.goto("/supplier-rnc#browser-test-token");
   await expect(page.locator("#response")).toBeVisible();
+  await expect(page.locator("header img")).toHaveCount(0);
   await expect(page.locator("nav, .sidebar")).toHaveCount(0);
   await page.getByRole("button", { name: "Adicionar ação" }).click();
   await page.getByLabel("Método", { exact: true }).fill("Revisão do procedimento de inspeção");
