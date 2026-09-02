@@ -345,6 +345,11 @@
 .nc-attachment-row > :first-child { min-width: 0; overflow-wrap: anywhere; }
 .nc-attachment-row .abtn { flex: 0 0 30px; }
 .nc-evidence-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(160px, 100%), 1fr)); gap: 12px; margin-top: 14px; }
+.acao-evidences { margin-top: 12px; }
+.acao-evidences-label { display: block; margin-bottom: 7px; color: var(--text-secondary); font-size: 12px; font-weight: 700; }
+.acao-evidence-gallery { grid-template-columns: repeat(auto-fill, minmax(72px, 92px)); gap: 8px; margin-top: 0; }
+.acao-evidence-gallery .nc-evidence-image { height: 66px; padding: 4px; }
+.acao-evidence-gallery .nc-evidence-name { padding: 5px 6px; font-size: 11px; line-height: 1.3; }
 .nc-evidence-thumb { display: flex; flex-direction: column; min-width: 0; padding: 0; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--bg-panel); color: var(--text-primary); font: inherit; cursor: pointer; overflow: hidden; text-align: left; }
 .nc-evidence-thumb:hover { border-color: var(--accent-blue); }
 .nc-evidence-thumb:focus-visible { outline: 2px solid var(--accent-blue); outline-offset: 2px; }

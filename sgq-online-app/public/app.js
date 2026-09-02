@@ -4092,7 +4092,7 @@ function openNcDetail(id) {
   const ish = rnc.ishikawa || {};
   const ishFilled = Object.values(ish).some(Boolean);
   const history = [...(rnc.historico || [])].sort((a, b) => new Date(a.ts) - new Date(b.ts));
-  const actionRows = (rnc.acoes || []).map((action) => `<div class="acao-item"><div class="acao-item-hd"><div><div class="acao-item-desc">${escapeHtml(action.desc)}</div><div class="acao-item-meta"><span>Prazo: <b>${ncDate(action.prazo)}</b></span><span>Responsável: <b>${escapeHtml(action.responsavel)}</b></span>${action.evidencia ? `<span>Arquivo: <b>${escapeHtml(action.evidencia)}</b></span>` : ""}</div></div>${ncStatusHtml(ncActionEffectiveStatus(action))}</div></div>`).join("");
+  const actionRows = (rnc.acoes || []).map((action) => `<div class="acao-item" data-nc-action-id="${escapeHtml(action.id)}"><div class="acao-item-hd"><div><div class="acao-item-desc">${escapeHtml(action.desc)}</div><div class="acao-item-meta"><span>Prazo: <b>${ncDate(action.prazo)}</b></span><span>Responsável: <b>${escapeHtml(action.responsavel)}</b></span>${action.evidencia ? `<span>Arquivo: <b>${escapeHtml(action.evidencia)}</b></span>` : ""}</div></div>${ncStatusHtml(ncActionEffectiveStatus(action))}</div></div>`).join("");
   const days = rnc.eficaciaIniciadaEm ? Math.floor((Date.now() - new Date(`${rnc.eficaciaIniciadaEm}T00:00:00`).getTime()) / 86400000) : 0;
   mountNcModal(`<div class="modal-box xwide nc-rnc-modal"><div class="modal-hd"><div><h3>${escapeHtml(rnc.id)}</h3><p>Registro de Não Conformidade · ${escapeHtml(rnc.status)}</p></div><div class="nc-modal-tools"><button class="btn-sm" id="ncPrint" type="button">${moduleIcon("download")} Imprimir PDF</button><button class="modal-close" data-nc-close type="button" title="Fechar" aria-label="Fechar">${moduleIcon("close")}</button></div></div>
     <div class="rnc-detail-grid">${[["Data de origem", ncDate(rnc.dataOrigem)], ["Código do item", rnc.codigoItem || "-"], ["Origem", rnc.origem === "Interno" ? "Interno" : `${rnc.origem} · ${rnc.origemRef}`], ["Setor", rnc.setor], ["Processo", rnc.processo], ["Gravidade", rnc.gravidade], ["Status", rnc.status], ["Reincidente", rnc.reincidente ? "Sim" : "Não"], ["RNC do cliente", rnc.rncClientePdf || "-"], ["Evidências", `${attachments.length} arquivo(s)`], ["Ações", `${count.done}/${count.total}`]].map(([label, value]) => `<div class="detail-item"><div class="l">${label}</div><div class="v">${escapeHtml(value)}</div></div>`).join("")}</div>
@@ -4146,13 +4146,25 @@ async function renderNcSupplierStatus(id) {
     const section = document.createElement("section");
     section.className = "rnc-section";
     const status = entry.respondedAt ? `Resposta recebida em ${formatDateTime(entry.respondedAt)}` : entry.sentAt ? `Convite enviado em ${formatDateTime(entry.sentAt)}${entry.remindedAt ? ` · Lembrete enviado em ${formatDateTime(entry.remindedAt)}` : " · Aguardando resposta"}` : "E-mail pendente de envio. Verifique a configuração de e-mail; haverá nova tentativa na rotina diária.";
-    section.innerHTML = `<div class="rnc-section-hd"><h4>Retorno do fornecedor</h4></div><p>${escapeHtml(entry.email)}</p><div class="banner-info">${escapeHtml(status)}</div>`;
+    section.innerHTML = `<div class="rnc-section-hd"><h4>Solicitação ao fornecedor</h4></div><p>${escapeHtml(entry.email)}</p><div class="banner-info">${escapeHtml(status)}</div>`;
     modal.querySelector(".rnc-section").after(section);
-    renderNcEvidenceGallery(section, modal, id, entry.files || []);
+    const row = state.ncs.find((item) => item.id === id);
+    for (const action of row?.acoes || []) {
+      const evidenceIds = action.evidenceIds || [];
+      const files = evidenceIds.map((fileId) => (entry.files || []).find((file) => file.id === fileId)).filter(Boolean);
+      if (!files.length) continue;
+      const target = modal.querySelector(`[data-nc-action-id="${CSS.escape(action.id)}"]`);
+      if (!target) continue;
+      const evidence = document.createElement("div");
+      evidence.className = "acao-evidences";
+      evidence.innerHTML = "<span class=\"acao-evidences-label\">Evidências da ação</span>";
+      target.append(evidence);
+      renderNcEvidenceGallery(evidence, modal, id, files, "acao-evidence-gallery");
+    }
   } catch { /* The RNC remains available if delivery status cannot be loaded. */ }
 }
 
-function renderNcEvidenceGallery(section, modal, ncId, files) {
+function renderNcEvidenceGallery(section, modal, ncId, files, className = "") {
   const controller = new AbortController();
   const urls = [];
   let viewer;
@@ -4164,7 +4176,7 @@ function renderNcEvidenceGallery(section, modal, ncId, files) {
     ncEvidenceCleanup = null;
   };
   const gallery = document.createElement("div");
-  gallery.className = "nc-evidence-gallery";
+  gallery.className = `nc-evidence-gallery ${className}`.trim();
   section.append(gallery);
   files.forEach(async (file) => {
     const href = `/api/nc-evidence?${new URLSearchParams({ nc: ncId, file: file.id })}`;

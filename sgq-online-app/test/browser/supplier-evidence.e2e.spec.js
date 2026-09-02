@@ -8,7 +8,7 @@ test("evidências do fornecedor abrem ampliadas sem download nos três temas", a
   await page.route("**/api/bootstrap", async (route) => {
     const response = await route.fetch();
     const body = await response.json();
-    body.state = { ...(body.state || {}), ncs: [{ id: "RNC-PREVIA", origem: "Fornecedor", origemRef: "Fornecedor Teste", descricao: "Evidências para inspeção visual", dataOrigem: "2026-09-02", ishikawa: {}, acoes: [], historico: [] }] };
+    body.state = { ...(body.state || {}), ncs: [{ id: "RNC-PREVIA", origem: "Fornecedor", origemRef: "Fornecedor Teste", descricao: "Evidências para inspeção visual", dataOrigem: "2026-09-02", ishikawa: {}, acoes: [{ id: "AC-1", desc: "Corrigir o item", prazo: "2026-09-04", responsavel: "Fornecedor", status: "Concluída", supplier: true, evidenceIds: ["image-1", "image-2", "pdf-1"] }], historico: [] }] };
     body.needsOnboarding = false;
     await route.fulfill({ response, json: body });
   });
@@ -27,6 +27,9 @@ test("evidências do fornecedor abrem ampliadas sem download nos três temas", a
   await page.getByRole("button", { name: "RNC-PREVIA", exact: true }).click();
   const thumb = page.getByRole("button", { name: "Visualizar evidencia.png", exact: true });
   await expect(thumb).toBeEnabled();
+  await expect(page.getByText("Retorno do fornecedor", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("Evidências da ação", { exact: true })).toBeVisible();
+  await expect(thumb.locator("xpath=ancestor::div[contains(@class, 'acao-item')]")).toBeVisible();
   await expect(page.getByRole("link", { name: "relatorio.pdf", exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: /imagem-indisponivel.png/ })).toBeVisible();
   expect(await thumb.locator("img").evaluate((img) => img.naturalWidth)).toBeGreaterThan(0);
