@@ -1288,6 +1288,15 @@ async function handleRequest(req, res) {
         await supplierRnc.read(token);
         const raw = await readRawBody(req, 2900000);
         sendJson(res, 201, await supplierRnc.upload(token, JSON.parse(raw.toString("utf8"))));
+      } else if (/^\/api\/supplier-rnc\/nc-evidence\/[^/]+$/.test(url.pathname) && req.method === "GET") {
+        const file = await supplierRnc.downloadNcEvidence(token, decodeURIComponent(url.pathname.split("/").pop()));
+        send(res, 200, Buffer.from(file.base64, "base64"), {
+          "Content-Type": file.type,
+          "Content-Disposition": `inline; filename*=UTF-8''${encodeURIComponent(file.name).replace(/'/g, "%27")}`,
+          "Cache-Control": "no-store",
+          "X-Content-Type-Options": "nosniff",
+          "Content-Security-Policy": "default-src 'none'; sandbox",
+        });
       } else if (/^\/api\/supplier-rnc\/evidence\/[^/]+$/.test(url.pathname) && req.method === "GET") {
         const file = await supplierRnc.download(token, url.pathname.split("/").pop());
         sendDownload(res, "application/octet-stream", file.name, Buffer.from(file.base64, "base64"));

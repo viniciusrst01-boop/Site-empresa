@@ -17,8 +17,10 @@ test("supplier portal isolates RNCs, persists evidence, handles concurrency and 
   await db.syncConfiguredUsers([{ user: process.env.SGQ_LOGIN_USER, password: process.env.SGQ_USER_PASSWORD, companyName: "Supplier Test" }]);
   const user = await db.findUser(process.env.SGQ_LOGIN_USER, process.env.SGQ_USER_PASSWORD);
   const companyId = user.companyId;
-  const makeRow = (id) => ({ id, origem: "Fornecedor", origemRef: "Fornecedor Teste", fornecedorEmail: "vendor@example.test", descricao: "Peça fora de especificação", status: "Aguardando análise", ishikawa: {}, acoes: [], historico: [] });
+  const ncPhoto = { id: "8cb3642b-0d42-4781-b976-ae8eb7d1b062", name: "evidencia-rnc.png", size: 68, type: "image/png" };
+  const makeRow = (id) => ({ id, origem: "Fornecedor", origemRef: "Fornecedor Teste", fornecedorEmail: "vendor@example.test", descricao: "Peça fora de especificação", status: "Aguardando análise", ishikawa: {}, acoes: [], evidencias: id === "RNC-A" ? [ncPhoto] : [], historico: [] });
   await db.mutateSupplierData(companyId, (data) => service.prepareState(data, { ncs: [makeRow("RNC-A"), makeRow("RNC-B")], users: [{ secret: "not-public" }], documents: [{ id: "secret-document" }] }, true));
+  await db.setCompanyData(companyId, `ncAttachment:${ncPhoto.id}`, { ...ncPhoto, base64: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAF/gJ+NQdFlAAAAABJRU5ErkJggg==" });
   await Promise.all([service.deliver(companyId), service.deliver(companyId)]);
   assert.equal(mail.length, 2);
   const tokenFor = (index) => new URL(mail[index].html.match(/href="([^"]+)"/)[1]).hash.slice(1);
@@ -26,6 +28,7 @@ test("supplier portal isolates RNCs, persists evidence, handles concurrency and 
   const tokenB = tokenFor(1);
   const initial = await service.read(tokenA);
   assert.equal(initial.id, "RNC-A");
+  assert.deepEqual(initial.ncEvidences, [ncPhoto]);
   assert.ok(Object.values(initial.ishikawa).every((value) => value === ""));
   assert.equal(initial.users, undefined);
   assert.equal(initial.documents, undefined);
@@ -33,6 +36,8 @@ test("supplier portal isolates RNCs, persists evidence, handles concurrency and 
   const evidence = await service.upload(tokenA, { name: "evidência.txt", base64: Buffer.from("Evidencia real da acao").toString("base64") });
   assert.equal(Buffer.from((await service.download(tokenA, evidence.id)).base64, "base64").toString(), "Evidencia real da acao");
   await assert.rejects(service.download(tokenB, evidence.id), { status: 404 });
+  assert.equal((await service.downloadNcEvidence(tokenA, ncPhoto.id)).name, ncPhoto.name);
+  await assert.rejects(service.downloadNcEvidence(tokenB, ncPhoto.id), { status: 404 });
   await assert.rejects(service.upload(tokenA, { name: "attack.html", base64: "YWJj" }), { status: 400 });
   await assert.rejects(service.respond(tokenA, { version: initial.version, ishikawa: {}, acoes: [], companyId: 99 }), { status: 400 });
   const stale = structuredClone(await db.getCompanyData(companyId, "state"));
@@ -64,6 +69,11 @@ test("supplier portal isolates RNCs, persists evidence, handles concurrency and 
   assert.equal((await fetch(`${base}/api/nc-evidence?nc=RNC-A&file=${evidence.id}`, { headers })).status, 401);
   assert.equal((await fetch(`${base}/api/data`, { method: "POST", headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify({ key: "state", value: { ncs: [] } }) })).status, 401);
   assert.equal((await fetch(`${base}/api/supplier-rnc/evidence/${evidence.id}`, { headers })).status, 200);
+  const ncPhotoResponse = await fetch(`${base}/api/supplier-rnc/nc-evidence/${ncPhoto.id}`, { headers });
+  assert.equal(ncPhotoResponse.status, 200);
+  assert.equal(ncPhotoResponse.headers.get("content-type"), "image/png");
+  assert.equal(ncPhotoResponse.headers.get("content-disposition").startsWith("inline"), true);
+  assert.equal((await fetch(`${base}/api/supplier-rnc/nc-evidence/${ncPhoto.id}`, { headers: { Authorization: `Bearer ${tokenB}` } })).status, 404);
   const page = await fetch(`${base}/supplier-rnc`);
   assert.equal(page.headers.get("referrer-policy"), "no-referrer");
   assert.match(await page.text(), /Análise da causa/);

@@ -14,6 +14,7 @@
     <p id="feedback" role="status" aria-live="polite">Carregando RNC...</p>
     <form id="response" hidden>
       <section class="context"><h2>Descrição da não conformidade</h2><p id="description"></p></section>
+      <section id="nc-evidences" class="nc-evidences" hidden><h2>Evidências da não conformidade</h2><div id="nc-evidence-gallery" class="nc-evidence-gallery" aria-label="Fotos anexadas à não conformidade"></div></section>
       <section><h2>Análise da causa · 6Ms</h2><div id="causes" class="cause-grid"></div><label>Conclusão / Causa raiz<textarea name="causaRaiz" maxlength="4000" rows="3"></textarea></label></section>
       <section><div class="section-heading"><h2>Ações corretivas</h2><button type="button" id="add-action">Adicionar ação</button></div><div id="actions"></div></section>
       <footer><span id="saved-at"></span><button class="primary" type="submit">Salvar resposta</button></footer>

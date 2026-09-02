@@ -23,6 +23,7 @@ const messages = {
 };
 let record;
 let busy = false;
+let ncEvidenceCleanup = () => {};
 function notify(message, failed = false) { feedback.textContent = message; feedback.classList.toggle("error", failed); }
 async function request(path = "", options = {}) {
   const response = await fetch(`/api/supplier-rnc${path}`, { ...options, credentials: "omit", headers: { Authorization: `Bearer ${token}`, ...(options.body ? { "Content-Type": "application/json" } : {}) } });
@@ -97,10 +98,65 @@ function renderFiles(element) {
     li.append(button); list.append(li);
   }
 }
+function renderNcEvidences() {
+  ncEvidenceCleanup();
+  const section = document.querySelector("#nc-evidences");
+  const gallery = document.querySelector("#nc-evidence-gallery");
+  gallery.replaceChildren();
+  const files = record.ncEvidences || [];
+  if (!files.length) { section.hidden = true; return; }
+  section.hidden = false;
+  const controller = new AbortController();
+  const urls = [];
+  const viewers = new Set();
+  const closeViewer = (dialog, focusTarget) => {
+    if (!dialog.isConnected) return;
+    dialog.close(); dialog.remove(); viewers.delete(dialog);
+    focusTarget?.focus();
+  };
+  ncEvidenceCleanup = () => {
+    controller.abort();
+    urls.forEach((url) => URL.revokeObjectURL(url));
+    viewers.forEach((dialog) => { if (dialog.isConnected) { dialog.close(); dialog.remove(); } });
+    viewers.clear();
+  };
+  for (const file of files) {
+    const card = document.createElement("article");
+    card.className = "nc-evidence-card";
+    const button = document.createElement("button");
+    button.type = "button"; button.className = "nc-evidence-thumb";
+    button.setAttribute("aria-label", `Ampliar evidência ${file.name}`);
+    button.title = `Ampliar ${file.name}`;
+    const image = document.createElement("img");
+    image.alt = file.name;
+    button.append(image);
+    const name = document.createElement("span"); name.className = "nc-evidence-name"; name.textContent = file.name;
+    card.append(button, name); gallery.append(card);
+    (async () => {
+      try {
+        const blob = await (await request(`/nc-evidence/${encodeURIComponent(file.id)}`, { signal: controller.signal })).blob();
+        if (controller.signal.aborted) return;
+        const url = URL.createObjectURL(blob); urls.push(url); image.src = url;
+        button.onclick = () => {
+          const dialog = document.createElement("dialog"); dialog.className = "supplier-nc-evidence-viewer";
+          const close = document.createElement("button"); close.type = "button"; close.className = "viewer-close"; close.textContent = "Fechar";
+          const enlarged = document.createElement("img"); enlarged.src = url; enlarged.alt = file.name;
+          dialog.append(close, enlarged); document.body.append(dialog); viewers.add(dialog);
+          close.onclick = () => closeViewer(dialog, button);
+          dialog.addEventListener("click", (event) => { if (event.target === dialog) closeViewer(dialog, button); });
+          dialog.showModal(); close.focus();
+        };
+      } catch (error) {
+        if (!controller.signal.aborted) { card.remove(); if (!gallery.childElementCount) section.hidden = true; }
+      }
+    })();
+  }
+}
 function render() {
   document.querySelector("#title").textContent = record.id;
   document.querySelector("#supplier").textContent = record.fornecedor;
   document.querySelector("#description").textContent = record.descricao;
+  renderNcEvidences();
   document.querySelector("#causes").innerHTML = causes.map(([key, label]) => `<label>${label}<textarea name="${key}" maxlength="4000" rows="3">${escape(record.ishikawa[key])}</textarea></label>`).join("");
   form.elements.causaRaiz.value = record.ishikawa.causaRaiz;
   document.querySelector("#actions").replaceChildren();
@@ -120,3 +176,4 @@ form.onsubmit = async (event) => {
   finally { lock(false); }
 };
 (async () => { try { record = await (await request()).json(); render(); notify("RNC disponível para resposta."); } catch (error) { notify(error.message, true); } })();
+window.addEventListener("pagehide", () => ncEvidenceCleanup());

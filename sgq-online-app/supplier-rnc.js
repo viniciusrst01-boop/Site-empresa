@@ -5,6 +5,7 @@ const mailer = require("./mailer");
 
 const DAY = 86400000;
 const CAUSES = ["metodo", "maquina", "maoObra", "material", "medicao", "meioAmbiente", "causaRaiz"];
+const NC_IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
 const error = (message, status = 400) => Object.assign(new Error(message), { status });
 const text = (value, max = 4000) => {
   if (typeof value !== "string" || value.length > max) throw error("invalid_field");
@@ -42,6 +43,7 @@ function createSupplierRnc({ secret, appUrl, sendEmail = mailer.sendEmail, now =
       ishikawa: Object.fromEntries(CAUSES.map((key) => [key, row.ishikawa?.[key] || ""])),
       acoes: (row.acoes || []).filter((action) => action.supplier).map(({ id, desc, prazo, responsavel, status, evidenceIds = [] }) => ({ id, desc, prazo, responsavel, status, evidenceIds })),
       evidences: (entry.files || []).map(({ id, name, size }) => ({ id, name, size })),
+      ncEvidences: (row.evidencias || []).filter((file) => file && NC_IMAGE_TYPES.has(file.type)).map(({ id, name, size, type }) => ({ id, name, size, type })),
       respondedAt: entry.respondedAt || null,
     };
   }
@@ -154,6 +156,18 @@ function createSupplierRnc({ secret, appUrl, sendEmail = mailer.sendEmail, now =
       return file;
     });
   }
+  async function downloadNcEvidence(token, fileId) {
+    const auth = parseToken(token);
+    const metadata = await db.mutateSupplierData(auth.companyId, (data) => {
+      const { row } = resolve(data, auth);
+      const file = row.evidencias?.find((item) => item?.id === fileId && NC_IMAGE_TYPES.has(item.type));
+      if (!file) throw error("nc_evidence_not_found", 404);
+      return { id: file.id, name: file.name, size: file.size, type: file.type };
+    });
+    const stored = await db.getCompanyData(auth.companyId, `ncAttachment:${metadata.id}`);
+    if (!stored?.base64 || stored.type !== metadata.type || stored.name !== metadata.name || !NC_IMAGE_TYPES.has(stored.type)) throw error("nc_evidence_not_found", 404);
+    return { ...metadata, base64: stored.base64 };
+  }
   async function deliver(companyId) {
     const privateData = await db.getCompanyData(companyId, "supplierRncPrivate");
     const results = [];
@@ -195,7 +209,7 @@ function createSupplierRnc({ secret, appUrl, sendEmail = mailer.sendEmail, now =
     for (const target of await db.listNotificationTargets(true)) results.push(...await deliver(target.company.id));
     return results;
   }
-  return { prepareState, read, respond, upload, download, deliver, runNotifications };
+  return { prepareState, read, respond, upload, download, downloadNcEvidence, deliver, runNotifications };
 }
 
 module.exports = { createSupplierRnc };
