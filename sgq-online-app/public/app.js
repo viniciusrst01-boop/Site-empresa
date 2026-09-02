@@ -3694,6 +3694,7 @@ function replaceNcTvButtonWithLink(button) {
 }
 
 function renderNonConformityModule() {
+  ncEvidenceCleanup?.();
   ensureNcData();
   pageContent.classList.remove("risk-page-content", "context-page-content", "leadership-page-content");
   pageContent.classList.add("nc-page-content");
@@ -3953,7 +3954,9 @@ async function deleteNcCatalog(id) {
   await saveNcData("Cadastro excluído."); renderNcTab();
 }
 
+let ncEvidenceCleanup = null;
 function mountNcModal(html) {
+  ncEvidenceCleanup?.();
   const mount = document.querySelector("#ncModalMount");
   mount.innerHTML = `<div class="modal-overlay show nc-modal-overlay">${html}</div>`;
   mount.querySelectorAll("[data-nc-close]").forEach((button) => button.addEventListener("click", closeNcModal));
@@ -3961,6 +3964,7 @@ function mountNcModal(html) {
 }
 
 function closeNcModal() {
+  ncEvidenceCleanup?.();
   const mount = document.querySelector("#ncModalMount");
   if (mount) mount.innerHTML = "";
 }
@@ -4000,9 +4004,80 @@ async function renderNcSupplierStatus(id) {
     const section = document.createElement("section");
     section.className = "rnc-section";
     const status = entry.respondedAt ? `Resposta recebida em ${formatDateTime(entry.respondedAt)}` : entry.sentAt ? `Convite enviado em ${formatDateTime(entry.sentAt)}${entry.remindedAt ? ` · Lembrete enviado em ${formatDateTime(entry.remindedAt)}` : " · Aguardando resposta"}` : "E-mail pendente de envio. Verifique a configuração de e-mail; haverá nova tentativa na rotina diária.";
-    section.innerHTML = `<div class="rnc-section-hd"><h4>Retorno do fornecedor</h4></div><p>${escapeHtml(entry.email)}</p><div class="banner-info">${escapeHtml(status)}</div>${entry.files.length ? `<ul>${entry.files.map((file) => `<li><a class="rnc-link" href="/api/nc-evidence?${new URLSearchParams({ nc: id, file: file.id })}">${escapeHtml(file.name)}</a></li>`).join("")}</ul>` : ""}`;
+    section.innerHTML = `<div class="rnc-section-hd"><h4>Retorno do fornecedor</h4></div><p>${escapeHtml(entry.email)}</p><div class="banner-info">${escapeHtml(status)}</div>`;
     modal.querySelector(".rnc-section").after(section);
+    renderNcEvidenceGallery(section, modal, id, entry.files || []);
   } catch { /* The RNC remains available if delivery status cannot be loaded. */ }
+}
+
+function renderNcEvidenceGallery(section, modal, ncId, files) {
+  const controller = new AbortController();
+  const urls = [];
+  let viewer;
+  ncEvidenceCleanup = () => {
+    controller.abort();
+    viewer?.close();
+    viewer?.remove();
+    urls.forEach((url) => URL.revokeObjectURL(url));
+    ncEvidenceCleanup = null;
+  };
+  const gallery = document.createElement("div");
+  gallery.className = "nc-evidence-gallery";
+  section.append(gallery);
+  files.forEach(async (file) => {
+    const href = `/api/nc-evidence?${new URLSearchParams({ nc: ncId, file: file.id })}`;
+    if (!/\.(png|jpe?g|webp)$/i.test(file.name)) {
+      const link = document.createElement("a");
+      link.className = "nc-evidence-file rnc-link";
+      link.href = href;
+      link.textContent = file.name;
+      gallery.append(link);
+      return;
+    }
+    const tile = document.createElement("button");
+    tile.type = "button";
+    tile.className = "nc-evidence-thumb";
+    tile.setAttribute("aria-label", `Visualizar ${file.name}`);
+    tile.title = `Visualizar ${file.name}`;
+    tile.disabled = true;
+    tile.innerHTML = `<span class="nc-evidence-image"><span>Carregando...</span></span><span class="nc-evidence-name">${escapeHtml(file.name)}</span>`;
+    gallery.append(tile);
+    try {
+      const response = await fetch(href, { signal: controller.signal });
+      if (!response.ok) throw new Error("evidence_unavailable");
+      const blob = await response.blob();
+      if (controller.signal.aborted || !modal.isConnected) return;
+      const url = URL.createObjectURL(blob);
+      urls.push(url);
+      const image = new Image();
+      image.alt = file.name;
+      image.src = url;
+      await image.decode();
+      if (controller.signal.aborted || !modal.isConnected) return;
+      tile.querySelector(".nc-evidence-image").replaceChildren(image);
+      tile.disabled = false;
+      tile.addEventListener("click", () => {
+        viewer?.remove();
+        viewer = document.createElement("dialog");
+        viewer.className = "nc-evidence-viewer";
+        viewer.setAttribute("aria-label", `Visualizar ${file.name}`);
+        viewer.innerHTML = `<div class="nc-evidence-viewer-body"><div class="nc-evidence-viewer-head"><h3>${escapeHtml(file.name)}</h3><button class="modal-close" type="button" title="Fechar visualização" aria-label="Fechar visualização">${moduleIcon("close")}</button></div><img alt="${escapeHtml(file.name)}"></div>`;
+        viewer.querySelector("img").src = url;
+        viewer.querySelector("button").onclick = () => viewer.close();
+        viewer.addEventListener("click", (event) => { if (event.target === viewer) viewer.close(); });
+        viewer.addEventListener("close", () => tile.focus());
+        modal.append(viewer);
+        viewer.showModal();
+      });
+    } catch {
+      if (controller.signal.aborted || !modal.isConnected) return;
+      const fallback = document.createElement("a");
+      fallback.className = "nc-evidence-file rnc-link";
+      fallback.href = href;
+      fallback.textContent = `${file.name} — Prévia indisponível. Baixar arquivo`;
+      tile.replaceWith(fallback);
+    }
+  });
 }
 
 function openNcIshikawa() {
