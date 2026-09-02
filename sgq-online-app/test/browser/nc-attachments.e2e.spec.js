@@ -10,6 +10,22 @@ test("NC aceita tres fotos e permite excluir em todas as origens e temas", async
   await page.getByLabel("Senha").fill("Browser-Teste-123");
   await page.getByRole("button", { name: "Entrar no sistema" }).click();
   await expect(page).toHaveURL(/\/app$/);
+  const toastContrast = await page.evaluate(() => {
+    const toast = document.createElement("div");
+    toast.className = "qp-toast";
+    toast.textContent = "Preencha os campos obrigatórios.";
+    document.body.append(toast);
+    const colors = ["dark", "light", "white"].map((theme) => {
+      document.body.classList.toggle("theme-light", theme === "light");
+      document.body.classList.toggle("theme-white", theme === "white");
+      const style = getComputedStyle(toast);
+      return { background: style.backgroundColor, color: style.color };
+    });
+    toast.remove();
+    document.body.classList.remove("theme-light", "theme-white");
+    return colors;
+  });
+  expect(toastContrast.every(({ background, color }) => background !== color)).toBe(true);
   const rejectedLimit = await page.evaluate(async () => {
     const response = await fetch("/api/data", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key: "state", moduleId: "nao-conformidades", value: { ncs: [{ evidencias: [{}, {}, {}, {}] }] } }) });
     return { status: response.status, body: await response.json() };

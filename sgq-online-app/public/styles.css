@@ -1994,6 +1994,13 @@ select.input-basic option:checked {
   padding: 14px 16px;
 }
 
+body.theme-white .qp-toast {
+  background: #ffffff;
+  border-color: #9db6cf;
+  box-shadow: 0 18px 40px rgba(15, 52, 84, 0.2);
+  color: #12233a;
+}
+
 @media (max-width: 960px) {
   .qp-grid,
   .qp-layout,
@@ -2335,8 +2342,10 @@ body.theme-light .app-footer {
 }
 
 body.theme-light .qp-toast {
-  background: #f5fbff;
+  background: #e8f4ff;
+  border-color: #74a9d6;
   box-shadow: 0 18px 40px rgba(15, 81, 130, 0.14);
+  color: #0b2745;
 }
 
 /* Meus módulos */
