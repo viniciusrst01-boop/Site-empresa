@@ -84,7 +84,7 @@ test("módulo de não conformidades mantém o fluxo funcional", async ({ page },
   await page.locator("#ncSeverity").selectOption({ label: "Maior" });
   await page.locator("#ncDescription").fill("Não conformidade criada no teste de navegador");
   await page.locator("#ncEvidence").setInputFiles(path.join(__dirname, "..", "fixtures", "nc-evidencia.txt"));
-  await expect(page.locator("#ncEvidenceName")).toHaveText("nc-evidencia.txt");
+  await expect(page.locator("#ncEvidenceList .nc-attachment-row")).toHaveText(/nc-evidencia\.txt/);
   await page.locator("[data-nc-save]").click();
 
   await expect(page.getByText(/RNC-\d{4}-\d{4} registrado com sucesso/)).toBeVisible();
@@ -116,7 +116,7 @@ test("módulo de não conformidades mantém o fluxo funcional", async ({ page },
   await expect(page.getByText("ITEM-E2E-EDITADO", { exact: true })).toBeVisible();
   await expect(page.getByText("Descrição atualizada pelo teste de navegador", { exact: true })).toBeVisible();
   await expect(page.getByText("rnc-cliente.pdf", { exact: true })).toBeVisible();
-  await expect(page.getByText("nc-evidencia.txt", { exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "nc-evidencia.txt", exact: true })).toBeVisible();
   const printDisplay = await page.locator("#ncPrint").evaluate((button) => getComputedStyle(button).display);
   expect(["flex", "inline-flex"]).toContain(printDisplay);
   await expect(page.locator("#ncPrint")).toHaveCSS("border-radius", "7px");

@@ -566,7 +566,7 @@ async function buildCompanyReport(companyId) {
     listUsersWithCompanySettings(companyId),
     listCompanyData(companyId),
   ]);
-  const modules = Object.fromEntries(dataRows.filter((row) => row.key !== "supplierRncPrivate").map((row) => [row.key, row.value]));
+  const modules = Object.fromEntries(dataRows.filter((row) => row.key !== "supplierRncPrivate" && !row.key.startsWith("ncAttachment:")).map((row) => [row.key, row.value]));
   return {
     generatedAt: new Date().toISOString(),
     company,
@@ -2636,6 +2636,51 @@ async function handleApiRequest(req, res, url, session) {
     return;
   }
 
+  if (url.pathname === "/api/nc-attachments") {
+    const permissions = await getSessionPermissions(session);
+    const editing = req.method !== "GET";
+    if (!(editing ? canEditModule(permissions, "nao-conformidades") : canViewModule(permissions, "nao-conformidades"))) {
+      sendJson(res, 403, { error: "forbidden" }); return;
+    }
+    if (req.method === "POST") {
+      const body = await readJsonBody(req, 2900000);
+      const name = String(body?.name || "").slice(0, 200);
+      const base64 = String(body?.base64 || "");
+      const bytes = Buffer.from(base64, "base64");
+      if (!name || !bytes.length || bytes.length > 2 * 1024 * 1024 || bytes.toString("base64") !== base64) {
+        sendJson(res, 400, { error: "invalid_attachment" }); return;
+      }
+      const type = bytes.subarray(0, 8).equals(Buffer.from([137,80,78,71,13,10,26,10])) ? "image/png"
+        : bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255 ? "image/jpeg"
+        : bytes.subarray(0, 4).toString() === "RIFF" && bytes.subarray(8, 12).toString() === "WEBP" ? "image/webp"
+        : "application/octet-stream";
+      const file = { id: crypto.randomUUID(), name, size: bytes.length, type };
+      await setCompanyData(companyId, `ncAttachment:${file.id}`, { ...file, base64 });
+      sendJson(res, 201, file); return;
+    }
+    const id = url.searchParams.get("id") || "";
+    if (!/^[a-f0-9-]{36}$/.test(id)) { sendJson(res, 400, { error: "invalid_attachment" }); return; }
+    const data = await getCompanyData(companyId, "state");
+    const referenced = (data?.ncs || []).some((nc) => Array.isArray(nc.evidencias) && nc.evidencias.some((file) => file.id === id));
+    if (req.method === "DELETE") {
+      if (referenced) { sendJson(res, 409, { error: "attachment_in_use" }); return; }
+      await setCompanyData(companyId, `ncAttachment:${id}`, null);
+      sendJson(res, 200, { ok: true }); return;
+    }
+    if (req.method === "GET") {
+      const file = referenced && await getCompanyData(companyId, `ncAttachment:${id}`);
+      if (!file?.base64) { sendJson(res, 404, { error: "attachment_not_found" }); return; }
+      send(res, 200, Buffer.from(file.base64, "base64"), {
+        "Content-Type": file.type,
+        "Content-Disposition": `${file.type.startsWith("image/") ? "inline" : "attachment"}; filename*=UTF-8''${encodeURIComponent(file.name).replace(/'/g, "%27")}`,
+        "Cache-Control": "private, no-store",
+        "X-Content-Type-Options": "nosniff",
+        "Content-Security-Policy": "default-src 'none'; sandbox",
+      }); return;
+    }
+    sendJson(res, 405, { error: "method_not_allowed" }); return;
+  }
+
   if (url.pathname === "/api/nc-evidence" && req.method === "GET") {
     if (!canViewModule(await getSessionPermissions(session), "nao-conformidades")) {
       sendJson(res, 403, { error: "forbidden" });
@@ -2650,6 +2695,9 @@ async function handleApiRequest(req, res, url, session) {
 
   if (url.pathname === "/api/data" && req.method === "POST") {
     const body = await readJsonBody(req);
+    if (body?.key === "state" && Array.isArray(body.value?.ncs) && body.value.ncs.some((nc) => Array.isArray(nc.evidencias) && nc.evidencias.length > 3)) {
+      sendJson(res, 400, { error: "too_many_nc_attachments" }); return;
+    }
     if (!body || typeof body.key !== "string") {
       sendJson(res, 400, { error: "invalid_payload" });
       return;

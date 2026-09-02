@@ -3771,7 +3771,7 @@ function ncRegisterHtml() {
         <div class="field-row2"><label class="field">Gravidade<select class="input-basic" id="ncSeverity" ${disabled}><option>Menor</option><option selected>Média</option><option>Maior</option></select></label><label class="field">Processo envolvido<select class="input-basic" id="ncProcess" ${disabled}><option value="">Selecione...</option>${options("processos")}</select></label></div>
         <label class="field nc-description-field">Descrição da não conformidade<textarea class="input-basic" id="ncDescription" ${disabled}></textarea></label>
         <label class="field nc-client-pdf-field" id="ncClientPdfWrap" hidden>RNC enviada pelo cliente<input class="input-basic" id="ncClientPdf" type="file" accept="application/pdf,.pdf" ${disabled}><small id="ncClientPdfName">Nenhum PDF selecionado</small></label>
-        <label class="field">Evidência da não conformidade<input class="input-basic" id="ncEvidence" type="file" ${disabled}><small id="ncEvidenceName">Nenhum arquivo selecionado</small></label>
+        <div class="field"><label for="ncEvidence">Evidências da não conformidade</label><input class="input-basic" id="ncEvidence" type="file" multiple ${disabled}><div id="ncEvidenceList"></div></div>
         <div class="nc-register-footer">
           <label class="check-row"><input type="checkbox" id="ncRepeat" ${disabled}> Esta não conformidade é reincidente</label>
           ${canEditModule("nao-conformidades") ? `<div class="form-actions"><button class="btn-danger-ghost" data-nc-clear type="button">Limpar</button><button class="btn-primary" data-nc-save type="button">Salvar NC</button></div>` : `<div class="banner-info">Seu perfil possui acesso somente para visualização.</div>`}
@@ -3813,11 +3813,7 @@ function bindNcTabActions() {
     const label = pageContent.querySelector("#ncClientPdfName");
     if (label) label.textContent = file?.name || "Nenhum PDF selecionado";
   });
-  pageContent.querySelector("#ncEvidence")?.addEventListener("change", () => {
-    const file = pageContent.querySelector("#ncEvidence")?.files?.[0];
-    const label = pageContent.querySelector("#ncEvidenceName");
-    if (label) label.textContent = file?.name || "Nenhum arquivo selecionado";
-  });
+  bindNcAttachmentEditor(pageContent.querySelector("#ncEvidence"), pageContent.querySelector("#ncEvidenceList"));
   pageContent.querySelectorAll("[data-nc-filter]").forEach((field) => field.addEventListener(field.tagName === "INPUT" ? "input" : "change", () => { ncFilters[field.dataset.ncFilter] = field.value; renderNcTab(); }));
   pageContent.querySelector("[data-nc-clear-filters]")?.addEventListener("click", () => { ncFilters = { origem: "", referencia: "", processo: "", setor: "", gravidade: "", status: "", busca: "" }; renderNcTab(); });
   pageContent.querySelector("[data-nc-go-register]")?.addEventListener("click", () => { ncMainTab = "registrar"; renderNonConformityModule(); });
@@ -3826,6 +3822,70 @@ function bindNcTabActions() {
   pageContent.querySelectorAll("[data-nc-delete]").forEach((button) => button.addEventListener("click", () => deleteNc(button.dataset.ncDelete)));
   pageContent.querySelectorAll("[data-nc-dash]").forEach((field) => field.addEventListener("change", () => { if (field.dataset.ncDash === "year") ncDashYear = field.value; else ncDashDimension = field.value; renderNcTab(); }));
   replaceNcTvButtonWithLink(pageContent.querySelector("[data-nc-transmit]"));
+}
+
+function ncAttachments(row) {
+  return Array.isArray(row?.evidencias) ? row.evidencias : row?.evidencia ? [{ name: row.evidencia }] : [];
+}
+
+function bindNcAttachmentEditor(input, list, existing = []) {
+  if (!input || !list) return;
+  input.ncFiles = existing.map((file) => ({ ...file }));
+  const render = () => {
+    list.replaceChildren();
+    for (const entry of input.ncFiles) {
+      const item = document.createElement("div");
+      item.className = "nc-attachment-row";
+      const name = document.createElement("span");
+      name.textContent = entry.name;
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "abtn danger";
+      remove.title = `Excluir ${entry.name}`;
+      remove.setAttribute("aria-label", remove.title);
+      remove.innerHTML = moduleIcon("trash");
+      remove.disabled = input.disabled;
+      remove.onclick = () => {
+        if (input.ncBusy || !canEditModule("nao-conformidades")) return;
+        input.ncFiles = input.ncFiles.filter((file) => file !== entry);
+        render();
+      };
+      item.append(name);
+      if (canEditModule("nao-conformidades")) item.append(remove);
+      list.append(item);
+    }
+  };
+  input.addEventListener("change", () => {
+    if (!canEditModule("nao-conformidades") || input.ncBusy) return;
+    const files = [...input.files];
+    input.value = "";
+    if (input.ncFiles.length + files.length > 3) return void toast("Selecione no máximo 3 fotos por NC.");
+    if (files.some((file) => file.size > 2 * 1024 * 1024 || !file.size)) return void toast("Cada anexo deve ter conteúdo e no máximo 2 MB.");
+    input.ncFiles.push(...files.map((file) => ({ name: file.name, file })));
+    render();
+  });
+  render();
+}
+
+async function uploadNcAttachments(input) {
+  if (!input) return [];
+  input.ncBusy = true;
+  input.disabled = true;
+  try {
+    for (const entry of input.ncFiles || []) {
+      if (!entry.file || entry.id) continue;
+      const base64 = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result).split(",")[1]);
+        reader.onerror = () => reject(new Error("Não foi possível ler o anexo."));
+        reader.readAsDataURL(entry.file);
+      });
+      const response = await fetch("/api/nc-attachments", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: entry.name, base64 }) });
+      if (!response.ok) throw new Error("Não foi possível enviar os anexos. Tente novamente.");
+      Object.assign(entry, await response.json());
+    }
+    return (input.ncFiles || []).map(({ file, ...metadata }) => metadata);
+  } finally { input.ncBusy = false; input.disabled = false; }
 }
 
 function updateNcReference() {
@@ -3844,19 +3904,23 @@ function updateNcReference() {
 
 async function saveNewNc() {
   if (!canEditModule("nao-conformidades")) return;
+  if (pageContent.querySelector("#ncEvidence")?.ncBusy) return;
   const value = (selector) => pageContent.querySelector(selector)?.value.trim() || "";
   const origin = value("#ncOrigin");
   const reference = value("#ncReference");
   const supplierEmail = value("#ncSupplierEmail");
   if (origin === "Fornecedor" && (!supplierEmail || !pageContent.querySelector("#ncSupplierEmail").checkValidity())) return void toast("Informe um e-mail válido para o fornecedor.");
   if (!origin || (!reference && origin !== "Interno") || !value("#ncSector") || !value("#ncProcess") || !value("#ncDescription")) return void toast("Preencha os campos obrigatórios.");
-  const evidence = pageContent.querySelector("#ncEvidence")?.files?.[0];
+  let attachments;
   const clientPdf = pageContent.querySelector("#ncClientPdf")?.files?.[0];
-  if (evidence && evidence.size > 5 * 1024 * 1024) return void toast("A evidência deve ter no máximo 5 MB.");
   if (clientPdf && (clientPdf.type !== "application/pdf" && !/\.pdf$/i.test(clientPdf.name))) return void toast("Anexe apenas PDF no RNC enviado pelo cliente.");
   if (clientPdf && clientPdf.size > 5 * 1024 * 1024) return void toast("O PDF do cliente deve ter no máximo 5 MB.");
+  try { attachments = await uploadNcAttachments(pageContent.querySelector("#ncEvidence")); }
+  catch (error) { toast(error.message); return; }
+  const evidence = { name: attachments.map((file) => file.name).join(", ") };
   const rnc = { id: ncNextNumber(), dataOrigem: value("#ncData") || ncToday(), codigoItem: value("#ncItem"), origem: origin, origemRef: origin === "Interno" ? "" : reference, setor: value("#ncSector"), processo: value("#ncProcess"), gravidade: value("#ncSeverity"), reincidente: pageContent.querySelector("#ncRepeat")?.checked || false, descricao: value("#ncDescription"), evidencia: evidence?.name || "", rncClientePdf: origin === "Cliente" ? clientPdf?.name || "" : "", status: "Aguardando análise", ishikawa: { metodo: "", maquina: "", maoObra: "", material: "", medicao: "", meioAmbiente: "", causaRaiz: "" }, acoes: [], eficaciaIniciadaEm: "", encerradoEm: "", historico: [] };
   ncAddHistory(rnc, `RNC aberta por ${currentUser?.name || "Usuário"}.`);
+  rnc.evidencias = attachments;
   if (origin === "Fornecedor") rnc.fornecedorEmail = supplierEmail;
   const saveButton = pageContent.querySelector("[data-nc-save]");
   if (saveButton?.disabled) return;
@@ -3883,7 +3947,17 @@ function openNcEdit(id) {
     <label class="field">Descrição da não conformidade<textarea class="input-basic" id="ncEditDescription">${escapeHtml(row.descricao || "")}</textarea></label>
     <div class="modal-actions"><button class="btn-ghost" data-nc-close type="button">Cancelar</button><button class="btn-primary" id="ncEditSave" type="button">Salvar alterações</button></div></div>`);
   document.querySelector("#ncEditOrigin")?.addEventListener("change", updateNcEditReference);
-  document.querySelector("#ncEditSave")?.addEventListener("click", () => saveNcEdit(id));
+  const attachmentEditor = document.createElement("div");
+  attachmentEditor.className = "field";
+  attachmentEditor.innerHTML = '<label for="ncEditEvidence">Evidências da não conformidade</label><input class="input-basic" id="ncEditEvidence" type="file" multiple><div id="ncEditEvidenceList"></div>';
+  document.querySelector("#ncEditDescription").closest("label").after(attachmentEditor);
+  bindNcAttachmentEditor(document.querySelector("#ncEditEvidence"), document.querySelector("#ncEditEvidenceList"), ncAttachments(row));
+  document.querySelector("#ncEditSave")?.addEventListener("click", async (event) => {
+    const button = event.currentTarget;
+    if (button.disabled) return;
+    button.disabled = true;
+    try { await saveNcEdit(id); } finally { button.disabled = false; }
+  });
 }
 
 function updateNcEditReference() {
@@ -3900,13 +3974,20 @@ function updateNcEditReference() {
 async function saveNcEdit(id) {
   const row = state.ncs.find((item) => item.id === id);
   if (!row || !canEditModule("nao-conformidades")) return;
+  if (document.querySelector("#ncEditEvidence")?.ncBusy) return;
   const value = (selector) => document.querySelector(selector)?.value.trim() || "";
   const origin = value("#ncEditOrigin");
   const reference = value("#ncEditReference");
   const supplierEmail = value("#ncEditSupplierEmail");
   if (origin === "Fornecedor" && (!supplierEmail || !document.querySelector("#ncEditSupplierEmail").checkValidity())) return void toast("Informe um e-mail válido para o fornecedor.");
   if (!origin || (!reference && origin !== "Interno") || !value("#ncEditSector") || !value("#ncEditProcess") || !value("#ncEditDescription")) return void toast("Preencha os campos obrigatórios.");
+  let attachments;
+  try { attachments = await uploadNcAttachments(document.querySelector("#ncEditEvidence")); }
+  catch (error) { toast(error.message); return; }
+  const previous = structuredClone(row);
   Object.assign(row, {
+    evidencias: attachments,
+    evidencia: attachments.map((file) => file.name).join(", "),
     dataOrigem: value("#ncEditData") || ncToday(),
     codigoItem: value("#ncEditItem"),
     origem: origin,
@@ -3920,7 +4001,14 @@ async function saveNcEdit(id) {
   });
   ncAddHistory(row, `${currentUser?.name || "Usuário"} atualizou os dados da RNC.`);
   ncRecalculateStatus(row);
-  if (await saveNcData(`${row.id} atualizado com sucesso.`)) { closeNcModal(); renderNcKpis(); renderNcTab(); }
+  if (await saveNcData(`${row.id} atualizado com sucesso.`)) {
+    for (const file of ncAttachments(previous)) {
+      if (file.id && !attachments.some((item) => item.id === file.id)) {
+        await fetch(`/api/nc-attachments?id=${encodeURIComponent(file.id)}`, { method: "DELETE" }).catch(() => null);
+      }
+    }
+    closeNcModal(); renderNcKpis(); renderNcTab();
+  } else Object.assign(row, previous);
 }
 
 async function deleteNc(id) {
@@ -3975,19 +4063,33 @@ function openNcDetail(id) {
   if (!rnc) return;
   ncRecalculateStatus(rnc);
   const count = ncActionCounts(rnc);
+  const attachments = ncAttachments(rnc);
   const ish = rnc.ishikawa || {};
   const ishFilled = Object.values(ish).some(Boolean);
   const history = [...(rnc.historico || [])].sort((a, b) => new Date(a.ts) - new Date(b.ts));
   const actionRows = (rnc.acoes || []).map((action) => `<div class="acao-item"><div class="acao-item-hd"><div><div class="acao-item-desc">${escapeHtml(action.desc)}</div><div class="acao-item-meta"><span>Prazo: <b>${ncDate(action.prazo)}</b></span><span>Responsável: <b>${escapeHtml(action.responsavel)}</b></span>${action.evidencia ? `<span>Arquivo: <b>${escapeHtml(action.evidencia)}</b></span>` : ""}</div></div>${ncStatusHtml(ncActionEffectiveStatus(action))}</div></div>`).join("");
   const days = rnc.eficaciaIniciadaEm ? Math.floor((Date.now() - new Date(`${rnc.eficaciaIniciadaEm}T00:00:00`).getTime()) / 86400000) : 0;
   mountNcModal(`<div class="modal-box xwide nc-rnc-modal"><div class="modal-hd"><div><h3>${escapeHtml(rnc.id)}</h3><p>Registro de Não Conformidade · ${escapeHtml(rnc.status)}</p></div><div class="nc-modal-tools"><button class="btn-sm" id="ncPrint" type="button">${moduleIcon("download")} Imprimir PDF</button><button class="modal-close" data-nc-close type="button" title="Fechar" aria-label="Fechar">${moduleIcon("close")}</button></div></div>
-    <div class="rnc-detail-grid">${[["Data de origem", ncDate(rnc.dataOrigem)], ["Código do item", rnc.codigoItem || "-"], ["Origem", rnc.origem === "Interno" ? "Interno" : `${rnc.origem} · ${rnc.origemRef}`], ["Setor", rnc.setor], ["Processo", rnc.processo], ["Gravidade", rnc.gravidade], ["Status", rnc.status], ["Reincidente", rnc.reincidente ? "Sim" : "Não"], ["RNC do cliente", rnc.rncClientePdf || "-"], ["Evidência", rnc.evidencia || "-"], ["Ações", `${count.done}/${count.total}`]].map(([label, value]) => `<div class="detail-item"><div class="l">${label}</div><div class="v">${escapeHtml(value)}</div></div>`).join("")}</div>
+    <div class="rnc-detail-grid">${[["Data de origem", ncDate(rnc.dataOrigem)], ["Código do item", rnc.codigoItem || "-"], ["Origem", rnc.origem === "Interno" ? "Interno" : `${rnc.origem} · ${rnc.origemRef}`], ["Setor", rnc.setor], ["Processo", rnc.processo], ["Gravidade", rnc.gravidade], ["Status", rnc.status], ["Reincidente", rnc.reincidente ? "Sim" : "Não"], ["RNC do cliente", rnc.rncClientePdf || "-"], ["Evidências", `${attachments.length} arquivo(s)`], ["Ações", `${count.done}/${count.total}`]].map(([label, value]) => `<div class="detail-item"><div class="l">${label}</div><div class="v">${escapeHtml(value)}</div></div>`).join("")}</div>
     <section class="rnc-section"><div class="rnc-section-hd"><h4>Descrição da não conformidade</h4></div><p>${escapeHtml(rnc.descricao)}</p></section>
     <section class="rnc-section"><div class="rnc-section-hd"><h4>Análise de causa · Ishikawa <span class="num">6M</span></h4>${canEditModule("nao-conformidades") ? `<button class="btn-sm" id="ncEditIsh">${moduleIcon("edit")} Editar análise</button>` : ""}</div>${ishFilled ? `<div class="ishikawa-grid">${[["Método", ish.metodo], ["Máquina", ish.maquina], ["Mão de obra", ish.maoObra], ["Material", ish.material], ["Medição", ish.medicao], ["Meio ambiente", ish.meioAmbiente]].map(([label, value]) => `<div class="ishikawa-cell"><div class="m-label">${label}</div><div class="m-text">${escapeHtml(value || "-")}</div></div>`).join("")}</div>${ish.causaRaiz ? `<div class="causa-raiz-box"><div class="crlabel">Conclusão / Causa raiz</div><div class="crtext">${escapeHtml(ish.causaRaiz)}</div></div>` : ""}` : `<div class="empty-state">Análise de causa ainda não preenchida.</div>`}</section>
     <section class="rnc-section"><div class="rnc-section-hd"><h4>Ações corretivas <span class="num">${count.done}/${count.total}</span></h4>${canEditModule("nao-conformidades") ? `<button class="btn-sm" id="ncManageActions">${moduleIcon("edit")} Gerenciar ações</button>` : ""}</div>${actionRows || `<div class="empty-state">Nenhuma ação cadastrada.</div>`}</section>
     <section class="rnc-section"><div class="rnc-section-hd"><h4>Avaliação de eficácia</h4>${canEditModule("nao-conformidades") && rnc.status === "Aguardando eficácia" ? `<button class="btn-sm grad" id="ncCloseRnc">Encerrar RNC</button>` : ""}</div><div class="banner-info ${rnc.status === "Encerrado" ? "banner-success" : rnc.status === "Aguardando eficácia" ? "banner-warn" : ""}">${rnc.status === "Encerrado" ? `Eficácia comprovada e RNC encerrado em ${ncDate(rnc.encerradoEm)}.` : rnc.status === "Aguardando eficácia" ? `${Math.max(0, 30 - days)} dia(s) restantes no período de avaliação de 30 dias.` : "A avaliação começa quando todas as ações forem concluídas."}</div></section>
     <section class="rnc-section"><div class="rnc-section-hd"><h4>Histórico e rastreabilidade</h4></div><div class="timeline">${history.map((item) => `<div class="tl-item"><div class="tl-dot"></div><div class="tl-time">${formatDateTime(item.ts)}</div><div class="tl-text">${escapeHtml(String(item.texto || "").replace(/<[^>]+>/g, ""))}</div></div>`).join("") || `<div class="empty-state">Sem registros no histórico.</div>`}</div></section></div>`);
   document.querySelector("#ncPrint")?.addEventListener("click", () => window.print());
+  if (attachments.length) {
+    const section = document.createElement("section");
+    section.className = "rnc-section";
+    section.innerHTML = "<h4>Evidências da não conformidade</h4>";
+    for (const file of attachments) {
+      const link = document.createElement(file.id ? "a" : "span");
+      link.className = "nc-attachment-row";
+      link.textContent = file.name;
+      if (file.id) { link.href = `/api/nc-attachments?id=${encodeURIComponent(file.id)}`; link.target = "_blank"; link.rel = "noopener"; }
+      section.append(link);
+    }
+    document.querySelector(".nc-rnc-modal .rnc-section").after(section);
+  }
   document.querySelector("#ncEditIsh")?.addEventListener("click", openNcIshikawa);
   document.querySelector("#ncManageActions")?.addEventListener("click", openNcActions);
   document.querySelector("#ncCloseRnc")?.addEventListener("click", closeNcRnc);
