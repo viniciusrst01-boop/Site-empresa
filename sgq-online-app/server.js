@@ -2647,6 +2647,9 @@ async function handleApiRequest(req, res, url, session) {
       const name = String(body?.name || "").slice(0, 200);
       const base64 = String(body?.base64 || "");
       const bytes = Buffer.from(base64, "base64");
+      if (body?.kind === "client-rnc" && bytes.subarray(0, 5).toString() !== "%PDF-") {
+        sendJson(res, 400, { error: "invalid_pdf" }); return;
+      }
       if (!name || !bytes.length || bytes.length > 2 * 1024 * 1024 || bytes.toString("base64") !== base64) {
         sendJson(res, 400, { error: "invalid_attachment" }); return;
       }
@@ -2661,7 +2664,7 @@ async function handleApiRequest(req, res, url, session) {
     const id = url.searchParams.get("id") || "";
     if (!/^[a-f0-9-]{36}$/.test(id)) { sendJson(res, 400, { error: "invalid_attachment" }); return; }
     const data = await getCompanyData(companyId, "state");
-    const referenced = (data?.ncs || []).some((nc) => Array.isArray(nc.evidencias) && nc.evidencias.some((file) => file.id === id));
+    const referenced = (data?.ncs || []).some((nc) => ["evidencias", "rncClienteArquivos"].some((key) => Array.isArray(nc[key]) && nc[key].some((file) => file.id === id)));
     if (req.method === "DELETE") {
       if (referenced) { sendJson(res, 409, { error: "attachment_in_use" }); return; }
       await setCompanyData(companyId, `ncAttachment:${id}`, null);
@@ -2695,7 +2698,7 @@ async function handleApiRequest(req, res, url, session) {
 
   if (url.pathname === "/api/data" && req.method === "POST") {
     const body = await readJsonBody(req);
-    if (body?.key === "state" && Array.isArray(body.value?.ncs) && body.value.ncs.some((nc) => Array.isArray(nc.evidencias) && nc.evidencias.length > 3)) {
+    if (body?.key === "state" && Array.isArray(body.value?.ncs) && body.value.ncs.some((nc) => ["evidencias", "rncClienteArquivos"].some((key) => Array.isArray(nc[key]) && nc[key].length > 3))) {
       sendJson(res, 400, { error: "too_many_nc_attachments" }); return;
     }
     if (!body || typeof body.key !== "string") {

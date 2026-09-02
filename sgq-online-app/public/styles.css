@@ -385,6 +385,8 @@
 .nc-page-content .nc-register-form { width: 100%; max-width: none; }
 .nc-register-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px; }
 .nc-register-column { min-width: 0; }
+.nc-origin-client .nc-register-column-right { overflow-y: auto; }
+#ncClientPdfList, #ncEditClientPdfList { max-height: 132px; overflow-y: auto; }
 .nc-register-column-right { border-left: 1px solid var(--border-subtle); padding-left: 28px; }
 .nc-register-footer { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; }
 .nc-form-intro { margin-bottom: 22px !important; }

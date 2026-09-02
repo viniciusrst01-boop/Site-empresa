@@ -78,7 +78,7 @@ test("módulo de não conformidades mantém o fluxo funcional", async ({ page },
   await expect(page.locator("#ncClientPdfWrap")).toBeVisible();
   await page.locator("#ncReference").selectOption({ label: "Metalúrgica Andrade Ltda" });
   await page.locator("#ncClientPdf").setInputFiles(path.join(__dirname, "..", "fixtures", "rnc-cliente.pdf"));
-  await expect(page.locator("#ncClientPdfName")).toHaveText("rnc-cliente.pdf");
+  await expect(page.locator("#ncClientPdfList")).toContainText("rnc-cliente.pdf");
   await page.locator("#ncSector").selectOption({ index: 1 });
   await page.locator("#ncProcess").selectOption({ index: 1 });
   await page.locator("#ncSeverity").selectOption({ label: "Maior" });
@@ -115,7 +115,7 @@ test("módulo de não conformidades mantém o fluxo funcional", async ({ page },
   await rncLink.click();
   await expect(page.getByText("ITEM-E2E-EDITADO", { exact: true })).toBeVisible();
   await expect(page.getByText("Descrição atualizada pelo teste de navegador", { exact: true })).toBeVisible();
-  await expect(page.getByText("rnc-cliente.pdf", { exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "rnc-cliente.pdf", exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "nc-evidencia.txt", exact: true })).toBeVisible();
   const printDisplay = await page.locator("#ncPrint").evaluate((button) => getComputedStyle(button).display);
   expect(["flex", "inline-flex"]).toContain(printDisplay);

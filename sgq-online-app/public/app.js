@@ -3770,7 +3770,7 @@ function ncRegisterHtml() {
       <div class="nc-register-column nc-register-column-right">
         <div class="field-row2"><label class="field">Gravidade<select class="input-basic" id="ncSeverity" ${disabled}><option>Menor</option><option selected>Média</option><option>Maior</option></select></label><label class="field">Processo envolvido<select class="input-basic" id="ncProcess" ${disabled}><option value="">Selecione...</option>${options("processos")}</select></label></div>
         <label class="field nc-description-field">Descrição da não conformidade<textarea class="input-basic" id="ncDescription" ${disabled}></textarea></label>
-        <label class="field nc-client-pdf-field" id="ncClientPdfWrap" hidden>RNC enviada pelo cliente<input class="input-basic" id="ncClientPdf" type="file" accept="application/pdf,.pdf" ${disabled}><small id="ncClientPdfName">Nenhum PDF selecionado</small></label>
+        <div class="field nc-client-pdf-field" id="ncClientPdfWrap" hidden><label for="ncClientPdf">RNCs enviadas pelo cliente</label><input class="input-basic" id="ncClientPdf" type="file" accept="application/pdf,.pdf" multiple ${disabled}><div id="ncClientPdfList"></div></div>
         <div class="field"><label for="ncEvidence">Evidências da não conformidade</label><input class="input-basic" id="ncEvidence" type="file" multiple ${disabled}><div id="ncEvidenceList"></div></div>
         <div class="nc-register-footer">
           <label class="check-row"><input type="checkbox" id="ncRepeat" ${disabled}> Esta não conformidade é reincidente</label>
@@ -3808,11 +3808,7 @@ function bindNcTabActions() {
   pageContent.querySelector("#ncOrigin")?.addEventListener("change", updateNcReference);
   pageContent.querySelector("[data-nc-save]")?.addEventListener("click", saveNewNc);
   pageContent.querySelector("[data-nc-clear]")?.addEventListener("click", () => { ncMainTab = "registrar"; renderNcTab(); });
-  pageContent.querySelector("#ncClientPdf")?.addEventListener("change", () => {
-    const file = pageContent.querySelector("#ncClientPdf")?.files?.[0];
-    const label = pageContent.querySelector("#ncClientPdfName");
-    if (label) label.textContent = file?.name || "Nenhum PDF selecionado";
-  });
+  bindNcAttachmentEditor(pageContent.querySelector("#ncClientPdf"), pageContent.querySelector("#ncClientPdfList"), [], true);
   bindNcAttachmentEditor(pageContent.querySelector("#ncEvidence"), pageContent.querySelector("#ncEvidenceList"));
   pageContent.querySelectorAll("[data-nc-filter]").forEach((field) => field.addEventListener(field.tagName === "INPUT" ? "input" : "change", () => { ncFilters[field.dataset.ncFilter] = field.value; renderNcTab(); }));
   pageContent.querySelector("[data-nc-clear-filters]")?.addEventListener("click", () => { ncFilters = { origem: "", referencia: "", processo: "", setor: "", gravidade: "", status: "", busca: "" }; renderNcTab(); });
@@ -3828,9 +3824,14 @@ function ncAttachments(row) {
   return Array.isArray(row?.evidencias) ? row.evidencias : row?.evidencia ? [{ name: row.evidencia }] : [];
 }
 
-function bindNcAttachmentEditor(input, list, existing = []) {
+function ncClientAttachments(row) {
+  return Array.isArray(row?.rncClienteArquivos) ? row.rncClienteArquivos : row?.rncClientePdf ? [{ name: row.rncClientePdf }] : [];
+}
+
+function bindNcAttachmentEditor(input, list, existing = [], pdfOnly = false) {
   if (!input || !list) return;
   input.ncFiles = existing.map((file) => ({ ...file }));
+  input.ncPdfOnly = pdfOnly;
   const render = () => {
     list.replaceChildren();
     for (const entry of input.ncFiles) {
@@ -3859,7 +3860,8 @@ function bindNcAttachmentEditor(input, list, existing = []) {
     if (!canEditModule("nao-conformidades") || input.ncBusy) return;
     const files = [...input.files];
     input.value = "";
-    if (input.ncFiles.length + files.length > 3) return void toast("Selecione no máximo 3 fotos por NC.");
+    if (input.ncFiles.length + files.length > 3) return void toast(pdfOnly ? "Selecione no máximo 3 PDFs de RNC do cliente." : "Selecione no máximo 3 fotos por NC.");
+    if (pdfOnly && files.some((file) => !/\.pdf$/i.test(file.name))) return void toast("Anexe apenas PDF no RNC enviado pelo cliente.");
     if (files.some((file) => file.size > 2 * 1024 * 1024 || !file.size)) return void toast("Cada anexo deve ter conteúdo e no máximo 2 MB.");
     input.ncFiles.push(...files.map((file) => ({ name: file.name, file })));
     render();
@@ -3880,7 +3882,7 @@ async function uploadNcAttachments(input) {
         reader.onerror = () => reject(new Error("Não foi possível ler o anexo."));
         reader.readAsDataURL(entry.file);
       });
-      const response = await fetch("/api/nc-attachments", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: entry.name, base64 }) });
+      const response = await fetch("/api/nc-attachments", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: entry.name, base64, kind: input.ncPdfOnly ? "client-rnc" : "evidence" }) });
       if (!response.ok) throw new Error("Não foi possível enviar os anexos. Tente novamente.");
       Object.assign(entry, await response.json());
     }
@@ -3896,6 +3898,12 @@ function updateNcReference() {
   wrap.hidden = origin === "Interno" || !origin;
   const clientPdfWrap = pageContent.querySelector("#ncClientPdfWrap");
   if (clientPdfWrap) clientPdfWrap.hidden = origin !== "Cliente";
+  const description = pageContent.querySelector(".nc-description-field");
+  if (description) {
+    if (origin === "Cliente") pageContent.querySelector("#ncSector").closest(".field").after(description);
+    else clientPdfWrap.before(description);
+  }
+  pageContent.querySelector(".nc-register-form")?.classList.toggle("nc-origin-client", origin === "Cliente");
   const supplierEmailWrap = pageContent.querySelector("#ncSupplierEmailWrap");
   if (supplierEmailWrap) supplierEmailWrap.hidden = origin !== "Fornecedor";
   const key = origin === "Cliente" ? "clientes" : "fornecedores";
@@ -3904,7 +3912,7 @@ function updateNcReference() {
 
 async function saveNewNc() {
   if (!canEditModule("nao-conformidades")) return;
-  if (pageContent.querySelector("#ncEvidence")?.ncBusy) return;
+  if (pageContent.querySelector("#ncEvidence")?.ncBusy || pageContent.querySelector("#ncClientPdf")?.ncBusy) return;
   const value = (selector) => pageContent.querySelector(selector)?.value.trim() || "";
   const origin = value("#ncOrigin");
   const reference = value("#ncReference");
@@ -3912,15 +3920,18 @@ async function saveNewNc() {
   if (origin === "Fornecedor" && (!supplierEmail || !pageContent.querySelector("#ncSupplierEmail").checkValidity())) return void toast("Informe um e-mail válido para o fornecedor.");
   if (!origin || (!reference && origin !== "Interno") || !value("#ncSector") || !value("#ncProcess") || !value("#ncDescription")) return void toast("Preencha os campos obrigatórios.");
   let attachments;
-  const clientPdf = pageContent.querySelector("#ncClientPdf")?.files?.[0];
-  if (clientPdf && (clientPdf.type !== "application/pdf" && !/\.pdf$/i.test(clientPdf.name))) return void toast("Anexe apenas PDF no RNC enviado pelo cliente.");
-  if (clientPdf && clientPdf.size > 5 * 1024 * 1024) return void toast("O PDF do cliente deve ter no máximo 5 MB.");
-  try { attachments = await uploadNcAttachments(pageContent.querySelector("#ncEvidence")); }
+  let clientAttachments = [];
+  try {
+    attachments = await uploadNcAttachments(pageContent.querySelector("#ncEvidence"));
+    if (origin === "Cliente") clientAttachments = await uploadNcAttachments(pageContent.querySelector("#ncClientPdf"));
+  }
   catch (error) { toast(error.message); return; }
   const evidence = { name: attachments.map((file) => file.name).join(", ") };
+  const clientPdf = { name: clientAttachments.map((file) => file.name).join(", ") };
   const rnc = { id: ncNextNumber(), dataOrigem: value("#ncData") || ncToday(), codigoItem: value("#ncItem"), origem: origin, origemRef: origin === "Interno" ? "" : reference, setor: value("#ncSector"), processo: value("#ncProcess"), gravidade: value("#ncSeverity"), reincidente: pageContent.querySelector("#ncRepeat")?.checked || false, descricao: value("#ncDescription"), evidencia: evidence?.name || "", rncClientePdf: origin === "Cliente" ? clientPdf?.name || "" : "", status: "Aguardando análise", ishikawa: { metodo: "", maquina: "", maoObra: "", material: "", medicao: "", meioAmbiente: "", causaRaiz: "" }, acoes: [], eficaciaIniciadaEm: "", encerradoEm: "", historico: [] };
   ncAddHistory(rnc, `RNC aberta por ${currentUser?.name || "Usuário"}.`);
   rnc.evidencias = attachments;
+  rnc.rncClienteArquivos = clientAttachments;
   if (origin === "Fornecedor") rnc.fornecedorEmail = supplierEmail;
   const saveButton = pageContent.querySelector("[data-nc-save]");
   if (saveButton?.disabled) return;
@@ -3952,6 +3963,13 @@ function openNcEdit(id) {
   attachmentEditor.innerHTML = '<label for="ncEditEvidence">Evidências da não conformidade</label><input class="input-basic" id="ncEditEvidence" type="file" multiple><div id="ncEditEvidenceList"></div>';
   document.querySelector("#ncEditDescription").closest("label").after(attachmentEditor);
   bindNcAttachmentEditor(document.querySelector("#ncEditEvidence"), document.querySelector("#ncEditEvidenceList"), ncAttachments(row));
+  const clientEditor = document.createElement("div");
+  clientEditor.className = "field";
+  clientEditor.id = "ncEditClientPdfWrap";
+  clientEditor.hidden = row.origem !== "Cliente";
+  clientEditor.innerHTML = '<label for="ncEditClientPdf">RNCs enviadas pelo cliente</label><input class="input-basic" id="ncEditClientPdf" type="file" accept="application/pdf,.pdf" multiple><div id="ncEditClientPdfList"></div>';
+  attachmentEditor.before(clientEditor);
+  bindNcAttachmentEditor(document.querySelector("#ncEditClientPdf"), document.querySelector("#ncEditClientPdfList"), ncClientAttachments(row), true);
   document.querySelector("#ncEditSave")?.addEventListener("click", async (event) => {
     const button = event.currentTarget;
     if (button.disabled) return;
@@ -3963,6 +3981,7 @@ function openNcEdit(id) {
 function updateNcEditReference() {
   const origin = document.querySelector("#ncEditOrigin")?.value || "Interno";
   document.querySelector("#ncEditSupplierEmailWrap").hidden = origin !== "Fornecedor";
+  document.querySelector("#ncEditClientPdfWrap").hidden = origin !== "Cliente";
   const wrap = document.querySelector("#ncEditReferenceWrap");
   const select = document.querySelector("#ncEditReference");
   if (!wrap || !select) return;
@@ -3974,7 +3993,7 @@ function updateNcEditReference() {
 async function saveNcEdit(id) {
   const row = state.ncs.find((item) => item.id === id);
   if (!row || !canEditModule("nao-conformidades")) return;
-  if (document.querySelector("#ncEditEvidence")?.ncBusy) return;
+  if (document.querySelector("#ncEditEvidence")?.ncBusy || document.querySelector("#ncEditClientPdf")?.ncBusy) return;
   const value = (selector) => document.querySelector(selector)?.value.trim() || "";
   const origin = value("#ncEditOrigin");
   const reference = value("#ncEditReference");
@@ -3982,11 +4001,17 @@ async function saveNcEdit(id) {
   if (origin === "Fornecedor" && (!supplierEmail || !document.querySelector("#ncEditSupplierEmail").checkValidity())) return void toast("Informe um e-mail válido para o fornecedor.");
   if (!origin || (!reference && origin !== "Interno") || !value("#ncEditSector") || !value("#ncEditProcess") || !value("#ncEditDescription")) return void toast("Preencha os campos obrigatórios.");
   let attachments;
-  try { attachments = await uploadNcAttachments(document.querySelector("#ncEditEvidence")); }
+  let clientAttachments = ncClientAttachments(row);
+  try {
+    attachments = await uploadNcAttachments(document.querySelector("#ncEditEvidence"));
+    if (origin === "Cliente") clientAttachments = await uploadNcAttachments(document.querySelector("#ncEditClientPdf"));
+  }
   catch (error) { toast(error.message); return; }
   const previous = structuredClone(row);
   Object.assign(row, {
     evidencias: attachments,
+    rncClienteArquivos: clientAttachments,
+    rncClientePdf: clientAttachments.map((file) => file.name).join(", "),
     evidencia: attachments.map((file) => file.name).join(", "),
     dataOrigem: value("#ncEditData") || ncToday(),
     codigoItem: value("#ncEditItem"),
@@ -4002,8 +4027,8 @@ async function saveNcEdit(id) {
   ncAddHistory(row, `${currentUser?.name || "Usuário"} atualizou os dados da RNC.`);
   ncRecalculateStatus(row);
   if (await saveNcData(`${row.id} atualizado com sucesso.`)) {
-    for (const file of ncAttachments(previous)) {
-      if (file.id && !attachments.some((item) => item.id === file.id)) {
+    for (const file of [...ncAttachments(previous), ...ncClientAttachments(previous)]) {
+      if (file.id && ![...attachments, ...clientAttachments].some((item) => item.id === file.id)) {
         await fetch(`/api/nc-attachments?id=${encodeURIComponent(file.id)}`, { method: "DELETE" }).catch(() => null);
       }
     }
@@ -4086,6 +4111,21 @@ function openNcDetail(id) {
       link.className = "nc-attachment-row";
       link.textContent = file.name;
       if (file.id) { link.href = `/api/nc-attachments?id=${encodeURIComponent(file.id)}`; link.target = "_blank"; link.rel = "noopener"; }
+      section.append(link);
+    }
+    document.querySelector(".nc-rnc-modal .rnc-section").after(section);
+  }
+  const clientFiles = ncClientAttachments(rnc);
+  if (clientFiles.some((file) => file.id)) {
+    const section = document.createElement("section");
+    section.className = "rnc-section";
+    section.innerHTML = "<h4>RNCs enviadas pelo cliente</h4>";
+    for (const file of clientFiles.filter((item) => item.id)) {
+      const link = document.createElement("a");
+      link.className = "nc-attachment-row";
+      link.textContent = file.name;
+      link.href = `/api/nc-attachments?id=${encodeURIComponent(file.id)}`;
+      link.target = "_blank"; link.rel = "noopener";
       section.append(link);
     }
     document.querySelector(".nc-rnc-modal .rnc-section").after(section);
