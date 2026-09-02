@@ -349,7 +349,7 @@
 .nc-evidence-image { display: grid; place-items: center; width: 100%; height: 110px; padding: 6px; background: var(--bg-panel-hover); color: var(--text-secondary); font-size: 12px; }
 .nc-evidence-image img { width: 100%; height: 100%; min-height: 0; object-fit: contain; }
 .nc-evidence-name { width: 100%; padding: 9px; font-size: 12px; line-height: 1.4; overflow-wrap: anywhere; }
-.nc-evidence-file { align-self: start; overflow-wrap: anywhere; font-size: 13px; }
+.nc-evidence-file { align-self: start; min-width: 0; max-width: 100%; white-space: normal; overflow-wrap: anywhere; font-size: 13px; }
 .nc-evidence-viewer { width: min(1100px, 94vw); max-width: 94vw; max-height: 92dvh; padding: 0; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--bg-panel); color: var(--text-primary); }
 .nc-evidence-viewer::backdrop { background: rgba(0, 0, 0, .75); }
 .nc-evidence-viewer-body { display: flex; flex-direction: column; max-height: 90dvh; padding: 16px; gap: 12px; }
