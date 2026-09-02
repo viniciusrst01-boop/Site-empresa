@@ -39,6 +39,29 @@ function addAction(action = {}) {
   if (action.status && !statuses.includes(action.status)) statuses.push(action.status);
   element.innerHTML = `<div class="action-heading"><strong>Ação corretiva</strong><button type="button" data-remove>Remover ação</button></div><label>Descrição da ação<textarea data-field="desc" maxlength="4000" required>${escape(action.desc)}</textarea></label><div class="action-fields"><label>Prazo<input data-field="prazo" maxlength="120" value="${escape(action.prazo)}" required></label><label>Responsável pela ação<input data-field="responsavel" maxlength="200" value="${escape(action.responsavel)}" required></label><label>Status<select data-field="status" aria-label="Status" required><option value="">Selecione...</option>${statuses.map((status) => `<option value="${escape(status)}" ${status === action.status ? "selected" : ""}>${escape(status)}</option>`).join("")}</select></label></div><label>Evidências da ação<input type="file" accept=".pdf,.png,.jpg,.jpeg,.webp,.txt,.csv,.xls,.xlsx,.doc,.docx"><small>Até 2 MB por arquivo. Máximo de 10 arquivos por RNC.</small></label><ul class="files"></ul>`;
   element.querySelector("[data-remove]").onclick = () => { if (confirm("Remover esta ação da resposta?")) element.remove(); };
+  const deadline = element.querySelector('[data-field="prazo"]');
+  const deadlineControl = document.createElement("span");
+  deadlineControl.className = "deadline-control";
+  deadline.before(deadlineControl);
+  const calendar = document.createElement("input");
+  calendar.type = "date";
+  calendar.className = "deadline-calendar";
+  calendar.setAttribute("aria-label", "Escolher data do prazo");
+  calendar.title = "Escolher data do prazo";
+  deadlineControl.append(deadline, calendar);
+  const syncCalendar = () => {
+    const value = deadline.value.trim();
+    const brazilianDate = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(value);
+    calendar.value = brazilianDate ? `${brazilianDate[3]}-${brazilianDate[2]}-${brazilianDate[1]}` : /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : "";
+  };
+  syncCalendar();
+  deadline.addEventListener("input", syncCalendar);
+  calendar.addEventListener("change", () => {
+    if (!calendar.value) return;
+    const [year, month, day] = calendar.value.split("-");
+    deadline.value = `${day}/${month}/${year}`;
+    deadline.dispatchEvent(new Event("input", { bubbles: true }));
+  });
   element.querySelector('input[type="file"]').onchange = async (event) => {
     const file = event.target.files[0];
     if (!file || busy) return;

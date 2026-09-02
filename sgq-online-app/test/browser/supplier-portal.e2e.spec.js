@@ -28,6 +28,9 @@ test("fornecedor preenche causas, seleciona status e anexa evidência em todos o
   await page.getByLabel("Método", { exact: true }).fill("Revisão do procedimento de inspeção");
   await page.getByLabel("Descrição da ação").fill("Revisar e treinar a equipe de inspeção");
   await page.getByLabel("Prazo", { exact: true }).fill("Até a próxima entrega");
+  await expect(page.getByLabel("Prazo", { exact: true })).toHaveValue("Até a próxima entrega");
+  await page.getByLabel("Escolher data do prazo", { exact: true }).fill("2026-09-15");
+  await expect(page.getByLabel("Prazo", { exact: true })).toHaveValue("15/09/2026");
   await page.getByLabel("Responsável pela ação").fill("Equipe de qualidade do fornecedor");
   await expect(page.getByRole("combobox", { name: "Status", exact: true }).locator("option")).toHaveText(["Selecione...", "Em andamento", "Concluída"]);
   await page.getByLabel("Status", { exact: true }).selectOption("Em andamento");
