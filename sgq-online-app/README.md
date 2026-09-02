@@ -178,7 +178,7 @@ A rotina existente `/api/cron/notifications`, agendada diariamente na Vercel às
 
 Os links expiram após 90 dias da emissão e deixam de funcionar ao encerrar/excluir a RNC, alterar sua origem ou trocar o e-mail do fornecedor. O token fica no fragmento do link e é enviado à API somente no cabeçalho de autorização. Uma resposta não concede sessão ou permissão de usuário. A API aceita apenas análise de causa e ações do fornecedor; alterações concorrentes exigem recarregar a versão atual.
 
-As evidências são privadas e armazenadas no banco, com download autenticado ou pelo link específico da RNC: até 10 arquivos de 2 MB por RNC (PDF, imagens PNG/JPEG/WebP, TXT/CSV, Word e Excel). Podem ser anexadas em qualquer status. Prazo e status aceitam texto livre; use datas ISO (`AAAA-MM-DD`) e o status `Concluída` quando desejar o acompanhamento automático de prazo e conclusão. O retorno e os anexos podem ser consultados em **Controle > RNC > Retorno do fornecedor**.
+As evidências são privadas e armazenadas no banco, com download autenticado ou pelo link específico da RNC: até 10 arquivos de 2 MB por RNC (PDF, imagens PNG/JPEG/WebP, TXT/CSV, Word e Excel). Podem ser anexadas em qualquer status. Prazo aceita texto livre; use datas ISO (`AAAA-MM-DD`) para o acompanhamento automático de prazo. O status é selecionado entre `Em andamento` e `Concluída`; valores personalizados de respostas anteriores são preservados. O retorno e os anexos podem ser consultados em **Controle > RNC > Retorno do fornecedor**.
 
 ## Segurança
 

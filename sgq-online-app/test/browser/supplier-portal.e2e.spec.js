@@ -1,6 +1,6 @@
 const { test, expect } = require("@playwright/test");
 
-test("fornecedor preenche causas, status livre e evidência em todos os temas", async ({ page }, testInfo) => {
+test("fornecedor preenche causas, seleciona status e anexa evidência em todos os temas", async ({ page }, testInfo) => {
   let record = { id: "RNC-2026-0001", fornecedor: "Fornecedor de componentes", descricao: "Dimensão da peça fora da especificação aprovada.", version: 1, ishikawa: { metodo: "", maquina: "", maoObra: "", material: "", medicao: "", meioAmbiente: "", causaRaiz: "" }, acoes: [], evidences: [] };
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
@@ -14,7 +14,7 @@ test("fornecedor preenche causas, status livre e evidência em todos os temas", 
     }
     if (request.method() === "POST") {
       const body = request.postDataJSON();
-      expect(body.acoes[0].status).toBe("Aguardando validação externa");
+      expect(body.acoes[0].status).toBe("Em andamento");
       expect(body.acoes[0].evidenceIds).toEqual(["evidence-1"]);
       record = { ...record, ...body, version: record.version + 1, respondedAt: new Date().toISOString() };
     }
@@ -28,7 +28,8 @@ test("fornecedor preenche causas, status livre e evidência em todos os temas", 
   await page.getByLabel("Descrição da ação").fill("Revisar e treinar a equipe de inspeção");
   await page.getByLabel("Prazo", { exact: true }).fill("Até a próxima entrega");
   await page.getByLabel("Responsável pela ação").fill("Equipe de qualidade do fornecedor");
-  await page.getByLabel("Status", { exact: true }).fill("Aguardando validação externa");
+  await expect(page.getByRole("combobox", { name: "Status", exact: true }).locator("option")).toHaveText(["Selecione...", "Em andamento", "Concluída"]);
+  await page.getByLabel("Status", { exact: true }).selectOption("Em andamento");
   await page.getByLabel("Evidências da ação").setInputFiles({ name: "evidencia.txt", mimeType: "text/plain", buffer: Buffer.from("evidencia") });
   await expect(page.getByRole("button", { name: "evidencia.txt" })).toBeVisible();
   const colors = new Set();

@@ -15,7 +15,7 @@ section { padding: 22px; border-bottom: 1px solid #d5dde5; }
 label { display: grid; gap: 7px; font-weight: 600; min-width: 0; }
 input, textarea { width: 100%; min-width: 0; font: inherit; color: inherit; border: 1px solid #afbbc8; border-radius: 6px; padding: 10px; background: #fbfcfd; }
 textarea { resize: vertical; min-height: 80px; }
-input:focus, textarea:focus, button:focus-visible, a:focus-visible { outline: 2px solid #1579c7; outline-offset: 2px; }
+input:focus, textarea:focus, select:focus, button:focus-visible, a:focus-visible { outline: 2px solid #1579c7; outline-offset: 2px; }
 button { font: inherit; cursor: pointer; border: 1px solid #aebdcc; border-radius: 6px; color: #263746; background: #fff; padding: 10px 14px; min-height: 40px; }
 button:hover { box-shadow: 0 2px 6px #24374920; }
 button:disabled { opacity: .55; cursor: wait; }
@@ -35,6 +35,7 @@ footer { padding: 20px 22px; }
 [hidden] { display: none !important; }
 .theme-control { margin-left: auto; font-size: 12px; }
 select { font: inherit; color: inherit; background: #fbfcfd; border: 1px solid #afbbc8; border-radius: 6px; padding: 8px; }
+.action-fields select { width: 100%; min-width: 0; padding: 10px; }
 body[data-theme="dark"] { color-scheme: dark; background: #080e18; color: #e6edf6; --surface: #0e1929; --field: #142237; --border: #35465b; --muted: #b0bfd1; --link: #6bc9ff; }
 body[data-theme="light"] { color-scheme: dark; background: #08243f; color: #eaf3ff; --surface: #123353; --field: #194366; --border: #476783; --muted: #c2d6eb; --link: #67d9ff; }
 body:is([data-theme="dark"], [data-theme="light"]) :is(header, form, #feedback) { background: var(--surface); }

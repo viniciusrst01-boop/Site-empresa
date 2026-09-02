@@ -29,13 +29,15 @@ async function request(path = "", options = {}) {
   if (!response.ok) { const result = await response.json().catch(() => ({})); throw new Error(messages[result.error] || "Não foi possível concluir. Tente novamente."); }
   return response;
 }
-function lock(value) { busy = value; form.querySelectorAll("button, input, textarea").forEach((node) => { node.disabled = value; }); }
+function lock(value) { busy = value; form.querySelectorAll("button, input, textarea, select").forEach((node) => { node.disabled = value; }); }
 function addAction(action = {}) {
   const element = document.createElement("article");
   element.className = "action";
   element.dataset.id = action.id || "";
   element.evidenceIds = [...(action.evidenceIds || [])];
-  element.innerHTML = `<div class="action-heading"><strong>Ação corretiva</strong><button type="button" data-remove>Remover ação</button></div><label>Descrição da ação<textarea data-field="desc" maxlength="4000" required>${escape(action.desc)}</textarea></label><div class="action-fields"><label>Prazo<input data-field="prazo" maxlength="120" value="${escape(action.prazo)}" required></label><label>Responsável pela ação<input data-field="responsavel" maxlength="200" value="${escape(action.responsavel)}" required></label><label>Status<input data-field="status" maxlength="120" value="${escape(action.status)}" required></label></div><label>Evidências da ação<input type="file" accept=".pdf,.png,.jpg,.jpeg,.webp,.txt,.csv,.xls,.xlsx,.doc,.docx"><small>Até 2 MB por arquivo. Máximo de 10 arquivos por RNC.</small></label><ul class="files"></ul>`;
+  const statuses = ["Em andamento", "Concluída"];
+  if (action.status && !statuses.includes(action.status)) statuses.push(action.status);
+  element.innerHTML = `<div class="action-heading"><strong>Ação corretiva</strong><button type="button" data-remove>Remover ação</button></div><label>Descrição da ação<textarea data-field="desc" maxlength="4000" required>${escape(action.desc)}</textarea></label><div class="action-fields"><label>Prazo<input data-field="prazo" maxlength="120" value="${escape(action.prazo)}" required></label><label>Responsável pela ação<input data-field="responsavel" maxlength="200" value="${escape(action.responsavel)}" required></label><label>Status<select data-field="status" aria-label="Status" required><option value="">Selecione...</option>${statuses.map((status) => `<option value="${escape(status)}" ${status === action.status ? "selected" : ""}>${escape(status)}</option>`).join("")}</select></label></div><label>Evidências da ação<input type="file" accept=".pdf,.png,.jpg,.jpeg,.webp,.txt,.csv,.xls,.xlsx,.doc,.docx"><small>Até 2 MB por arquivo. Máximo de 10 arquivos por RNC.</small></label><ul class="files"></ul>`;
   element.querySelector("[data-remove]").onclick = () => { if (confirm("Remover esta ação da resposta?")) element.remove(); };
   element.querySelector('input[type="file"]').onchange = async (event) => {
     const file = event.target.files[0];
