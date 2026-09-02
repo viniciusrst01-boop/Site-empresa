@@ -5058,7 +5058,6 @@ body.theme-white .nc-status-chart > div { background: rgba(248, 252, 255, .98); 
   .nc-page-content:has(.nc-register-form) #ncSubTabs { display: none; }
   .nc-page-content:has(.nc-register-form) #ncTabContent { display: flex; overflow: hidden; }
 
-  .nc-page-content #ncTabContent:has(.dash-toolbar) { overflow: hidden; }
   .nc-page-content .dash-toolbar { gap: 12px; margin-bottom: 8px; }
   .nc-page-content .dash-toolbar .input-basic,
   .nc-page-content .btn-transmit { min-height: 36px; }

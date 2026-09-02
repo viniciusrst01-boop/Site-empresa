@@ -170,12 +170,28 @@ test("módulo de não conformidades mantém o fluxo funcional", async ({ page },
   expect(statusArc).toBeGreaterThan(Math.PI * 1.95);
   await tvPage.screenshot({ path: testInfo.outputPath("nc-tv-live.png"), fullPage: true });
   await tvPage.close();
-  const dashboardLayout = await page.locator("#ncTabContent").evaluate((content) => ({
-    clientHeight: content.clientHeight,
-    scrollHeight: content.scrollHeight,
-  }));
-  expect(dashboardLayout.scrollHeight).toBeLessThanOrEqual(dashboardLayout.clientHeight + 1);
+  await expect(page.locator("#ncTabContent")).toHaveCSS("overflow-y", "auto");
   await page.screenshot({ path: testInfo.outputPath("dashboard-desktop.png"), fullPage: true });
+
+  for (const theme of ["dark", "light", "white"]) {
+    await page.evaluate((theme) => {
+      document.body.classList.toggle("theme-light", theme === "light");
+      document.body.classList.toggle("theme-white", theme === "white");
+    }, theme);
+    for (const width of [1280, 1024]) {
+      await page.setViewportSize({ width, height: 600 });
+      const content = page.locator("#ncTabContent");
+      await content.evaluate((element) => { element.scrollTop = 0; });
+      const box = await content.boundingBox();
+      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+      await page.mouse.wheel(0, 2000);
+      await expect.poll(() => content.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+      await expect.poll(() => content.evaluate((element) => Math.abs(element.scrollHeight - element.clientHeight - element.scrollTop))).toBeLessThanOrEqual(1);
+      await expect(page.locator(".nc-status-chart").last()).toBeInViewport();
+      await expectCompactNcFrame(page);
+    }
+    await page.screenshot({ path: testInfo.outputPath(`dashboard-scroll-${theme}.png`), fullPage: true });
+  }
 
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.locator(".dash-cards")).toBeVisible();
