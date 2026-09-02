@@ -12,6 +12,42 @@
   box-sizing: border-box;
 }
 
+body.first-access.theme-light {
+  --bg: #082440;
+  --panel: #103453;
+  --muted: #bed2e6;
+  background: var(--bg);
+}
+
+body.first-access.theme-white {
+  --bg: #d4dce5;
+  --panel: #ffffff;
+  --border: #b8c5d3;
+  --text: #13243a;
+  --muted: #475569;
+  --cyan: #0079b5;
+  background: var(--bg);
+}
+
+.first-access .login-card {
+  background: var(--panel);
+  border-radius: 8px;
+}
+
+.first-access input {
+  min-width: 0;
+  width: 100%;
+}
+
+.first-access.theme-white input {
+  background: #f1f5f9;
+  border-color: var(--border);
+}
+
+.first-access.theme-white .login-error {
+  color: #b42318;
+}
+
 html,
 body {
   min-height: 100%;

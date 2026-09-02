@@ -135,9 +135,8 @@ test("admin, exportações, backup e revogação de sessão funcionam", async (t
       BACKUP_ENCRYPTION_KEY: "chave-de-backup-de-teste-com-tamanho-suficiente",
       SGQ_BACKUP_DIR: path.join(dataDir, "backups"),
       STRIPE_MOCK_MODE: "true",
-      STRIPE_PRICE_ESSENTIAL: "price_essential_test",
-      STRIPE_PRICE_PROFESSIONAL: "price_professional_test",
-      STRIPE_PRICE_PREMIUM: "price_premium_test",
+      STRIPE_PRICE_MONTHLY: "price_monthly_test",
+      STRIPE_PRICE_ANNUAL: "price_annual_test",
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -372,14 +371,30 @@ test("admin, exportações, backup e revogação de sessão funcionam", async (t
 
   const billingResponse = await api(baseUrl, "/api/billing", adminCookie);
   assert.equal(billingResponse.status, 200);
-  assert.equal((await billingResponse.json()).plans.length, 3);
+  const initialBilling = await billingResponse.json();
+  assert.deepEqual(initialBilling.plans.map(({ key, amount, interval }) => ({ key, amount, interval })), [
+    { key: "monthly", amount: 29700, interval: "month" },
+    { key: "annual", amount: 297000, interval: "year" },
+  ]);
 
   const checkoutResponse = await api(baseUrl, "/api/billing/checkout", adminCookie, {
     method: "POST",
-    body: JSON.stringify({ plan: "professional", currentPassword: "Admin-Teste-123" }),
+    body: JSON.stringify({ plan: "monthly", currentPassword: "Admin-Teste-123" }),
   });
   assert.equal(checkoutResponse.status, 200);
   assert.match((await checkoutResponse.json()).url, /mock_checkout=success/);
+
+  const annualCheckoutResponse = await api(baseUrl, "/api/billing/checkout", adminCookie, {
+    method: "POST",
+    body: JSON.stringify({ plan: "annual", currentPassword: "Admin-Teste-123" }),
+  });
+  assert.equal(annualCheckoutResponse.status, 200);
+  assert.match((await annualCheckoutResponse.json()).url, /mock_checkout=success/);
+  const retiredPlanResponse = await api(baseUrl, "/api/billing/checkout", adminCookie, {
+    method: "POST",
+    body: JSON.stringify({ plan: "premium", currentPassword: "Admin-Teste-123" }),
+  });
+  assert.equal(retiredPlanResponse.status, 400);
 
   const subscriptionEvent = {
     id: "evt_subscription_trial",
@@ -392,8 +407,8 @@ test("admin, exportações, backup e revogação de sessão funcionam", async (t
         status: "trialing",
         trial_end: Math.floor(Date.now() / 1000) + 14 * 86400,
         cancel_at_period_end: false,
-        metadata: { companyId: String(companyId), planKey: "professional" },
-        items: { data: [{ price: { id: "price_professional_test" }, current_period_end: Math.floor(Date.now() / 1000) + 30 * 86400 }] },
+        metadata: { companyId: String(companyId), planKey: "monthly" },
+        items: { data: [{ price: { id: "price_monthly_test" }, current_period_end: Math.floor(Date.now() / 1000) + 30 * 86400 }] },
       },
     },
   };
@@ -419,11 +434,27 @@ test("admin, exportações, backup e revogação de sessão funcionam", async (t
 
   const changePlanResponse = await api(baseUrl, "/api/billing/change-plan", adminCookie, {
     method: "POST",
-    body: JSON.stringify({ plan: "premium", currentPassword: "Admin-Teste-123" }),
+    body: JSON.stringify({ plan: "annual", currentPassword: "Admin-Teste-123" }),
   });
   const changedPlanPayload = await changePlanResponse.json();
   assert.equal(changePlanResponse.status, 200, JSON.stringify(changedPlanPayload));
-  assert.equal(changedPlanPayload.company.plan, "Plano Premium");
+  assert.equal(changedPlanPayload.company.plan, "Plano QualityPro");
+  assert.equal(changedPlanPayload.company.billingPriceId, "price_annual_test");
+  assert.equal(changedPlanPayload.company.accessLimit, initialBilling.company.accessLimit);
+  assert.ok(new Date(changedPlanPayload.company.billingCurrentPeriodEnd).getTime() > Date.now() + 360 * 86400000);
+
+  const cancellationEvent = {
+    ...subscriptionEvent,
+    id: "evt_subscription_cancelled",
+    type: "customer.subscription.deleted",
+    data: { object: { ...subscriptionEvent.data.object, status: "canceled" } },
+  };
+  assert.equal((await fetch(`${baseUrl}/api/billing/webhook`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(cancellationEvent),
+  })).status, 200);
+  assert.equal((await api(baseUrl, "/api/bootstrap", collaboratorCookie)).status, 401);
 
   const failedInvoiceEvent = {
     id: "evt_invoice_failed",
@@ -486,6 +517,53 @@ test("admin, exportações, backup e revogação de sessão funcionam", async (t
 
   const healthResponse = await fetch(`${baseUrl}/api/health`);
   assert.equal(healthResponse.status, 200);
+
+  const passwordReset = await api(baseUrl, "/api/admin/reset-password", adminCookie, {
+    method: "POST",
+    body: JSON.stringify({ userId: createdUser.id, currentPassword: "Admin-Teste-123" }),
+  });
+  assert.equal(passwordReset.status, 200);
+  const { temporaryPassword } = await passwordReset.json();
+  const firstLogin = await fetch(`${baseUrl}/login`, {
+    method: "POST", redirect: "manual",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ username: createdUser.username, password: temporaryPassword }),
+  });
+  assert.equal(firstLogin.headers.get("location"), "/change-password");
+  const restrictedCookie = firstLogin.headers.get("set-cookie").split(";")[0];
+  const restrictedApi = await api(baseUrl, "/api/bootstrap", restrictedCookie);
+  assert.equal(restrictedApi.status, 403);
+  assert.equal((await restrictedApi.json()).error, "password_change_required");
+  for (const route of ["/app", "/nc-tv"]) {
+    const restrictedPage = await fetch(`${baseUrl}${route}`, {
+      headers: { Cookie: restrictedCookie }, redirect: "manual",
+    });
+    assert.equal(restrictedPage.headers.get("location"), "/change-password");
+  }
+  const changePage = await fetch(`${baseUrl}/change-password`, { headers: { Cookie: restrictedCookie } });
+  const changeHtml = await changePage.text();
+  const changeCsrf = changeHtml.match(/name="csrfToken" type="hidden" value="([^"]+)"/)[1];
+  const changePassword = (password, confirmation, csrfToken = changeCsrf) => fetch(`${baseUrl}/change-password`, {
+    method: "POST", redirect: "manual",
+    headers: { Cookie: restrictedCookie, "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ password, passwordConfirmation: confirmation, csrfToken }),
+  });
+  assert.equal((await changePassword("Nova-Senha-123", "Nova-Senha-123", "invalido")).status, 403);
+  assert.equal((await changePassword("curta", "curta")).status, 400);
+  assert.equal((await changePassword("Nova-Senha-123", "Outra-Senha-123")).status, 400);
+  assert.equal((await changePassword(temporaryPassword, temporaryPassword)).status, 400);
+  const changedPassword = await changePassword("Nova-Senha-123", "Nova-Senha-123");
+  assert.equal(changedPassword.headers.get("location"), "/app");
+  const newCookie = changedPassword.headers.get("set-cookie").split(";")[0];
+  assert.equal((await api(baseUrl, "/api/bootstrap", newCookie)).status, 200);
+  assert.equal((await api(baseUrl, "/api/bootstrap", restrictedCookie)).status, 401);
+  await login(baseUrl, createdUser.username, "Nova-Senha-123");
+  const oldPasswordLogin = await fetch(`${baseUrl}/login`, {
+    method: "POST", redirect: "manual",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ username: createdUser.username, password: temporaryPassword }),
+  });
+  assert.equal(oldPasswordLogin.status, 401);
 
   const blockResponse = await api(baseUrl, "/api/admin/user", adminCookie, {
     method: "PATCH",
@@ -552,7 +630,8 @@ test("admin, exportações, backup e revogação de sessão funcionam", async (t
   assert.equal(revokeSecond.status, 200);
   assert.equal((await api(baseUrl, "/api/bootstrap", secondAdminCookie)).status, 401);
 
-  for (let attempt = 0; attempt < 5; attempt += 1) {
+  // The rejected temporary password above already counts as one failure for this IP.
+  for (let attempt = 0; attempt < 4; attempt += 1) {
     const failedLogin = await fetch(`${baseUrl}/login`, {
       method: "POST",
       redirect: "manual",

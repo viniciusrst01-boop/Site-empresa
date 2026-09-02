@@ -270,6 +270,7 @@ async function validateSession(session) {
   if (!user || !activeSession || !company || !billingAllowsAccess(company, session)) return null;
   return {
     ...session,
+    mustChangePassword: Boolean(user.mustChangePassword),
     username: user.username,
     displayName: user.displayName,
     role: user.role,
@@ -686,12 +687,15 @@ function escapeHtml(value) {
     .replace(/"/g, "&quot;");
 }
 
-function passwordPage({ mode, token = "", message = "", error = "" } = {}) {
-  const isReset = mode === "reset";
+function passwordPage({ mode, token = "", message = "", error = "", theme = "dark" } = {}) {
+  const isFirstAccess = mode === "first-access";
+  const isReset = mode === "reset" || isFirstAccess;
   const isComplete = mode === "complete";
   const title = isComplete ? "Senha atualizada" : isReset ? "Crie uma nova senha" : "Recupere seu acesso";
   const intro = isComplete
     ? "Sua senha foi redefinida e todas as sessões anteriores foram encerradas."
+    : isFirstAccess
+    ? "Antes de acessar o sistema, substitua a senha temporária por uma senha de sua preferência, com pelo menos 8 caracteres."
     : isReset
     ? "Informe uma nova senha com pelo menos 8 caracteres. O link só pode ser usado uma vez."
     : "Digite seu login ou e-mail. Se a conta existir, enviaremos as instruções ou registraremos a solicitação para o administrador.";
@@ -707,7 +711,7 @@ function passwordPage({ mode, token = "", message = "", error = "" } = {}) {
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/login.css" />
 </head>
-<body>
+<body class="${isFirstAccess ? `first-access theme-${["light", "white"].includes(theme) ? theme : "dark"}` : ""}">
   <main class="login-page">
     <section class="login-card">
       <img class="login-logo" src="/assets/qualitypro-cloud-logo-transparent.png" alt="QualityPro Cloud" />
@@ -717,8 +721,8 @@ function passwordPage({ mode, token = "", message = "", error = "" } = {}) {
       ${message ? `<p class="login-message">${escapeHtml(message)}</p>` : ""}
       ${error ? `<p class="login-error">${escapeHtml(error)}</p>` : ""}
       ${isComplete ? "" : isReset ? `
-        <form method="post" action="/reset-password" class="login-form">
-          <input name="token" type="hidden" value="${escapeHtml(token)}" />
+        <form method="post" action="${isFirstAccess ? "/change-password" : "/reset-password"}" class="login-form">
+          <input name="${isFirstAccess ? "csrfToken" : "token"}" type="hidden" value="${escapeHtml(token)}" />
           <label><span>Nova senha</span><input name="password" type="password" autocomplete="new-password" minlength="8" required /></label>
           <label><span>Confirmar senha</span><input name="passwordConfirmation" type="password" autocomplete="new-password" minlength="8" required /></label>
           <button type="submit">Redefinir senha</button>
@@ -1227,6 +1231,45 @@ async function handleRequest(req, res) {
   const rawSession = readSession(req);
   const session = await validateSession(rawSession);
 
+  if (url.pathname === "/change-password") {
+    if (!session) { redirect(res, "/login"); return; }
+    if (!session.mustChangePassword) { redirect(res, "/app"); return; }
+    const theme = (await getCompanyData(session.companyId, "state"))?.settings?.theme || "dark";
+    const renderChange = (status, error = "") => send(res, status, passwordPage({
+      mode: "first-access", token: csrfTokenForSession(session), error, theme,
+    }), { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
+    if (req.method === "GET") { renderChange(200); return; }
+    if (req.method !== "POST") { sendJson(res, 405, { error: "method_not_allowed" }); return; }
+    const body = querystring.parse(await readBody(req));
+    if (String(body.csrfToken || "") !== csrfTokenForSession(session)) {
+      renderChange(403, "Solicitação inválida. Recarregue a página."); return;
+    }
+    const password = String(body.password || "");
+    if (password.length < 8 || password !== String(body.passwordConfirmation || "")) {
+      renderChange(400, "Informe e confirme uma senha com pelo menos 8 caracteres."); return;
+    }
+    if (await verifyUserPassword(session.userId, password)) {
+      renderChange(400, "Escolha uma senha diferente da senha temporária."); return;
+    }
+    const user = await resetUserPassword(session.userId, password, {
+      mustChangePassword: false, sessionVersion: Number(session.sessionVersion),
+    });
+    if (!user) { redirect(res, "/login"); return; }
+    await auditRequest(req, session, "first_access_password_changed", "success");
+    send(res, 302, "", { Location: "/app", "Set-Cookie": sessionCookie(
+      req, await createSession(user, req), Math.round(sessionTtlHours * 60 * 60),
+    ) });
+    return;
+  }
+
+  // Temporary credentials grant access only to password replacement and public login assets.
+  if (session?.mustChangePassword && !["/login", "/logout", "/login.css"].includes(url.pathname)
+      && !url.pathname.startsWith("/assets/")) {
+    if (url.pathname.startsWith("/api/")) sendJson(res, 403, { error: "password_change_required" });
+    else redirect(res, "/change-password");
+    return;
+  }
+
   if (["/supplier-rnc", "/supplier-rnc.js", "/supplier-rnc.css"].includes(url.pathname) && req.method === "GET") {
     res.setHeader("Referrer-Policy", "no-referrer");
     res.setHeader("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
@@ -1501,7 +1544,7 @@ async function handleRequest(req, res) {
     await auditRequest(req, validLogin, "login_success", "success");
 
     send(res, 302, "", {
-      Location: "/app",
+      Location: validLogin.mustChangePassword ? "/change-password" : "/app",
       "Set-Cookie": sessionCookie(
         req,
         await createSession(validLogin, req),
@@ -1556,7 +1599,7 @@ async function handleRequest(req, res) {
     await auditRequest(req, loginUserData, "mfa_verified", "success");
     await auditRequest(req, loginUserData, "login_success", "success");
     send(res, 302, "", {
-      Location: "/app",
+      Location: loginUserData.mustChangePassword ? "/change-password" : "/app",
       "Set-Cookie": [
         sessionCookie(req, await createSession(loginUserData, req), Math.round(sessionTtlHours * 60 * 60)),
         mfaChallengeCookie(req, "", 0),

@@ -170,6 +170,7 @@ async function initializeDatabase() {
 
     ALTER TABLE users
       ADD COLUMN IF NOT EXISTS session_version INTEGER NOT NULL DEFAULT 1,
+      ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN NOT NULL DEFAULT FALSE,
       ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMPTZ,
       ADD COLUMN IF NOT EXISTS mfa_secret TEXT NOT NULL DEFAULT '',
       ADD COLUMN IF NOT EXISTS mfa_enabled BOOLEAN NOT NULL DEFAULT FALSE,
@@ -333,6 +334,7 @@ function mapUser(row) {
     role: row.role,
     status: row.status,
     sessionVersion: Number(row.session_version ?? row.sessionVersion ?? 1),
+    mustChangePassword: Boolean(row.must_change_password),
     lastLoginAt: row.last_login_at ?? row.lastLoginAt ?? null,
     mfaEnabled: Boolean(row.mfa_enabled ?? row.mfaEnabled),
     created_at: row.created_at,
@@ -512,6 +514,7 @@ async function findUser(username, password) {
       companyName: company?.name || "",
       sessionVersion: Number(row.session_version || 1),
       mfaEnabled: Boolean(row.mfa_enabled),
+      mustChangePassword: Boolean(row.must_change_password),
     };
   }
 
@@ -533,6 +536,7 @@ async function findUser(username, password) {
     companyName: company?.name || "",
     sessionVersion: Number(user.session_version || 1),
     mfaEnabled: Boolean(user.mfa_enabled),
+    mustChangePassword: Boolean(user.must_change_password),
   };
 }
 
@@ -781,8 +785,8 @@ async function createUser(values) {
   if (usePostgres) {
     const result = await getPool().query(
       `
-        INSERT INTO users (company_id, username, display_name, password_hash, role, status)
-        VALUES ($1, $2, $3, $4, $5, $6)
+        INSERT INTO users (company_id, username, display_name, password_hash, role, status, must_change_password)
+        VALUES ($1, $2, $3, $4, $5, $6, TRUE)
         RETURNING *
       `,
       [user.companyId, user.username, user.displayName, passwordHash, user.role, user.status],
@@ -810,6 +814,7 @@ async function createUser(values) {
     display_name: user.displayName,
     password_hash: passwordHash,
     role: user.role,
+    must_change_password: true,
       status: user.status,
       session_version: 1,
       last_login_at: null,
@@ -1162,15 +1167,16 @@ function isPaidPlan(plan) {
   return Boolean(value) && !["gratis", "grátis", "free", "teste", "demo"].includes(value);
 }
 
-async function resetUserPassword(userId, temporaryPassword) {
+async function resetUserPassword(userId, temporaryPassword, { mustChangePassword = true, sessionVersion = null } = {}) {
   await ensureInitialized();
   const passwordHash = hashPassword(temporaryPassword);
 
   if (usePostgres) {
     const result = await getPool().query(
-      "UPDATE users SET password_hash = $2, session_version = session_version + 1 WHERE id = $1 RETURNING *",
-      [Number(userId), passwordHash],
+      "UPDATE users SET password_hash = $2, must_change_password = $3, session_version = session_version + 1 WHERE id = $1 AND ($4::integer IS NULL OR session_version = $4) RETURNING *",
+      [Number(userId), passwordHash, mustChangePassword, sessionVersion],
     );
+    if (!result.rows[0]) return null;
     await getPool().query(
       "UPDATE user_sessions SET revoked_at = NOW() WHERE user_id = $1 AND revoked_at IS NULL",
       [Number(userId)],
@@ -1182,7 +1188,9 @@ async function resetUserPassword(userId, temporaryPassword) {
   const user = database.users.find((item) => item.id === Number(userId));
   if (!user) return null;
 
+  if (sessionVersion !== null && Number(user.session_version || 1) !== sessionVersion) return null;
   user.password_hash = passwordHash;
+  user.must_change_password = mustChangePassword;
   user.session_version = Number(user.session_version || 1) + 1;
   database.userSessions.forEach((session) => {
     if (Number(session.user_id) === Number(userId) && !session.revoked_at) session.revoked_at = timestamp();
@@ -1401,7 +1409,7 @@ async function consumeInvitationToken(token, newPassword) {
       }
       const userResult = await client.query(
         `UPDATE users
-         SET password_hash = $2, status = 'Ativo', session_version = session_version + 1
+         SET password_hash = $2, must_change_password = FALSE, status = 'Ativo', session_version = session_version + 1
          WHERE id = $1 AND status <> 'Bloqueado'
          RETURNING *`,
         [Number(userId), passwordHash],
@@ -1441,6 +1449,7 @@ async function consumeInvitationToken(token, newPassword) {
   });
   user.password_hash = passwordHash;
   user.status = "Ativo";
+  user.must_change_password = false;
   user.session_version = Number(user.session_version || 1) + 1;
   database.userSessions.forEach((session) => {
     if (Number(session.user_id) === Number(user.id) && !session.revoked_at) session.revoked_at = timestamp();
@@ -1512,7 +1521,7 @@ async function consumePasswordResetToken(token, newPassword) {
       const passwordHash = hashPassword(newPassword);
       const userResult = await client.query(
         `UPDATE users
-         SET password_hash = $2, session_version = session_version + 1
+         SET password_hash = $2, must_change_password = FALSE, session_version = session_version + 1
          WHERE id = $1 AND status = 'Ativo'
          RETURNING *`,
         [Number(userId), passwordHash],
@@ -1554,6 +1563,7 @@ async function consumePasswordResetToken(token, newPassword) {
     if (Number(item.user_id) === Number(user.id) && !item.used_at) item.used_at = timestamp();
   });
   user.password_hash = hashPassword(newPassword);
+  user.must_change_password = false;
   user.session_version = Number(user.session_version || 1) + 1;
   database.userSessions.forEach((session) => {
     if (Number(session.user_id) === Number(user.id) && !session.revoked_at) session.revoked_at = timestamp();
@@ -2400,7 +2410,7 @@ async function getRecoveryBackupSnapshot() {
       getPool().query("SELECT * FROM companies ORDER BY id"),
       getPool().query(
         `SELECT id, company_id, username, display_name, password_hash, role, status,
-                session_version, last_login_at, mfa_secret, mfa_enabled, mfa_recovery_codes, created_at
+                session_version, must_change_password, last_login_at, mfa_secret, mfa_enabled, mfa_recovery_codes, created_at
          FROM users ORDER BY id`,
       ),
       getPool().query(
