@@ -342,6 +342,10 @@ let editingCompanyUserId = null;
 let userMenuOutsideBound = false;
 
 let state = loadState();
+let currentDetailModule = "";
+let moduleHistoryApplying = false;
+const moduleHistory = {};
+const moduleHistoryWindowOpen = {};
 let riskData = null;
 let contextData = null;
 let currentUser = null;
@@ -1415,6 +1419,8 @@ function moduleIcon(name) {
     fornecedores: '<svg class="icon" viewBox="0 0 24 24"><path d="M3 7h18"/><path d="M5 7v13h14V7"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M9 13h6"/></svg>',
     info: '<svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12" y2="16"/></svg>',
     arrow: '<svg class="icon" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>',
+    "arrow-left": '<svg class="icon" viewBox="0 0 24 24"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 5 5 12 12 19"/></svg>',
+    "arrow-right": '<svg class="icon" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>',
     plus: '<svg class="icon" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>',
     minus: '<svg class="icon" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 12h8"/></svg>',
     "check-circle": '<svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 12l2 2 4-4"/></svg>',
@@ -1453,6 +1459,8 @@ function moduleHeaderHtml(moduleId, options = {}) {
   const category = options.category || meta.category || "GESTÃO DA QUALIDADE";
   const description = options.description || meta.description || module.desc;
   const toolbarClass = options.toolbarClass ? ` ${options.toolbarClass}` : "";
+  const defaultActions = canEditModule(module.id) ? `<div class="toolbar-actions">${moduleHistoryControlsHtml(module.id)}</div>` : "";
+  const actions = options.actions === false ? "" : options.actions || defaultActions;
   setTopbar(module.title, module.desc);
   return `
     <div class="breadcrumb module-breadcrumb">
@@ -1465,7 +1473,7 @@ function moduleHeaderHtml(moduleId, options = {}) {
         <div class="welcome-eyebrow">${escapeHtml(category)}</div>
         <p class="welcome-sub">${escapeHtml(description)}</p>
       </div>
-      ${options.actions || ""}
+      ${actions}
     </div>
   `;
 }
@@ -1489,6 +1497,8 @@ function renderModuleDetail(moduleId) {
     render("modulos");
     return;
   }
+  currentDetailModule = moduleId;
+  bindModuleHistoryActions();
 
   if (moduleId === "contexto") {
     renderContextModule();
@@ -1540,6 +1550,129 @@ function renderModuleDetail(moduleId) {
   scrollPageToTop();
 }
 
+function moduleHistoryControlsHtml(moduleId) {
+  const history = moduleHistoryState(moduleId);
+  return `
+    <button class="module-history-btn" data-module-history-action="undo" data-module-id="${moduleId}" type="button" title="Voltar ação" aria-label="Voltar ação" ${history.undo.length ? "" : "disabled"}>${moduleIcon("arrow-left")}</button>
+    <button class="module-history-btn" data-module-history-action="redo" data-module-id="${moduleId}" type="button" title="Avançar ação" aria-label="Avançar ação" ${history.redo.length ? "" : "disabled"}>${moduleIcon("arrow-right")}</button>`;
+}
+
+function moduleHistoryState(moduleId) {
+  moduleHistory[moduleId] ||= { undo: [], redo: [] };
+  return moduleHistory[moduleId];
+}
+
+function bindModuleHistoryActions() {
+  if (document.body.dataset.moduleHistoryActionsBound === "true") return;
+  document.body.dataset.moduleHistoryActionsBound = "true";
+  document.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-module-history-action]");
+    if (!button) return;
+    event.preventDefault();
+    const moduleId = button.dataset.moduleId || currentDetailModule;
+    if (button.dataset.moduleHistoryAction === "undo") undoModuleAction(moduleId);
+    if (button.dataset.moduleHistoryAction === "redo") redoModuleAction(moduleId);
+  });
+}
+
+function recordModuleSnapshot(moduleId) {
+  if (!moduleId || moduleHistoryApplying || moduleHistoryWindowOpen[moduleId]) return;
+  const snapshot = getModuleSnapshot(moduleId);
+  if (!snapshot) return;
+  const history = moduleHistoryState(moduleId);
+  history.undo.push(snapshot);
+  if (history.undo.length > 30) history.undo.shift();
+  history.redo = [];
+  updateModuleHistoryButtons(moduleId);
+  moduleHistoryWindowOpen[moduleId] = true;
+  window.setTimeout(() => { moduleHistoryWindowOpen[moduleId] = false; }, 0);
+}
+
+function updateModuleHistoryButtons(moduleId) {
+  const history = moduleHistoryState(moduleId);
+  document.querySelectorAll(`[data-module-id="${CSS.escape(moduleId)}"][data-module-history-action="undo"]`).forEach((button) => {
+    button.disabled = history.undo.length === 0;
+  });
+  document.querySelectorAll(`[data-module-id="${CSS.escape(moduleId)}"][data-module-history-action="redo"]`).forEach((button) => {
+    button.disabled = history.redo.length === 0;
+  });
+}
+
+function getModuleSnapshot(moduleId) {
+  if (moduleId === "contexto") {
+    ensureContextData();
+    return structuredClone(contextData);
+  }
+  if (moduleId === "lideranca") {
+    ensureLeadershipData();
+    return structuredClone(leadershipData);
+  }
+  if (moduleId === "riscos") {
+    ensureRiskData();
+    return structuredClone(riskData);
+  }
+  if (moduleId === "nao-conformidades") {
+    ensureNcData();
+    return { ncs: structuredClone(state.ncs), ncCatalogs: structuredClone(state.ncCatalogs) };
+  }
+  return null;
+}
+
+function applyModuleSnapshot(moduleId, snapshot) {
+  moduleHistoryApplying = true;
+  try {
+    if (moduleId === "contexto") {
+      contextData = structuredClone(snapshot);
+      Object.entries(contextStorageKeys).forEach(([key, storageKey]) => localStorage.setItem(storageKey, JSON.stringify(contextData[key])));
+      saveRemoteData("context", contextData);
+    } else if (moduleId === "lideranca") {
+      leadershipData = structuredClone(snapshot);
+      localStorage.setItem(leadershipStorageKey, JSON.stringify(leadershipData));
+      saveRemoteData("leadership", leadershipData);
+    } else if (moduleId === "riscos") {
+      riskData = structuredClone(snapshot);
+      Object.entries(riskStorageKeys).forEach(([key, storageKey]) => localStorage.setItem(storageKey, JSON.stringify(riskData[key])));
+      saveRemoteData("risk", riskData);
+    } else if (moduleId === "nao-conformidades") {
+      state.ncs = structuredClone(snapshot.ncs || []);
+      state.ncCatalogs = structuredClone(snapshot.ncCatalogs || seedState.ncCatalogs);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      saveRemoteData("state", state, "nao-conformidades");
+    }
+  } finally {
+    moduleHistoryApplying = false;
+  }
+}
+
+function undoModuleAction(moduleId) {
+  const history = moduleHistoryState(moduleId);
+  const previous = history.undo.pop();
+  if (!previous) return;
+  const current = getModuleSnapshot(moduleId);
+  if (current) history.redo.push(current);
+  applyModuleSnapshot(moduleId, previous);
+  rerenderModuleAfterHistory(moduleId, "Ação desfeita.");
+}
+
+function redoModuleAction(moduleId) {
+  const history = moduleHistoryState(moduleId);
+  const next = history.redo.pop();
+  if (!next) return;
+  const current = getModuleSnapshot(moduleId);
+  if (current) history.undo.push(current);
+  applyModuleSnapshot(moduleId, next);
+  rerenderModuleAfterHistory(moduleId, "Ação refeita.");
+}
+
+function rerenderModuleAfterHistory(moduleId, message) {
+  currentDetailModule = moduleId;
+  if (moduleId === "contexto") renderContextModule();
+  else if (moduleId === "lideranca") renderLeadershipModule();
+  else if (moduleId === "riscos") renderRiskOpportunityModule();
+  else if (moduleId === "nao-conformidades") renderNonConformityModule();
+  toast(message);
+}
+
 function ensureLeadershipData() {
   if (!leadershipData) leadershipData = loadLocalLeadershipData();
   Object.keys(leadershipSeeds).forEach((key) => {
@@ -1579,6 +1712,7 @@ function leadershipGet(key) {
 
 function leadershipSet(key, value) {
   ensureLeadershipData();
+  recordModuleSnapshot("lideranca");
   leadershipData[key] = structuredClone(value);
   localStorage.setItem(leadershipStorageKey, JSON.stringify(leadershipData));
   saveRemoteData("leadership", leadershipData);
@@ -1597,6 +1731,8 @@ function loadLocalLeadershipData() {
 
 function renderLeadershipModule() {
   ensureLeadershipData();
+  currentDetailModule = "lideranca";
+  bindModuleHistoryActions();
   setActiveNav("modulos");
   pageContent.classList.remove("risk-page-content");
   pageContent.classList.remove("context-page-content");
@@ -2062,6 +2198,8 @@ function refreshLeadershipScreen(message) {
 
 function renderRiskOpportunityModule() {
   ensureRiskData();
+  currentDetailModule = "riscos";
+  bindModuleHistoryActions();
   setActiveNav("modulos");
   pageContent.classList.remove("context-page-content");
   pageContent.classList.add("risk-page-content");
@@ -2131,6 +2269,7 @@ function riskGet(key) {
 
 function riskSet(key, value) {
   ensureRiskData();
+  recordModuleSnapshot("riscos");
   riskData[key] = structuredClone(value);
   localStorage.setItem(riskStorageKeys[key], JSON.stringify(value));
   saveRemoteData("risk", riskData);
@@ -2299,16 +2438,14 @@ function riskItemsHtml() {
 
 function renderContextModule() {
   ensureContextData();
+  currentDetailModule = "contexto";
+  bindModuleHistoryActions();
   setActiveNav("modulos");
   pageContent.classList.remove("risk-page-content");
   pageContent.classList.add("context-page-content");
   pageContent.innerHTML = `
     ${moduleHeaderHtml("contexto", {
       toolbarClass: "context-toolbar",
-      actions: `<div class="toolbar-actions" ${canEditModule("contexto") ? "" : "hidden"}>
-        <button class="btn-ghost" data-context-action="undo-clear-context" type="button">Desfazer</button>
-        <button class="btn-ghost danger-text" data-context-action="clear-context" type="button">Limpar módulo</button>
-      </div>`,
     })}
 
     <div class="context-kpi-row">
@@ -2377,6 +2514,7 @@ function contextGet(key) {
 
 function contextSet(key, value) {
   ensureContextData();
+  recordModuleSnapshot("contexto");
   contextData[key] = structuredClone(value);
   localStorage.setItem(contextStorageKeys[key], JSON.stringify(value));
   saveRemoteData("context", contextData);
@@ -2773,8 +2911,6 @@ function handleContextAction(action, id) {
     "save-parte": () => saveContextParte(),
     "save-escopo": () => saveContextEscopo(),
     "clear-escopo": () => clearContextEscopo(),
-    "clear-context": () => clearContextModule(),
-    "undo-clear-context": () => undoClearContextModule(),
     "view-processo": () => viewContextProcesso(id),
     "new-processo": () => openContextProcesso(),
     "edit-processo": () => openContextProcesso(id),
@@ -3683,11 +3819,13 @@ function replaceNcTvButtonWithLink(button) {
 function renderNonConformityModule() {
   ncEvidenceCleanup?.();
   ensureNcData();
+  currentDetailModule = "nao-conformidades";
+  bindModuleHistoryActions();
   pageContent.classList.remove("risk-page-content", "context-page-content", "leadership-page-content");
   pageContent.classList.add("nc-page-content");
   pageContent.innerHTML = `
     ${moduleHeaderHtml("nao-conformidades", {
-      actions: `<div class="toolbar-actions"><a class="btn-transmit" data-nc-tv href="${ncTvUrl()}" target="_blank" rel="noopener"><span class="live-dot"></span>${moduleIcon("external")} Abrir painel na TV</a></div>`,
+      actions: `<div class="toolbar-actions">${moduleHistoryControlsHtml("nao-conformidades")}<a class="btn-transmit" data-nc-tv href="${ncTvUrl()}" target="_blank" rel="noopener"><span class="live-dot"></span>${moduleIcon("external")} Abrir painel na TV</a></div>`,
     })}
     <div id="ncKpis"></div>
     <div class="ctx-tabs" id="ncMainTabs">
@@ -3923,6 +4061,7 @@ async function saveNewNc() {
   const saveButton = pageContent.querySelector("[data-nc-save]");
   if (saveButton?.disabled) return;
   if (saveButton) saveButton.disabled = true;
+  recordModuleSnapshot("nao-conformidades");
   state.ncs.push(rnc);
   try {
     if (await saveNcData(`${rnc.id} registrado com sucesso.`)) { ncMainTab = "controle"; renderNonConformityModule(); }
@@ -3995,6 +4134,7 @@ async function saveNcEdit(id) {
   }
   catch (error) { toast(error.message); return; }
   const previous = structuredClone(row);
+  recordModuleSnapshot("nao-conformidades");
   Object.assign(row, {
     evidencias: attachments,
     rncClienteArquivos: clientAttachments,
@@ -4025,6 +4165,7 @@ async function saveNcEdit(id) {
 
 async function deleteNc(id) {
   if (!canEditModule("nao-conformidades") || !window.confirm(`Excluir definitivamente a RNC ${id}?`)) return;
+  recordModuleSnapshot("nao-conformidades");
   state.ncs = state.ncs.filter((row) => row.id !== id);
   if (await saveNcData(`${id} excluído com sucesso.`)) { renderNcKpis(); renderNcTab(); }
 }
@@ -4044,12 +4185,14 @@ async function saveNcCatalog() {
   if (!nome) return void toast("Informe o nome.");
   const record = { id: id || `${cfg.prefix}-${Date.now()}`, nome, ...(cfg.hasCode ? { codigo: document.querySelector("#ncCatalogCode")?.value.trim() || "" } : {}) };
   const index = rows.findIndex((item) => item.id === id);
+  recordModuleSnapshot("nao-conformidades");
   if (index >= 0) rows[index] = record; else rows.push(record);
   closeNcModal(); await saveNcData("Cadastro salvo."); renderNcTab();
 }
 
 async function deleteNcCatalog(id) {
   if (!window.confirm("Excluir este cadastro?")) return;
+  recordModuleSnapshot("nao-conformidades");
   state.ncCatalogs[ncSubTab] = state.ncCatalogs[ncSubTab].filter((item) => item.id !== id);
   await saveNcData("Cadastro excluído."); renderNcTab();
 }
@@ -4230,6 +4373,7 @@ function openNcIshikawa() {
 
 async function saveNcIshikawa() {
   const row = state.ncs.find((item) => item.id === ncCurrentId); if (!row) return;
+  recordModuleSnapshot("nao-conformidades");
   row.ishikawa = Object.fromEntries([...document.querySelectorAll("[data-ish]")].map((field) => [field.dataset.ish, field.value.trim()]));
   ncAddHistory(row, `${currentUser?.name || "Usuário"} atualizou a análise de causa Ishikawa.`);
   await saveNcData("Análise de causa salva."); openNcDetail(row.id);
@@ -4277,6 +4421,7 @@ async function saveNcAction() {
   const file = document.querySelector("#ncActionEvidence")?.files?.[0];
   if (file && file.size > 5 * 1024 * 1024) return void toast("O arquivo deve ter no máximo 5 MB.");
   const action = { ...existing, id: id || `AC-${Date.now()}`, desc, prazo, responsavel: document.querySelector("#ncActionOwner")?.value || "", status, evidencia: file?.name || existing?.evidencia || "", concluidaEm: status === "Concluída" ? existing?.concluidaEm || ncToday() : "" };
+  recordModuleSnapshot("nao-conformidades");
   row.acoes ||= []; const index = row.acoes.findIndex((item) => item.id === id); if (index >= 0) row.acoes[index] = action; else row.acoes.push(action);
   ncRecalculateStatus(row); ncAddHistory(row, `${currentUser?.name || "Usuário"} ${existing ? "atualizou" : "criou"} uma ação corretiva.`);
   await saveNcData("Ação corretiva salva."); openNcActions(); renderNcKpis();
@@ -4285,12 +4430,14 @@ async function saveNcAction() {
 async function deleteNcAction(id) {
   if (!window.confirm("Excluir esta ação corretiva?")) return;
   const row = state.ncs.find((item) => item.id === ncCurrentId); if (!row) return;
+  recordModuleSnapshot("nao-conformidades");
   row.acoes = (row.acoes || []).filter((item) => item.id !== id); ncRecalculateStatus(row); ncAddHistory(row, `${currentUser?.name || "Usuário"} excluiu uma ação corretiva.`);
   await saveNcData("Ação excluída."); openNcActions(); renderNcKpis();
 }
 
 async function closeNcRnc() {
   const row = state.ncs.find((item) => item.id === ncCurrentId); if (!row || !window.confirm("Confirmar eficácia e encerrar este RNC?")) return;
+  recordModuleSnapshot("nao-conformidades");
   row.encerradoEm = ncToday(); ncRecalculateStatus(row); ncAddHistory(row, `${currentUser?.name || "Usuário"} confirmou a eficácia e encerrou o RNC.`);
   await saveNcData("RNC encerrado."); openNcDetail(row.id); renderNcKpis();
 }

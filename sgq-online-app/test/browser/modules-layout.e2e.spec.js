@@ -148,3 +148,36 @@ test("todos os módulos usam título no topo e breadcrumb sem terceiro título",
   await page.evaluate(() => renderModuleDetail("nao-conformidades"));
   await page.screenshot({ path: testInfo.outputPath("module-header-pattern.png"), fullPage: true });
 });
+
+test("módulos exibem setas de voltar e avançar ação no lugar de desfazer", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await login(page);
+
+  await page.evaluate(() => renderModuleDetail("contexto"));
+  await expect(page.getByRole("button", { name: "Desfazer" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Limpar módulo" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Voltar ação" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Avançar ação" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Voltar ação" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Avançar ação" })).toBeDisabled();
+
+  await page.getByRole("button", { name: "Novo item" }).click();
+  await page.locator("#contextSwotDescricao").fill("Teste de histórico");
+  await page.locator("#contextSwotResponsavel").selectOption("Hugo Melo");
+  await page.locator('[data-context-action="save-swot"]').click();
+
+  await expect(page.getByText("Teste de histórico")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Voltar ação" })).toBeEnabled();
+  await page.getByRole("button", { name: "Voltar ação" }).click();
+  await expect(page.getByText("Teste de histórico")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Avançar ação" })).toBeEnabled();
+  await page.getByRole("button", { name: "Avançar ação" }).click();
+  await expect(page.getByText("Teste de histórico")).toBeVisible();
+
+  for (const moduleId of ["lideranca", "riscos", "nao-conformidades", "documentos", "auditorias", "equipamentos"]) {
+    await page.evaluate((id) => renderModuleDetail(id), moduleId);
+    await expect(page.getByRole("button", { name: "Voltar ação" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Avançar ação" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Desfazer" })).toHaveCount(0);
+  }
+});

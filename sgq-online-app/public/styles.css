@@ -2822,6 +2822,37 @@ body.theme-light .btn-ghost-cta {
   flex-wrap: wrap;
 }
 
+.module-history-btn {
+  width: 36px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--surface-card);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+}
+
+.module-history-btn .icon {
+  width: 17px;
+  height: 17px;
+}
+
+.module-history-btn:not(:disabled):hover {
+  transform: translateY(-1px);
+  border-color: var(--accent-blue-bright);
+  box-shadow: 0 10px 22px rgba(28, 163, 255, 0.16);
+}
+
+.module-history-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+  box-shadow: none;
+}
+
 .module-summary-toolbar {
   min-height: 0;
   margin-bottom: 12px !important;
