@@ -5,7 +5,7 @@ const modules = [
     id: "contexto",
     title: "Contexto da Organização",
     accent: "#A78BFA",
-    desc: "Partes interessadas, requisitos, escopo e informações do SGQ.",
+    desc: "Partes interessadas, requisitos legais e escopo do SGQ.",
   },
   {
     id: "lideranca",

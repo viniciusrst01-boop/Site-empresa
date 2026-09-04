@@ -7236,6 +7236,14 @@ body.theme-white .modules-page-content .mymods-kpi-row .kpi-value {
   color: #12233a;
 }
 
+body .sidebar .nav-item {
+  font-size: 13px;
+}
+
+body.theme-white .modules-page-content .mymods-reference-grid .mymod-card {
+  background: #e2e8f0;
+}
+
 @media (min-width: 801px) {
   body .app-footer {
     position: relative !important;

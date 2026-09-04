@@ -2107,7 +2107,9 @@ async function handleApiRequest(req, res, url, session) {
       },
       csrfToken: csrfTokenForSession(session),
       company,
-      needsOnboarding: !savedState && canManageCompany,
+      needsOnboarding: !savedState && canManageCompany && !(
+        company?.scope || company?.cnpj || company?.certification
+      ),
       state: filterStateForPermissions(savedState, permissions),
       context: canViewModule(permissions, "contexto") ? savedContext : null,
       risk: canViewModule(permissions, "riscos") ? savedRisk : null,
