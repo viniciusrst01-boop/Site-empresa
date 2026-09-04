@@ -334,6 +334,49 @@ test("comunicação da política aceita evidência em PDF ou imagem", async ({ p
   expect((await page.request.get(await evidence.getAttribute("href"))).status()).toBe(200);
 });
 
+test("política registra revisões e preenche o cargo do responsável", async ({ page }, testInfo) => {
+  await login(page);
+  await page.waitForFunction(() => typeof window.renderModuleDetail === "function");
+  await page.evaluate(() => {
+    renderModuleDetail("lideranca");
+    currentLeadershipMainTab = "politica";
+    currentLeadershipSubTab = "politica";
+    renderLeadershipTabs();
+  });
+
+  await expect(page.locator(".policy-history .empty-state")).toHaveText("Nenhuma revisão registrada.");
+  await expect(page.locator(".doc-meta-row")).toContainText("Revisão 00");
+  await page.getByRole("button", { name: "Editar" }).click();
+  await expect(page.locator("#lcPolicyRevision")).toHaveValue("01");
+  await page.locator("#lcPolicyApprover").selectOption("Hugo Melo");
+  await expect(page.locator("#lcPolicyApproverRole")).toHaveValue("Diretor Geral");
+  await page.screenshot({ path: testInfo.outputPath("policy-edit-role.png") });
+  await page.locator('[data-lc-field="dataAprovacao"]').fill("2026-09-04");
+  await page.locator('[data-lc-field="descricaoRevisao"]').fill("Versão inicial aprovada.");
+  await page.getByRole("button", { name: "Salvar", exact: true }).click();
+
+  await expect(page.locator(".doc-meta-row")).toContainText("Revisão 01");
+  await expect(page.locator('.policy-history [data-policy-revision="01"]')).toContainText("04/09/2026 · Versão inicial aprovada. · Hugo Melo (Diretor Geral)");
+  await expect(page.locator(".policy-history [data-policy-revision]")).toHaveCount(1);
+
+  await page.getByRole("button", { name: "Editar" }).click();
+  await expect(page.locator("#lcPolicyRevision")).toHaveValue("02");
+  await page.locator("#lcPolicyApprover").selectOption("Carlos Andrade");
+  await expect(page.locator("#lcPolicyApproverRole")).toHaveValue("Gerente da Qualidade");
+  await page.locator('[data-lc-field="texto"]').fill("Política revisada e alinhada ao planejamento estratégico.");
+  await page.locator('[data-lc-field="dataAprovacao"]').fill("2026-10-10");
+  await page.locator('[data-lc-field="descricaoRevisao"]').fill("Alinhamento ao planejamento estratégico.");
+  await page.getByRole("button", { name: "Salvar", exact: true }).click();
+
+  await expect(page.locator(".doc-meta-row")).toContainText("Revisão 02");
+  await expect(page.locator(".doc-meta-row")).toContainText("10/10/2026");
+  await expect(page.locator(".doc-text-box")).toHaveText("Política revisada e alinhada ao planejamento estratégico.");
+  await expect(page.locator(".detail-item")).toContainText("Carlos Andrade · Gerente da Qualidade");
+  await expect(page.locator(".policy-history [data-policy-revision]")).toHaveCount(2);
+  await expect(page.locator('.policy-history [data-policy-revision="02"]')).toContainText("10/10/2026 · Alinhamento ao planejamento estratégico. · Carlos Andrade (Gerente da Qualidade)");
+  await page.screenshot({ path: testInfo.outputPath("policy-revision-history.png") });
+});
+
 test("indicadores da liderança consolidam os dados do módulo em gráficos", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await login(page);

@@ -2,20 +2,26 @@ const { test, expect } = require("@playwright/test");
 
 test("fornecedor preenche causas, seleciona status e anexa evidência em todos os temas", async ({ page }, testInfo) => {
   let record = { id: "RNC-2026-0001", fornecedor: "Fornecedor de componentes", descricao: "Dimensão da peça fora da especificação aprovada.", version: 1, ishikawa: { metodo: "", maquina: "", maoObra: "", material: "", medicao: "", meioAmbiente: "", causaRaiz: "" }, acoes: [], evidences: [] };
+  let evidenceSequence = 0;
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.route("**/api/supplier-rnc**", async (route) => {
     const request = route.request();
     expect(request.headers().authorization).toBe("Bearer browser-test-token");
+    if (request.method() === "DELETE" && /\/evidence\/[^/]+$/.test(request.url())) {
+      const id = request.url().split("/").pop();
+      record.evidences = record.evidences.filter((file) => file.id !== id);
+      return route.fulfill({ json: { ok: true, id } });
+    }
     if (request.url().endsWith("/evidence")) {
-      const file = { id: "evidence-1", name: request.postDataJSON().name, size: 8 };
+      const file = { id: `evidence-${++evidenceSequence}`, name: request.postDataJSON().name, size: 8 };
       record.evidences.push(file);
       return route.fulfill({ status: 201, json: file });
     }
     if (request.method() === "POST") {
       const body = request.postDataJSON();
       expect(body.acoes[0].status).toBe("Em andamento");
-      expect(body.acoes[0].evidenceIds).toEqual(["evidence-1"]);
+      expect(body.acoes[0].evidenceIds).toEqual(["evidence-2"]);
       record = { ...record, ...body, version: record.version + 1, respondedAt: new Date().toISOString() };
     }
     await route.fulfill({ json: record });
@@ -35,7 +41,13 @@ test("fornecedor preenche causas, seleciona status e anexa evidência em todos o
   await expect(page.getByRole("combobox", { name: "Status", exact: true }).locator("option")).toHaveText(["Selecione...", "Em andamento", "Concluída"]);
   await page.getByLabel("Status", { exact: true }).selectOption("Em andamento");
   await page.getByLabel("Evidências da ação").setInputFiles({ name: "evidencia.txt", mimeType: "text/plain", buffer: Buffer.from("evidencia") });
-  await expect(page.getByRole("button", { name: "evidencia.txt" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "evidencia.txt", exact: true })).toBeVisible();
+  page.once("dialog", (dialog) => dialog.accept());
+  await page.getByRole("button", { name: "Excluir evidencia.txt" }).click();
+  await expect(page.getByRole("button", { name: "evidencia.txt", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("status")).toHaveText("Evidência removida.");
+  await page.getByLabel("Evidências da ação").setInputFiles({ name: "evidencia-final.txt", mimeType: "text/plain", buffer: Buffer.from("evidencia final") });
+  await expect(page.getByRole("button", { name: "evidencia-final.txt", exact: true })).toBeVisible();
   const colors = new Set();
   for (const theme of ["dark", "light", "white"]) {
     await page.getByLabel("Tema", { exact: true }).selectOption(theme);

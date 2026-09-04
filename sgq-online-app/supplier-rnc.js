@@ -157,6 +157,17 @@ function createSupplierRnc({ secret, appUrl, sendEmail = mailer.sendEmail, now =
       return file;
     });
   }
+  async function remove(token, fileId) {
+    const auth = parseToken(token);
+    return db.mutateSupplierData(auth.companyId, (data) => {
+      const { entry } = resolve(data, auth);
+      if (entry.respondedAt) throw error("supplier_response_already_submitted", 409);
+      const index = (entry.files || []).findIndex((item) => item.id === fileId);
+      if (index < 0) throw error("evidence_not_found", 404);
+      const [file] = entry.files.splice(index, 1);
+      return { ok: true, id: file.id };
+    });
+  }
   async function downloadNcEvidence(token, fileId) {
     const auth = parseToken(token);
     const metadata = await db.mutateSupplierData(auth.companyId, (data) => {
@@ -210,7 +221,7 @@ function createSupplierRnc({ secret, appUrl, sendEmail = mailer.sendEmail, now =
     for (const target of await db.listNotificationTargets(true)) results.push(...await deliver(target.company.id));
     return results;
   }
-  return { prepareState, read, respond, upload, download, downloadNcEvidence, deliver, runNotifications };
+  return { prepareState, read, respond, upload, download, remove, downloadNcEvidence, deliver, runNotifications };
 }
 
 module.exports = { createSupplierRnc };

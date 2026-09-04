@@ -40,8 +40,11 @@ button:disabled { opacity: .55; cursor: wait; }
 .deadline-control > .deadline-calendar { position: absolute; right: 1px; top: 1px; bottom: 1px; width: 44px; padding: 8px; border: 0; background: transparent; cursor: pointer; }
 .deadline-calendar::-webkit-datetime-edit { display: none; }
 .deadline-calendar::-webkit-calendar-picker-indicator { width: 22px; height: 22px; margin: 0; padding: 0; cursor: pointer; }
-.files { margin: 0; padding-left: 20px; }
-.files button { padding: 3px; min-height: 32px; border: 0; color: #086da9; text-align: left; overflow-wrap: anywhere; }
+.files { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.files li { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; border: 1px solid #d5dee7; border-radius: 6px; padding: 4px 6px; }
+.files button { padding: 3px; min-height: 32px; border: 0; text-align: left; overflow-wrap: anywhere; }
+.files .file-open { color: #086da9; }
+.files .file-remove { color: #c8323e; font-size: 12px; font-weight: 700; }
 small { color: #536171; font-weight: normal; }
 footer { padding: 20px 22px; }
 #saved-at { color: #3b635d; }
@@ -71,6 +74,8 @@ body:is([data-theme="dark"], [data-theme="light"]) .thank-you dt { color: var(--
 body:is([data-theme="dark"], [data-theme="light"]) :is(input, textarea, select, button:not(.primary)) { background: var(--field); border-color: var(--border); color: inherit; }
 body:is([data-theme="dark"], [data-theme="light"]) :is(header p, small) { color: var(--muted); }
 body:is([data-theme="dark"], [data-theme="light"]) .files button { color: var(--link); }
+body:is([data-theme="dark"], [data-theme="light"]) .files li { border-color: var(--border); }
+body:is([data-theme="dark"], [data-theme="light"]) .files .file-remove { color: #ff7b84; }
 body:is([data-theme="dark"], [data-theme="light"]) .nc-evidence-thumb { background: var(--field); border-color: var(--border); }
 body:is([data-theme="dark"], [data-theme="light"]) .nc-evidence-name { color: var(--muted); }
 body:is([data-theme="dark"], [data-theme="light"]) .supplier-nc-evidence-viewer { background: var(--surface); border-color: var(--border); }

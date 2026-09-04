@@ -143,8 +143,21 @@ test("módulo de não conformidades mantém o fluxo funcional", async ({ page },
   await expect(page.locator("#ncActionEvidenceWrap")).toBeHidden();
   await page.locator("#ncActionStatus").selectOption({ label: "Concluída" });
   await expect(page.locator("#ncActionEvidenceWrap")).toBeVisible();
+  await page.locator("#ncActionEvidence").setInputFiles({ name: "acao-corretiva.png", mimeType: "image/png", buffer: Buffer.from("imagem") });
+  await expect(page.locator("#ncActionEvidenceRemove")).toBeVisible();
+  await page.locator("#ncActionEvidenceRemove").click();
+  await expect(page.locator("#ncActionEvidenceRemove")).toBeHidden();
+  await expect(page.locator("#ncEvidenceName")).toHaveText("Nenhum arquivo selecionado");
+  await page.locator("#ncActionEvidence").setInputFiles({ name: "acao-corretiva.png", mimeType: "image/png", buffer: Buffer.from("imagem") });
   await page.locator("#ncSaveAction").click();
   await expect(correctiveAction).toContainText("Concluída");
+  await correctiveAction.getByTitle("Editar").click();
+  await expect(page.locator("#ncEvidenceName")).toHaveText("acao-corretiva.png");
+  await page.locator("#ncActionEvidenceRemove").click();
+  await page.locator("#ncSaveAction").click();
+  await correctiveAction.getByTitle("Editar").click();
+  await expect(page.locator("#ncActionEvidenceRemove")).toBeHidden();
+  await expect(page.locator("#ncEvidenceName")).toHaveText("Nenhum arquivo selecionado");
   await page.locator("[data-nc-close]").first().click();
 
   await page.getByRole("button", { name: "Dashboards" }).click();

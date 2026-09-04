@@ -268,16 +268,12 @@ const leadershipSeeds = {
   politica: {
     texto: "A QualityPro Solutions fornece soluções em consultoria e sistemas de gestão da qualidade, buscando a satisfação dos clientes, a melhoria contínua dos processos e o desenvolvimento das pessoas, atendendo aos requisitos legais e aplicáveis.",
     status: "Vigente",
-    revisao: "03",
+    revisao: "00",
     dataAprovacao: "2026-01-02",
     aprovador: "Hugo Melo",
-    aprovadorCargo: "Diretor",
+    aprovadorCargo: "Diretor Geral",
     proximaRevisao: "2027-01-02",
-    historico: [
-      { revisao: "01", data: "2024-01-10", descricao: "Versão inicial da Política da Qualidade." },
-      { revisao: "02", data: "2025-01-05", descricao: "Inclusão de referência à melhoria contínua." },
-      { revisao: "03", data: "2026-01-02", descricao: "Atualização para incluir desenvolvimento das pessoas." },
-    ],
+    historico: [],
   },
   comunicacao: [
     { id: "COMPOL-0001", data: "2026-07-10", forma: "Reunião de Equipe", setor: "Toda a organização", qtdPessoas: 7, evidencia: "Ata_reuniao_qualidade_0710.pdf" },
@@ -1686,11 +1682,24 @@ function ensureLeadershipData() {
       leadershipData[key] = structuredClone(leadershipSeeds[key]);
     }
   });
-  if (leadershipData._seedVersion !== 2) {
+  const seedVersion = Number(leadershipData._seedVersion) || 0;
+  let changed = false;
+  if (seedVersion < 2) {
     ["acoes", "comunicacao", "cargos"].forEach((key) => {
       leadershipData[key] = mergeSeedRows(leadershipData[key], leadershipSeeds[key]);
     });
-    leadershipData._seedVersion = 2;
+    changed = true;
+  }
+  if (seedVersion < 3) {
+    leadershipData.politica = {
+      ...leadershipData.politica,
+      revisao: "00",
+      historico: [],
+    };
+    changed = true;
+  }
+  if (changed) {
+    leadershipData._seedVersion = 3;
     localStorage.setItem(leadershipStorageKey, JSON.stringify(leadershipData));
     saveRemoteData("leadership", leadershipData);
   }
@@ -1976,6 +1985,9 @@ function leadershipPlanHtml() {
 
 function leadershipPolicyHtml() {
   const item = leadershipGet("politica");
+  const history = Array.isArray(item.historico) ? item.historico : [];
+  const latestRevision = history.at(-1);
+  const displayed = latestRevision ? { ...item, ...latestRevision, dataAprovacao: latestRevision.data } : item;
   return `
     <section class="doc-card">
       <div class="dcc-hd plain-head">
@@ -1983,14 +1995,14 @@ function leadershipPolicyHtml() {
         ${canEditModule("lideranca") ? `<button class="btn-grad" data-lc-action="edit-politica" type="button">${moduleIcon("edit")}Editar</button>` : ""}
       </div>
       <div class="doc-meta-row">
-        <div class="doc-pill approved">Status: <strong>${escapeHtml(item.status)}</strong></div>
-        <div class="doc-pill">Revisão <strong>${escapeHtml(item.revisao)}</strong></div>
-        <div class="doc-pill">Aprovada em <strong>${formatDate(item.dataAprovacao)}</strong></div>
-        <div class="doc-pill">Próxima revisão <strong>${formatDate(item.proximaRevisao)}</strong></div>
+        <div class="doc-pill approved">Status: <strong>${escapeHtml(displayed.status)}</strong></div>
+        <div class="doc-pill">Revisão <strong>${escapeHtml(displayed.revisao)}</strong></div>
+        <div class="doc-pill">Aprovada em <strong>${formatDate(displayed.dataAprovacao)}</strong></div>
+        <div class="doc-pill">Próxima revisão <strong>${formatDate(displayed.proximaRevisao)}</strong></div>
       </div>
-      <div class="doc-text-box">${escapeHtml(item.texto)}</div>
-      <div class="detail-item"><div class="l">Aprovador</div><div class="v">${escapeHtml(item.aprovador)} · ${escapeHtml(item.aprovadorCargo)}</div></div>
-      <div class="detail-block"><h5>Histórico de revisões</h5>${(item.historico || []).map((row) => `<p><strong>Rev. ${escapeHtml(row.revisao)}</strong> - ${formatDate(row.data)} · ${escapeHtml(row.descricao)}</p>`).join("")}</div>
+      <div class="doc-text-box">${escapeHtml(displayed.texto)}</div>
+      <div class="detail-item"><div class="l">Responsável pela alteração</div><div class="v">${escapeHtml(displayed.aprovador)} · ${escapeHtml(displayed.aprovadorCargo)}</div></div>
+      <div class="detail-block policy-history"><h5>Histórico de revisões</h5>${history.length ? history.map((row) => `<p data-policy-revision="${escapeHtml(row.revisao)}"><strong>Rev. ${escapeHtml(row.revisao)}</strong> - ${formatDate(row.data)} · ${escapeHtml(row.descricao)} · ${escapeHtml(row.aprovador)} (${escapeHtml(row.aprovadorCargo)})</p>`).join("") : '<div class="empty-state">Nenhuma revisão registrada.</div>'}</div>
     </section>`;
 }
 
@@ -2251,7 +2263,7 @@ const leadershipCollections = {
   raci: { key: "raci", prefix: "RACI", fields: [["atividade", "Atividade"], ["diretorGeral", "Diretor Geral", "select", ["R", "A", "C", "I"]], ["qualidade", "Qualidade", "select", ["R", "A", "C", "I"]], ["comercial", "Comercial", "select", ["R", "A", "C", "I"]], ["financeiro", "Financeiro", "select", ["R", "A", "C", "I"]]] },
   delegacao: { key: "delegacoes", prefix: "DEL", fields: [["titular", "Titular", "people"], ["substituto", "Substituto", "people"], ["cargo", "Cargo"], ["periodoIni", "Início", "date"], ["periodoFim", "Fim", "date"], ["motivo", "Motivo"], ["status", "Status", "select", ["Agendada", "Ativa", "Encerrada"]]] },
   aprovacao: { key: "aprovacoes", prefix: "APR", fields: [["tipo", "Tipo"], ["aprovador", "Aprovador", "people"], ["substituto", "Substituto", "people"], ["revisao", "Revisão"]] },
-  politica: { key: "politica", singleton: true, fields: [["texto", "Texto da política", "textarea"], ["revisao", "Revisão"], ["status", "Status", "select", ["Vigente", "Em revisão"]], ["dataAprovacao", "Data de aprovação", "date"], ["proximaRevisao", "Próxima revisão", "date"], ["aprovador", "Aprovador", "people"], ["aprovadorCargo", "Cargo do aprovador"]] },
+  politica: { key: "politica", singleton: true, fields: [["texto", "Texto da política", "textarea"], ["revisao", "Revisão gerada", "policy-revision"], ["status", "Status", "select", ["Vigente", "Em revisão"]], ["dataAprovacao", "Data de aprovação", "date"], ["proximaRevisao", "Próxima revisão programada", "date"], ["aprovador", "Responsável pela alteração", "role-person"], ["aprovadorCargo", "Cargo", "role-title"], ["descricaoRevisao", "Descrição da alteração", "textarea"]] },
 };
 
 async function openLeadershipForm(type, id = "") {
@@ -2296,6 +2308,26 @@ async function openLeadershipForm(type, id = "") {
     if (name) name.textContent = "Anexo será removido ao salvar.";
     event.currentTarget.hidden = true;
   });
+  document.querySelector("#lcPolicyApprover")?.addEventListener("change", syncLeadershipApproverRole);
+  if (type === "politica") syncLeadershipApproverRole();
+}
+
+function nextPolicyRevision(policy) {
+  const history = Array.isArray(policy?.historico) ? policy.historico : [];
+  const current = String(history.at(-1)?.revisao || policy?.revisao || "00");
+  const numeric = Number.parseInt(current, 10);
+  return String(Number.isFinite(numeric) ? numeric + 1 : history.length + 1).padStart(2, "0");
+}
+
+function activeLeadershipRoles() {
+  return leadershipGet("cargos").filter((role) => role.status !== "Inativo" && role.nome && role.cargo);
+}
+
+function syncLeadershipApproverRole() {
+  const approver = document.querySelector("#lcPolicyApprover")?.value || "";
+  const role = activeLeadershipRoles().find((item) => item.nome === approver);
+  const input = document.querySelector("#lcPolicyApproverRole");
+  if (input) input.value = role?.cargo || "";
 }
 
 async function loadLeadershipParticipants() {
@@ -2318,6 +2350,17 @@ function leadershipFieldHtml(key, label, fieldType = "text", options = [], value
   }
   if (fieldType === "textarea" || fieldType === "lines") {
     return `<div class="field full"><label>${escapeHtml(label)}</label><textarea class="input-basic" data-lc-field="${key}" data-lc-field-type="${fieldType}">${escapeHtml(displayValue)}</textarea></div>`;
+  }
+  if (fieldType === "policy-revision") {
+    return `<div class="field"><label>${escapeHtml(label)}</label><input class="input-basic" id="lcPolicyRevision" data-lc-field="${key}" value="${escapeHtml(nextPolicyRevision(record))}" readonly></div>`;
+  }
+  if (fieldType === "role-person") {
+    const roles = activeLeadershipRoles();
+    const names = [...new Set([...roles.map((role) => role.nome), displayValue].filter(Boolean))];
+    return `<div class="field"><label>${escapeHtml(label)}</label><select class="input-basic" id="lcPolicyApprover" data-lc-field="${key}">${names.map((name) => `<option value="${escapeHtml(name)}" ${name === displayValue ? "selected" : ""}>${escapeHtml(name)}</option>`).join("")}</select></div>`;
+  }
+  if (fieldType === "role-title") {
+    return `<div class="field"><label>${escapeHtml(label)}</label><input class="input-basic" id="lcPolicyApproverRole" data-lc-field="${key}" value="${escapeHtml(displayValue)}" readonly></div>`;
   }
   if (fieldType === "select" || fieldType === "people") {
     const choices = fieldType === "people" ? ["Hugo Melo", "Marina Souza", "Carlos Andrade", "Beatriz Santos", "Rafael Costa", "João Pereira", "Eduardo Lima"] : options;
@@ -2380,6 +2423,24 @@ async function saveLeadershipRecord() {
   if (config.singleton) {
     const previous = leadershipGet(config.key);
     nextRecord = { ...previous, ...record };
+    if (type === "politica") {
+      const revision = {
+        revisao: record.revisao,
+        data: record.dataAprovacao || new Date().toISOString().slice(0, 10),
+        descricao: String(record.descricaoRevisao || "").trim() || ((previous.historico || []).length ? "Política da Qualidade atualizada." : "Versão inicial da Política da Qualidade."),
+        texto: record.texto,
+        status: record.status,
+        proximaRevisao: record.proximaRevisao,
+        aprovador: record.aprovador,
+        aprovadorCargo: record.aprovadorCargo,
+      };
+      nextRecord = {
+        ...nextRecord,
+        dataAprovacao: revision.data,
+        descricaoRevisao: "",
+        historico: [...(Array.isArray(previous.historico) ? previous.historico : []), revision],
+      };
+    }
     if (!(await leadershipSet(config.key, nextRecord))) {
       toast("Não foi possível salvar o registro. Tente novamente.");
       return;
@@ -4742,11 +4803,23 @@ function openNcActions(editId = "") {
   const edit = (row.acoes || []).find((item) => item.id === editId);
   const formStatus = edit?.status === "Concluída" ? "Concluída" : "Em andamento";
   const list = (row.acoes || []).map((action) => `<div class="acao-item"><div class="acao-item-hd"><div><div class="acao-item-desc">${escapeHtml(action.desc)}</div><div class="acao-item-meta">Prazo: ${ncDate(action.prazo)} · ${escapeHtml(action.responsavel)} · ${escapeHtml(ncActionEffectiveStatus(action))}</div></div><div class="row-actions"><button class="abtn" data-action-edit="${action.id}" title="Editar">${moduleIcon("edit")}</button><button class="abtn danger" data-action-delete="${action.id}" title="Excluir">${moduleIcon("trash")}</button></div></div></div>`).join("");
-  mountNcModal(`<div class="modal-box wide"><div class="modal-hd"><div><h3>Ações Corretivas</h3><p>${escapeHtml(row.id)}</p></div><button class="modal-close" data-nc-close>${moduleIcon("close")}</button></div>${list || `<div class="empty-state">Nenhuma ação cadastrada.</div>`}<div class="nc-action-form"><input id="ncActionId" type="hidden" value="${escapeHtml(editId)}"><label class="field">Ação<textarea class="input-basic" id="ncActionDesc">${escapeHtml(edit?.desc || "")}</textarea></label><div class="field-row3"><label class="field">Prazo<input class="input-basic" id="ncActionDue" type="date" value="${escapeHtml(edit?.prazo || "")}"></label><label class="field">Responsável<select class="input-basic" id="ncActionOwner">${ncResponsibleOptions(edit?.responsavel)}</select></label><label class="field">Status<select class="input-basic" id="ncActionStatus"><option ${formStatus === "Em andamento" ? "selected" : ""}>Em andamento</option><option ${formStatus === "Concluída" ? "selected" : ""}>Concluída</option></select></label></div><label class="field" id="ncActionEvidenceWrap" ${formStatus === "Concluída" ? "" : "hidden"}>Evidência<input class="input-basic" id="ncActionEvidence" type="file"><small id="ncEvidenceName">${escapeHtml(edit?.evidencia || "Nenhum arquivo selecionado")}</small></label><div class="modal-actions"><button class="btn-ghost" id="ncResetAction">Cancelar edição</button><button class="btn-primary" id="ncSaveAction">Salvar ação</button></div></div></div>`);
+  mountNcModal(`<div class="modal-box wide"><div class="modal-hd"><div><h3>Ações Corretivas</h3><p>${escapeHtml(row.id)}</p></div><button class="modal-close" data-nc-close>${moduleIcon("close")}</button></div>${list || `<div class="empty-state">Nenhuma ação cadastrada.</div>`}<div class="nc-action-form"><input id="ncActionId" type="hidden" value="${escapeHtml(editId)}"><label class="field">Ação<textarea class="input-basic" id="ncActionDesc">${escapeHtml(edit?.desc || "")}</textarea></label><div class="field-row3"><label class="field">Prazo<input class="input-basic" id="ncActionDue" type="date" value="${escapeHtml(edit?.prazo || "")}"></label><label class="field">Responsável<select class="input-basic" id="ncActionOwner">${ncResponsibleOptions(edit?.responsavel)}</select></label><label class="field">Status<select class="input-basic" id="ncActionStatus"><option ${formStatus === "Em andamento" ? "selected" : ""}>Em andamento</option><option ${formStatus === "Concluída" ? "selected" : ""}>Concluída</option></select></label></div><label class="field" id="ncActionEvidenceWrap" ${formStatus === "Concluída" ? "" : "hidden"}>Evidência<div class="leadership-evidence-control"><input class="input-basic" id="ncActionEvidence" type="file"><button class="leadership-evidence-remove" id="ncActionEvidenceRemove" type="button" title="Remover anexo" aria-label="Remover anexo" ${edit?.evidencia ? "" : "hidden"}>${moduleIcon("trash")}</button></div><input id="ncActionRemoveEvidence" type="hidden" value="false"><small id="ncEvidenceName">${escapeHtml(edit?.evidencia || "Nenhum arquivo selecionado")}</small></label><div class="modal-actions"><button class="btn-ghost" id="ncResetAction">Cancelar edição</button><button class="btn-primary" id="ncSaveAction">Salvar ação</button></div></div></div>`);
   document.querySelectorAll("[data-action-edit]").forEach((button) => button.addEventListener("click", () => openNcActions(button.dataset.actionEdit)));
   document.querySelectorAll("[data-action-delete]").forEach((button) => button.addEventListener("click", () => deleteNcAction(button.dataset.actionDelete)));
   document.querySelector("#ncResetAction")?.addEventListener("click", () => openNcActions());
   document.querySelector("#ncActionStatus")?.addEventListener("change", updateNcActionEvidenceVisibility);
+  document.querySelector("#ncActionEvidence")?.addEventListener("change", (event) => {
+    const file = event.currentTarget.files?.[0];
+    document.querySelector("#ncEvidenceName").textContent = file?.name || edit?.evidencia || "Nenhum arquivo selecionado";
+    document.querySelector("#ncActionEvidenceRemove").hidden = !file && !edit?.evidencia;
+    document.querySelector("#ncActionRemoveEvidence").value = "false";
+  });
+  document.querySelector("#ncActionEvidenceRemove")?.addEventListener("click", () => {
+    document.querySelector("#ncActionEvidence").value = "";
+    document.querySelector("#ncActionRemoveEvidence").value = "true";
+    document.querySelector("#ncEvidenceName").textContent = "Nenhum arquivo selecionado";
+    document.querySelector("#ncActionEvidenceRemove").hidden = true;
+  });
   document.querySelector("#ncSaveAction")?.addEventListener("click", saveNcAction);
   if (row.origem === "Fornecedor") {
     for (const [id, value] of [["ncActionDue", edit?.prazo], ["ncActionOwner", edit?.responsavel], ["ncActionStatus", edit?.status]]) {
@@ -4772,8 +4845,9 @@ async function saveNcAction() {
   const prazo = document.querySelector("#ncActionDue")?.value || "";
   const status = row.origem === "Fornecedor" ? selectedStatus : selectedStatus === "Concluída" ? "Concluída" : prazo && prazo < ncToday() ? "Atrasada" : "Em andamento";
   const file = document.querySelector("#ncActionEvidence")?.files?.[0];
+  const removeEvidence = document.querySelector("#ncActionRemoveEvidence")?.value === "true";
   if (file && file.size > 5 * 1024 * 1024) return void toast("O arquivo deve ter no máximo 5 MB.");
-  const action = { ...existing, id: id || `AC-${Date.now()}`, desc, prazo, responsavel: document.querySelector("#ncActionOwner")?.value || "", status, evidencia: file?.name || existing?.evidencia || "", concluidaEm: status === "Concluída" ? existing?.concluidaEm || ncToday() : "" };
+  const action = { ...existing, id: id || `AC-${Date.now()}`, desc, prazo, responsavel: document.querySelector("#ncActionOwner")?.value || "", status, evidencia: removeEvidence ? "" : file?.name || existing?.evidencia || "", concluidaEm: status === "Concluída" ? existing?.concluidaEm || ncToday() : "" };
   recordModuleSnapshot("nao-conformidades");
   row.acoes ||= []; const index = row.acoes.findIndex((item) => item.id === id); if (index >= 0) row.acoes[index] = action; else row.acoes.push(action);
   ncRecalculateStatus(row); ncAddHistory(row, `${currentUser?.name || "Usuário"} ${existing ? "atualizou" : "criou"} uma ação corretiva.`);

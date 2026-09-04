@@ -1323,6 +1323,8 @@ async function handleRequest(req, res) {
       } else if (/^\/api\/supplier-rnc\/evidence\/[^/]+$/.test(url.pathname) && req.method === "GET") {
         const file = await supplierRnc.download(token, url.pathname.split("/").pop());
         sendDownload(res, "application/octet-stream", file.name, Buffer.from(file.base64, "base64"));
+      } else if (/^\/api\/supplier-rnc\/evidence\/[^/]+$/.test(url.pathname) && req.method === "DELETE") {
+        sendJson(res, 200, await supplierRnc.remove(token, url.pathname.split("/").pop()));
       } else sendJson(res, 404, { error: "not_found" });
     } catch (error) { sendJson(res, error.status || (error instanceof SyntaxError ? 400 : 500), { error: error.status ? error.message : "supplier_request_failed" }); }
     return;

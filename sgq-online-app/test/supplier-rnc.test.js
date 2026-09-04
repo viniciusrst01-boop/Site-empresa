@@ -36,6 +36,9 @@ test("supplier portal isolates RNCs, persists evidence, handles concurrency and 
   const evidence = await service.upload(tokenA, { name: "evidência.txt", base64: Buffer.from("Evidencia real da acao").toString("base64") });
   assert.equal(Buffer.from((await service.download(tokenA, evidence.id)).base64, "base64").toString(), "Evidencia real da acao");
   await assert.rejects(service.download(tokenB, evidence.id), { status: 404 });
+  const discardedEvidence = await service.upload(tokenA, { name: "descartar.txt", base64: Buffer.from("Descartar").toString("base64") });
+  assert.deepEqual(await service.remove(tokenA, discardedEvidence.id), { ok: true, id: discardedEvidence.id });
+  await assert.rejects(service.download(tokenA, discardedEvidence.id), { status: 404 });
   assert.equal((await service.downloadNcEvidence(tokenA, ncPhoto.id)).name, ncPhoto.name);
   await assert.rejects(service.downloadNcEvidence(tokenB, ncPhoto.id), { status: 404 });
   await assert.rejects(service.upload(tokenA, { name: "attack.html", base64: "YWJj" }), { status: 400 });

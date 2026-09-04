@@ -92,12 +92,32 @@ function renderFiles(element) {
     const li = document.createElement("li");
     const button = document.createElement("button");
     button.type = "button";
+    button.className = "file-open";
     button.textContent = file.name;
     button.onclick = async () => {
       try { const blob = await (await request(`/evidence/${encodeURIComponent(id)}`)).blob(); const url = URL.createObjectURL(blob); const link = document.createElement("a"); link.href = url; link.download = file.name; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); }
       catch (error) { notify(error.message, true); }
     };
-    li.append(button); list.append(li);
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "file-remove";
+    remove.textContent = "Excluir";
+    remove.setAttribute("aria-label", `Excluir ${file.name}`);
+    remove.onclick = async () => {
+      if (busy || !confirm(`Excluir o arquivo ${file.name}?`)) return;
+      lock(true);
+      try {
+        await request(`/evidence/${encodeURIComponent(id)}`, { method: "DELETE" });
+        record.evidences = record.evidences.filter((item) => item.id !== id);
+        document.querySelectorAll("#actions .action").forEach((actionElement) => {
+          actionElement.evidenceIds = actionElement.evidenceIds.filter((evidenceId) => evidenceId !== id);
+          renderFiles(actionElement);
+        });
+        notify("Evidência removida.");
+      } catch (error) { notify(error.message, true); }
+      finally { lock(false); }
+    };
+    li.append(button, remove); list.append(li);
   }
 }
 function renderNcEvidences() {
