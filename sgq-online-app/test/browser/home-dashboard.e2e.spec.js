@@ -88,6 +88,7 @@ test("página inicial compacta em telas menores de computador", async ({ page },
   await finishOnboardingIfNeeded(page);
 
   for (const size of [
+    { width: 1600, height: 760, name: "notebook-standard" },
     { width: 1024, height: 768, name: "tablet-landscape" },
     { width: 1024, height: 700, name: "notebook-low" },
     { width: 820, height: 760, name: "tablet-compact" },
@@ -106,10 +107,15 @@ test("página inicial compacta em telas menores de computador", async ({ page },
         sidebarWidth: sidebar ? sidebar.getBoundingClientRect().width : 0,
         searchDisplay: search ? getComputedStyle(search).display : "none",
         moduleWidth: firstModule ? firstModule.getBoundingClientRect().width : 0,
+        moduleDescriptionDisplay: firstModule ? getComputedStyle(firstModule.querySelector("p")).display : "none",
       };
     });
 
     expect(shell.moduleWidth).toBeGreaterThan(0);
+    if (size.width === 1600) {
+      expect(shell.sidebarWidth).toBe(204);
+      expect(shell.moduleDescriptionDisplay).not.toBe("none");
+    }
     if (size.width === 820) expect(shell.sidebarWidth).toBeLessThanOrEqual(90);
 
     await page.screenshot({ path: testInfo.outputPath(`home-responsive-${size.name}.png`) });
@@ -234,6 +240,11 @@ test("os três temas mantêm contraste e o LED lateral", async ({ page }, testIn
   expect(white.pageBackground).not.toBe(light.pageBackground);
   expect(white.cardBackground).not.toBe(light.cardBackground);
   expect(white.cardText).not.toBe(light.cardText);
+
+  await page.setViewportSize({ width: 1600, height: 760 });
+  await expectDashboardWithoutScroll(page);
+  await expect(page.locator(".sidebar")).toHaveCSS("width", "204px");
+  await page.screenshot({ path: testInfo.outputPath("theme-white-notebook-standard.png") });
 });
 
 test("resumo inicia pelos registros e apresenta os cinco indicadores", async ({ page }) => {
