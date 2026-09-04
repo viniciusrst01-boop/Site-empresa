@@ -110,6 +110,7 @@ const sessionTtlHours = Math.max(1, Math.min(Number(process.env.SESSION_TTL_HOUR
 const loginUser = process.env.SGQ_LOGIN_USER || process.env.SGQ_USER_EMAIL || "";
 const loginPassword = process.env.SGQ_USER_PASSWORD || "";
 const adminUser = process.env.SGQ_ADMIN_USER || "viniciusrst";
+const adminContactEmail = [process.env.SGQ_ADMIN_EMAIL, process.env.ALERT_EMAIL, loginUser].find((value) => isEmail(value)) || "";
 const extraLogins = parseExtraLogins(process.env.SGQ_EXTRA_LOGINS || "");
 const configuredLogins = getAllowedLogins();
 const publicAppUrl = String(
@@ -437,6 +438,27 @@ async function listUsersWithCompanySettings(companyId) {
       permissions: normalizePermissions(user.role, userSettings.permissions),
     };
   });
+}
+
+async function listLeadershipParticipantUsers(companyId) {
+  const [users, savedState] = await Promise.all([
+    listUsersWithCompanySettings(companyId),
+    getCompanyData(companyId, "state"),
+  ]);
+  const savedUsers = Array.isArray(savedState?.users) ? savedState.users : [];
+  return users
+    .filter((user) => user.status !== "Bloqueado")
+    .map((user) => {
+      const savedUser = savedUsers.find((candidate) =>
+        String(candidate.name || candidate.displayName || "").trim().toLowerCase() === String(user.displayName || "").trim().toLowerCase()
+        && isEmail(candidate.email || candidate.username),
+      );
+      const email = isEmail(user.username)
+        ? user.username
+        : savedUser?.email || savedUser?.username || (user.username.toLowerCase() === adminUser.toLowerCase() || user.role === "Administrador" ? adminContactEmail : "");
+      return { ...user, contactEmail: isEmail(email) ? email : "" };
+    })
+    .filter((user) => user.contactEmail);
 }
 
 async function saveCompanyUserSettings(companyId, userId, values) {
@@ -2197,11 +2219,9 @@ async function handleApiRequest(req, res, url, session) {
       sendJson(res, 403, { error: "forbidden" });
       return;
     }
-    const users = await listUsersWithCompanySettings(companyId);
+    const users = await listLeadershipParticipantUsers(companyId);
     sendJson(res, 200, {
-      users: users
-        .filter((user) => user.status !== "Bloqueado" && isEmail(user.username))
-        .map((user) => ({ id: user.id, displayName: user.displayName, email: user.username })),
+      users: users.map((user) => ({ id: user.id, displayName: user.displayName, email: user.contactEmail })),
     });
     return;
   }
@@ -2223,8 +2243,8 @@ async function handleApiRequest(req, res, url, session) {
       return;
     }
 
-    const users = await listUsersWithCompanySettings(companyId);
-    const recipients = users.filter((user) => participantIds.includes(Number(user.id)) && user.status !== "Bloqueado" && isEmail(user.username));
+    const users = await listLeadershipParticipantUsers(companyId);
+    const recipients = users.filter((user) => participantIds.includes(Number(user.id)));
     if (!recipients.length) {
       sendJson(res, 400, { error: "no_valid_recipients" });
       return;
@@ -2234,10 +2254,10 @@ async function handleApiRequest(req, res, url, session) {
     const deliveries = [];
     for (const recipient of recipients) {
       const result = await sendEmail({
-        to: recipient.username,
+        to: recipient.contactEmail,
         subject: `Convite para reunião - ${company?.name || "SGQ Online"}`,
         html: meetingInvitationEmail({
-          recipientName: recipient.displayName || recipient.username,
+          recipientName: recipient.displayName || recipient.contactEmail,
           companyName: company?.name || "sua empresa",
           organizerName: session.displayName || session.username,
           meetingDate: formattedDate,
@@ -2787,6 +2807,13 @@ async function handleApiRequest(req, res, url, session) {
     }
     const id = url.searchParams.get("id") || "";
     if (!/^[a-f0-9-]{36}$/.test(id)) { sendJson(res, 400, { error: "invalid_attachment" }); return; }
+    if (req.method === "DELETE") {
+      const file = await getCompanyData(companyId, `leadershipAttachment:${id}`);
+      if (!file) { sendJson(res, 404, { error: "attachment_not_found" }); return; }
+      await setCompanyData(companyId, `leadershipAttachment:${id}`, null);
+      await auditRequest(req, session, "leadership_attachment_deleted", "success", { attachmentId: id });
+      sendJson(res, 200, { ok: true }); return;
+    }
     const leadership = await getCompanyData(companyId, "leadership");
     const referenced = ["acoes", "comunicacao"].some((collection) => (leadership?.[collection] || []).some((record) => record?.evidenciaArquivo?.id === id));
     if (req.method === "GET") {

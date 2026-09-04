@@ -299,6 +299,13 @@ test("editar ação permite remover o anexo existente ao salvar", async ({ page 
   await expect(page.locator("#lcEvidenceFileName")).toHaveText("Anexo será removido ao salvar.");
   await expect(page.locator("#lcRemoveEvidence")).toHaveValue("true");
   await expect(page.getByRole("button", { name: "Remover anexo" })).toBeHidden();
+  await page.getByRole("button", { name: "Salvar", exact: true }).click();
+
+  const actionRow = page.locator("tr", { hasText: "Reunião mensal com análise dos indicadores" });
+  await expect(actionRow).not.toContainText("Ata_15072026.pdf");
+  await actionRow.locator('[data-lc-action="edit-acao"]').click();
+  await expect(page.getByRole("button", { name: "Remover anexo" })).toHaveCount(0);
+  await expect(page.locator("#lcEvidenceFileName")).toHaveText("Nenhum arquivo selecionado");
 });
 
 test("comunicação da política aceita evidência em PDF ou imagem", async ({ page }) => {

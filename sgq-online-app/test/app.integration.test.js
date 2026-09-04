@@ -128,6 +128,7 @@ test("admin, exportações, backup e revogação de sessão funcionam", async (t
       SGQ_USER_PASSWORD: "Admin-Teste-123",
       SGQ_COMPANY_NAME: "Empresa de Teste",
       SGQ_ADMIN_USER: "testadmin",
+      SGQ_ADMIN_EMAIL: "administrador.teste@example.com",
       SGQ_EXTRA_LOGINS: "",
       SGQ_EXPOSE_TEST_TOKENS: "true",
       CRON_SECRET: "cron-secret-test-123456",
@@ -250,7 +251,9 @@ test("admin, exportações, backup e revogação de sessão funcionam", async (t
   assert.ok(createdPayload.invitation.invitationLink);
   const leadershipParticipants = await api(baseUrl, "/api/leadership/participants", adminCookie);
   assert.equal(leadershipParticipants.status, 200);
-  assert.ok((await leadershipParticipants.json()).users.some((user) => user.id === createdUser.id && user.email === "colaborador.teste@example.com"));
+  const leadershipParticipantPayload = await leadershipParticipants.json();
+  assert.ok(leadershipParticipantPayload.users.some((user) => user.id === createdUser.id && user.email === "colaborador.teste@example.com"));
+  assert.ok(leadershipParticipantPayload.users.some((user) => user.id === ownerBootstrap.user.id && user.displayName === "Testadmin" && user.email === "administrador.teste@example.com"));
   const meetingInvitation = await api(baseUrl, "/api/leadership/meeting-invitations", adminCookie, {
     method: "POST",
     body: JSON.stringify({
