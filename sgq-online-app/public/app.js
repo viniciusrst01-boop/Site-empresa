@@ -44,10 +44,10 @@ const modules = [
     desc: "Controle de calibrações, manutenções e situação dos equipamentos de medição.",
   },
   {
-    id: "treinamentos",
-    title: "Treinamentos",
-    accent: "#60A5FA",
-    desc: "Matriz de competências, capacitações, evidências e reciclagens da equipe.",
+    id: "satisfacao-clientes",
+    title: "Satisfação do Cliente",
+    accent: "#EC4899",
+    desc: "Pesquisas, avaliações, reclamações, indicadores de satisfação e planos de melhoria.",
     future: true,
   },
   {
@@ -1300,7 +1300,7 @@ function renderModulos() {
   setTopbar("Meus módulos", "Módulos do QualityPro Cloud contratados pela sua empresa");
   pageContent.classList.add("modules-page-content");
   const moduleOrder = ["contexto", "lideranca", "riscos", "documentos", "auditorias", "nao-conformidades", "equipamentos"];
-  const futureModuleOrder = ["treinamentos", "fornecedores"];
+  const futureModuleOrder = ["satisfacao-clientes", "fornecedores"];
   const activeModules = moduleOrder
     .map((id) => modules.find((module) => module.id === id))
     .filter((module) => module && canViewModule(module.id));
@@ -1417,7 +1417,7 @@ function moduleIcon(name) {
     auditorias: '<svg class="icon" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>',
     "nao-conformidades": '<svg class="icon" viewBox="0 0 24 24"><path d="M12 9v4"/><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="17" x2="12" y2="17"/></svg>',
     equipamentos: '<svg class="icon" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94z"/></svg>',
-    treinamentos: '<svg class="icon" viewBox="0 0 24 24"><path d="M4 19.5V6a2 2 0 0 1 2-2h12v15H6a2 2 0 0 0-2 2"/><path d="M8 8h6"/><path d="M8 12h5"/></svg>',
+    "satisfacao-clientes": '<svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9" y2="9"/><line x1="15" y1="9" x2="15" y2="9"/></svg>',
     fornecedores: '<svg class="icon" viewBox="0 0 24 24"><path d="M3 7h18"/><path d="M5 7v13h14V7"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M9 13h6"/></svg>',
     info: '<svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12" y2="16"/></svg>',
     arrow: '<svg class="icon" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>',

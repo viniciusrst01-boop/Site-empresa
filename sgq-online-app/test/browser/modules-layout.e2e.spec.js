@@ -41,7 +41,8 @@ test("Meus módulos segue a grade compacta sem rolagem", async ({ page }, testIn
   expect(layout.contentY).toBeLessThanOrEqual(0);
   expect(layout.columns).toBe(6);
   expect(layout.rows).toBe(2);
-  await expect(page.locator(".mymod-title", { hasText: "Treinamentos" })).toBeVisible();
+  await expect(page.locator(".mymod-title", { hasText: "Satisfação do Cliente" })).toBeVisible();
+  await expect(page.getByText("Treinamentos", { exact: true })).toHaveCount(0);
   await expect(page.locator(".mymod-title", { hasText: "Fornecedores" })).toBeVisible();
   await expect(page.getByText("7 / 9", { exact: false })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Módulos disponíveis para contratação" })).toHaveCount(0);

@@ -103,11 +103,18 @@ test("página inicial compacta em telas menores de computador", async ({ page },
       const sidebar = document.querySelector(".sidebar");
       const search = document.querySelector(".topbar-search");
       const firstModule = document.querySelector(".home-v2-module");
+      const moduleHeading = document.querySelector(".home-v2-modules .home-v2-heading");
+      const moduleHeadingTitle = moduleHeading?.querySelector("h2");
+      const moduleHeadingDescription = moduleHeading?.querySelector("p");
       return {
         sidebarWidth: sidebar ? sidebar.getBoundingClientRect().width : 0,
         searchDisplay: search ? getComputedStyle(search).display : "none",
         moduleWidth: firstModule ? firstModule.getBoundingClientRect().width : 0,
         moduleDescriptionDisplay: firstModule ? getComputedStyle(firstModule.querySelector("p")).display : "none",
+        moduleTitleFont: firstModule ? Number.parseFloat(getComputedStyle(firstModule.querySelector("h3")).fontSize) : 0,
+        moduleDescriptionFont: firstModule ? Number.parseFloat(getComputedStyle(firstModule.querySelector("p")).fontSize) : 0,
+        headingTitleBottom: moduleHeadingTitle?.getBoundingClientRect().bottom || 0,
+        headingDescriptionBottom: moduleHeadingDescription?.getBoundingClientRect().bottom || 0,
       };
     });
 
@@ -115,6 +122,9 @@ test("página inicial compacta em telas menores de computador", async ({ page },
     if (size.width === 1600) {
       expect(shell.sidebarWidth).toBe(204);
       expect(shell.moduleDescriptionDisplay).not.toBe("none");
+      expect(shell.moduleTitleFont).toBeGreaterThanOrEqual(10.5);
+      expect(shell.moduleDescriptionFont).toBeGreaterThanOrEqual(8.2);
+      expect(Math.abs(shell.headingTitleBottom - shell.headingDescriptionBottom)).toBeLessThanOrEqual(3);
     }
     if (size.width === 820) expect(shell.sidebarWidth).toBeLessThanOrEqual(90);
 
