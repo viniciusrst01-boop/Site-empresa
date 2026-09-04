@@ -161,6 +161,17 @@ test("menu e cabeçalho mantêm o mesmo layout entre as telas", async ({ page },
   await expect(page.locator(".menu-toggle")).toHaveAttribute("aria-hidden", "true");
 });
 
+test("barra lateral compacta mantém a mesma largura em todas as abas", async ({ page }) => {
+  await page.setViewportSize({ width: 1600, height: 760 });
+  await login(page);
+  await finishOnboardingIfNeeded(page);
+
+  for (const view of ["inicio", "modulos", "empresa", "usuarios", "relatorios", "configuracoes"]) {
+    await page.locator(`[data-view="${view}"]`).click();
+    await expect(page.locator(".sidebar")).toHaveCSS("width", "204px");
+  }
+});
+
 test("módulo aberto pela página inicial seleciona Meus módulos", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await login(page);
