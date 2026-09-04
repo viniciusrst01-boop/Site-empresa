@@ -74,6 +74,15 @@ test("página inicial ocupa a viewport sem rolagem", async ({ page }, testInfo) 
   for (const bar of healthBars) {
     if (bar.value > 0) expect(bar.fillWidth).toBeGreaterThan(0);
   }
+  const clippedModuleDescriptions = await page.locator(".home-v2-module-copy").evaluateAll((items) =>
+    items
+      .filter((item) => {
+        const description = item.querySelector("p");
+        return description && description.scrollHeight - description.clientHeight > 1;
+      })
+      .map((item) => item.querySelector("h3")?.textContent || ""),
+  );
+  expect(clippedModuleDescriptions).toEqual([]);
   await page.screenshot({ path: testInfo.outputPath("home-dashboard-desktop.png") });
 
   await page.setViewportSize({ width: 390, height: 844 });
@@ -98,6 +107,13 @@ test("página inicial compacta em telas menores de computador", async ({ page },
     await expect(page.locator(".home-v2")).toBeVisible();
     await expect(page.locator(".home-v2-kpi")).toHaveCount(5);
     await expect(page.locator(".home-v2-module")).toHaveCount(7);
+    const moduleAccents = await page.locator(".home-v2-module").evaluateAll((cards) => cards.map((card) => getComputedStyle(card).borderTopColor));
+    expect(new Set(moduleAccents).size).toBe(7);
+    expect(moduleAccents).toContain("rgb(239, 68, 68)");
+
+    await expect.poll(() => page.locator(".home-v2-module-copy h3").evaluateAll((titles) =>
+      titles.filter((title) => getComputedStyle(title).whiteSpace !== "nowrap" || title.scrollWidth > title.clientWidth + 1).length,
+    )).toBe(0);
 
     const shell = await page.evaluate(() => {
       const sidebar = document.querySelector(".sidebar");
@@ -115,6 +131,10 @@ test("página inicial compacta em telas menores de computador", async ({ page },
         moduleDescriptionFont: firstModule ? Number.parseFloat(getComputedStyle(firstModule.querySelector("p")).fontSize) : 0,
         headingTitleBottom: moduleHeadingTitle?.getBoundingClientRect().bottom || 0,
         headingDescriptionBottom: moduleHeadingDescription?.getBoundingClientRect().bottom || 0,
+        clippedModuleText: firstModule
+          ? [...document.querySelectorAll(".home-v2-module-copy h3, .home-v2-module-copy p")]
+            .filter((item) => item.scrollHeight - item.clientHeight > 1).length
+          : 0,
       };
     });
 
@@ -122,9 +142,9 @@ test("página inicial compacta em telas menores de computador", async ({ page },
     if (size.width === 1600) {
       expect(shell.sidebarWidth).toBe(204);
       expect(shell.moduleDescriptionDisplay).not.toBe("none");
-      expect(shell.moduleTitleFont).toBeGreaterThanOrEqual(10.5);
-      expect(shell.moduleDescriptionFont).toBeGreaterThanOrEqual(8.2);
+      expect(shell.moduleDescriptionFont).toBeGreaterThanOrEqual(9);
       expect(Math.abs(shell.headingTitleBottom - shell.headingDescriptionBottom)).toBeLessThanOrEqual(3);
+      expect(shell.clippedModuleText).toBe(0);
     }
     if (size.width === 820) expect(shell.sidebarWidth).toBeLessThanOrEqual(90);
 
@@ -223,6 +243,7 @@ test("os três temas mantêm contraste e o LED lateral", async ({ page }, testIn
       pageBackground: getComputedStyle(document.querySelector(".page-content")).backgroundImage,
       cardBackground: getComputedStyle(document.querySelector(".home-v2-panel")).backgroundColor,
       moduleBackground: getComputedStyle(document.querySelector(".home-v2-module")).backgroundColor,
+      moduleCountColor: getComputedStyle(document.querySelector(".home-v2-module-foot span")).color,
       cardText: getComputedStyle(document.querySelector(".home-v2-heading h2")).color,
       activeBackground: getComputedStyle(active).backgroundImage,
       ledDisplay: led.display,
@@ -236,6 +257,7 @@ test("os três temas mantêm contraste e o LED lateral", async ({ page }, testIn
   expect(dark.light).toBe(false);
   expect(dark.ledDisplay).toBe("block");
   expect(dark.ledWidth).toBe("3px");
+  expect(dark.moduleCountColor).toBe("rgb(245, 247, 250)");
 
   await page.locator('[data-view="configuracoes"]').click();
   await page.getByLabel("Tema do sistema").selectOption("light");
@@ -249,6 +271,7 @@ test("os três temas mantêm contraste e o LED lateral", async ({ page }, testIn
   expect(light.ledWidth).toBe("3px");
   expect(light.pageBackground).not.toBe(dark.pageBackground);
   expect(light.activeBackground).not.toBe(dark.activeBackground);
+  expect(light.moduleCountColor).toBe("rgb(232, 244, 255)");
 
   await page.locator('[data-view="configuracoes"]').click();
   await page.getByLabel("Tema do sistema").selectOption("white");
@@ -264,6 +287,7 @@ test("os três temas mantêm contraste e o LED lateral", async ({ page }, testIn
   expect(white.cardText).not.toBe(light.cardText);
   expect(white.cardBackground).toBe("rgb(255, 255, 255)");
   expect(white.moduleBackground).toBe("rgb(227, 232, 239)");
+  expect(white.moduleCountColor).toBe("rgb(51, 65, 85)");
 
   await page.setViewportSize({ width: 1600, height: 760 });
   await expectDashboardWithoutScroll(page);

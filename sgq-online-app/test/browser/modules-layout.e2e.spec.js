@@ -157,6 +157,9 @@ test("catálogo compacto acompanha os três temas", async ({ page }, testInfo) =
   expect(white.titleColor).not.toBe(light.titleColor);
   expect(white.pageBackground).not.toBe(light.pageBackground);
   await expect(page.locator(".mymod-card")).toHaveCount(9);
+  const accents = await page.locator(".mymod-card").evaluateAll((cards) => cards.map((card) => card.style.getPropertyValue("--accent-line")));
+  expect(new Set(accents).size).toBe(9);
+  expect(accents).toContain("#EF4444");
 });
 
 test("todos os módulos usam título no topo e breadcrumb sem terceiro título", async ({ page }, testInfo) => {

@@ -5,43 +5,43 @@ const modules = [
     id: "contexto",
     title: "Contexto da Organização",
     accent: "#A78BFA",
-    desc: "Partes interessadas, requisitos legais, escopo do SGQ e informações da organização.",
+    desc: "Partes interessadas, requisitos, escopo e informações do SGQ.",
   },
   {
     id: "lideranca",
     title: "Liderança e Comprometimento",
     accent: "#F2B705",
-    desc: "Política da qualidade, papéis, responsabilidades e comprometimento da Alta Direção.",
+    desc: "Política da qualidade, responsabilidades e direção do SGQ.",
   },
   {
     id: "riscos",
     title: "Riscos e Oportunidades",
     accent: "#2f8ff0",
-    desc: "Identificação, avaliação, tratamento e acompanhamento de riscos e oportunidades.",
+    desc: "Avaliação e tratamento de riscos e oportunidades.",
   },
   {
     id: "documentos",
     title: "Documentos",
     accent: "#46D9F5",
-    desc: "Controle de documentos e registros com versão, aprovação, distribuição e status.",
+    desc: "Versões, aprovações e distribuição de documentos.",
   },
   {
     id: "auditorias",
     title: "Auditorias",
     accent: "#34D399",
-    desc: "Planejamento, execução, checklists e acompanhamento de auditorias internas.",
+    desc: "Planejamento e acompanhamento de auditorias internas.",
   },
   {
     id: "nao-conformidades",
     title: "Não Conformidades",
-    accent: "#FBBF24",
-    desc: "Registro, causa raiz, ação corretiva, responsáveis e verificação de eficácia.",
+    accent: "#EF4444",
+    desc: "Registro, causa raiz, ações corretivas e verificação de eficácia.",
   },
   {
     id: "equipamentos",
     title: "Equipamentos de Medição",
     accent: "#2DD4BF",
-    desc: "Controle de calibrações, manutenções e situação dos equipamentos de medição.",
+    desc: "Calibração e manutenção de equipamentos.",
   },
   {
     id: "satisfacao-clientes",
@@ -1026,6 +1026,7 @@ function renderInicio() {
   ensureRiskData();
   ensureContextData();
   pageContent.innerHTML = renderDashboardHtml();
+  syncDashboardFooterDate();
   bindDashboardActions();
 }
 
@@ -1050,7 +1051,6 @@ function renderDashboardHtml() {
   return `
     <div class="home-v2">
       <section class="home-v2-summary" aria-label="Resumo do SGQ">
-        <time class="home-v2-date" datetime="${new Date().toISOString().slice(0, 10)}">${dashboardDateLabel()}</time>
         <div class="home-v2-kpis">
           ${dashboardKpi("modulos", "Registros do SGQ", summary.totalRecords, `${summary.openActions} ações ou itens em acompanhamento`, "#43a7ff", Math.min(100, summary.totalRecords * 2))}
           ${dashboardKpi("auditorias", "Auditorias", audits.length, `${plannedAudits.length} em andamento ou planejamento`, "#9a75ff", audits.length ? Math.max(24, 100 - plannedAudits.length * 18) : 0)}
@@ -1096,6 +1096,13 @@ function renderDashboardHtml() {
       </div>
     </div>
   `;
+}
+
+function syncDashboardFooterDate() {
+  const footerDate = document.getElementById("footerDate");
+  if (!footerDate) return;
+  footerDate.textContent = dashboardDateLabel();
+  footerDate.dateTime = new Date().toISOString().slice(0, 10);
 }
 
 function dashboardDateLabel() {
@@ -7460,7 +7467,25 @@ function bindGlobalSearch() {
   }, { once: true });
 }
 
+let dashboardTitleObserver;
+
+function fitDashboardModuleTitles() {
+  document.querySelectorAll(".home-v2-module-copy h3").forEach((title) => {
+    title.style.removeProperty("font-size");
+    if (!window.matchMedia("(min-width: 801px)").matches || !title.clientWidth) return;
+    const fontSize = Number.parseFloat(getComputedStyle(title).fontSize);
+    if (title.scrollWidth > title.clientWidth) {
+      title.style.fontSize = `${Math.floor(fontSize * title.clientWidth / title.scrollWidth * 100) / 100}px`;
+    }
+  });
+}
+
 function bindDashboardActions() {
+  dashboardTitleObserver?.disconnect();
+  dashboardTitleObserver = new ResizeObserver(fitDashboardModuleTitles);
+  document.querySelectorAll(".home-v2-module-copy").forEach((copy) => dashboardTitleObserver.observe(copy));
+  fitDashboardModuleTitles();
+  document.fonts.ready.then(fitDashboardModuleTitles);
   bindModuleCards();
   bindViewTargetButtons();
 
@@ -7584,4 +7609,5 @@ document.querySelectorAll(".nav-item").forEach((item) => {
   item.addEventListener("click", () => render(item.dataset.view));
 });
 
+syncDashboardFooterDate();
 initializeApp();
