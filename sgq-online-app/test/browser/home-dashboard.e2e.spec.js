@@ -35,6 +35,29 @@ async function expectDashboardWithoutScroll(page) {
   for (const overflow of Object.values(measurements)) expect(overflow).toBeLessThanOrEqual(0);
 }
 
+async function expectResponsiveHomeContained(page) {
+  const measurements = await page.evaluate(() => {
+    const root = document.documentElement;
+    const body = document.body;
+    const content = document.querySelector(".page-content");
+    return {
+      rootX: root.scrollWidth - root.clientWidth,
+      rootY: root.scrollHeight - root.clientHeight,
+      bodyX: body.scrollWidth - body.clientWidth,
+      bodyY: body.scrollHeight - body.clientHeight,
+      contentX: content.scrollWidth - content.clientWidth,
+      contentOverflowY: getComputedStyle(content).overflowY,
+    };
+  });
+
+  expect(measurements.rootX).toBeLessThanOrEqual(0);
+  expect(measurements.rootY).toBeLessThanOrEqual(0);
+  expect(measurements.bodyX).toBeLessThanOrEqual(0);
+  expect(measurements.bodyY).toBeLessThanOrEqual(0);
+  expect(measurements.contentX).toBeLessThanOrEqual(0);
+  expect(measurements.contentOverflowY).toBe("auto");
+}
+
 test("página inicial ocupa a viewport sem rolagem", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await login(page);
@@ -44,10 +67,18 @@ test("página inicial ocupa a viewport sem rolagem", async ({ page }, testInfo) 
   await expect(page.locator(".topbar-subtitle")).toHaveText("Aqui está um resumo do seu Sistema de Gestão.");
   await expect(page.locator(".home-v2-welcome")).toHaveCount(0);
   await expectDashboardWithoutScroll(page);
+  const healthBars = await page.locator(".home-v2-bar").evaluateAll((rows) => rows.map((row) => ({
+    value: Number(row.querySelector("strong")?.textContent || 0),
+    fillWidth: row.querySelector("b")?.getBoundingClientRect().width || 0,
+  })));
+  for (const bar of healthBars) {
+    if (bar.value > 0) expect(bar.fillWidth).toBeGreaterThan(0);
+  }
   await page.screenshot({ path: testInfo.outputPath("home-dashboard-desktop.png") });
 
   await page.setViewportSize({ width: 390, height: 844 });
-  await expectDashboardWithoutScroll(page);
+  await expectResponsiveHomeContained(page);
+  await expect(page.locator(".home-v2-kpi")).toHaveCount(5);
   await page.screenshot({ path: testInfo.outputPath("home-dashboard-mobile.png") });
 });
 
@@ -63,8 +94,10 @@ test("página inicial compacta em larguras menores", async ({ page }, testInfo) 
     { width: 360, height: 740, name: "phone-narrow" },
   ]) {
     await page.setViewportSize(size);
-    await expectDashboardWithoutScroll(page);
+    await expectResponsiveHomeContained(page);
     await expect(page.locator(".home-v2")).toBeVisible();
+    await expect(page.locator(".home-v2-kpi")).toHaveCount(5);
+    await expect(page.locator(".home-v2-module")).toHaveCount(7);
 
     const shell = await page.evaluate(() => {
       const sidebar = document.querySelector(".sidebar");
@@ -111,7 +144,7 @@ test("menu e cabeçalho mantêm o mesmo layout entre as telas", async ({ page },
   const home = await sharedStyles();
   await expect(page.locator(".menu-toggle")).toBeHidden();
   await page.locator('[data-view="modulos"]').click();
-  await expect(page.getByRole("heading", { name: "Módulos contratados" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Meus módulos", exact: true })).toBeVisible();
   await expect(page.locator(".menu-toggle")).toBeVisible();
   const modules = await sharedStyles();
   await page.screenshot({ path: testInfo.outputPath("modules-global-shell.png") });
@@ -136,7 +169,7 @@ test("módulo aberto pela página inicial seleciona Meus módulos", async ({ pag
   await expect(page.locator('[data-view="inicio"]')).not.toHaveClass(/active/);
 });
 
-test("temas claro azul e escuro mantêm o LED lateral", async ({ page }, testInfo) => {
+test("os três temas mantêm contraste e o LED lateral", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await login(page);
   await finishOnboardingIfNeeded(page);
@@ -146,7 +179,10 @@ test("temas claro azul e escuro mantêm o LED lateral", async ({ page }, testInf
     const led = getComputedStyle(active, "::before");
     return {
       light: document.body.classList.contains("theme-light"),
+      white: document.body.classList.contains("theme-white"),
       pageBackground: getComputedStyle(document.querySelector(".page-content")).backgroundImage,
+      cardBackground: getComputedStyle(document.querySelector(".home-v2-panel")).backgroundColor,
+      cardText: getComputedStyle(document.querySelector(".home-v2-heading h2")).color,
       activeBackground: getComputedStyle(active).backgroundImage,
       ledDisplay: led.display,
       ledWidth: led.width,
@@ -172,25 +208,31 @@ test("temas claro azul e escuro mantêm o LED lateral", async ({ page }, testInf
   expect(light.ledWidth).toBe("3px");
   expect(light.pageBackground).not.toBe(dark.pageBackground);
   expect(light.activeBackground).not.toBe(dark.activeBackground);
+
+  await page.locator('[data-view="configuracoes"]').click();
+  await page.getByLabel("Tema do sistema").selectOption("white");
+  await page.getByRole("button", { name: "Salvar configurações" }).click();
+  await page.locator('[data-view="inicio"]').click();
+
+  const white = await themeSnapshot();
+  await page.screenshot({ path: testInfo.outputPath("theme-white.png") });
+  expect(white.white).toBe(true);
+  expect(white.ledDisplay).toBe("block");
+  expect(white.pageBackground).not.toBe(light.pageBackground);
+  expect(white.cardBackground).not.toBe(light.cardBackground);
+  expect(white.cardText).not.toBe(light.cardText);
 });
 
-test("Empresa é o primeiro indicador e abre os dados da empresa", async ({ page }) => {
+test("resumo inicia pelos registros e apresenta os cinco indicadores", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await login(page);
   await finishOnboardingIfNeeded(page);
 
   const indicators = page.locator(".home-v2-kpi");
-  await expect(indicators.first()).toContainText("Empresa");
+  await expect(indicators).toHaveCount(5);
+  await expect(indicators.first()).toContainText("Registros do SGQ");
+  await expect(indicators.last()).toContainText("Status do SGQ");
   await expect(page.getByText("Módulos ativos", { exact: true })).toHaveCount(0);
-  await indicators.first().locator("strong").evaluate((element) => {
-    element.textContent = "Admin Qualitypro Com Br LTDA";
-  });
-  const companyNameFits = await indicators.first().locator("strong").evaluate((element) =>
-    element.scrollWidth <= element.clientWidth && element.scrollHeight <= element.clientHeight,
-  );
-  expect(companyNameFits).toBe(true);
-  await indicators.first().getByRole("button", { name: /Ver dados da empresa/ }).click();
-  await expect(page.locator('[data-view="empresa"]')).toHaveClass(/active/);
 });
 
 test("cadastro da empresa cabe inteiro na viewport desktop", async ({ page }, testInfo) => {

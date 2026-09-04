@@ -1,0 +1,223 @@
+/* Compact catalog shared by the three application themes. */
+.modules-page-content {
+  --modules-surface: linear-gradient(145deg, rgba(11, 21, 38, .98), rgba(7, 15, 29, .98));
+  --modules-card: rgba(14, 28, 51, .84);
+  --modules-line: rgba(255, 255, 255, .09);
+  --modules-copy: #f5f7fa;
+  --modules-muted: #8b98ab;
+  --modules-chip: rgba(79, 163, 255, .1);
+}
+
+body.theme-light .modules-page-content {
+  --modules-surface: linear-gradient(145deg, rgba(13, 48, 88, .97), rgba(9, 38, 73, .97));
+  --modules-card: rgba(18, 57, 98, .84);
+  --modules-line: rgba(109, 187, 255, .16);
+  --modules-copy: #f5f7fa;
+  --modules-muted: #a9bdd6;
+  --modules-chip: rgba(70, 181, 255, .11);
+}
+
+body.theme-white .modules-page-content {
+  --modules-surface: #fff;
+  --modules-card: #f8fafc;
+  --modules-line: #d7e1ec;
+  --modules-copy: #17243a;
+  --modules-muted: #65758a;
+  --modules-chip: #edf3f9;
+}
+
+.modules-page-content .mymods-section {
+  flex: 0 0 auto;
+  min-height: 0;
+  padding: 12px 14px 14px;
+  border: 1px solid var(--modules-line);
+  border-radius: 8px;
+  background: var(--modules-surface);
+  box-shadow: 0 5px 18px rgba(3, 18, 36, .08);
+}
+
+.modules-page-content .mymods-reference-grid,
+.modules-page-content .mymods-reference-grid.has-nine {
+  display: grid;
+  flex: 0 0 auto;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-rows: none;
+  grid-auto-rows: 126px;
+  gap: 8px;
+}
+
+.modules-page-content .mymods-reference-grid .mymod-card {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 5px 8px;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  height: 126px;
+  padding: 9px;
+  overflow: hidden;
+  border: 1px solid var(--modules-line);
+  border-radius: 7px;
+  background: var(--modules-card);
+  box-shadow: none;
+}
+
+.modules-page-content .mymods-reference-grid .mymod-card::before {
+  display: none;
+}
+
+.modules-page-content .mymods-reference-grid .mymod-card:hover,
+body.theme-light .modules-page-content .mymods-reference-grid .mymod-card:hover,
+body.theme-white .modules-page-content .mymods-reference-grid .mymod-card:hover {
+  border-color: var(--accent-line);
+  background: color-mix(in srgb, var(--modules-card) 94%, var(--accent-line));
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--accent-line) 18%, transparent),
+    0 8px 18px rgba(3, 18, 36, .12);
+  transform: translateY(-2px);
+}
+
+.modules-page-content .mymods-reference-grid .mymod-card.is-future:hover {
+  border-color: var(--modules-line);
+  background: var(--modules-card);
+  box-shadow: none;
+  transform: none;
+}
+
+.modules-page-content .mymods-reference-grid .mymod-top,
+.modules-page-content .mymods-reference-grid .mymod-id {
+  display: contents;
+}
+
+.modules-page-content .mymods-reference-grid .mymod-icon {
+  grid-column: 1;
+  grid-row: 1;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--accent-line) 14%, transparent);
+}
+
+.modules-page-content .mymods-reference-grid .mymod-icon .icon {
+  width: 17px;
+  height: 17px;
+}
+
+.modules-page-content .mymods-reference-grid .mymod-id > div:last-child {
+  grid-column: 2;
+  grid-row: 1;
+  min-width: 0;
+  align-self: center;
+}
+
+.modules-page-content .mymods-reference-grid .mymod-title {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  color: var(--modules-copy);
+  font-size: 10.5px;
+  line-height: 1.25;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.modules-page-content .mymods-reference-grid .mymod-desc {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  display: -webkit-box;
+  min-height: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--modules-muted);
+  font-size: 8.5px;
+  line-height: 1.35;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.modules-page-content .mymods-reference-grid .mymod-foot {
+  grid-column: 1 / -1;
+  grid-row: 3;
+  display: flex;
+  min-height: 18px;
+  align-items: center;
+  gap: 6px;
+}
+
+.modules-page-content .mymod-record-count {
+  max-width: 48%;
+  padding: 3px 6px;
+  overflow: hidden;
+  border-radius: 9px;
+  background: var(--modules-chip);
+  color: var(--modules-muted);
+  font-size: 7.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.modules-page-content .mymods-reference-grid .status-pill {
+  gap: 3px;
+  margin-left: auto;
+  padding: 0;
+  font-size: 7.5px;
+}
+
+.modules-page-content .mymods-reference-grid .status-dot2 {
+  width: 5px;
+  height: 5px;
+}
+
+.modules-page-content .mymods-reference-grid .module-cta {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+  padding: 0;
+  color: var(--accent-line);
+}
+
+.modules-page-content .mymods-reference-grid .module-cta .icon {
+  width: 13px;
+  height: 13px;
+}
+
+.modules-page-content .mymods-reference-grid .module-cta.is-disabled {
+  opacity: .65;
+}
+
+@media (max-width: 1180px) {
+  .modules-page-content .mymods-reference-grid,
+  .modules-page-content .mymods-reference-grid.has-nine {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 980px) {
+  .modules-page-content {
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  .modules-page-content .mymods-reference-grid,
+  .modules-page-content .mymods-reference-grid.has-nine {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .modules-page-content .mymods-reference-grid,
+  .modules-page-content .mymods-reference-grid.has-nine {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 430px) {
+  .modules-page-content .mymods-reference-grid,
+  .modules-page-content .mymods-reference-grid.has-nine {
+    grid-template-columns: 1fr;
+  }
+}

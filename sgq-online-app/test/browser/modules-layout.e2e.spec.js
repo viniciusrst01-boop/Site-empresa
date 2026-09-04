@@ -12,7 +12,7 @@ test("Meus módulos segue a grade compacta sem rolagem", async ({ page }, testIn
   await page.setViewportSize({ width: 1830, height: 860 });
   await login(page);
   await page.locator('[data-view="modulos"]').click();
-  await expect(page.getByRole("heading", { name: "Módulos contratados" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Meus módulos", exact: true })).toBeVisible();
 
   const cards = page.locator(".mymods-grid .mymod-card");
   await expect(cards).toHaveCount(9);
@@ -39,8 +39,8 @@ test("Meus módulos segue a grade compacta sem rolagem", async ({ page }, testIn
   expect(layout.bodyY).toBeLessThanOrEqual(0);
   expect(layout.contentX).toBeLessThanOrEqual(0);
   expect(layout.contentY).toBeLessThanOrEqual(0);
-  expect(layout.columns).toBe(3);
-  expect(layout.rows).toBe(3);
+  expect(layout.columns).toBe(6);
+  expect(layout.rows).toBe(2);
   await expect(page.locator(".mymod-title", { hasText: "Treinamentos" })).toBeVisible();
   await expect(page.locator(".mymod-title", { hasText: "Fornecedores" })).toBeVisible();
   await expect(page.getByText("7 / 9", { exact: false })).toBeVisible();
@@ -95,11 +95,67 @@ test("Meus módulos segue a grade compacta sem rolagem", async ({ page }, testIn
   });
   expect(premiumLayout.rootX).toBeLessThanOrEqual(0);
   expect(premiumLayout.rootY).toBeLessThanOrEqual(0);
-  expect(premiumLayout.columns).toBe(3);
-  expect(premiumLayout.rows).toBe(3);
+  expect(premiumLayout.columns).toBe(6);
+  expect(premiumLayout.rows).toBe(2);
   expect(Math.max(...premiumLayout.cardOverflows)).toBeLessThanOrEqual(2);
   expect(premiumLayout.compressedDescriptions).toBe(0);
   await page.screenshot({ path: testInfo.outputPath("modules-layout-seven-cards.png"), fullPage: true });
+
+  for (const viewport of [{ width: 720, columns: 2 }, { width: 390, columns: 1 }]) {
+    await page.setViewportSize({ width: viewport.width, height: 820 });
+    const responsive = await page.evaluate(() => {
+      const content = document.querySelector(".modules-page-content");
+      const grid = document.querySelector(".mymods-grid");
+      return {
+        contentX: content.scrollWidth - content.clientWidth,
+        columns: getComputedStyle(grid).gridTemplateColumns.split(" ").length,
+      };
+    });
+    expect(responsive.contentX).toBeLessThanOrEqual(0);
+    expect(responsive.columns).toBe(viewport.columns);
+    await expect(page.locator(".mymod-card")).toHaveCount(9);
+  }
+});
+
+test("catálogo compacto acompanha os três temas", async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await login(page);
+  await page.locator('[data-view="modulos"]').click();
+
+  const snapshot = () => page.evaluate(() => {
+    const card = document.querySelector(".mymods-reference-grid .mymod-card");
+    const title = card.querySelector(".mymod-title");
+    return {
+      cardBackground: getComputedStyle(card).backgroundColor,
+      titleColor: getComputedStyle(title).color,
+      pageBackground: getComputedStyle(document.querySelector(".page-content")).backgroundImage,
+    };
+  });
+
+  const dark = await snapshot();
+  await page.screenshot({ path: testInfo.outputPath("modules-theme-dark.png"), fullPage: true });
+
+  await page.evaluate(() => {
+    state.settings.theme = "light";
+    applyTheme();
+    render("modulos");
+  });
+  const light = await snapshot();
+  await page.screenshot({ path: testInfo.outputPath("modules-theme-light.png"), fullPage: true });
+
+  await page.evaluate(() => {
+    state.settings.theme = "white";
+    applyTheme();
+    render("modulos");
+  });
+  const white = await snapshot();
+  await page.screenshot({ path: testInfo.outputPath("modules-theme-white.png"), fullPage: true });
+
+  expect(light.cardBackground).not.toBe(dark.cardBackground);
+  expect(white.cardBackground).not.toBe(light.cardBackground);
+  expect(white.titleColor).not.toBe(light.titleColor);
+  expect(white.pageBackground).not.toBe(light.pageBackground);
+  await expect(page.locator(".mymod-card")).toHaveCount(9);
 });
 
 test("todos os módulos usam título no topo e breadcrumb sem terceiro título", async ({ page }, testInfo) => {
@@ -116,7 +172,7 @@ test("todos os módulos usam título no topo e breadcrumb sem terceiro título",
   ];
 
   await page.locator('[data-view="modulos"]').click();
-  await expect(page.getByRole("heading", { name: "Módulos contratados" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Meus módulos", exact: true })).toBeVisible();
   await page.evaluate(() => {
     state.settings.companyAccess = "Plano Premium";
     render("modulos");

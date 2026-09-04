@@ -1036,7 +1036,8 @@ function renderInicio() {
 function renderDashboardHtml() {
   const summary = dashboardSummary();
   const moduleCards = accessibleModules()
-    .slice(0, 6)
+    .filter((module) => !module.future)
+    .slice(0, 7)
     .map((module) => dashboardCompactModuleCard(module, summary.modules[module.id]))
     .join("");
   const audits = state.audits || [];
@@ -1048,56 +1049,62 @@ function renderDashboardHtml() {
   const certification = state.company.certification || "Não informada";
   const tasks = dashboardTaskItems(openNcs, plannedAudits, pendingDocs);
   const alerts = dashboardAlertItems(summary, openNcs, pendingDocs, certification);
+  const healthMax = Math.max(openNcs.length, summary.openActions, plannedAudits.length, pendingDocs.length, 1);
 
   return `
     <div class="home-v2">
-      <section class="home-v2-summary">
+      <section class="home-v2-summary" aria-label="Resumo do SGQ">
+        <time class="home-v2-date" datetime="${new Date().toISOString().slice(0, 10)}">${dashboardDateLabel()}</time>
         <div class="home-v2-kpis">
-          ${dashboardCompanyKpi(state.company.name || "Sua empresa")}
           ${dashboardKpi("modulos", "Registros do SGQ", summary.totalRecords, `${summary.openActions} ações ou itens em acompanhamento`, "#43a7ff", Math.min(100, summary.totalRecords * 2))}
           ${dashboardKpi("auditorias", "Auditorias", audits.length, `${plannedAudits.length} em andamento ou planejamento`, "#9a75ff", audits.length ? Math.max(24, 100 - plannedAudits.length * 18) : 0)}
           ${dashboardKpi("nao-conformidades", "Não conformidades", openNcs.length, `${openNcs.length} abertas ou em tratamento`, "#ffad32", ncs.length ? Math.round(((ncs.length - openNcs.length) / ncs.length) * 100) : 100)}
           ${dashboardKpi("check-circle", "Certificação", certification, state.company.scope ? "Escopo definido no sistema" : "Complete os dados da empresa", "#27d8be", state.company.scope ? 82 : 30)}
+          ${dashboardStatusKpi(openNcs.length, summary.openActions, pendingDocs.length)}
         </div>
       </section>
 
-      <div class="home-v2-layout">
-        <main class="home-v2-main">
-          <section class="home-v2-panel home-v2-modules">
-            <div class="home-v2-heading">
-              <div><h2>Meus módulos</h2><p>Acesse e gerencie os principais módulos do seu SGQ.</p></div>
-              <button type="button" data-view-target="modulos">Ver todos os módulos ${moduleIcon("arrow")}</button>
-            </div>
-            <div class="home-v2-module-grid">${moduleCards}</div>
-          </section>
-
-          <div class="home-v2-bottom-grid">
-            <section class="home-v2-panel home-v2-panorama">
-              <div class="home-v2-heading"><div><h2>Panorama do SGQ</h2><p>Distribuição atual dos registros que exigem atenção.</p></div></div>
-              ${dashboardPanoramaRow("Não conformidades", openNcs.length, Math.max(summary.openActions, 1), "#ffad32")}
-              ${dashboardPanoramaRow("Ações em acompanhamento", summary.openActions, Math.max(summary.openActions, 1), "#42a8ff")}
-              ${dashboardPanoramaRow("Auditorias planejadas", plannedAudits.length, Math.max(summary.openActions, 1), "#31d392")}
-            </section>
-            <section class="home-v2-panel home-v2-activity">
-              <div class="home-v2-heading"><div><h2>Visão rápida</h2><p>Últimos dados disponíveis no sistema.</p></div></div>
-              <div class="home-v2-activity-list">${dashboardActivityRows(docs, audits, ncs)}</div>
-            </section>
+      <div class="home-v2-core-grid">
+        <section class="home-v2-panel home-v2-health">
+          <div class="home-v2-heading"><div><h2>Saúde do SGQ</h2><p>Visão geral dos pontos que exigem atenção.</p></div></div>
+          <div class="home-v2-health-list">
+            ${dashboardPanoramaRow("Não conformidades abertas", openNcs.length, healthMax, "#ff646f", "nao-conformidades")}
+            ${dashboardPanoramaRow("Ações em acompanhamento", summary.openActions, healthMax, "#43a7ff", "check-circle")}
+            ${dashboardPanoramaRow("Auditorias planejadas", plannedAudits.length, healthMax, "#9a75ff", "auditorias")}
+            ${dashboardPanoramaRow("Documentos pendentes", pendingDocs.length, healthMax, "#27c99f", "documentos")}
           </div>
-        </main>
+        </section>
+        <section class="home-v2-panel home-v2-tasks">
+          <div class="home-v2-heading"><div><h2>Minhas tarefas</h2><p>Atividades que exigem sua atenção.</p></div><button type="button" data-view-target="relatorios">Ver todas ${moduleIcon("arrow")}</button></div>
+          <div class="home-v2-list">${tasks}</div>
+        </section>
+      </div>
 
-        <aside class="home-v2-rail">
-          <section class="home-v2-panel">
-            <div class="home-v2-heading"><h2>Minhas tarefas</h2><button type="button" data-view-target="relatorios">Ver todas</button></div>
-            <div class="home-v2-list">${tasks}</div>
-          </section>
-          <section class="home-v2-panel">
-            <div class="home-v2-heading"><h2>Alertas importantes</h2><button type="button" data-view-target="notificacoes">Ver todos</button></div>
-            <div class="home-v2-alerts">${alerts}</div>
-          </section>
-        </aside>
+      <section class="home-v2-panel home-v2-modules">
+        <div class="home-v2-heading">
+          <div><h2>Meus módulos</h2><p>Acesse e gerencie os principais módulos do seu SGQ.</p></div>
+          <button type="button" data-view-target="modulos">Ver todos os módulos ${moduleIcon("arrow")}</button>
+        </div>
+        <div class="home-v2-module-grid">${moduleCards}</div>
+      </section>
+
+      <div class="home-v2-bottom-grid">
+        <section class="home-v2-panel home-v2-activity">
+          <div class="home-v2-heading"><div><h2>Visão rápida</h2><p>Últimos dados disponíveis no sistema.</p></div></div>
+          <div class="home-v2-activity-list">${dashboardActivityRows(docs, audits, ncs)}</div>
+        </section>
+        <section class="home-v2-panel home-v2-alert-panel">
+          <div class="home-v2-heading"><div><h2>Alertas importantes</h2><p>Acompanhe os principais pontos que exigem atenção.</p></div><button type="button" data-view-target="notificacoes">Ver todos ${moduleIcon("arrow")}</button></div>
+          <div class="home-v2-alerts">${alerts}</div>
+        </section>
       </div>
     </div>
   `;
+}
+
+function dashboardDateLabel() {
+  return new Intl.DateTimeFormat("pt-BR", { weekday: "long", day: "2-digit", month: "long", year: "numeric" })
+    .format(new Date());
 }
 
 function dashboardCompanyKpi(companyName) {
@@ -1114,12 +1121,23 @@ function dashboardKpi(icon, label, value, caption, accent, progress) {
   </article>`;
 }
 
+function dashboardStatusKpi(openNcs, openActions, pendingDocs) {
+  const needsAttention = openNcs + openActions + pendingDocs > 0;
+  const accent = needsAttention ? "#ff9738" : "#27c99f";
+  const status = needsAttention ? "Atenção" : "Em dia";
+  const caption = needsAttention ? "Existem pontos que requerem acompanhamento." : "Nenhuma pendência crítica identificada.";
+  return `<article class="home-v2-kpi home-v2-status-kpi" style="--home-accent:${accent}; --home-progress:100%">
+    <div class="home-v2-kpi-top"><span>${moduleIcon(needsAttention ? "nao-conformidades" : "check-circle")}</span><div><small>Status do SGQ</small><strong>${status}</strong></div></div>
+    <p>${caption}</p><i><b></b></i>
+  </article>`;
+}
+
 function dashboardCompactModuleCard(module, info) {
   const meta = info || { value: "0 registros", caption: "Aguardando dados cadastrados" };
   return `<article class="home-v2-module" data-module-card="${module.id}" role="button" tabindex="0" style="--home-accent:${module.accent};">
     <div class="home-v2-module-icon">${moduleIcon(module.id)}</div>
     <div class="home-v2-module-copy"><h3>${escapeHtml(module.title)}</h3><p>${escapeHtml(module.desc)}</p></div>
-    <div class="home-v2-module-foot"><span>${escapeHtml(meta.value)}</span>${moduleIcon("arrow")}</div>
+    <div class="home-v2-module-foot"><span>${escapeHtml(meta.value)}</span><em>Ativo</em>${moduleIcon("arrow")}</div>
   </article>`;
 }
 
@@ -1130,7 +1148,7 @@ function dashboardTaskItems(openNcs, plannedAudits, pendingDocs) {
     ...pendingDocs.slice(0, 1).map((item) => ({ label: `Revisar ${item.code || item.title || "documento"}`, meta: item.status, color: "#43a7ff", module: "documentos" })),
   ].slice(0, 4);
   if (!items.length) return `<div class="home-v2-empty">Nenhuma tarefa pendente no momento.</div>`;
-  return items.map((item) => `<button type="button" data-module="${item.module}" style="--item-color:${item.color}"><i></i><span>${escapeHtml(item.label)}</span><small>${escapeHtml(item.meta || "")}</small></button>`).join("");
+  return items.map((item) => `<button type="button" data-module="${item.module}" style="--item-color:${item.color}"><small>${escapeHtml(item.meta || "Atenção")}</small><span>${escapeHtml(item.label)}</span>${moduleIcon("arrow")}</button>`).join("");
 }
 
 function dashboardAlertItems(summary, openNcs, pendingDocs, certification) {
@@ -1142,9 +1160,9 @@ function dashboardAlertItems(summary, openNcs, pendingDocs, certification) {
   return items.map((item) => `<button type="button" ${item.module ? `data-module="${item.module}"` : `data-view-target="${item.view}"`} style="--item-color:${item.color}"><span>${moduleIcon(item.icon)}</span><div><strong>${escapeHtml(item.value)}</strong><p>${escapeHtml(item.detail)}</p></div></button>`).join("");
 }
 
-function dashboardPanoramaRow(label, value, max, color) {
+function dashboardPanoramaRow(label, value, max, color, icon = "info") {
   const width = value ? Math.max(8, Math.round((value / max) * 100)) : 0;
-  return `<div class="home-v2-bar"><div><span>${escapeHtml(label)}</span><strong>${value}</strong></div><i><b style="width:${width}%; background:${color}"></b></i></div>`;
+  return `<div class="home-v2-bar" style="--item-color:${color}"><span class="home-v2-bar-icon">${moduleIcon(icon)}</span><div><span>${escapeHtml(label)}</span><strong>${value}</strong><i><b style="width:${width}%; background:${color}"></b></i></div></div>`;
 }
 
 function dashboardActivityRows(docs, audits, ncs) {
@@ -1294,13 +1312,14 @@ function renderModulos() {
     .map((id) => modules.find((module) => module.id === id))
     .filter(Boolean);
   const visibleModules = [...activeModules, ...futureModules];
+  const moduleSummary = dashboardSummary().modules;
   const availableModules = futureModules.length;
   const nextRenewal = "15/09/2026";
   pageContent.innerHTML = `
     <div class="mymods-toolbar">
       <div>
         <div class="welcome-eyebrow">MEUS MÓDULOS · ASSINATURAS</div>
-        <h1 class="welcome-title">Módulos contratados</h1>
+        <h1 class="welcome-title">Meus módulos</h1>
         <p class="welcome-sub">Acompanhe o status, a modalidade e a vigência de cada módulo contratado pela sua empresa.</p>
       </div>
     </div>
@@ -1352,12 +1371,13 @@ function renderModulos() {
         <p class="section-sub">Estes são os módulos atualmente contratados e disponíveis para uso pela sua empresa.</p>
       </div>
 
-      <div class="mymods-grid has-nine">
+      <div class="mymods-grid has-nine mymods-reference-grid">
         ${visibleModules
         .map(
-          (module, index) => {
+          (module) => {
             const isAudit = module.id === "auditorias";
             const isFuture = Boolean(module.future);
+            const moduleRecords = moduleSummary[module.id]?.value || (isFuture ? "Em planejamento" : "0 registros");
             return `
             <article class="mymod-card ${isFuture ? "is-future" : ""}" ${isFuture ? "" : `data-module-card="${module.id}"`} role="${isFuture ? "status" : "button"}" tabindex="${isFuture ? "-1" : "0"}" style="--accent-line:${module.accent}">
               <div class="mymod-top">
@@ -1366,29 +1386,15 @@ function renderModulos() {
                     ${moduleIcon(module.id)}
                   </div>
                   <div>
-                    <h3 class="mymod-title"><span class="mymod-number">${index + 1}.</span> ${module.title}</h3>
-                    <div class="mymod-plan">${isFuture ? "Módulo futuro" : isAudit ? "Módulo adicional contratado à parte" : `Incluído no ${escapeHtml(state.settings.companyAccess)}`}</div>
+                    <h3 class="mymod-title">${module.title}</h3>
                   </div>
                 </div>
-                <span class="status-pill ${isFuture ? "st-future" : isAudit ? "st-pending" : "st-active"}"><span class="status-dot2"></span>${isFuture ? "Em breve" : isAudit ? "Renovação próxima" : "Ativo"}</span>
               </div>
               <p class="mymod-desc">${module.desc}</p>
-              <div class="mymod-meta">
-                <div class="mymod-meta-item">
-                  <div class="lbl">Modalidade</div>
-                  <div class="val">${isFuture ? "Futuro" : isAudit ? "Mensal" : "Anual"}</div>
-                </div>
-                <div class="mymod-meta-item">
-                  <div class="lbl">Período de acesso</div>
-                  <div class="val mono">${isFuture ? "Em planejamento" : isAudit ? "Desde 15/06/2026" : "01/01/2026 - 31/12/2026"}</div>
-                </div>
-                <div class="mymod-meta-item">
-                  <div class="lbl">Renovação</div>
-                  <div class="val mono ${isAudit ? "renewal-alert" : ""}">${isFuture ? "A definir" : isAudit ? nextRenewal : "31/12/2026"}</div>
-                </div>
-              </div>
               <div class="mymod-foot">
-                ${isFuture ? `<span class="module-cta is-disabled">Disponível em breve ${moduleIcon("arrow")}</span>` : `<button class="module-cta" data-module="${module.id}" type="button">Acessar módulo ${moduleIcon("arrow")}</button>`}
+                <span class="mymod-record-count">${escapeHtml(moduleRecords)}</span>
+                <span class="status-pill ${isFuture ? "st-future" : isAudit ? "st-pending" : "st-active"}"><span class="status-dot2"></span>${isFuture ? "Em breve" : isAudit ? "Atenção" : "Ativo"}</span>
+                ${isFuture ? `<span class="module-cta is-disabled" aria-hidden="true">${moduleIcon("arrow")}</span>` : `<button class="module-cta" data-module="${module.id}" type="button" aria-label="Acessar ${escapeHtml(module.title)}">${moduleIcon("arrow")}</button>`}
               </div>
             </article>
           `;
