@@ -2441,7 +2441,6 @@ async function handleApiRequest(req, res, url, session) {
   }
 
   if (url.pathname === "/api/company/users" && req.method === "DELETE") {
-    const ownsCompany = await isCompanyOwnerSession(session);
     if (!(await canManageCompanyUsers(session))) {
       sendJson(res, 403, { error: "forbidden" });
       return;
@@ -2454,12 +2453,10 @@ async function handleApiRequest(req, res, url, session) {
       sendJson(res, 400, { error: "invalid_user" });
       return;
     }
-    if (!ownsCompany) {
-      const target = (await listCompanyUsers(companyId)).find((user) => Number(user.id) === targetUserId);
-      if (target && (await isCompanyOwnerUser(companyId, target.id, target.role))) {
-        sendJson(res, 403, { error: "cannot_delete_company_owner" });
-        return;
-      }
+    const target = (await listCompanyUsers(companyId)).find((user) => Number(user.id) === targetUserId);
+    if (target && (await isCompanyOwnerUser(companyId, target.id, target.role))) {
+      sendJson(res, 403, { error: "cannot_delete_company_owner" });
+      return;
     }
     if (targetUserId === Number(session.userId)) {
       sendJson(res, 400, { error: "cannot_delete_self" });
