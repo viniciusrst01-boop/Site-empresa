@@ -73,8 +73,19 @@ test("NC aceita tres fotos e permite excluir em todas as origens e temas", async
     await page.locator('[data-nc-edit="' + nc.id + '"]').click();
     await expect(page.locator("#ncEditEvidenceList .nc-attachment-row")).toHaveCount(3);
     await page.getByRole("button", { name: "Excluir foto-1.png", exact: true }).click();
+    expect(await page.locator("#ncEditEvidenceList .nc-attachment-row").count()).toBe(2);
+    expect(await page.evaluate(() => document.querySelector("#ncEditEvidence").ncFiles.map((file) => file.name))).toEqual(["foto-3.png", "foto-4.png"]);
+    const stateSaves = [];
+    const captureStateSave = (request) => {
+      if (request.url().includes("/api/data") && request.method() === "POST") stateSaves.push(JSON.parse(request.postData()));
+    };
+    page.on("request", captureStateSave);
     await page.locator("#ncEditSave").click();
     await expect(page.locator("#ncEditSave")).toHaveCount(0);
+    page.off("request", captureStateSave);
+    expect(stateSaves.map((payload) => payload.value.ncs.find((row) => row.id === nc.id)?.evidencias?.length)).toContain(2);
+    const savedState = await (await page.request.get("/api/bootstrap")).json();
+    expect(savedState.state.ncs.find((row) => row.id === nc.id).evidencias.some((file) => file.id === nc.evidencias[0].id)).toBe(false);
     expect((await page.request.get("/api/nc-attachments?id=" + nc.evidencias[0].id)).status()).toBe(404);
     await page.reload();
     const updated = await (await page.request.get("/api/bootstrap")).json();

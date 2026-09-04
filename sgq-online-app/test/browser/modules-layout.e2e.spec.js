@@ -152,6 +152,7 @@ test("todos os módulos usam título no topo e breadcrumb sem terceiro título",
 test("módulos exibem setas de voltar e avançar ação no lugar de desfazer", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await login(page);
+  await page.waitForFunction(() => typeof window.renderModuleDetail === "function");
 
   await page.evaluate(() => renderModuleDetail("contexto"));
   await expect(page.getByRole("button", { name: "Desfazer" })).toHaveCount(0);
@@ -180,4 +181,116 @@ test("módulos exibem setas de voltar e avançar ação no lugar de desfazer", a
     await expect(page.getByRole("button", { name: "Avançar ação" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Desfazer" })).toHaveCount(0);
   }
+});
+
+test("ação da direção aceita evidência em PDF ou imagem", async ({ page }) => {
+  await login(page);
+  await page.waitForFunction(() => typeof window.renderModuleDetail === "function");
+  await page.evaluate(() => renderModuleDetail("lideranca"));
+  await page.getByRole("button", { name: "Nova ação" }).click();
+
+  await expect(page.locator("#lcEvidenceFile")).toHaveAttribute("accept", /application\/pdf/);
+  await page.locator("#lcEvidenceFile").setInputFiles({
+    name: "evidencia-da-reuniao.png",
+    mimeType: "image/png",
+    buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL/8QAAAABJRU5ErkJggg==", "base64"),
+  });
+  await expect(page.locator("#lcEvidenceFileName")).toHaveText("evidencia-da-reuniao.png");
+  const uploadResponse = page.waitForResponse((response) => response.url().includes("/api/leadership-attachments") && response.request().method() === "POST");
+  await page.getByRole("button", { name: "Salvar" }).click();
+  expect((await uploadResponse).status()).toBe(201);
+
+  const evidence = page.getByRole("link", { name: "evidencia-da-reuniao.png" });
+  await expect(evidence).toBeVisible();
+  const response = await page.request.get(await evidence.getAttribute("href"));
+  expect(response.status()).toBe(200);
+  expect(response.headers()["content-type"]).toContain("image/png");
+});
+
+test("comunicação da política aceita evidência em PDF ou imagem", async ({ page }) => {
+  await login(page);
+  await page.waitForFunction(() => typeof window.renderModuleDetail === "function");
+  await page.evaluate(() => {
+    renderModuleDetail("lideranca");
+    currentLeadershipMainTab = "politica";
+    currentLeadershipSubTab = "comunicacao";
+    renderLeadershipTabs();
+  });
+  await page.getByRole("button", { name: "Novo registro" }).click();
+  await expect(page.locator("#lcEvidenceFile")).toHaveAttribute("accept", /image\/jpeg/);
+  await page.locator("#lcEvidenceFile").setInputFiles({
+    name: "comunicacao-politica.png",
+    mimeType: "image/png",
+    buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL/8QAAAABJRU5ErkJggg==", "base64"),
+  });
+  await expect(page.locator("#lcEvidenceFileName")).toHaveText("comunicacao-politica.png");
+  const uploadResponse = page.waitForResponse((response) => response.url().includes("/api/leadership-attachments") && response.request().method() === "POST");
+  await page.getByRole("button", { name: "Salvar" }).click();
+  expect((await uploadResponse).status()).toBe(201);
+
+  const evidence = page.getByRole("link", { name: "comunicacao-politica.png" });
+  await expect(evidence).toBeVisible();
+  expect((await page.request.get(await evidence.getAttribute("href"))).status()).toBe(200);
+});
+
+test("indicadores da liderança consolidam os dados do módulo em gráficos", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await login(page);
+  await page.waitForFunction(() => typeof window.renderModuleDetail === "function" && typeof window.Chart === "function");
+  await page.evaluate(() => {
+    renderModuleDetail("lideranca");
+    currentLeadershipSubTab = "indicadores";
+    renderLeadershipTabs();
+  });
+
+  await expect(page.getByText("Indicadores de desempenho")).toBeVisible();
+  await expect(page.locator(".leadership-chart-card")).toHaveCount(4);
+  await page.waitForFunction(() => Object.keys(leadershipCharts).length === 4);
+  const charts = await page.evaluate(() => ({
+    actions: leadershipCharts.lcActionsStatusChart.config.type,
+    plan: leadershipCharts.lcPlanStatusChart.config.type,
+    activity: leadershipCharts.lcActivityChart.data.datasets.map((dataset) => dataset.type),
+    governance: leadershipCharts.lcGovernanceChart.config.type,
+  }));
+  expect(charts).toEqual({ actions: "doughnut", plan: "bar", activity: ["bar", "line"], governance: "pie" });
+
+  await page.setViewportSize({ width: 600, height: 900 });
+  await expect(page.locator(".leadership-chart-card").first()).toBeVisible();
+  const columns = await page.locator(".leadership-chart-grid").evaluate((grid) => getComputedStyle(grid).gridTemplateColumns.split(" ").length);
+  expect(columns).toBe(1);
+});
+
+test("indicadores de papéis e responsabilidades consolidam todas as seções", async ({ page }) => {
+  await login(page);
+  await page.waitForFunction(() => typeof window.renderModuleDetail === "function" && typeof window.Chart === "function");
+  await page.evaluate(() => {
+    renderModuleDetail("lideranca");
+    currentLeadershipMainTab = "papeis";
+    currentLeadershipSubTab = "indicadoresPapeis";
+    renderLeadershipTabs();
+  });
+
+  await expect(page.getByText("Indicadores de Papéis e Responsabilidades")).toBeVisible();
+  await expect(page.locator(".leadership-chart-card")).toHaveCount(4);
+  await page.waitForFunction(() => Object.keys(leadershipCharts).length === 4);
+  const charts = await page.evaluate(() => ({
+    roles: leadershipCharts.lcRoleStatusChart.config.type,
+    raci: leadershipCharts.lcRaciChart.config.type,
+    delegationCommitments: leadershipCharts.lcDelegationCommitmentChart.data.datasets.map((dataset) => dataset.type),
+    governance: leadershipCharts.lcRoleGovernanceChart.config.type,
+  }));
+  expect(charts).toEqual({ roles: "doughnut", raci: "bar", delegationCommitments: ["bar", "line"], governance: "pie" });
+});
+
+test("calendário da alta direção usa as reuniões cadastradas", async ({ page }) => {
+  await login(page);
+  await page.waitForFunction(() => typeof window.renderModuleDetail === "function");
+  await page.evaluate(() => renderModuleDetail("lideranca"));
+
+  await page.getByRole("button", { name: "Calendário da alta direção" }).click();
+  await expect(page.locator("#leadershipTabContent .dcc-title", { hasText: "Calendário da alta direção" })).toBeVisible();
+  await expect(page.locator(".leadership-calendar-grid")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Mês anterior" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Próximo mês" })).toBeVisible();
+  await expect(page.locator(".leadership-calendar-event")).not.toHaveCount(0);
 });

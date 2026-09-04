@@ -95,6 +95,7 @@ const {
   deadlineAlertEmail,
   invitationEmail,
   isEmail,
+  meetingInvitationEmail,
   operationalAlertEmail,
   passwordResetEmail,
   sendEmail,
@@ -2190,6 +2191,74 @@ async function handleApiRequest(req, res, url, session) {
     return;
   }
 
+  if (url.pathname === "/api/leadership/participants" && req.method === "GET") {
+    const permissions = await getSessionPermissions(session);
+    if (!canViewModule(permissions, "lideranca")) {
+      sendJson(res, 403, { error: "forbidden" });
+      return;
+    }
+    const users = await listUsersWithCompanySettings(companyId);
+    sendJson(res, 200, {
+      users: users
+        .filter((user) => user.status !== "Bloqueado" && isEmail(user.username))
+        .map((user) => ({ id: user.id, displayName: user.displayName, email: user.username })),
+    });
+    return;
+  }
+
+  if (url.pathname === "/api/leadership/meeting-invitations" && req.method === "POST") {
+    const permissions = await getSessionPermissions(session);
+    if (!canEditModule(permissions, "lideranca")) {
+      sendJson(res, 403, { error: "forbidden" });
+      return;
+    }
+    const body = await readJsonBody(req);
+    const actionId = String(body?.actionId || "").trim();
+    const meetingDate = String(body?.meetingDate || "").trim();
+    const description = String(body?.description || "").trim().slice(0, 2000);
+    const participantIds = [...new Set((Array.isArray(body?.participantIds) ? body.participantIds : [])
+      .map((id) => Number(id)).filter(Number.isInteger))].slice(0, 100);
+    if (!/^AD-\d{4,}$/.test(actionId) || !/^\d{4}-\d{2}-\d{2}$/.test(meetingDate) || !participantIds.length) {
+      sendJson(res, 400, { error: "invalid_meeting_invitation" });
+      return;
+    }
+
+    const users = await listUsersWithCompanySettings(companyId);
+    const recipients = users.filter((user) => participantIds.includes(Number(user.id)) && user.status !== "Bloqueado" && isEmail(user.username));
+    if (!recipients.length) {
+      sendJson(res, 400, { error: "no_valid_recipients" });
+      return;
+    }
+    const company = await getCompany(companyId);
+    const formattedDate = new Intl.DateTimeFormat("pt-BR", { dateStyle: "full" }).format(new Date(`${meetingDate}T12:00:00`));
+    const deliveries = [];
+    for (const recipient of recipients) {
+      const result = await sendEmail({
+        to: recipient.username,
+        subject: `Convite para reunião - ${company?.name || "SGQ Online"}`,
+        html: meetingInvitationEmail({
+          recipientName: recipient.displayName || recipient.username,
+          companyName: company?.name || "sua empresa",
+          organizerName: session.displayName || session.username,
+          meetingDate: formattedDate,
+          description,
+        }),
+        tag: "leadership_meeting_invitation",
+        idempotencyKey: `leadership-meeting:${companyId}:${actionId}:${recipient.id}`,
+      });
+      deliveries.push({ userId: recipient.id, delivery: result.status });
+    }
+    const sent = deliveries.filter((delivery) => delivery.delivery === "sent").length;
+    await auditRequest(req, session, "leadership_meeting_invitation_sent", sent ? "success" : "failed", {
+      actionId,
+      requestedParticipants: participantIds.length,
+      validRecipients: recipients.length,
+      sent,
+    });
+    sendJson(res, 200, { ok: true, deliveries, sent });
+    return;
+  }
+
   if (url.pathname === "/api/company/users" && req.method === "POST") {
     const ownsCompany = await isCompanyOwnerSession(session);
     if (!(await canManageCompanyUsers(session))) {
@@ -2681,6 +2750,47 @@ async function handleApiRequest(req, res, url, session) {
     }
     if (req.method === "GET") {
       const file = referenced && await getCompanyData(companyId, `ncAttachment:${id}`);
+      if (!file?.base64) { sendJson(res, 404, { error: "attachment_not_found" }); return; }
+      send(res, 200, Buffer.from(file.base64, "base64"), {
+        "Content-Type": file.type,
+        "Content-Disposition": `${file.type.startsWith("image/") ? "inline" : "attachment"}; filename*=UTF-8''${encodeURIComponent(file.name).replace(/'/g, "%27")}`,
+        "Cache-Control": "private, no-store",
+        "X-Content-Type-Options": "nosniff",
+        "Content-Security-Policy": "default-src 'none'; sandbox",
+      }); return;
+    }
+    sendJson(res, 405, { error: "method_not_allowed" }); return;
+  }
+
+  if (url.pathname === "/api/leadership-attachments") {
+    const permissions = await getSessionPermissions(session);
+    const editing = req.method !== "GET";
+    if (!(editing ? canEditModule(permissions, "lideranca") : canViewModule(permissions, "lideranca"))) {
+      sendJson(res, 403, { error: "forbidden" }); return;
+    }
+    if (req.method === "POST") {
+      const body = await readJsonBody(req, 2900000);
+      const name = String(body?.name || "").slice(0, 200);
+      const base64 = String(body?.base64 || "");
+      const bytes = Buffer.from(base64, "base64");
+      const isPdf = bytes.subarray(0, 5).toString() === "%PDF-";
+      const isPng = bytes.subarray(0, 8).equals(Buffer.from([137,80,78,71,13,10,26,10]));
+      const isJpeg = bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255;
+      const isWebp = bytes.subarray(0, 4).toString() === "RIFF" && bytes.subarray(8, 12).toString() === "WEBP";
+      if (!name || !bytes.length || bytes.length > 2 * 1024 * 1024 || bytes.toString("base64") !== base64 || !(isPdf || isPng || isJpeg || isWebp)) {
+        sendJson(res, 400, { error: "invalid_attachment" }); return;
+      }
+      const type = isPdf ? "application/pdf" : isPng ? "image/png" : isJpeg ? "image/jpeg" : "image/webp";
+      const file = { id: crypto.randomUUID(), name, size: bytes.length, type };
+      await setCompanyData(companyId, `leadershipAttachment:${file.id}`, { ...file, base64 });
+      sendJson(res, 201, file); return;
+    }
+    const id = url.searchParams.get("id") || "";
+    if (!/^[a-f0-9-]{36}$/.test(id)) { sendJson(res, 400, { error: "invalid_attachment" }); return; }
+    const leadership = await getCompanyData(companyId, "leadership");
+    const referenced = ["acoes", "comunicacao"].some((collection) => (leadership?.[collection] || []).some((record) => record?.evidenciaArquivo?.id === id));
+    if (req.method === "GET") {
+      const file = referenced && await getCompanyData(companyId, `leadershipAttachment:${id}`);
       if (!file?.base64) { sendJson(res, 404, { error: "attachment_not_found" }); return; }
       send(res, 200, Buffer.from(file.base64, "base64"), {
         "Content-Type": file.type,

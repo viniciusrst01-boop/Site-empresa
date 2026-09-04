@@ -118,18 +118,21 @@ O endpoint `/api/cron/notifications` aceita somente chamadas autenticadas com es
 
 A tela **Configurações** permite iniciar o período de teste, escolher ou trocar o plano e abrir o portal de cobrança. O Stripe atualiza automaticamente plano, vencimento, limite de acessos e situação financeira por webhook. Empresas inadimplentes ou canceladas têm o acesso bloqueado até a regularização; o administrador global permanece com acesso para suporte.
 
-Configure no Stripe três preços recorrentes e cadastre as variáveis:
+Configure no Stripe um produto com dois precos recorrentes e cadastre as variaveis:
 
 ```ini
 STRIPE_SECRET_KEY=sk_live_...
 STRIPE_WEBHOOK_SECRET=whsec_...
-STRIPE_PRICE_ESSENTIAL=price_...
-STRIPE_PRICE_PROFESSIONAL=price_...
-STRIPE_PRICE_PREMIUM=price_...
+STRIPE_PRICE_MONTHLY=price_...
+STRIPE_PRICE_ANNUAL=price_...
 STRIPE_TRIAL_DAYS=14
 ```
 
-O webhook deve apontar para `https://seu-app/api/billing/webhook` e receber eventos de checkout, assinatura e fatura. O histórico aparece no painel administrativo e na área de cobrança da empresa.
+Crie um unico produto `Plano QualityPro` com dois precos recorrentes em BRL: mensal de R$ 297,00 (29700 centavos, intervalo `month`) e anual de R$ 2.970,00 (297000 centavos, intervalo `year`). O anual e cobrado integralmente, equivale a R$ 247,50/mes e economiza R$ 594,00 por ano. As duas periodicidades usam os mesmos recursos e preservam o limite de acessos definido para a empresa. Os valores e intervalos sao validados antes do checkout e da troca de periodicidade.
+
+O webhook deve apontar para `https://seu-app/api/billing/webhook` e receber `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.paid` e `invoice.payment_failed`. Configure o portal do cliente no Stripe para consultar faturas, atualizar pagamento e cancelar ao fim do periodo. O histórico aparece no painel administrativo e na área de cobrança da empresa.
+
+Configure os dois IDs de preco, a chave secreta e o segredo do webhook no mesmo ambiente Stripe (teste ou producao). `STRIPE_TRIAL_DAYS=0` desativa o periodo de teste; o padrao existente e 14 dias. Valide checkout mensal/anual, renovacao, falha de pagamento e cancelamento em modo de teste antes de ativar cobrancas reais. O modo simulado e ignorado quando `NODE_ENV=production`.
 
 ## Permissões por módulo
 

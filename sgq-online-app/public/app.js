@@ -237,6 +237,7 @@ const contextSeeds = {
 
 let currentContextTab = "swot";
 const leadershipStorageKey = "qps_lc_data";
+let leadershipParticipants = [];
 const leadershipSeeds = {
   acoes: [
     { id: "AD-0001", data: "2026-07-15", tipo: "Reunião Estratégica", descricao: "Reunião mensal com análise dos indicadores e resultados do SGQ.", participantes: "Hugo Melo, Marina Souza, Carlos Andrade", evidencia: "Ata_15072026.pdf", responsavel: "Hugo Melo", status: "Concluída" },
@@ -314,6 +315,7 @@ const leadershipSeeds = {
 const leadershipTabs = {
   lideranca: [
     ["acoes", "Comprometimento da Direção"],
+    ["calendario", "Calendário da alta direção"],
     ["posicionamento", "Posicionamento Estratégico"],
     ["plano", "Plano Estratégico"],
     ["indicadores", "Indicadores"],
@@ -326,14 +328,13 @@ const leadershipTabs = {
     ["cargos", "Cargos e Funções"],
     ["raci", "Matriz RACI"],
     ["delegacoes", "Delegação de Autoridade"],
-    ["aprovacoes", "Aprovações"],
-    ["compromissos", "Compromissos da Direção"],
     ["indicadoresPapeis", "Indicadores da Liderança"],
   ],
 };
 let leadershipData = null;
 let currentLeadershipMainTab = "lideranca";
 let currentLeadershipSubTab = "acoes";
+let leadershipCalendarMonth = null;
 let currentCompanyTab = "dados";
 let currentCompanyModalKey = "";
 let currentCompanyEditId = null;
@@ -346,6 +347,7 @@ let currentDetailModule = "";
 let moduleHistoryApplying = false;
 const moduleHistory = {};
 const moduleHistoryWindowOpen = {};
+const leadershipCharts = {};
 let riskData = null;
 let contextData = null;
 let currentUser = null;
@@ -1715,7 +1717,7 @@ function leadershipSet(key, value) {
   recordModuleSnapshot("lideranca");
   leadershipData[key] = structuredClone(value);
   localStorage.setItem(leadershipStorageKey, JSON.stringify(leadershipData));
-  saveRemoteData("leadership", leadershipData);
+  return saveRemoteData("leadership", leadershipData);
 }
 
 function loadLocalLeadershipData() {
@@ -1830,11 +1832,12 @@ function renderLeadershipTabContent() {
     cargos: leadershipRolesHtml,
     raci: leadershipRaciHtml,
     delegacoes: leadershipDelegationsHtml,
-    aprovacoes: leadershipApprovalsHtml,
-    compromissos: leadershipCommitmentsHtml,
     indicadoresPapeis: leadershipRoleIndicatorsHtml,
+    calendario: leadershipCalendarHtml,
   };
   target.innerHTML = (renderers[currentLeadershipSubTab] || leadershipActionsHtml)();
+  if (currentLeadershipSubTab === "indicadores") requestAnimationFrame(renderLeadershipIndicatorCharts);
+  if (currentLeadershipSubTab === "indicadoresPapeis") requestAnimationFrame(renderLeadershipRoleIndicatorCharts);
 }
 
 function leadershipCard(title, subtitle, buttonLabel, action, table) {
@@ -1854,12 +1857,70 @@ function leadershipActionsHtml() {
     <tr>
       <td class="mono">${formatDate(item.data)}</td><td>${leadershipActionTypeChip(item.tipo)}</td>
       <td class="desc-cell">${escapeHtml(item.descricao)}</td><td class="desc-cell">${escapeHtml(item.participantes)}</td>
-      <td>${escapeHtml(item.evidencia || "-")}</td><td><span class="status-pill ${statusClass(item.status)}"><span class="status-dot2"></span>${escapeHtml(item.status)}</span></td>
+      <td>${item.evidenciaArquivo?.id ? `<a class="table-file-link" href="/api/leadership-attachments?id=${encodeURIComponent(item.evidenciaArquivo.id)}" target="_blank" rel="noopener">${escapeHtml(item.evidenciaArquivo.name)}</a>` : escapeHtml(item.evidencia || "-")}</td><td><span class="status-pill ${statusClass(item.status)}"><span class="status-dot2"></span>${escapeHtml(item.status)}</span></td>
       <td>${leadershipActions("acao", item.id)}</td>
     </tr>`).join("") : `<tr><td colspan="7"><div class="empty-state">Nenhuma ação registrada.</div></td></tr>`;
   return leadershipCard("Ações da Direção", "Evidências do comprometimento da Alta Direção com o SGQ · 5.1", "Nova ação", "new-acao", `
     <table class="ctxtbl"><colgroup><col style="width:10%"><col style="width:14%"><col style="width:25%"><col style="width:18%"><col style="width:13%"><col style="width:10%"><col style="width:10%"></colgroup>
     <thead><tr><th>Data</th><th>Tipo</th><th>Descrição</th><th>Participantes</th><th>Evidência</th><th>Status</th><th>Ações</th></tr></thead><tbody>${body}</tbody></table>`);
+}
+
+function leadershipCalendarHtml() {
+  const scheduledActions = leadershipGet("acoes")
+    .filter((action) => /reunião/i.test(String(action.tipo || "")) && /^\d{4}-\d{2}-\d{2}$/.test(String(action.data || "")))
+    .sort((first, second) => String(first.data).localeCompare(String(second.data)));
+  if (!leadershipCalendarMonth) {
+    const today = new Date();
+    const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+    const preferred = scheduledActions.find((action) => action.data >= todayKey) || scheduledActions.at(-1);
+    leadershipCalendarMonth = preferred ? new Date(`${preferred.data}T12:00:00`) : today;
+  }
+  const month = leadershipCalendarMonth;
+  const year = month.getFullYear();
+  const monthIndex = month.getMonth();
+  const monthStart = new Date(year, monthIndex, 1);
+  const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
+  const firstWeekday = (monthStart.getDay() + 6) % 7;
+  const today = new Date();
+  const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+  const meetingsByDate = new Map();
+  scheduledActions.forEach((action) => {
+      const entries = meetingsByDate.get(action.data) || [];
+      entries.push(action);
+      meetingsByDate.set(action.data, entries);
+    });
+  const cells = [];
+  for (let index = 0; index < firstWeekday; index += 1) cells.push('<div class="leadership-calendar-day empty" aria-hidden="true"></div>');
+  for (let day = 1; day <= daysInMonth; day += 1) {
+    const dateKey = `${year}-${String(monthIndex + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    const meetings = meetingsByDate.get(dateKey) || [];
+    cells.push(`<article class="leadership-calendar-day ${meetings.length ? "has-meeting" : ""} ${dateKey === todayKey ? "today" : ""}">
+      <div class="leadership-calendar-date">${day}</div>
+      ${meetings.map((meeting) => `<div class="leadership-calendar-event" title="${escapeHtml(meeting.descricao || "Reunião estratégica")}">${moduleIcon("calendar")}<span>${escapeHtml(meeting.descricao || meeting.tipo)}</span></div>`).join("")}
+    </article>`);
+  }
+  while (cells.length % 7) cells.push('<div class="leadership-calendar-day empty" aria-hidden="true"></div>');
+  const monthLabel = new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" }).format(monthStart);
+  const meetingsInMonth = [...meetingsByDate.entries()]
+    .filter(([date]) => date.startsWith(`${year}-${String(monthIndex + 1).padStart(2, "0")}`))
+    .flatMap(([date, meetings]) => meetings.map((meeting) => ({ date, meeting })))
+    .sort((a, b) => a.date.localeCompare(b.date));
+  return `
+    <section class="leadership-calendar-panel">
+      <div class="leadership-calendar-head">
+        <div><div class="dcc-title">Calendário da alta direção</div><div class="dcc-sub">Reuniões estratégicas cadastradas em Comprometimento da Direção.</div></div>
+        <div class="leadership-calendar-nav">
+          <button class="module-history-btn" data-lc-action="calendar-prev" type="button" title="Mês anterior" aria-label="Mês anterior">${moduleIcon("arrow-left")}</button>
+          <strong>${escapeHtml(monthLabel)}</strong>
+          <button class="module-history-btn" data-lc-action="calendar-next" type="button" title="Próximo mês" aria-label="Próximo mês">${moduleIcon("arrow-right")}</button>
+        </div>
+      </div>
+      <div class="leadership-calendar-weekdays"><span>Seg</span><span>Ter</span><span>Qua</span><span>Qui</span><span>Sex</span><span>Sáb</span><span>Dom</span></div>
+      <div class="leadership-calendar-grid">${cells.join("")}</div>
+      <div class="leadership-calendar-summary">${meetingsInMonth.length
+        ? meetingsInMonth.map(({ date, meeting }) => `<div><strong>${formatDate(date)}</strong><span>${escapeHtml(meeting.descricao || meeting.tipo)}</span></div>`).join("")
+        : '<span>Nenhuma reunião estratégica agendada neste mês.</span>'}</div>
+    </section>`;
 }
 
 function leadershipActionTypeChip(type) {
@@ -1924,7 +1985,7 @@ function leadershipPolicyHtml() {
 function leadershipCommunicationHtml() {
   const rows = leadershipGet("comunicacao").sort((a, b) => new Date(b.data) - new Date(a.data));
   const body = rows.length ? rows.map((item) => `
-    <tr><td class="mono">${formatDate(item.data)}</td><td>${chip(item.forma, "mchip-blue")}</td><td class="desc-cell">${escapeHtml(item.setor)}</td><td class="mono strong-cell">${escapeHtml(item.qtdPessoas)}</td><td>${escapeHtml(item.evidencia || "-")}</td><td>${leadershipActions("comunicacao", item.id)}</td></tr>
+    <tr><td class="mono">${formatDate(item.data)}</td><td>${chip(item.forma, "mchip-blue")}</td><td class="desc-cell">${escapeHtml(item.setor)}</td><td class="mono strong-cell">${escapeHtml(item.qtdPessoas)}</td><td>${item.evidenciaArquivo?.id ? `<a class="table-file-link" href="/api/leadership-attachments?id=${encodeURIComponent(item.evidenciaArquivo.id)}" target="_blank" rel="noopener">${escapeHtml(item.evidenciaArquivo.name)}</a>` : escapeHtml(item.evidencia || "-")}</td><td>${leadershipActions("comunicacao", item.id)}</td></tr>
   `).join("") : `<tr><td colspan="6"><div class="empty-state">Nenhum registro de comunicação.</div></td></tr>`;
   return leadershipCard("Comunicação da Política", "Registro de como a política foi comunicada · 5.2", "Novo registro", "new-comunicacao", `
     <table class="ctxtbl"><thead><tr><th>Data</th><th>Forma</th><th>Setor</th><th>Qtd. pessoas</th><th>Evidência</th><th>Ações</th></tr></thead><tbody>${body}</tbody></table>`);
@@ -1957,57 +2018,148 @@ function leadershipDelegationsHtml() {
     <table class="ctxtbl"><thead><tr><th>Titular</th><th>Substituto</th><th>Período</th><th>Motivo</th><th>Status</th><th>Ações</th></tr></thead><tbody>${body}</tbody></table>`);
 }
 
-function leadershipApprovalsHtml() {
-  const rows = leadershipGet("aprovacoes");
-  const body = rows.length ? rows.map((item) => `
-    <tr><td class="strong-cell">${escapeHtml(item.tipo)}</td><td>${personCell(item.aprovador)}</td><td>${escapeHtml(item.substituto || "-")}</td><td class="mono">${escapeHtml(item.revisao)}</td><td>${leadershipActions("aprovacao", item.id)}</td></tr>
-  `).join("") : `<tr><td colspan="5"><div class="empty-state">Nenhuma aprovação cadastrada.</div></td></tr>`;
-  return leadershipCard("Aprovações", "Responsáveis pela aprovação de cada tipo de documento · 5.3", "Nova aprovação", "new-aprovacao", `
-    <table class="ctxtbl"><thead><tr><th>Tipo</th><th>Aprovador</th><th>Substituto</th><th>Revisão</th><th>Ações</th></tr></thead><tbody>${body}</tbody></table>`);
-}
-
-function leadershipCommitmentsHtml() {
-  const rows = leadershipGet("compromissos");
-  const body = rows.length ? rows.map((item) => `
-    <tr><td class="strong-cell">${escapeHtml(item.compromisso)}</td><td>${personCell(item.responsavel)}</td><td><span class="status-pill ${statusClass(item.status)}"><span class="status-dot2"></span>${escapeHtml(item.status)}</span></td><td>${leadershipActions("compromisso", item.id)}</td></tr>
-  `).join("") : `<tr><td colspan="4"><div class="empty-state">Nenhum compromisso cadastrado.</div></td></tr>`;
-  return leadershipCard("Compromissos da Direção", "Evidências do papel ativo da Alta Direção no SGQ · 5.3", "Novo compromisso", "new-compromisso", `
-    <table class="ctxtbl"><thead><tr><th>Compromisso</th><th>Responsável</th><th>Status</th><th>Ações</th></tr></thead><tbody>${body}</tbody></table>`);
-}
-
 function leadershipIndicatorsHtml() {
   const data = leadershipGetAll();
-  const completeActions = data.acoes.filter((item) => item.status === "Concluída").length;
-  const completePlan = data.plano.filter((item) => item.status === "Concluído").length;
-  const totalInvestment = data.plano.reduce((sum, item) => sum + (Number(item.quanto) || 0), 0);
+  const actions = data.acoes || [];
+  const plan = data.plano || [];
+  const communications = data.comunicacao || [];
+  const roles = data.cargos || [];
+  const completeActions = actions.filter((item) => item.status === "Concluída").length;
+  const completePlan = plan.filter((item) => item.status === "Concluído").length;
+  const totalInvestment = plan.reduce((sum, item) => sum + (Number(item.quanto) || 0), 0);
+  const reachedPeople = communications.reduce((sum, item) => sum + (Number(item.qtdPessoas) || 0), 0);
+  const activeRoles = roles.filter((item) => item.status === "Ativo").length;
   return `
     <section class="dcc indicator-panel">
       <div class="dcc-title">Indicadores de desempenho</div>
-      <div class="dcc-sub">Resumo calculado a partir das ações da direção e plano estratégico</div>
+      <div class="dcc-sub">Visão consolidada das ações da direção, estratégia, política e responsabilidades.</div>
       <div class="context-kpi-row">
-        ${leadershipKpi("Ações concluídas", `${percent(completeActions, data.acoes.length)}%`, `${completeActions} de ${data.acoes.length} ações`, "#F2B705", "check-circle")}
-        ${leadershipKpi("Plano concluído", `${percent(completePlan, data.plano.length)}%`, `${completePlan} de ${data.plano.length} itens`, "#4fa3ff", "plano")}
+        ${leadershipKpi("Ações concluídas", `${percent(completeActions, actions.length)}%`, `${completeActions} de ${actions.length} ações`, "#F2B705", "check-circle")}
+        ${leadershipKpi("Plano concluído", `${percent(completePlan, plan.length)}%`, `${completePlan} de ${plan.length} itens`, "#4fa3ff", "plano")}
         ${leadershipKpi("Investimento planejado", formatMoney(totalInvestment), "soma do campo Quanto", "#34D399", "documentos")}
+        ${leadershipKpi("Comunicações realizadas", communications.length, `${reachedPeople} pessoas alcançadas`, "#46D9F5", "contexto")}
+      </div>
+      <div class="leadership-chart-grid">
+        ${leadershipChartCard("Situação das ações", "Distribuição por status", "lcActionsStatusChart")}
+        ${leadershipChartCard("Execução do plano", "Itens estratégicos por situação", "lcPlanStatusChart")}
+        ${leadershipChartCard("Atividade da liderança", "Ações e comunicações nos últimos seis meses", "lcActivityChart", "wide")}
+        ${leadershipChartCard("Cobertura de governança", `${activeRoles} cargos ativos e delegações cadastradas`, "lcGovernanceChart")}
       </div>
     </section>`;
+}
+
+function leadershipChartCard(title, subtitle, id, size = "") {
+  return `<article class="leadership-chart-card ${size}"><div class="leadership-chart-head"><div><h4>${escapeHtml(title)}</h4><p>${escapeHtml(subtitle)}</p></div></div><div class="leadership-chart-canvas"><canvas id="${id}" role="img" aria-label="${escapeHtml(title)}"></canvas></div></article>`;
+}
+
+function renderLeadershipIndicatorCharts() {
+  if (typeof Chart === "undefined") return;
+  Object.values(leadershipCharts).forEach((chart) => chart.destroy());
+  Object.keys(leadershipCharts).forEach((key) => delete leadershipCharts[key]);
+
+  const data = leadershipGetAll();
+  const actions = data.acoes || [];
+  const plan = data.plano || [];
+  const communications = data.comunicacao || [];
+  const roles = data.cargos || [];
+  const delegations = data.delegacoes || [];
+  const css = getComputedStyle(document.body);
+  const colors = {
+    text: css.getPropertyValue("--text-secondary").trim() || "#8b98ab",
+    grid: css.getPropertyValue("--border-subtle").trim() || "rgba(255,255,255,.08)",
+    green: css.getPropertyValue("--accent-green").trim() || "#34D399",
+    blue: css.getPropertyValue("--accent-blue-bright").trim() || "#4FA3FF",
+    cyan: css.getPropertyValue("--accent-cyan").trim() || "#46D9F5",
+    gold: css.getPropertyValue("--accent-gold").trim() || "#F2B705",
+    purple: css.getPropertyValue("--accent-purple").trim() || "#A78BFA",
+    red: css.getPropertyValue("--accent-red").trim() || "#F87171",
+  };
+  const options = (extra = {}) => ({ responsive: true, maintainAspectRatio: false, animation: { duration: 220 }, plugins: { legend: { labels: { color: colors.text, boxWidth: 10, boxHeight: 10, usePointStyle: true, pointStyle: "circle", padding: 14 } }, tooltip: { backgroundColor: css.getPropertyValue("--bg-panel").trim() || "#0b1526", titleColor: css.getPropertyValue("--text-primary").trim() || "#f5f7fa", bodyColor: colors.text, borderColor: colors.grid, borderWidth: 1 } }, ...extra });
+  const make = (id, config) => {
+    const canvas = document.querySelector(`#${id}`);
+    if (canvas) leadershipCharts[id] = new Chart(canvas, config);
+  };
+  const countStatuses = (rows, labels, field = "status") => labels.map((label) => rows.filter((row) => row[field] === label).length);
+
+  make("lcActionsStatusChart", { type: "doughnut", data: { labels: ["Concluídas", "Programadas", "Não realizadas"], datasets: [{ data: countStatuses(actions, ["Concluída", "Programada", "Não Realizada"]), backgroundColor: [colors.green, colors.gold, colors.red], borderColor: "transparent", borderWidth: 0, hoverOffset: 5 }] }, options: options({ cutout: "68%" }) });
+  make("lcPlanStatusChart", { type: "bar", data: { labels: ["Concluído", "Em andamento", "Não iniciado", "Atrasado"], datasets: [{ label: "Itens", data: countStatuses(plan, ["Concluído", "Em Andamento", "Não Iniciado", "Atrasado"]), backgroundColor: [colors.green, colors.blue, colors.cyan, colors.red], borderRadius: 5, borderSkipped: false, maxBarThickness: 34 }] }, options: options({ scales: { x: { ticks: { color: colors.text, font: { size: 10 } }, grid: { display: false } }, y: { beginAtZero: true, ticks: { color: colors.text, precision: 0 }, grid: { color: colors.grid } } }, plugins: { legend: { display: false } } }) });
+
+  const months = Array.from({ length: 6 }, (_, index) => {
+    const date = new Date();
+    date.setMonth(date.getMonth() - (5 - index), 1);
+    return date;
+  });
+  const monthKey = (value) => String(value || "").slice(0, 7);
+  const activityCounts = (rows) => months.map((month) => rows.filter((row) => monthKey(row.data) === `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, "0")}`).length);
+  make("lcActivityChart", { data: { labels: months.map((month) => month.toLocaleDateString("pt-BR", { month: "short", year: "2-digit" })), datasets: [{ type: "bar", label: "Ações", data: activityCounts(actions), backgroundColor: "rgba(79, 163, 255, .72)", borderRadius: 5, borderSkipped: false, maxBarThickness: 36 }, { type: "line", label: "Comunicações", data: activityCounts(communications), borderColor: colors.cyan, backgroundColor: "rgba(70, 217, 245, .14)", fill: true, tension: .35, pointRadius: 3, pointHoverRadius: 5, borderWidth: 2.5 }] }, options: options({ scales: { x: { ticks: { color: colors.text }, grid: { display: false } }, y: { beginAtZero: true, ticks: { color: colors.text, precision: 0 }, grid: { color: colors.grid } } } }) });
+  make("lcGovernanceChart", { type: "pie", data: { labels: ["Cargos ativos", "Delegações ativas"], datasets: [{ data: [roles.filter((row) => row.status === "Ativo").length, delegations.filter((row) => row.status === "Ativa" || row.status === "Agendada").length], backgroundColor: [colors.purple, colors.gold], borderColor: "transparent", borderWidth: 0, hoverOffset: 5 }] }, options: options() });
 }
 
 function leadershipRoleIndicatorsHtml() {
   const data = leadershipGetAll();
-  const activeRoles = data.cargos.filter((item) => item.status === "Ativo").length;
-  const activeDelegations = data.delegacoes.filter((item) => item.status === "Ativa" || item.status === "Agendada").length;
-  const departments = new Set(data.cargos.map((item) => item.departamento).filter(Boolean));
+  const roles = data.cargos || [];
+  const raci = data.raci || [];
+  const delegations = data.delegacoes || [];
+  const approvals = data.aprovacoes || [];
+  const commitments = data.compromissos || [];
+  const activeRoles = roles.filter((item) => item.status === "Ativo").length;
+  const activeDelegations = delegations.filter((item) => item.status === "Ativa" || item.status === "Agendada").length;
+  const departments = new Set(roles.map((item) => item.departamento).filter(Boolean));
+  const completedCommitments = commitments.filter((item) => item.status === "Concluído").length;
   return `
     <section class="dcc indicator-panel">
       <div class="dcc-title">Indicadores de Papéis e Responsabilidades</div>
-      <div class="dcc-sub">Resumo calculado a partir de cargos, delegações e aprovações</div>
+      <div class="dcc-sub">Visão consolidada de cargos, matriz RACI, delegações, aprovações e compromissos.</div>
       <div class="context-kpi-row">
-        ${leadershipKpi("Cargos ativos", activeRoles, `${data.cargos.length} cargos mapeados`, "#34D399", "contexto")}
+        ${leadershipKpi("Cargos ativos", activeRoles, `${roles.length} cargos mapeados`, "#34D399", "contexto")}
         ${leadershipKpi("Departamentos", departments.size, "com responsáveis definidos", "#A78BFA", "modulos")}
-        ${leadershipKpi("Delegações ativas/agendadas", activeDelegations, `${data.delegacoes.length} delegações cadastradas`, "#F2B705", "calendar")}
-        ${leadershipKpi("Aprovações", data.aprovacoes.length, "tipos documentais definidos", "#46D9F5", "check-circle")}
+        ${leadershipKpi("Delegações ativas/agendadas", activeDelegations, `${delegations.length} delegações cadastradas`, "#F2B705", "calendar")}
+        ${leadershipKpi("Decisões formalizadas", approvals.length + completedCommitments, `${approvals.length} aprovações e ${completedCommitments} compromissos`, "#46D9F5", "check-circle")}
+      </div>
+      <div class="leadership-chart-grid">
+        ${leadershipChartCard("Situação dos cargos", "Cargos ativos e inativos", "lcRoleStatusChart")}
+        ${leadershipChartCard("Distribuição RACI", `${raci.length} atividades mapeadas`, "lcRaciChart")}
+        ${leadershipChartCard("Delegações e compromissos", "Situação das delegações e compromissos da direção", "lcDelegationCommitmentChart", "wide")}
+        ${leadershipChartCard("Estrutura de governança", "Registros formais por seção", "lcRoleGovernanceChart")}
       </div>
     </section>`;
+}
+
+function renderLeadershipRoleIndicatorCharts() {
+  if (typeof Chart === "undefined") return;
+  Object.values(leadershipCharts).forEach((chart) => chart.destroy());
+  Object.keys(leadershipCharts).forEach((key) => delete leadershipCharts[key]);
+
+  const data = leadershipGetAll();
+  const roles = data.cargos || [];
+  const raci = data.raci || [];
+  const delegations = data.delegacoes || [];
+  const approvals = data.aprovacoes || [];
+  const commitments = data.compromissos || [];
+  const css = getComputedStyle(document.body);
+  const colors = {
+    text: css.getPropertyValue("--text-secondary").trim() || "#8b98ab",
+    grid: css.getPropertyValue("--border-subtle").trim() || "rgba(255,255,255,.08)",
+    green: css.getPropertyValue("--accent-green").trim() || "#34D399",
+    blue: css.getPropertyValue("--accent-blue-bright").trim() || "#4FA3FF",
+    cyan: css.getPropertyValue("--accent-cyan").trim() || "#46D9F5",
+    gold: css.getPropertyValue("--accent-gold").trim() || "#F2B705",
+    purple: css.getPropertyValue("--accent-purple").trim() || "#A78BFA",
+    red: css.getPropertyValue("--accent-red").trim() || "#F87171",
+  };
+  const options = (extra = {}) => ({ responsive: true, maintainAspectRatio: false, animation: { duration: 220 }, plugins: { legend: { labels: { color: colors.text, boxWidth: 10, boxHeight: 10, usePointStyle: true, pointStyle: "circle", padding: 14 } }, tooltip: { backgroundColor: css.getPropertyValue("--bg-panel").trim() || "#0b1526", titleColor: css.getPropertyValue("--text-primary").trim() || "#f5f7fa", bodyColor: colors.text, borderColor: colors.grid, borderWidth: 1 } }, ...extra });
+  const make = (id, config) => {
+    const canvas = document.querySelector(`#${id}`);
+    if (canvas) leadershipCharts[id] = new Chart(canvas, config);
+  };
+  const count = (rows, values) => values.map((value) => rows.filter((row) => row.status === value).length);
+  const raciCounts = ["R", "A", "C", "I"].map((letter) => raci.reduce((total, row) => total + ["diretorGeral", "qualidade", "comercial", "financeiro"].filter((key) => row[key] === letter).length, 0));
+
+  make("lcRoleStatusChart", { type: "doughnut", data: { labels: ["Ativos", "Inativos"], datasets: [{ data: count(roles, ["Ativo", "Inativo"]), backgroundColor: [colors.green, colors.red], borderColor: "transparent", borderWidth: 0, hoverOffset: 5 }] }, options: options({ cutout: "68%" }) });
+  make("lcRaciChart", { type: "bar", data: { labels: ["Responsável", "Aprovador", "Consultado", "Informado"], datasets: [{ label: "Designações", data: raciCounts, backgroundColor: [colors.blue, colors.gold, colors.cyan, colors.purple], borderRadius: 5, borderSkipped: false, maxBarThickness: 36 }] }, options: options({ scales: { x: { ticks: { color: colors.text, font: { size: 10 } }, grid: { display: false } }, y: { beginAtZero: true, ticks: { color: colors.text, precision: 0 }, grid: { color: colors.grid } } }, plugins: { legend: { display: false } } }) });
+  const delegationLabels = ["Ativas", "Agendadas", "Encerradas"];
+  make("lcDelegationCommitmentChart", { data: { labels: delegationLabels, datasets: [{ type: "bar", label: "Delegações", data: count(delegations, ["Ativa", "Agendada", "Encerrada"]), backgroundColor: [colors.green, colors.gold, colors.red], borderRadius: 5, borderSkipped: false, maxBarThickness: 46 }, { type: "line", label: "Compromissos", data: count(commitments, ["Concluído", "Em Andamento", "Pendente"]), borderColor: colors.cyan, backgroundColor: "rgba(70, 217, 245, .14)", fill: true, tension: .35, pointRadius: 3, pointHoverRadius: 5, borderWidth: 2.5 }] }, options: options({ scales: { x: { ticks: { color: colors.text }, grid: { display: false } }, y: { beginAtZero: true, ticks: { color: colors.text, precision: 0 }, grid: { color: colors.grid } } } }) });
+  make("lcRoleGovernanceChart", { type: "pie", data: { labels: ["Cargos", "Atividades RACI", "Aprovações", "Compromissos"], datasets: [{ data: [roles.length, raci.length, approvals.length, commitments.length], backgroundColor: [colors.purple, colors.blue, colors.gold, colors.green], borderColor: "transparent", borderWidth: 0, hoverOffset: 5 }] }, options: options() });
 }
 
 function leadershipActions(type, id, canView = false) {
@@ -2039,17 +2191,23 @@ function handleLeadershipAction(action, id) {
     closeLeadershipModal();
     return;
   }
-  if (!canEditModule("lideranca") && !action.startsWith("view-") && action !== "switch-tab") {
+  if (!canEditModule("lideranca") && !action.startsWith("view-") && action !== "switch-tab" && !action.startsWith("calendar-")) {
     toast("Você tem acesso somente para visualizar.");
     return;
   }
   if (action === "save-record") {
-    saveLeadershipRecord();
+    void saveLeadershipRecord();
     return;
   }
   if (action === "switch-tab") {
     currentLeadershipSubTab = id;
     renderLeadershipTabs();
+    return;
+  }
+  if (action === "calendar-prev" || action === "calendar-next") {
+    const current = leadershipCalendarMonth || new Date();
+    leadershipCalendarMonth = new Date(current.getFullYear(), current.getMonth() + (action === "calendar-next" ? 1 : -1), 1);
+    renderLeadershipTabContent();
     return;
   }
   if (action === "save-position") {
@@ -2063,27 +2221,27 @@ function handleLeadershipAction(action, id) {
     refreshLeadershipScreen("Posicionamento salvo.");
     return;
   }
-  if (action.startsWith("new-")) openLeadershipForm(action.replace("new-", ""));
-  if (action.startsWith("edit-")) openLeadershipForm(action.replace("edit-", ""), id);
+  if (action.startsWith("new-")) void openLeadershipForm(action.replace("new-", ""));
+  if (action.startsWith("edit-")) void openLeadershipForm(action.replace("edit-", ""), id);
   if (action.startsWith("delete-")) deleteLeadershipRecord(action.replace("delete-", ""), id);
   if (action.startsWith("view-")) viewLeadershipRecord(action.replace("view-", ""), id);
 }
 
 const leadershipCollections = {
-  acao: { key: "acoes", prefix: "AD", fields: [["data", "Data", "date"], ["tipo", "Tipo", "select", ["Reunião Estratégica", "Análise de Indicadores", "Decisão Estratégica", "Alocação de Recursos"]], ["descricao", "Descrição", "textarea"], ["participantes", "Participantes", "textarea"], ["evidencia", "Evidência"], ["responsavel", "Responsável", "people"], ["status", "Status", "select", ["Programada", "Concluída", "Não Realizada"]]] },
+  acao: { key: "acoes", prefix: "AD", fields: [["data", "Data", "date"], ["tipo", "Tipo", "select", ["Reunião Estratégica", "Análise de Indicadores", "Decisão Estratégica", "Alocação de Recursos"]], ["descricao", "Descrição", "textarea"], ["participantIds", "Participantes", "participants"], ["evidencia", "Evidência", "file"], ["responsavel", "Responsável", "people"], ["status", "Status", "select", ["Programada", "Concluída", "Não Realizada"]]] },
   plano: { key: "plano", prefix: "P5W2H", fields: [["oQue", "O quê", "textarea"], ["porQue", "Por quê", "textarea"], ["onde", "Onde"], ["quando", "Quando", "date"], ["quem", "Quem", "people"], ["como", "Como", "textarea"], ["quanto", "Quanto", "number"], ["status", "Status", "select", ["Não Iniciado", "Em Andamento", "Atrasado", "Concluído"]]] },
-  comunicacao: { key: "comunicacao", prefix: "COMPOL", fields: [["data", "Data", "date"], ["forma", "Forma", "select", ["Reunião de Equipe", "E-mail", "Treinamento", "Integração", "Mural/Comunicado Interno"]], ["setor", "Setor"], ["qtdPessoas", "Qtd. pessoas", "number"], ["evidencia", "Evidência"]] },
+  comunicacao: { key: "comunicacao", prefix: "COMPOL", fields: [["data", "Data", "date"], ["forma", "Forma", "select", ["Reunião de Equipe", "E-mail", "Treinamento", "Integração", "Mural/Comunicado Interno"]], ["setor", "Setor"], ["qtdPessoas", "Qtd. pessoas", "number"], ["evidencia", "Evidência", "file"]] },
   cargo: { key: "cargos", prefix: "CARGO", fields: [["nome", "Nome"], ["cargo", "Cargo"], ["departamento", "Departamento"], ["substituto", "Substituto"], ["status", "Status", "select", ["Ativo", "Inativo"]], ["descricao", "Descrição", "textarea"], ["responsabilidades", "Responsabilidades, uma por linha", "lines"], ["autoridades", "Autoridades, uma por linha", "lines"]] },
   raci: { key: "raci", prefix: "RACI", fields: [["atividade", "Atividade"], ["diretorGeral", "Diretor Geral", "select", ["R", "A", "C", "I"]], ["qualidade", "Qualidade", "select", ["R", "A", "C", "I"]], ["comercial", "Comercial", "select", ["R", "A", "C", "I"]], ["financeiro", "Financeiro", "select", ["R", "A", "C", "I"]]] },
   delegacao: { key: "delegacoes", prefix: "DEL", fields: [["titular", "Titular", "people"], ["substituto", "Substituto", "people"], ["cargo", "Cargo"], ["periodoIni", "Início", "date"], ["periodoFim", "Fim", "date"], ["motivo", "Motivo"], ["status", "Status", "select", ["Agendada", "Ativa", "Encerrada"]]] },
   aprovacao: { key: "aprovacoes", prefix: "APR", fields: [["tipo", "Tipo"], ["aprovador", "Aprovador", "people"], ["substituto", "Substituto", "people"], ["revisao", "Revisão"]] },
-  compromisso: { key: "compromissos", prefix: "COMP", fields: [["compromisso", "Compromisso"], ["responsavel", "Responsável", "people"], ["status", "Status", "select", ["Concluído", "Em Andamento", "Pendente"]]] },
   politica: { key: "politica", singleton: true, fields: [["texto", "Texto da política", "textarea"], ["revisao", "Revisão"], ["status", "Status", "select", ["Vigente", "Em revisão"]], ["dataAprovacao", "Data de aprovação", "date"], ["proximaRevisao", "Próxima revisão", "date"], ["aprovador", "Aprovador", "people"], ["aprovadorCargo", "Cargo do aprovador"]] },
 };
 
-function openLeadershipForm(type, id = "") {
+async function openLeadershipForm(type, id = "") {
   const config = leadershipCollections[type];
   if (!config) return;
+  if (type === "acao") await loadLeadershipParticipants();
   const rows = config.singleton ? [] : leadershipGet(config.key);
   const item = config.singleton ? leadershipGet(config.key) : rows.find((row) => row.id === id);
   const title = `${id || config.singleton ? "Editar" : "Novo"} ${leadershipTypeLabel(type)}`;
@@ -2096,7 +2254,7 @@ function openLeadershipForm(type, id = "") {
         </div>
         <input type="hidden" id="lcRecordType" value="${type}">
         <input type="hidden" id="lcRecordId" value="${escapeHtml(id)}">
-        <div class="field-row2">${config.fields.map(([key, label, fieldType, options]) => leadershipFieldHtml(key, label, fieldType, options, item?.[key])).join("")}</div>
+        <div class="field-row2">${config.fields.map(([key, label, fieldType, options]) => leadershipFieldHtml(key, label, fieldType, options, item?.[key], item)).join("")}</div>
         <div class="modal-actions">
           <button class="btn-ghost" data-lc-action="close-modal" type="button">Cancelar</button>
           <button class="btn-primary" data-lc-action="save-record" type="button">Salvar</button>
@@ -2106,10 +2264,30 @@ function openLeadershipForm(type, id = "") {
   document.querySelector("#leadershipRecordModal")?.addEventListener("click", (event) => {
     if (event.target.id === "leadershipRecordModal") closeLeadershipModal();
   });
+  document.querySelector("#lcEvidenceFile")?.addEventListener("change", (event) => {
+    const file = event.currentTarget.files?.[0];
+    const name = document.querySelector("#lcEvidenceFileName");
+    if (name) name.textContent = file ? file.name : (item?.evidencia || "Nenhum arquivo selecionado");
+  });
 }
 
-function leadershipFieldHtml(key, label, fieldType = "text", options = [], value = "") {
+async function loadLeadershipParticipants() {
+  try {
+    const response = await fetch("/api/leadership/participants", { headers: { Accept: "application/json" }, cache: "no-store" });
+    if (!response.ok) throw new Error("participants_unavailable");
+    const payload = await response.json();
+    leadershipParticipants = Array.isArray(payload.users) ? payload.users : [];
+  } catch (error) {
+    console.warn(error);
+    leadershipParticipants = [];
+  }
+}
+
+function leadershipFieldHtml(key, label, fieldType = "text", options = [], value = "", record = {}) {
   const displayValue = Array.isArray(value) ? value.join("\n") : value || "";
+  if (fieldType === "file") {
+    return `<div class="field full leadership-evidence-field"><label for="lcEvidenceFile">${escapeHtml(label)}</label><input class="input-basic" id="lcEvidenceFile" type="file" accept="application/pdf,image/png,image/jpeg,image/webp,.pdf,.png,.jpg,.jpeg,.webp"><small id="lcEvidenceFileName">${escapeHtml(displayValue || "Nenhum arquivo selecionado")}</small></div>`;
+  }
   if (fieldType === "textarea" || fieldType === "lines") {
     return `<div class="field full"><label>${escapeHtml(label)}</label><textarea class="input-basic" data-lc-field="${key}" data-lc-field-type="${fieldType}">${escapeHtml(displayValue)}</textarea></div>`;
   }
@@ -2117,10 +2295,17 @@ function leadershipFieldHtml(key, label, fieldType = "text", options = [], value
     const choices = fieldType === "people" ? ["Hugo Melo", "Marina Souza", "Carlos Andrade", "Beatriz Santos", "Rafael Costa", "João Pereira", "Eduardo Lima"] : options;
     return `<div class="field"><label>${escapeHtml(label)}</label><select class="input-basic" data-lc-field="${key}">${choices.map((option) => `<option ${option === displayValue ? "selected" : ""}>${escapeHtml(option)}</option>`).join("")}</select></div>`;
   }
+  if (fieldType === "participants") {
+    const savedNames = String(record?.participantes || "").split(",").map((name) => name.trim());
+    const selectedIds = Array.isArray(record?.participantIds)
+      ? record.participantIds.map(String)
+      : leadershipParticipants.filter((participant) => savedNames.includes(participant.displayName)).map((participant) => String(participant.id));
+    return `<div class="field full"><label>${escapeHtml(label)}</label><select class="input-basic participants-select" data-lc-field="${key}" multiple size="5" aria-describedby="lcParticipantsHelp">${leadershipParticipants.map((participant) => `<option value="${escapeHtml(participant.id)}" ${selectedIds.includes(String(participant.id)) ? "selected" : ""}>${escapeHtml(participant.displayName)} - ${escapeHtml(participant.email)}</option>`).join("")}</select><small class="field-help" id="lcParticipantsHelp">Selecione um ou mais usuários cadastrados. Os participantes recebem o convite ao salvar uma Reunião Estratégica.</small></div>`;
+  }
   return `<div class="field"><label>${escapeHtml(label)}</label><input class="input-basic" data-lc-field="${key}" type="${fieldType}" value="${escapeHtml(displayValue)}"></div>`;
 }
 
-function saveLeadershipRecord() {
+async function saveLeadershipRecord() {
   const type = inputValue("lcRecordType");
   const id = inputValue("lcRecordId");
   const config = leadershipCollections[type];
@@ -2128,22 +2313,100 @@ function saveLeadershipRecord() {
   const record = {};
   document.querySelectorAll("[data-lc-field]").forEach((field) => {
     const key = field.dataset.lcField;
-    const value = field.dataset.lcFieldType === "lines" ? linesToArray(field.value) : field.value;
+    const value = field.dataset.lcFieldType === "lines"
+      ? linesToArray(field.value)
+      : field.multiple
+        ? Array.from(field.selectedOptions).map((option) => option.value)
+        : field.value;
     record[key] = field.type === "number" ? Number(value) || 0 : value;
   });
+  const evidenceInput = document.querySelector("#lcEvidenceFile");
+  if (evidenceInput?.files?.[0]) {
+    try {
+      const attachment = await uploadLeadershipAttachment(evidenceInput.files[0]);
+      record.evidencia = attachment.name;
+      record.evidenciaArquivo = attachment;
+    } catch (error) {
+      toast(error.message || "Não foi possível enviar a evidência.");
+      return;
+    }
+  }
+  let nextRecord;
   if (config.singleton) {
     const previous = leadershipGet(config.key);
-    leadershipSet(config.key, { ...previous, ...record });
+    nextRecord = { ...previous, ...record };
+    if (!(await leadershipSet(config.key, nextRecord))) {
+      toast("Não foi possível salvar o registro. Tente novamente.");
+      return;
+    }
   } else {
     const rows = leadershipGet(config.key);
-    const nextRecord = { ...record, id: id || nextId(config.prefix, rows) };
+    const previous = rows.find((row) => row.id === id) || {};
+    nextRecord = { ...previous, ...record, id: id || nextId(config.prefix, rows) };
+    if (type === "acao") {
+      nextRecord.participantIds = Array.isArray(record.participantIds) ? record.participantIds : [];
+      nextRecord.participantes = leadershipParticipants
+        .filter((participant) => nextRecord.participantIds.includes(String(participant.id)))
+        .map((participant) => participant.displayName)
+        .join(", ");
+    }
     const index = rows.findIndex((item) => item.id === id);
     if (index >= 0) rows[index] = nextRecord;
     else rows.push(nextRecord);
-    leadershipSet(config.key, rows);
+    if (!(await leadershipSet(config.key, rows))) {
+      toast("Não foi possível salvar o registro. Tente novamente.");
+      return;
+    }
+  }
+
+  let invitationMessage = "";
+  if (type === "acao" && nextRecord.tipo === "Reunião Estratégica" && nextRecord.participantIds.length) {
+    const alreadyInvited = new Set((nextRecord.meetingInvitationRecipients || []).map(String));
+    const recipients = nextRecord.participantIds.filter((participantId) => !alreadyInvited.has(String(participantId)));
+    if (recipients.length) {
+      try {
+        const response = await fetch("/api/leadership/meeting-invitations", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ actionId: nextRecord.id, meetingDate: nextRecord.data, description: nextRecord.descricao, participantIds: recipients }),
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.error || "meeting_invitation_failed");
+        const delivered = result.deliveries?.filter((delivery) => delivery.delivery === "sent").map((delivery) => String(delivery.userId)) || [];
+        if (delivered.length) {
+          nextRecord.meetingInvitationRecipients = [...alreadyInvited, ...delivered];
+          nextRecord.meetingInvitationSentAt = new Date().toISOString();
+          const updatedRows = leadershipGet(config.key).map((row) => row.id === nextRecord.id ? nextRecord : row);
+          await leadershipSet(config.key, updatedRows);
+        }
+        invitationMessage = result.sent ? ` ${result.sent} convite(s) enviado(s).` : " A reunião foi salva, mas o e-mail ainda não está configurado.";
+      } catch (error) {
+        console.warn(error);
+        invitationMessage = " A reunião foi salva, mas não foi possível enviar os convites.";
+      }
+    }
   }
   closeLeadershipModal();
-  refreshLeadershipScreen(`${leadershipTypeLabel(type)} salvo.`);
+  refreshLeadershipScreen(`${leadershipTypeLabel(type)} salvo.${invitationMessage}`);
+}
+
+async function uploadLeadershipAttachment(file) {
+  if (!file || !file.size || file.size > 2 * 1024 * 1024) throw new Error("A evidência deve ter conteúdo e no máximo 2 MB.");
+  const accepted = /\.(pdf|png|jpe?g|webp)$/i.test(file.name);
+  if (!accepted) throw new Error("Anexe um arquivo PDF ou uma imagem PNG, JPG ou WEBP.");
+  const base64 = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).split(",")[1]);
+    reader.onerror = () => reject(new Error("Não foi possível ler a evidência."));
+    reader.readAsDataURL(file);
+  });
+  const response = await fetch("/api/leadership-attachments", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name: file.name, base64 }),
+  });
+  if (!response.ok) throw new Error("Não foi possível enviar a evidência. Tente novamente.");
+  return response.json();
 }
 
 function deleteLeadershipRecord(type, id) {
@@ -3733,13 +3996,13 @@ function ensureNcData() {
   state.ncs.forEach(ncRecalculateStatus);
 }
 
-async function saveNcData(message = "Alterações salvas.") {
+async function saveNcData(message = "Alterações salvas.", stateToSave = state) {
   if (!canEditModule("nao-conformidades")) {
     toast("Seu perfil possui acesso somente para visualização.");
     return false;
   }
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  const saved = await saveRemoteData("state", state, "nao-conformidades");
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(stateToSave));
+  const saved = await saveRemoteData("state", stateToSave, "nao-conformidades");
   const failedDelivery = lastSupplierDeliveries.some((item) => item.status !== "sent");
   toast(saved ? failedDelivery ? `${message} O e-mail do fornecedor está pendente de envio. Verifique a configuração de e-mail; o sistema tentará novamente na rotina diária.` : lastSupplierDeliveries.length ? `${message} E-mail enviado ao fornecedor.` : message : lastSaveError || "Não foi possível salvar no banco.");
   return saved;
@@ -4133,9 +4396,14 @@ async function saveNcEdit(id) {
     if (origin === "Cliente") clientAttachments = await uploadNcAttachments(document.querySelector("#ncEditClientPdf"));
   }
   catch (error) { toast(error.message); return; }
-  const previous = structuredClone(row);
+  // The file reader can yield while the initial bootstrap refreshes state; save an atomic edited copy.
+  const previousState = structuredClone(state);
+  const nextState = structuredClone(state);
+  const currentRow = nextState.ncs.find((item) => item.id === id);
+  if (!currentRow) return void toast("A RNC não está mais disponível. Recarregue a página.");
+  const previous = structuredClone(currentRow);
   recordModuleSnapshot("nao-conformidades");
-  Object.assign(row, {
+  Object.assign(currentRow, {
     evidencias: attachments,
     rncClienteArquivos: clientAttachments,
     rncClientePdf: clientAttachments.map((file) => file.name).join(", "),
@@ -4151,16 +4419,17 @@ async function saveNcEdit(id) {
     reincidente: document.querySelector("#ncEditRepeat")?.checked || false,
     descricao: value("#ncEditDescription"),
   });
-  ncAddHistory(row, `${currentUser?.name || "Usuário"} atualizou os dados da RNC.`);
-  ncRecalculateStatus(row);
-  if (await saveNcData(`${row.id} atualizado com sucesso.`)) {
+  ncAddHistory(currentRow, `${currentUser?.name || "Usuário"} atualizou os dados da RNC.`);
+  ncRecalculateStatus(currentRow);
+  state = nextState;
+  if (await saveNcData(`${currentRow.id} atualizado com sucesso.`, nextState)) {
     for (const file of [...ncAttachments(previous), ...ncClientAttachments(previous)]) {
       if (file.id && ![...attachments, ...clientAttachments].some((item) => item.id === file.id)) {
         await fetch(`/api/nc-attachments?id=${encodeURIComponent(file.id)}`, { method: "DELETE" }).catch(() => null);
       }
     }
     closeNcModal(); renderNcKpis(); renderNcTab();
-  } else Object.assign(row, previous);
+  } else state = previousState;
 }
 
 async function deleteNc(id) {
@@ -4372,11 +4641,15 @@ function openNcIshikawa() {
 }
 
 async function saveNcIshikawa() {
-  const row = state.ncs.find((item) => item.id === ncCurrentId); if (!row) return;
+  const previousState = structuredClone(state);
+  const nextState = structuredClone(state);
+  const row = nextState.ncs.find((item) => item.id === ncCurrentId); if (!row) return;
   recordModuleSnapshot("nao-conformidades");
   row.ishikawa = Object.fromEntries([...document.querySelectorAll("[data-ish]")].map((field) => [field.dataset.ish, field.value.trim()]));
   ncAddHistory(row, `${currentUser?.name || "Usuário"} atualizou a análise de causa Ishikawa.`);
-  await saveNcData("Análise de causa salva."); openNcDetail(row.id);
+  state = nextState;
+  if (await saveNcData("Análise de causa salva.", nextState)) openNcDetail(row.id);
+  else state = previousState;
 }
 
 function ncResponsibleOptions(selected = "") {
@@ -6717,20 +6990,20 @@ function billingSettingsHtml(billing) {
       <div class="billing-current-grid">
         <div><span>Plano atual</span><strong>${escapeHtml(company.plan || "Sem plano")}</strong></div>
         <div><span>Limite de acessos</span><strong>${Number(company.accessLimit || 0)}</strong></div>
-        <div><span>Próxima renovação</span><strong>${formatDateTime(company.billingCurrentPeriodEnd || company.billingTrialEnd)}</strong></div>
-        <div><span>Renovação automática</span><strong>${company.billingCancelAtPeriodEnd ? "Cancelamento agendado" : "Ativa"}</strong></div>
+        <div><span>Próxima renovação</span><strong>${hasSubscription ? formatDateTime(company.billingCurrentPeriodEnd || company.billingTrialEnd) : "Sem assinatura"}</strong></div>
+        <div><span>Renovação automática</span><strong>${!hasSubscription ? "Sem assinatura" : company.billingStatus === "Cancelado" ? "Encerrada" : company.billingCancelAtPeriodEnd ? "Cancelamento agendado" : "Ativa"}</strong></div>
       </div>
       ${company.billingCustomerId ? `<button class="btn-ghost" data-billing-action="portal" type="button">${moduleIcon("external")} Gerenciar cobrança e faturas</button>` : ""}
     </article>
     <section class="billing-plan-section">
-      <div class="dcc-title">Planos disponíveis</div>
+      <div class="dcc-title">Plano QualityPro · Forma de cobrança</div>
       <div class="billing-plan-grid">
         ${plans.length ? plans.map((plan) => {
-          const selected = company.billingPriceId === plan.priceId;
+          const selected = Boolean(plan.priceId) && company.billingPriceId === plan.priceId;
           const action = hasSubscription ? "change-plan" : "checkout";
           return `<article class="qp-card billing-plan-card ${selected ? "selected" : ""}">
-            <div><span>${selected ? "PLANO ATUAL" : "ASSINATURA"}</span><h3>${escapeHtml(plan.name)}</h3><p>Até ${Number(plan.accessLimit)} acessos por empresa.</p></div>
-            <button class="${selected ? "btn-ghost" : "btn-primary"}" data-billing-action="${action}" data-plan="${escapeHtml(plan.key)}" type="button" ${selected || !billing.configured ? "disabled" : ""}>${selected ? "Plano atual" : hasSubscription ? "Trocar plano" : "Iniciar período de teste"}</button>
+            <div><span>${selected ? "COBRANÇA ATUAL" : "ASSINATURA"}</span><h3>${escapeHtml(plan.label)}</h3><p><strong>${formatCurrencyMinor(plan.amount, plan.currency)}${plan.interval === "year" ? "/ano" : "/mês"}</strong></p><p>${plan.interval === "year" ? "Pagamento único anual, com renovação automática. Equivale a R$ 247,50/mês; economia de R$ 594,00 por ano." : "Pagamento mensal com renovação automática."}</p></div>
+            <button class="${selected ? "btn-ghost" : "btn-primary"}" data-billing-action="${action}" data-plan="${escapeHtml(plan.key)}" type="button" ${selected || !billing.configured || !billing.canManage ? "disabled" : ""}>${selected ? "Cobrança atual" : hasSubscription ? "Alterar periodicidade" : "Assinar"}</button>
           </article>`;
         }).join("") : `<article class="qp-card"><p class="qp-muted">Os planos aparecerão quando os preços da Stripe forem configurados.</p></article>`}
       </div>
@@ -6748,7 +7021,7 @@ function billingSettingsHtml(billing) {
 async function handleBillingAction(button) {
   const action = button.dataset.billingAction;
   const currentPassword = await confirmSensitiveAction(
-    action === "portal" ? "Abrir gerenciamento da cobrança" : action === "checkout" ? "Iniciar assinatura" : "Trocar plano",
+    action === "portal" ? "Abrir gerenciamento da cobrança" : action === "checkout" ? "Iniciar assinatura" : "Alterar periodicidade da cobrança",
   );
   if (!currentPassword) return;
   const endpoint = action === "portal" ? "/api/billing/portal" : action === "checkout" ? "/api/billing/checkout" : "/api/billing/change-plan";
@@ -6769,7 +7042,7 @@ async function handleBillingAction(button) {
     return;
   }
   state.settings.companyAccess = result.company?.plan || state.settings.companyAccess;
-  toast("Plano atualizado.");
+  toast("Periodicidade da cobrança atualizada.");
   await loadBillingSettings();
 }
 

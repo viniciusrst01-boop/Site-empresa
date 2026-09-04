@@ -248,6 +248,22 @@ test("admin, exportações, backup e revogação de sessão funcionam", async (t
   }
   assert.equal(createdPayload.invitation.delivery, "not_configured");
   assert.ok(createdPayload.invitation.invitationLink);
+  const leadershipParticipants = await api(baseUrl, "/api/leadership/participants", adminCookie);
+  assert.equal(leadershipParticipants.status, 200);
+  assert.ok((await leadershipParticipants.json()).users.some((user) => user.id === createdUser.id && user.email === "colaborador.teste@example.com"));
+  const meetingInvitation = await api(baseUrl, "/api/leadership/meeting-invitations", adminCookie, {
+    method: "POST",
+    body: JSON.stringify({
+      actionId: "AD-0099",
+      meetingDate: "2026-09-03",
+      description: "Análise crítica dos indicadores de qualidade.",
+      participantIds: [createdUser.id],
+    }),
+  });
+  assert.equal(meetingInvitation.status, 200);
+  const meetingInvitationPayload = await meetingInvitation.json();
+  assert.equal(meetingInvitationPayload.sent, 0);
+  assert.deepEqual(meetingInvitationPayload.deliveries, [{ userId: createdUser.id, delivery: "not_configured" }]);
   const resendInvitation = await api(baseUrl, "/api/admin/invite", adminCookie, {
     method: "POST",
     body: JSON.stringify({ userId: createdUser.id, currentPassword: "Admin-Teste-123" }),

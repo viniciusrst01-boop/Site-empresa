@@ -73,6 +73,19 @@ function invitationEmail({ name, companyName, inviterName, link }) {
   );
 }
 
+function meetingInvitationEmail({ recipientName, companyName, organizerName, meetingDate, description }) {
+  return emailShell(
+    `Convite para reunião - ${companyName}`,
+    `<p>Olá, <strong>${escapeHtml(recipientName)}</strong>.</p>
+     <p>Você foi selecionado(a) para participar de uma reunião estratégica da <strong>${escapeHtml(companyName)}</strong>.</p>
+     <p><strong>Data:</strong> ${escapeHtml(meetingDate)}</p>
+     <p><strong>Responsável:</strong> ${escapeHtml(organizerName || "Direção")}</p>
+     <p><strong>Pauta:</strong> ${escapeHtml(description || "A pauta será apresentada pela direção.")}</p>
+     <p style="margin-top:22px">Sua participação é importante para o alinhamento das decisões e objetivos do Sistema de Gestão da Qualidade.</p>
+     <p style="color:#aebbd0">Este é um convite informativo. Em caso de indisponibilidade, entre em contato com o responsável pela reunião.</p>`,
+  );
+}
+
 function deadlineAlertEmail({ companyName, items }) {
   const rows = items
     .slice(0, 20)
@@ -100,6 +113,7 @@ module.exports = {
   deadlineAlertEmail,
   invitationEmail,
   isEmail,
+  meetingInvitationEmail,
   operationalAlertEmail,
   passwordResetEmail,
   sendEmail,
