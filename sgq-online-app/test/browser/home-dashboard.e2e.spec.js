@@ -222,6 +222,7 @@ test("os três temas mantêm contraste e o LED lateral", async ({ page }, testIn
       white: document.body.classList.contains("theme-white"),
       pageBackground: getComputedStyle(document.querySelector(".page-content")).backgroundImage,
       cardBackground: getComputedStyle(document.querySelector(".home-v2-panel")).backgroundColor,
+      moduleBackground: getComputedStyle(document.querySelector(".home-v2-module")).backgroundColor,
       cardText: getComputedStyle(document.querySelector(".home-v2-heading h2")).color,
       activeBackground: getComputedStyle(active).backgroundImage,
       ledDisplay: led.display,
@@ -261,6 +262,8 @@ test("os três temas mantêm contraste e o LED lateral", async ({ page }, testIn
   expect(white.pageBackground).not.toBe(light.pageBackground);
   expect(white.cardBackground).not.toBe(light.cardBackground);
   expect(white.cardText).not.toBe(light.cardText);
+  expect(white.cardBackground).toBe("rgb(255, 255, 255)");
+  expect(white.moduleBackground).toBe("rgb(227, 232, 239)");
 
   await page.setViewportSize({ width: 1600, height: 760 });
   await expectDashboardWithoutScroll(page);

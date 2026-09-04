@@ -6699,6 +6699,11 @@ body.theme-white .home-v2-activity-list > button {
   background: #edf1f6;
 }
 
+body.theme-white .home-v2-modules .home-v2-module {
+  border-color: #c5d0de;
+  background: #e3e8ef;
+}
+
 body.theme-white .home-v2-module:hover,
 body.theme-white .home-v2-module:focus-visible,
 body.theme-white .home-v2-alerts > button:hover {
@@ -6708,6 +6713,11 @@ body.theme-white .home-v2-alerts > button:hover {
     inset 0 0 0 1px color-mix(in srgb, var(--item-color, #43a7ff) 16%, transparent),
     0 0 10px color-mix(in srgb, var(--item-color, #43a7ff) 10%, transparent);
   transform: translateY(-1px);
+}
+
+body.theme-white .home-v2-modules .home-v2-module:hover,
+body.theme-white .home-v2-modules .home-v2-module:focus-visible {
+  background: #dce5ef;
 }
 
 body.theme-white .home-v2-list button:hover,
