@@ -34,6 +34,14 @@
       "dest": "/public/styles.css"
     },
     {
+      "src": "/home-dashboard.css",
+      "dest": "/public/home-dashboard.css"
+    },
+    {
+      "src": "/modules-dashboard.css",
+      "dest": "/public/modules-dashboard.css"
+    },
+    {
       "src": "/app.js",
       "dest": "/public/app.js"
     },

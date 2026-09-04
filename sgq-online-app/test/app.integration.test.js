@@ -112,6 +112,13 @@ async function loginWithMfa(baseUrl, username, password, secret) {
   return sessionCookie;
 }
 
+test("Vercel publica os estilos específicos dos dashboards como arquivos estáticos", () => {
+  const config = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "vercel.json"), "utf8"));
+  const routes = new Map(config.routes.map((route) => [route.src, route.dest]));
+  assert.equal(routes.get("/home-dashboard.css"), "/public/home-dashboard.css");
+  assert.equal(routes.get("/modules-dashboard.css"), "/public/modules-dashboard.css");
+});
+
 test("admin, exportações, backup e revogação de sessão funcionam", async (t) => {
   const port = await freePort();
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "sgq-online-test-"));
