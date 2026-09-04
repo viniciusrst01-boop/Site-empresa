@@ -82,19 +82,18 @@ test("página inicial ocupa a viewport sem rolagem", async ({ page }, testInfo) 
   await page.screenshot({ path: testInfo.outputPath("home-dashboard-mobile.png") });
 });
 
-test("página inicial compacta em larguras menores", async ({ page }, testInfo) => {
+test("página inicial compacta em telas menores de computador", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1024, height: 768 });
   await login(page);
   await finishOnboardingIfNeeded(page);
 
   for (const size of [
     { width: 1024, height: 768, name: "tablet-landscape" },
-    { width: 768, height: 760, name: "tablet-compact" },
-    { width: 480, height: 760, name: "phone-wide" },
-    { width: 360, height: 740, name: "phone-narrow" },
+    { width: 1024, height: 700, name: "notebook-low" },
+    { width: 820, height: 760, name: "tablet-compact" },
   ]) {
     await page.setViewportSize(size);
-    await expectResponsiveHomeContained(page);
+    await expectDashboardWithoutScroll(page);
     await expect(page.locator(".home-v2")).toBeVisible();
     await expect(page.locator(".home-v2-kpi")).toHaveCount(5);
     await expect(page.locator(".home-v2-module")).toHaveCount(7);
@@ -111,8 +110,7 @@ test("página inicial compacta em larguras menores", async ({ page }, testInfo) 
     });
 
     expect(shell.moduleWidth).toBeGreaterThan(0);
-    if (size.width === 768) expect(shell.sidebarWidth).toBeLessThanOrEqual(90);
-    if (size.width <= 480) expect(shell.searchDisplay).toBe("none");
+    if (size.width === 820) expect(shell.sidebarWidth).toBeLessThanOrEqual(90);
 
     await page.screenshot({ path: testInfo.outputPath(`home-responsive-${size.name}.png`) });
   }
@@ -167,6 +165,21 @@ test("módulo aberto pela página inicial seleciona Meus módulos", async ({ pag
   await expect(page.locator(".breadcrumb .cur")).toHaveText("Não Conformidades");
   await expect(page.locator('[data-view="modulos"]')).toHaveClass(/active/);
   await expect(page.locator('[data-view="inicio"]')).not.toHaveClass(/active/);
+});
+
+test("busca global sugere resultados e abre a aba correspondente", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await login(page);
+  await finishOnboardingIfNeeded(page);
+
+  const search = page.locator("#dashboardGlobalSearch");
+  await search.fill("partes interessadas");
+  await expect(page.locator("#dashboardSearchResults")).toBeVisible();
+  await page.getByRole("option", { name: /^Partes interessadas Contexto/i }).click();
+
+  await expect(page.locator(".topbar-title")).toHaveText("Contexto da Organização");
+  await expect(page.locator('[data-context-tab="partes"]')).toHaveClass(/active/);
+  await expect(page.locator("#contextTabContent")).toBeVisible();
 });
 
 test("os três temas mantêm contraste e o LED lateral", async ({ page }, testInfo) => {

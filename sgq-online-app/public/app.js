@@ -2747,10 +2747,10 @@ function renderContextModule() {
     </div>
 
     <div class="ctx-tabs" id="contextTabs">
-      <button class="ctx-tab active" data-context-tab="swot" type="button">SWOT</button>
-      <button class="ctx-tab" data-context-tab="partes" type="button">Partes Interessadas</button>
-      <button class="ctx-tab" data-context-tab="escopo" type="button">Escopo</button>
-      <button class="ctx-tab" data-context-tab="processos" type="button">Processos</button>
+      <button class="ctx-tab${currentContextTab === "swot" ? " active" : ""}" data-context-tab="swot" type="button">SWOT</button>
+      <button class="ctx-tab${currentContextTab === "partes" ? " active" : ""}" data-context-tab="partes" type="button">Partes Interessadas</button>
+      <button class="ctx-tab${currentContextTab === "escopo" ? " active" : ""}" data-context-tab="escopo" type="button">Escopo</button>
+      <button class="ctx-tab${currentContextTab === "processos" ? " active" : ""}" data-context-tab="processos" type="button">Processos</button>
     </div>
 
     <div id="contextTabContent"></div>
@@ -7118,40 +7118,178 @@ function metric(label, value) {
   `;
 }
 
-function bindGlobalSearch(view) {
-  const search = document.querySelector("#dashboardGlobalSearch");
-  if (!search) return;
+function normalizeSearchText(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase("pt-BR");
+}
 
-  search.value = "";
-  search.oninput = () => {
-    if (view !== "inicio") return;
-    const query = search.value.trim().toLocaleLowerCase("pt-BR");
-    document.querySelectorAll(".home-v2-module").forEach((card) => {
-      card.hidden = Boolean(query) && !card.textContent.toLocaleLowerCase("pt-BR").includes(query);
+function searchEntry(title, meta, options = {}) {
+  return { title, meta, text: `${title} ${meta} ${options.text || ""}`, ...options };
+}
+
+function globalSearchEntries() {
+  const entries = [
+    ...accessibleModules().map((module) => searchEntry(module.title, `Módulo · ${module.desc}`, { moduleId: module.id, icon: module.id })),
+    searchEntry("Página inicial", "Navegação · Resumo do sistema", { view: "inicio", icon: "home" }),
+    searchEntry("Minha empresa", "Navegação · Dados e cadastros da empresa", { view: "empresa", icon: "empresa" }),
+    searchEntry("Usuários", "Navegação · Acessos e permissões", { view: "usuarios", icon: "usuarios" }),
+    searchEntry("Relatórios", "Navegação · Indicadores e exportações", { view: "relatorios", icon: "relatorios" }),
+    searchEntry("Configurações", "Navegação · Preferências do sistema", { view: "configuracoes", icon: "configuracoes" }),
+    searchEntry("SWOT", "Contexto da Organização · Análise de ambiente", { moduleId: "contexto", tab: "swot", icon: "contexto" }),
+    searchEntry("Partes interessadas", "Contexto da Organização · Necessidades e expectativas", { moduleId: "contexto", tab: "partes", icon: "contexto" }),
+    searchEntry("Escopo", "Contexto da Organização · Escopo do SGQ", { moduleId: "contexto", tab: "escopo", icon: "contexto" }),
+    searchEntry("Processos", "Contexto da Organização · Mapeamento de processos", { moduleId: "contexto", tab: "processos", icon: "contexto" }),
+    searchEntry("Matriz de riscos", "Riscos e Oportunidades · Identificação e tratamento", { moduleId: "riscos", tab: "riscos", icon: "riscos" }),
+    searchEntry("Objetivos da Qualidade", "Riscos e Oportunidades · Planejamento", { moduleId: "riscos", tab: "objetivos", icon: "riscos" }),
+    searchEntry("Planejamento de Mudanças", "Riscos e Oportunidades · Gestão de mudanças", { moduleId: "riscos", tab: "mudancas", icon: "riscos" }),
+    searchEntry("Registrar NC", "Não Conformidades · Novo registro", { moduleId: "nao-conformidades", tab: "registrar", icon: "nao-conformidades" }),
+    searchEntry("Controle de RNCs", "Não Conformidades · Acompanhamento de registros", { moduleId: "nao-conformidades", tab: "controle", icon: "nao-conformidades" }),
+    searchEntry("Cadastros de NC", "Não Conformidades · Clientes, fornecedores, processos e setores", { moduleId: "nao-conformidades", tab: "cadastros", icon: "nao-conformidades" }),
+    searchEntry("Dashboards de NC", "Não Conformidades · Indicadores e gráficos", { moduleId: "nao-conformidades", tab: "dashboards", icon: "nao-conformidades" }),
+  ];
+
+  if (canViewModule("lideranca")) {
+    Object.entries(leadershipTabs).forEach(([mainTab, tabs]) => {
+      tabs.forEach(([tab, title]) => entries.push(searchEntry(title, `Liderança e Comprometimento · ${mainTab === "lideranca" ? "Comprometimento da Direção" : mainTab === "politica" ? "Política da Qualidade" : "Papéis e Responsabilidades"}`, { moduleId: "lideranca", mainTab, tab, icon: "lideranca" })));
     });
+  }
+
+  (state.documents || []).forEach((document) => entries.push(searchEntry(document.title || document.code, `Documentos · ${document.code || "Registro"}`, { moduleId: "documentos", text: `${document.code || ""} ${document.status || ""} ${document.owner || ""}`, icon: "documentos", matchText: document.title || document.code })));
+  (state.audits || []).forEach((audit) => entries.push(searchEntry(audit.title, `Auditorias · ${audit.status || "Registro"}`, { moduleId: "auditorias", text: `${audit.date || ""} ${audit.owner || ""}`, icon: "auditorias", matchText: audit.title })));
+  (state.ncs || []).forEach((nc) => entries.push(searchEntry(nc.id || nc.code || "RNC", `Não Conformidades · ${nc.descricao || nc.title || nc.status || "Registro"}`, { moduleId: "nao-conformidades", tab: "controle", text: `${nc.descricao || ""} ${nc.origem || ""} ${nc.status || ""}`, icon: "nao-conformidades", resultId: nc.id, matchText: nc.id || nc.code })));
+
+  if (canViewModule("riscos")) {
+    ensureRiskData();
+    [
+      ["riscos", "riscos", "Riscos e Oportunidades"],
+      ["objetivos", "objetivos", "Objetivos da Qualidade"],
+      ["mudancas", "mudancas", "Planejamento de Mudanças"],
+    ].forEach(([key, tab, label]) => {
+      riskGet(key).forEach((item) => entries.push(searchEntry(item.texto || item.objetivo || item.titulo || "Registro", `${label} · ${item.status || "Registro"}`, { moduleId: "riscos", tab, text: JSON.stringify(item), icon: "riscos", matchText: item.texto || item.objetivo || item.titulo })));
+    });
+  }
+
+  if (canViewModule("contexto")) {
+    ensureContextData();
+    [["swot", "swot", "SWOT"], ["partes", "partes", "Partes Interessadas"], ["processos", "processos", "Processos"]].forEach(([key, tab, label]) => {
+      const records = contextGet(key);
+      (Array.isArray(records) ? records : []).forEach((item) => entries.push(searchEntry(item.texto || item.nome || item.titulo || "Registro", `Contexto da Organização · ${label}`, { moduleId: "contexto", tab, text: JSON.stringify(item), icon: "contexto", matchText: item.texto || item.nome || item.titulo })));
+    });
+    const scope = contextGet("escopo");
+    if (scope) entries.push(searchEntry("Escopo do SGQ", "Contexto da Organização · Escopo", { moduleId: "contexto", tab: "escopo", text: JSON.stringify(scope), icon: "contexto", matchText: typeof scope === "string" ? scope : "Escopo do SGQ" }));
+  }
+
+  return entries;
+}
+
+function renderGlobalSearchResults(query, results, activeIndex = -1) {
+  const panel = document.querySelector("#dashboardSearchResults");
+  const search = document.querySelector("#dashboardGlobalSearch");
+  if (!panel || !search) return;
+  search.setAttribute("aria-expanded", String(Boolean(query)));
+  panel.hidden = !query;
+  if (!query) return;
+  if (!results.length) {
+    panel.innerHTML = '<span class="global-search-empty">Nenhum resultado encontrado.</span>';
+    return;
+  }
+  panel.innerHTML = `${results.map((result, index) => `<button type="button" class="global-search-result ${index === activeIndex ? "is-active" : ""}" role="option" aria-selected="${index === activeIndex}" data-global-search-index="${index}"><span class="global-search-result-icon">${moduleIcon(result.icon || "search")}</span><span class="global-search-result-copy"><span class="global-search-result-title">${escapeHtml(result.title)}</span><span class="global-search-result-meta">${escapeHtml(result.meta)}</span></span></button>`).join("")}${results.length === 8 ? '<span class="global-search-more">Refine a busca para ver resultados mais específicos.</span>' : ""}`;
+}
+
+function globalSearchScore(entry, query) {
+  const title = normalizeSearchText(entry.title);
+  const meta = normalizeSearchText(entry.meta);
+  if (title === query) return 100;
+  if (title.startsWith(query)) return 80;
+  if (title.includes(query)) return 60;
+  if (meta.includes(query)) return 40;
+  return 20;
+}
+
+function focusGlobalSearchTarget(result) {
+  requestAnimationFrame(() => {
+    const byId = result.resultId ? pageContent.querySelector(`[data-nc-open="${CSS.escape(result.resultId)}"]`)?.closest("tr") : null;
+    const candidates = [byId, pageContent.querySelector("#contextTabContent, #riskTabContent, #leadershipTabContent, #ncTabContent"), pageContent.querySelector(".qp-layout")].filter(Boolean);
+    const target = byId || (result.matchText && [...pageContent.querySelectorAll("h1,h2,h3,h4,td,th,p,li,strong,button")].find((element) => normalizeSearchText(element.textContent).includes(normalizeSearchText(result.matchText)))) || candidates[0];
+    if (!target) return;
+    target.classList.add("search-result-focus");
+    target.scrollIntoView({ behavior: "smooth", block: "center" });
+    window.setTimeout(() => target.classList.remove("search-result-focus"), 2000);
+  });
+}
+
+function openGlobalSearchResult(result) {
+  if (!result) return;
+  if (result.view) render(result.view);
+  else if (result.moduleId === "contexto") {
+    currentContextTab = result.tab || "swot";
+    renderModuleDetail("contexto");
+  } else if (result.moduleId === "lideranca") {
+    currentLeadershipMainTab = result.mainTab || "lideranca";
+    currentLeadershipSubTab = result.tab || leadershipTabs[currentLeadershipMainTab][0][0];
+    renderModuleDetail("lideranca");
+  } else if (result.moduleId === "riscos") {
+    currentRiskTab = result.tab || "riscos";
+    renderModuleDetail("riscos");
+  } else if (result.moduleId === "nao-conformidades") {
+    ncMainTab = result.tab || "registrar";
+    renderNonConformityModule();
+  } else if (result.moduleId) renderModuleDetail(result.moduleId);
+  focusGlobalSearchTarget(result);
+}
+
+function bindGlobalSearch() {
+  const search = document.querySelector("#dashboardGlobalSearch");
+  const panel = document.querySelector("#dashboardSearchResults");
+  if (!search || !panel) return;
+  let results = [];
+  let activeIndex = -1;
+  const update = () => {
+    const query = normalizeSearchText(search.value.trim());
+    activeIndex = -1;
+    results = query
+      ? globalSearchEntries()
+          .filter((entry) => normalizeSearchText(entry.text).includes(query))
+          .sort((left, right) => globalSearchScore(right, query) - globalSearchScore(left, query) || left.title.localeCompare(right.title, "pt-BR"))
+          .slice(0, 8)
+      : [];
+    renderGlobalSearchResults(query, results, activeIndex);
   };
+  const select = (index) => {
+    const result = results[index];
+    if (!result) return;
+    search.value = "";
+    panel.hidden = true;
+    search.setAttribute("aria-expanded", "false");
+    openGlobalSearchResult(result);
+  };
+  search.value = "";
+  search.oninput = update;
   search.onkeydown = (event) => {
-    if (event.key !== "Enter") return;
-    event.preventDefault();
-    const query = search.value.trim().toLocaleLowerCase("pt-BR");
-    if (!query) return;
-
-    if (view === "inicio") {
-      const visibleCard = document.querySelector(".home-v2-module:not([hidden])");
-      if (visibleCard) return void visibleCard.click();
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      if (!results.length) return;
+      event.preventDefault();
+      activeIndex = event.key === "ArrowDown" ? (activeIndex + 1) % results.length : (activeIndex - 1 + results.length) % results.length;
+      renderGlobalSearchResults(normalizeSearchText(search.value.trim()), results, activeIndex);
+    } else if (event.key === "Enter") {
+      event.preventDefault();
+      select(activeIndex >= 0 ? activeIndex : 0);
+    } else if (event.key === "Escape") {
+      search.value = "";
+      results = [];
+      renderGlobalSearchResults("", results);
     }
-
-    const matchingModule = accessibleModules().find((module) =>
-      `${module.title} ${module.desc}`.toLocaleLowerCase("pt-BR").includes(query),
-    );
-    if (matchingModule) return void renderModuleDetail(matchingModule.id);
-
-    const matchingNav = [...document.querySelectorAll(".nav-item")].find((item) =>
-      item.textContent.toLocaleLowerCase("pt-BR").includes(query),
-    );
-    if (matchingNav?.dataset.view) return void render(matchingNav.dataset.view);
-    toast("Nenhum módulo ou tela encontrado para essa busca.");
   };
+  search.onfocus = () => { if (search.value.trim()) update(); };
+  panel.onclick = (event) => {
+    const button = event.target.closest("[data-global-search-index]");
+    if (button) select(Number(button.dataset.globalSearchIndex));
+  };
+  document.addEventListener("pointerdown", (event) => {
+    if (!event.target.closest(".topbar-search-wrap")) renderGlobalSearchResults("", []);
+  }, { once: true });
 }
 
 function bindDashboardActions() {

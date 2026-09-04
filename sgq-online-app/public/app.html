@@ -79,10 +79,13 @@
           <div class="topbar-subtitle">Bem-vindo ao QualityPro Cloud</div>
         </div>
       </div>
-      <label class="topbar-search" for="dashboardGlobalSearch">
-        <svg class="icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        <input id="dashboardGlobalSearch" type="search" placeholder="Buscar módulos, documentos, registros..." autocomplete="off" />
-      </label>
+      <div class="topbar-search-wrap">
+        <label class="topbar-search" for="dashboardGlobalSearch">
+          <svg class="icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input id="dashboardGlobalSearch" type="search" placeholder="Buscar módulos, documentos, registros..." autocomplete="off" aria-autocomplete="list" aria-controls="dashboardSearchResults" aria-expanded="false" />
+        </label>
+        <div id="dashboardSearchResults" class="global-search-results" role="listbox" hidden></div>
+      </div>
       <div class="topbar-right">
         <form action="/logout" method="post">
           <button class="tb-logout-btn" type="submit">Sair</button>
