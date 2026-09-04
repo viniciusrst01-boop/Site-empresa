@@ -288,6 +288,19 @@ test("editar ação lista os usuários cadastrados como participantes selecioná
   await page.screenshot({ path: testInfo.outputPath("leadership-participants-checklist.png") });
 });
 
+test("editar ação permite remover o anexo existente ao salvar", async ({ page }) => {
+  await login(page);
+  await page.waitForFunction(() => typeof window.renderModuleDetail === "function");
+  await page.evaluate(() => renderModuleDetail("lideranca"));
+  await page.locator('[data-lc-action="edit-acao"]').first().click();
+
+  await expect(page.getByRole("button", { name: "Remover anexo" })).toBeVisible();
+  await page.getByRole("button", { name: "Remover anexo" }).click();
+  await expect(page.locator("#lcEvidenceFileName")).toHaveText("Anexo será removido ao salvar.");
+  await expect(page.locator("#lcRemoveEvidence")).toHaveValue("true");
+  await expect(page.getByRole("button", { name: "Remover anexo" })).toBeHidden();
+});
+
 test("comunicação da política aceita evidência em PDF ou imagem", async ({ page }) => {
   await login(page);
   await page.waitForFunction(() => typeof window.renderModuleDetail === "function");
@@ -363,7 +376,7 @@ test("indicadores de papéis e responsabilidades consolidam todas as seções", 
   expect(charts).toEqual({ roles: "doughnut", raci: "bar", delegationCommitments: ["bar", "line"], governance: "pie" });
 });
 
-test("calendário da alta direção usa as reuniões cadastradas", async ({ page }) => {
+test("calendário da alta direção usa as reuniões cadastradas e abre o resumo", async ({ page }, testInfo) => {
   await login(page);
   await page.waitForFunction(() => typeof window.renderModuleDetail === "function");
   await page.evaluate(() => renderModuleDetail("lideranca"));
@@ -374,4 +387,17 @@ test("calendário da alta direção usa as reuniões cadastradas", async ({ page
   await expect(page.getByRole("button", { name: "Mês anterior" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Próximo mês" })).toBeVisible();
   await expect(page.locator(".leadership-calendar-event")).not.toHaveCount(0);
+  await expect(page.locator(".leadership-calendar-event-status").first()).toHaveText(/Concluída|Programada|Não Realizada/i);
+  expect(await page.evaluate(() => ["Concluída", "Programada", "Não Realizada"].map(leadershipMeetingStatusClass))).toEqual(["is-completed", "is-scheduled", "is-not-held"]);
+
+  const meetingDescription = await page.locator(".leadership-calendar-event-title").first().innerText();
+  await page.locator(".leadership-calendar-event").first().scrollIntoViewIfNeeded();
+  await page.screenshot({ path: testInfo.outputPath("leadership-calendar-status.png") });
+  await page.locator(".leadership-calendar-event").first().click();
+  await expect(page.getByRole("heading", { name: "Resumo da reunião" })).toBeVisible();
+  await expect(page.locator(".meeting-summary-grid")).toContainText("Descrição");
+  await expect(page.locator(".meeting-summary-grid")).toContainText(meetingDescription);
+  await expect(page.locator(".meeting-summary-grid")).toContainText("Participantes");
+  await expect(page.locator(".meeting-summary-grid")).toContainText("Responsável");
+  await page.screenshot({ path: testInfo.outputPath("leadership-meeting-summary.png") });
 });

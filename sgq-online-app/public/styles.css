@@ -4327,6 +4327,34 @@ textarea.input-basic {
   padding: 10px;
 }
 
+.leadership-evidence-control {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 40px;
+  align-items: center;
+  gap: 8px;
+}
+
+.leadership-evidence-remove {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--accent-red) 55%, var(--border-strong));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent-red) 10%, transparent);
+  color: var(--accent-red);
+  cursor: pointer;
+}
+
+.leadership-evidence-remove:hover {
+  background: color-mix(in srgb, var(--accent-red) 18%, transparent);
+}
+
+.leadership-evidence-remove .icon {
+  width: 17px;
+  height: 17px;
+}
+
 .field-help {
   display: block;
   margin-top: 6px;
@@ -4941,18 +4969,41 @@ body.theme-white .leadership-chart-card { background: #f8fcff; border-color: rgb
   display: flex;
   align-items: flex-start;
   gap: 5px;
+  width: 100%;
   margin-top: 5px;
   padding: 5px 6px;
   border: 1px solid color-mix(in srgb, var(--accent-cyan) 42%, transparent);
   border-radius: 5px;
   background: color-mix(in srgb, var(--accent-cyan) 12%, transparent);
   color: var(--text-primary);
+  cursor: pointer;
+  font-family: inherit;
   font-size: 11px;
   line-height: 1.3;
+  text-align: left;
 }
 
+.leadership-calendar-event:hover,
+.leadership-calendar-event:focus-visible { border-color: var(--accent-cyan); outline: none; }
 .leadership-calendar-event .icon { width: 13px; height: 13px; flex: 0 0 auto; color: var(--accent-cyan); }
-.leadership-calendar-event span { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.leadership-calendar-event-copy { display: grid; min-width: 0; gap: 4px; }
+.leadership-calendar-event-title { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+
+.leadership-calendar-event-status {
+  display: inline-flex;
+  width: fit-content;
+  padding: 2px 5px;
+  border-radius: 4px;
+  font-size: 8px;
+  font-style: normal;
+  font-weight: 800;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.leadership-calendar-event-status.is-completed { background: rgba(52, 211, 153, .14); color: #34d399; }
+.leadership-calendar-event-status.is-scheduled { background: rgba(79, 163, 255, .14); color: #4fa3ff; }
+.leadership-calendar-event-status.is-not-held { background: rgba(248, 113, 113, .14); color: #f87171; }
 
 .leadership-calendar-summary {
   display: flex;
@@ -4963,8 +5014,16 @@ body.theme-white .leadership-chart-card { background: #f8fcff; border-color: rgb
   font-size: 13px;
 }
 
-.leadership-calendar-summary div { display: flex; gap: 7px; }
+.leadership-calendar-summary div { display: flex; align-items: center; gap: 7px; }
 .leadership-calendar-summary strong { color: var(--accent-cyan); }
+
+.meeting-summary-modal { width: min(620px, calc(100vw - 28px)); }
+.meeting-summary-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; padding: 12px 14px; border: 1px solid var(--border-subtle); border-radius: 8px; background: var(--bg-panel-hover); color: var(--text-primary); }
+.meeting-summary-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.meeting-summary-grid > div { min-width: 0; padding: 12px 14px; border: 1px solid var(--border-subtle); border-radius: 8px; background: var(--bg-panel-hover); }
+.meeting-summary-grid > .full { grid-column: 1 / -1; }
+.meeting-summary-grid small { display: block; margin-bottom: 5px; color: var(--text-secondary); font-size: 10px; font-weight: 700; text-transform: uppercase; }
+.meeting-summary-grid p { margin: 0; color: var(--text-primary); font-size: 13px; line-height: 1.5; }
 
 @media (max-width: 760px) {
   .leadership-calendar-head { align-items: flex-start; flex-direction: column; }
@@ -4973,6 +5032,8 @@ body.theme-white .leadership-chart-card { background: #f8fcff; border-color: rgb
   .leadership-calendar-event { padding: 4px; font-size: 10px; }
   .leadership-calendar-event .icon { display: none; }
   .leadership-calendar-summary div { flex-basis: 100%; }
+  .meeting-summary-grid { grid-template-columns: 1fr; }
+  .meeting-summary-grid > .full { grid-column: auto; }
 }
 
 body.theme-light .qp-form select option,

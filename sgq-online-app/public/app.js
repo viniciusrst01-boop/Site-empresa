@@ -1900,7 +1900,7 @@ function leadershipCalendarHtml() {
     const meetings = meetingsByDate.get(dateKey) || [];
     cells.push(`<article class="leadership-calendar-day ${meetings.length ? "has-meeting" : ""} ${dateKey === todayKey ? "today" : ""}">
       <div class="leadership-calendar-date">${day}</div>
-      ${meetings.map((meeting) => `<div class="leadership-calendar-event" title="${escapeHtml(meeting.descricao || "Reunião estratégica")}">${moduleIcon("calendar")}<span>${escapeHtml(meeting.descricao || meeting.tipo)}</span></div>`).join("")}
+      ${meetings.map((meeting) => `<button class="leadership-calendar-event" data-lc-action="view-meeting" data-id="${escapeHtml(meeting.id)}" type="button" title="Ver resumo de ${escapeHtml(meeting.descricao || "reunião estratégica")}">${moduleIcon("calendar")}<span class="leadership-calendar-event-copy"><span class="leadership-calendar-event-title">${escapeHtml(meeting.descricao || meeting.tipo)}</span><span class="leadership-calendar-event-status ${leadershipMeetingStatusClass(meeting.status)}">${escapeHtml(meeting.status || "Programada")}</span></span></button>`).join("")}
     </article>`);
   }
   while (cells.length % 7) cells.push('<div class="leadership-calendar-day empty" aria-hidden="true"></div>');
@@ -1922,9 +1922,17 @@ function leadershipCalendarHtml() {
       <div class="leadership-calendar-weekdays"><span>Seg</span><span>Ter</span><span>Qua</span><span>Qui</span><span>Sex</span><span>Sáb</span><span>Dom</span></div>
       <div class="leadership-calendar-grid">${cells.join("")}</div>
       <div class="leadership-calendar-summary">${meetingsInMonth.length
-        ? meetingsInMonth.map(({ date, meeting }) => `<div><strong>${formatDate(date)}</strong><span>${escapeHtml(meeting.descricao || meeting.tipo)}</span></div>`).join("")
+        ? meetingsInMonth.map(({ date, meeting }) => `<div><strong>${formatDate(date)}</strong><span>${escapeHtml(meeting.descricao || meeting.tipo)}</span><em class="leadership-calendar-event-status ${leadershipMeetingStatusClass(meeting.status)}">${escapeHtml(meeting.status || "Programada")}</em></div>`).join("")
         : '<span>Nenhuma reunião estratégica agendada neste mês.</span>'}</div>
     </section>`;
+}
+
+function leadershipMeetingStatusClass(status) {
+  return {
+    "Concluída": "is-completed",
+    "Programada": "is-scheduled",
+    "Não Realizada": "is-not-held",
+  }[status] || "is-scheduled";
 }
 
 function leadershipActionTypeChip(type) {
@@ -2214,6 +2222,10 @@ function handleLeadershipAction(action, id) {
     renderLeadershipTabContent();
     return;
   }
+  if (action === "view-meeting") {
+    viewLeadershipMeeting(id);
+    return;
+  }
   if (action === "save-position") {
     leadershipSet("posicionamento", {
       missao: inputValue("lcPosMissao"),
@@ -2271,7 +2283,18 @@ async function openLeadershipForm(type, id = "") {
   document.querySelector("#lcEvidenceFile")?.addEventListener("change", (event) => {
     const file = event.currentTarget.files?.[0];
     const name = document.querySelector("#lcEvidenceFileName");
+    const removal = document.querySelector("#lcRemoveEvidence");
+    if (file && removal) removal.value = "false";
     if (name) name.textContent = file ? file.name : (item?.evidencia || "Nenhum arquivo selecionado");
+  });
+  document.querySelector("[data-lc-remove-evidence]")?.addEventListener("click", (event) => {
+    const input = document.querySelector("#lcEvidenceFile");
+    const removal = document.querySelector("#lcRemoveEvidence");
+    const name = document.querySelector("#lcEvidenceFileName");
+    if (input) input.value = "";
+    if (removal) removal.value = "true";
+    if (name) name.textContent = "Anexo será removido ao salvar.";
+    event.currentTarget.hidden = true;
   });
 }
 
@@ -2290,7 +2313,8 @@ async function loadLeadershipParticipants() {
 function leadershipFieldHtml(key, label, fieldType = "text", options = [], value = "", record = {}) {
   const displayValue = Array.isArray(value) ? value.join("\n") : value || "";
   if (fieldType === "file") {
-    return `<div class="field full leadership-evidence-field"><label for="lcEvidenceFile">${escapeHtml(label)}</label><input class="input-basic" id="lcEvidenceFile" type="file" accept="application/pdf,image/png,image/jpeg,image/webp,.pdf,.png,.jpg,.jpeg,.webp"><small id="lcEvidenceFileName">${escapeHtml(displayValue || "Nenhum arquivo selecionado")}</small></div>`;
+    const hasEvidence = Boolean(displayValue || record?.evidenciaArquivo?.id);
+    return `<div class="field full leadership-evidence-field"><label for="lcEvidenceFile">${escapeHtml(label)}</label><div class="leadership-evidence-control"><input class="input-basic" id="lcEvidenceFile" type="file" accept="application/pdf,image/png,image/jpeg,image/webp,.pdf,.png,.jpg,.jpeg,.webp">${hasEvidence ? `<button class="leadership-evidence-remove" data-lc-remove-evidence type="button" title="Remover anexo" aria-label="Remover anexo">${moduleIcon("trash")}</button>` : ""}</div><input id="lcRemoveEvidence" type="hidden" value="false"><small id="lcEvidenceFileName">${escapeHtml(displayValue || record?.evidenciaArquivo?.name || "Nenhum arquivo selecionado")}</small></div>`;
   }
   if (fieldType === "textarea" || fieldType === "lines") {
     return `<div class="field full"><label>${escapeHtml(label)}</label><textarea class="input-basic" data-lc-field="${key}" data-lc-field-type="${fieldType}">${escapeHtml(displayValue)}</textarea></div>`;
@@ -2334,6 +2358,14 @@ async function saveLeadershipRecord() {
     record.participantIds = [...document.querySelectorAll("[data-lc-participant]:checked")].map((field) => field.value);
   }
   const evidenceInput = document.querySelector("#lcEvidenceFile");
+  const removeEvidence = inputValue("lcRemoveEvidence") === "true";
+  const previousAttachment = config.singleton
+    ? leadershipGet(config.key)?.evidenciaArquivo
+    : leadershipGet(config.key).find((row) => row.id === id)?.evidenciaArquivo;
+  if (removeEvidence) {
+    record.evidencia = "";
+    record.evidenciaArquivo = null;
+  }
   if (evidenceInput?.files?.[0]) {
     try {
       const attachment = await uploadLeadershipAttachment(evidenceInput.files[0]);
@@ -2370,6 +2402,10 @@ async function saveLeadershipRecord() {
       toast("Não foi possível salvar o registro. Tente novamente.");
       return;
     }
+  }
+
+  if (previousAttachment?.id && (removeEvidence || record.evidenciaArquivo?.id !== previousAttachment.id)) {
+    deleteLeadershipAttachment(previousAttachment.id).catch(console.warn);
   }
 
   let invitationMessage = "";
@@ -2422,6 +2458,12 @@ async function uploadLeadershipAttachment(file) {
   return response.json();
 }
 
+async function deleteLeadershipAttachment(id) {
+  if (!id) return;
+  const response = await fetch(`/api/leadership-attachments?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+  if (!response.ok && response.status !== 404) throw new Error("Não foi possível remover o anexo armazenado.");
+}
+
 function deleteLeadershipRecord(type, id) {
   const config = leadershipCollections[type];
   if (!config || config.singleton) return;
@@ -2442,6 +2484,31 @@ function viewLeadershipRecord(type, id) {
           <button class="modal-close" data-lc-action="close-modal" type="button">${moduleIcon("close")}</button>
         </div>
         <div class="detail-block">${Object.entries(item).map(([key, value]) => `<p><strong>${escapeHtml(key)}:</strong> ${escapeHtml(Array.isArray(value) ? value.join(", ") : value)}</p>`).join("")}</div>
+        <div class="modal-actions"><button class="btn-ghost" data-lc-action="close-modal" type="button">Fechar</button></div>
+      </div>
+    </div>`;
+}
+
+function viewLeadershipMeeting(id) {
+  const meeting = leadershipGet("acoes").find((item) => String(item.id) === String(id));
+  if (!meeting) return;
+  const evidence = meeting.evidenciaArquivo?.id
+    ? `<a class="table-file-link" href="/api/leadership-attachments?id=${encodeURIComponent(meeting.evidenciaArquivo.id)}" target="_blank" rel="noopener">${escapeHtml(meeting.evidenciaArquivo.name)}</a>`
+    : escapeHtml(meeting.evidencia || "Não informada");
+  document.querySelector("#leadershipModalMount").innerHTML = `
+    <div class="modal-overlay show" id="leadershipRecordModal">
+      <div class="modal-box meeting-summary-modal">
+        <div class="modal-hd">
+          <div><h3>Resumo da reunião</h3><p>${escapeHtml(meeting.tipo || "Reunião estratégica")}</p></div>
+          <button class="modal-close" data-lc-action="close-modal" type="button">${moduleIcon("close")}</button>
+        </div>
+        <div class="meeting-summary-head"><strong>${formatDate(meeting.data)}</strong><span class="leadership-calendar-event-status ${leadershipMeetingStatusClass(meeting.status)}">${escapeHtml(meeting.status || "Programada")}</span></div>
+        <div class="meeting-summary-grid">
+          <div class="full"><small>Descrição</small><p>${escapeHtml(meeting.descricao || "Não informada")}</p></div>
+          <div><small>Participantes</small><p>${escapeHtml(meeting.participantes || "Não informados")}</p></div>
+          <div><small>Responsável</small><p>${escapeHtml(meeting.responsavel || "Não informado")}</p></div>
+          <div class="full"><small>Evidência</small><p>${evidence}</p></div>
+        </div>
         <div class="modal-actions"><button class="btn-ghost" data-lc-action="close-modal" type="button">Fechar</button></div>
       </div>
     </div>`;
