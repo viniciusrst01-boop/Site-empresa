@@ -400,16 +400,14 @@ function saveState() {
 }
 
 async function initializeApp() {
-  const needsOnboarding = await loadRemoteData();
-  if (currentUser?.isAdmin) {
-    render("gerenciamento");
-    return;
+  try {
+    const needsOnboarding = await loadRemoteData();
+    if (currentUser?.isAdmin) render("gerenciamento");
+    else if (needsOnboarding) renderOnboarding();
+    else render("inicio");
+  } finally {
+    document.body.classList.remove("app-loading");
   }
-  if (needsOnboarding) {
-    renderOnboarding();
-    return;
-  }
-  render("inicio");
 }
 
 async function loadRemoteData() {
