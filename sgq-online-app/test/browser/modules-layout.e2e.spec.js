@@ -377,6 +377,24 @@ test("política registra revisões e preenche o cargo do responsável", async ({
   await page.screenshot({ path: testInfo.outputPath("policy-revision-history.png") });
 });
 
+test("delegação de autoridade preenche o cargo do titular selecionado", async ({ page }) => {
+  await login(page);
+  await page.waitForFunction(() => typeof window.renderModuleDetail === "function");
+  await page.evaluate(() => {
+    renderModuleDetail("lideranca");
+    currentLeadershipMainTab = "papeis";
+    currentLeadershipSubTab = "delegacoes";
+    renderLeadershipTabs();
+  });
+
+  await page.locator('[data-lc-action="new-delegacao"]').click();
+  await expect(page.getByRole("heading", { name: "Nova delegação" })).toBeVisible();
+  await expect(page.locator("#lcDelegationRole")).toHaveValue("Diretor Geral");
+  await page.locator("#lcDelegationHolder").selectOption("Carlos Andrade");
+  await expect(page.locator("#lcDelegationRole")).toHaveValue("Gerente da Qualidade");
+  await expect(page.locator("#lcDelegationRole")).toHaveAttribute("readonly", "");
+});
+
 test("indicadores da liderança consolidam os dados do módulo em gráficos", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await login(page);

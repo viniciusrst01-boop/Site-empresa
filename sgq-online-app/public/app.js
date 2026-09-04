@@ -2261,7 +2261,7 @@ const leadershipCollections = {
   comunicacao: { key: "comunicacao", prefix: "COMPOL", fields: [["data", "Data", "date"], ["forma", "Forma", "select", ["Reunião de Equipe", "E-mail", "Treinamento", "Integração", "Mural/Comunicado Interno"]], ["setor", "Setor"], ["qtdPessoas", "Qtd. pessoas", "number"], ["evidencia", "Evidência", "file"]] },
   cargo: { key: "cargos", prefix: "CARGO", fields: [["nome", "Nome"], ["cargo", "Cargo"], ["departamento", "Departamento"], ["substituto", "Substituto"], ["status", "Status", "select", ["Ativo", "Inativo"]], ["descricao", "Descrição", "textarea"], ["responsabilidades", "Responsabilidades, uma por linha", "lines"], ["autoridades", "Autoridades, uma por linha", "lines"]] },
   raci: { key: "raci", prefix: "RACI", fields: [["atividade", "Atividade"], ["diretorGeral", "Diretor Geral", "select", ["R", "A", "C", "I"]], ["qualidade", "Qualidade", "select", ["R", "A", "C", "I"]], ["comercial", "Comercial", "select", ["R", "A", "C", "I"]], ["financeiro", "Financeiro", "select", ["R", "A", "C", "I"]]] },
-  delegacao: { key: "delegacoes", prefix: "DEL", fields: [["titular", "Titular", "people"], ["substituto", "Substituto", "people"], ["cargo", "Cargo"], ["periodoIni", "Início", "date"], ["periodoFim", "Fim", "date"], ["motivo", "Motivo"], ["status", "Status", "select", ["Agendada", "Ativa", "Encerrada"]]] },
+  delegacao: { key: "delegacoes", prefix: "DEL", fields: [["titular", "Titular", "delegation-person"], ["substituto", "Substituto", "people"], ["cargo", "Cargo", "delegation-title"], ["periodoIni", "Início", "date"], ["periodoFim", "Fim", "date"], ["motivo", "Motivo"], ["status", "Status", "select", ["Agendada", "Ativa", "Encerrada"]]] },
   aprovacao: { key: "aprovacoes", prefix: "APR", fields: [["tipo", "Tipo"], ["aprovador", "Aprovador", "people"], ["substituto", "Substituto", "people"], ["revisao", "Revisão"]] },
   politica: { key: "politica", singleton: true, fields: [["texto", "Texto da política", "textarea"], ["revisao", "Revisão gerada", "policy-revision"], ["status", "Status", "select", ["Vigente", "Em revisão"]], ["dataAprovacao", "Data de aprovação", "date"], ["proximaRevisao", "Próxima revisão programada", "date"], ["aprovador", "Responsável pela alteração", "role-person"], ["aprovadorCargo", "Cargo", "role-title"], ["descricaoRevisao", "Descrição da alteração", "textarea"]] },
 };
@@ -2272,7 +2272,8 @@ async function openLeadershipForm(type, id = "") {
   if (type === "acao") await loadLeadershipParticipants();
   const rows = config.singleton ? [] : leadershipGet(config.key);
   const item = config.singleton ? leadershipGet(config.key) : rows.find((row) => row.id === id);
-  const title = `${id || config.singleton ? "Editar" : "Novo"} ${leadershipTypeLabel(type)}`;
+  const actionLabel = id || config.singleton ? "Editar" : type === "delegacao" ? "Nova" : "Novo";
+  const title = `${actionLabel} ${leadershipTypeLabel(type)}`;
   document.querySelector("#leadershipModalMount").innerHTML = `
     <div class="modal-overlay show" id="leadershipRecordModal">
       <div class="modal-box wide">
@@ -2310,6 +2311,8 @@ async function openLeadershipForm(type, id = "") {
   });
   document.querySelector("#lcPolicyApprover")?.addEventListener("change", syncLeadershipApproverRole);
   if (type === "politica") syncLeadershipApproverRole();
+  document.querySelector("#lcDelegationHolder")?.addEventListener("change", syncLeadershipDelegationRole);
+  if (type === "delegacao") syncLeadershipDelegationRole();
 }
 
 function nextPolicyRevision(policy) {
@@ -2327,6 +2330,13 @@ function syncLeadershipApproverRole() {
   const approver = document.querySelector("#lcPolicyApprover")?.value || "";
   const role = activeLeadershipRoles().find((item) => item.nome === approver);
   const input = document.querySelector("#lcPolicyApproverRole");
+  if (input) input.value = role?.cargo || "";
+}
+
+function syncLeadershipDelegationRole() {
+  const holder = document.querySelector("#lcDelegationHolder")?.value || "";
+  const role = activeLeadershipRoles().find((item) => item.nome === holder);
+  const input = document.querySelector("#lcDelegationRole");
   if (input) input.value = role?.cargo || "";
 }
 
@@ -2361,6 +2371,14 @@ function leadershipFieldHtml(key, label, fieldType = "text", options = [], value
   }
   if (fieldType === "role-title") {
     return `<div class="field"><label>${escapeHtml(label)}</label><input class="input-basic" id="lcPolicyApproverRole" data-lc-field="${key}" value="${escapeHtml(displayValue)}" readonly></div>`;
+  }
+  if (fieldType === "delegation-person") {
+    const defaults = ["Hugo Melo", "Marina Souza", "Carlos Andrade", "Beatriz Santos", "Rafael Costa", "João Pereira", "Eduardo Lima"];
+    const choices = [...new Set([...activeLeadershipRoles().map((role) => role.nome), ...defaults, displayValue].filter(Boolean))];
+    return `<div class="field"><label>${escapeHtml(label)}</label><select class="input-basic" id="lcDelegationHolder" data-lc-field="${key}">${choices.map((option) => `<option ${option === displayValue ? "selected" : ""}>${escapeHtml(option)}</option>`).join("")}</select></div>`;
+  }
+  if (fieldType === "delegation-title") {
+    return `<div class="field"><label>${escapeHtml(label)}</label><input class="input-basic" id="lcDelegationRole" data-lc-field="${key}" value="${escapeHtml(displayValue)}" readonly></div>`;
   }
   if (fieldType === "select" || fieldType === "people") {
     const choices = fieldType === "people" ? ["Hugo Melo", "Marina Souza", "Carlos Andrade", "Beatriz Santos", "Rafael Costa", "João Pereira", "Eduardo Lima"] : options;
