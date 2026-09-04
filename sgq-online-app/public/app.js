@@ -2304,7 +2304,13 @@ function leadershipFieldHtml(key, label, fieldType = "text", options = [], value
     const selectedIds = Array.isArray(record?.participantIds)
       ? record.participantIds.map(String)
       : leadershipParticipants.filter((participant) => savedNames.includes(participant.displayName)).map((participant) => String(participant.id));
-    return `<div class="field full"><label>${escapeHtml(label)}</label><select class="input-basic participants-select" data-lc-field="${key}" multiple size="5" aria-describedby="lcParticipantsHelp">${leadershipParticipants.map((participant) => `<option value="${escapeHtml(participant.id)}" ${selectedIds.includes(String(participant.id)) ? "selected" : ""}>${escapeHtml(participant.displayName)} - ${escapeHtml(participant.email)}</option>`).join("")}</select><small class="field-help" id="lcParticipantsHelp">Selecione um ou mais usuários cadastrados. Os participantes recebem o convite ao salvar uma Reunião Estratégica.</small></div>`;
+    const optionsHtml = leadershipParticipants.length
+      ? leadershipParticipants.map((participant) => {
+          const participantId = String(participant.id);
+          return `<label class="participant-option"><input type="checkbox" value="${escapeHtml(participantId)}" data-lc-participant ${selectedIds.includes(participantId) ? "checked" : ""}><span><strong>${escapeHtml(participant.displayName)}</strong><small>${escapeHtml(participant.email)}</small></span></label>`;
+        }).join("")
+      : '<span class="participants-empty">Nenhum usuário disponível.</span>';
+    return `<div class="field full"><label id="lcParticipantsLabel">${escapeHtml(label)}</label><div class="participants-checklist" role="group" aria-labelledby="lcParticipantsLabel" aria-describedby="lcParticipantsHelp">${optionsHtml}</div><small class="field-help" id="lcParticipantsHelp">Selecione um ou mais usuários cadastrados. Os participantes recebem o convite ao salvar uma reunião.</small></div>`;
   }
   return `<div class="field"><label>${escapeHtml(label)}</label><input class="input-basic" data-lc-field="${key}" type="${fieldType}" value="${escapeHtml(displayValue)}"></div>`;
 }
@@ -2324,6 +2330,9 @@ async function saveLeadershipRecord() {
         : field.value;
     record[key] = field.type === "number" ? Number(value) || 0 : value;
   });
+  if (type === "acao") {
+    record.participantIds = [...document.querySelectorAll("[data-lc-participant]:checked")].map((field) => field.value);
+  }
   const evidenceInput = document.querySelector("#lcEvidenceFile");
   if (evidenceInput?.files?.[0]) {
     try {

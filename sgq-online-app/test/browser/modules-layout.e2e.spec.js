@@ -263,6 +263,31 @@ test("ação da direção aceita evidência em PDF ou imagem", async ({ page }) 
   expect(response.headers()["content-type"]).toContain("image/png");
 });
 
+test("editar ação lista os usuários cadastrados como participantes selecionáveis", async ({ page }, testInfo) => {
+  await login(page);
+  await page.waitForFunction(() => typeof window.renderModuleDetail === "function");
+  await page.evaluate(() => renderModuleDetail("lideranca"));
+
+  const apiParticipants = await page.evaluate(async () => {
+    const response = await fetch("/api/leadership/participants", { headers: { Accept: "application/json" } });
+    return (await response.json()).users;
+  });
+  await page.locator('[data-lc-action="edit-acao"]').first().click();
+
+  const options = page.locator("[data-lc-participant]");
+  await expect(options).toHaveCount(apiParticipants.length);
+  await expect(page.locator("#lcParticipantsHelp")).toHaveText("Selecione um ou mais usuários cadastrados. Os participantes recebem o convite ao salvar uma reunião.");
+  await expect(page.locator(".participants-checklist")).toBeVisible();
+
+  if (apiParticipants.length) {
+    await expect(page.locator(".participant-option").first()).toContainText(apiParticipants[0].displayName);
+    await expect(page.locator(".participant-option").first()).toContainText(apiParticipants[0].email);
+    await options.first().check();
+    await expect(options.first()).toBeChecked();
+  }
+  await page.screenshot({ path: testInfo.outputPath("leadership-participants-checklist.png") });
+});
+
 test("comunicação da política aceita evidência em PDF ou imagem", async ({ page }) => {
   await login(page);
   await page.waitForFunction(() => typeof window.renderModuleDetail === "function");
