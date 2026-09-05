@@ -2263,7 +2263,7 @@ function handleLeadershipAction(action, id) {
 }
 
 const leadershipCollections = {
-  acao: { key: "acoes", prefix: "AD", fields: [["data", "Data", "date"], ["horaInicio", "Horário de início", "time"], ["horaFim", "Horário de término", "time"], ["tipo", "Tipo", "select", ["Reunião Estratégica", "Análise de Indicadores", "Decisão Estratégica", "Alocação de Recursos"]], ["descricao", "Descrição", "textarea"], ["participantIds", "Participantes", "participants"], ["evidencia", "Evidência", "file"], ["responsavel", "Responsável", "people"], ["status", "Status", "select", ["Programada", "Concluída", "Não Realizada"]]] },
+  acao: { key: "acoes", prefix: "AD", fields: [["data", "Data", "date"], ["horaInicio", "Horário de início", "time"], ["horaFim", "Horário de término", "time"], ["tipo", "Tipo", "select", ["Reunião Estratégica", "Análise de Indicadores", "Decisão Estratégica", "Alocação de Recursos"]], ["responsavel", "Responsável", "people"], ["status", "Status", "select", ["Programada", "Concluída", "Não Realizada"]], ["descricao", "Descrição", "textarea"], ["participantIds", "Participantes", "participants"], ["evidencia", "Evidência", "file"]] },
   plano: { key: "plano", prefix: "P5W2H", fields: [["oQue", "O quê", "textarea"], ["porQue", "Por quê", "textarea"], ["onde", "Onde"], ["quando", "Quando", "date"], ["quem", "Quem", "people"], ["como", "Como", "textarea"], ["quanto", "Quanto", "number"], ["status", "Status", "select", ["Não Iniciado", "Em Andamento", "Atrasado", "Concluído"]]] },
   comunicacao: { key: "comunicacao", prefix: "COMPOL", fields: [["data", "Data", "date"], ["forma", "Forma", "select", ["Reunião de Equipe", "E-mail", "Treinamento", "Integração", "Mural/Comunicado Interno"]], ["setor", "Setor"], ["qtdPessoas", "Qtd. pessoas", "number"], ["evidencia", "Evidência", "file"]] },
   cargo: { key: "cargos", prefix: "CARGO", fields: [["nome", "Nome"], ["cargo", "Cargo"], ["departamento", "Departamento"], ["substituto", "Substituto"], ["status", "Status", "select", ["Ativo", "Inativo"]], ["descricao", "Descrição", "textarea"], ["responsabilidades", "Responsabilidades, uma por linha", "lines"], ["autoridades", "Autoridades, uma por linha", "lines"]] },
@@ -2283,7 +2283,7 @@ async function openLeadershipForm(type, id = "") {
   const title = `${actionLabel} ${leadershipTypeLabel(type)}`;
   document.querySelector("#leadershipModalMount").innerHTML = `
     <div class="modal-overlay show" id="leadershipRecordModal">
-      <div class="modal-box wide">
+      <div class="modal-box wide ${type === "acao" ? "leadership-action-modal" : ""}">
         <div class="modal-hd">
           <div><h3>${escapeHtml(title)}</h3><p>Direção · cláusula 5</p></div>
           <button class="modal-close" data-lc-action="close-modal" type="button">${moduleIcon("close")}</button>
@@ -2304,7 +2304,9 @@ async function openLeadershipForm(type, id = "") {
     const file = event.currentTarget.files?.[0];
     const name = document.querySelector("#lcEvidenceFileName");
     const removal = document.querySelector("#lcRemoveEvidence");
+    const removeButton = document.querySelector("[data-lc-remove-evidence]");
     if (file && removal) removal.value = "false";
+    if (removeButton) removeButton.hidden = !file && !item?.evidenciaArquivo?.id && !item?.evidencia;
     if (name) name.textContent = file ? file.name : (item?.evidencia || "Nenhum arquivo selecionado");
   });
   document.querySelector("[data-lc-remove-evidence]")?.addEventListener("click", (event) => {
@@ -2368,10 +2370,10 @@ function leadershipFieldHtml(key, label, fieldType = "text", options = [], value
   const displayValue = Array.isArray(value) ? value.join("\n") : value || "";
   if (fieldType === "file") {
     const hasEvidence = Boolean(displayValue || record?.evidenciaArquivo?.id);
-    return `<div class="field full leadership-evidence-field"><label for="lcEvidenceFile">${escapeHtml(label)}</label><div class="leadership-evidence-control"><input class="input-basic" id="lcEvidenceFile" type="file" accept="application/pdf,image/png,image/jpeg,image/webp,.pdf,.png,.jpg,.jpeg,.webp">${hasEvidence ? `<button class="leadership-evidence-remove" data-lc-remove-evidence type="button" title="Remover anexo" aria-label="Remover anexo">${moduleIcon("trash")}</button>` : ""}</div><input id="lcRemoveEvidence" type="hidden" value="false"><small id="lcEvidenceFileName">${escapeHtml(displayValue || record?.evidenciaArquivo?.name || "Nenhum arquivo selecionado")}</small></div>`;
+    return `<div class="field full leadership-evidence-field"><label for="lcEvidenceFile">${escapeHtml(label)}</label><div class="leadership-evidence-control"><input class="input-basic" id="lcEvidenceFile" type="file" accept="application/pdf,image/png,image/jpeg,image/webp,.pdf,.png,.jpg,.jpeg,.webp"><button class="leadership-evidence-remove" data-lc-remove-evidence type="button" title="Remover anexo" aria-label="Remover anexo" ${hasEvidence ? "" : "hidden"}>${moduleIcon("trash")}</button></div><input id="lcRemoveEvidence" type="hidden" value="false"><small id="lcEvidenceFileName">${escapeHtml(displayValue || record?.evidenciaArquivo?.name || "Nenhum arquivo selecionado")}</small></div>`;
   }
   if (fieldType === "textarea" || fieldType === "lines") {
-    return `<div class="field full"><label>${escapeHtml(label)}</label><textarea class="input-basic" data-lc-field="${key}" data-lc-field-type="${fieldType}">${escapeHtml(displayValue)}</textarea></div>`;
+    return `<div class="field full ${key === "descricao" ? "leadership-description-field" : ""}"><label>${escapeHtml(label)}</label><textarea class="input-basic" data-lc-field="${key}" data-lc-field-type="${fieldType}">${escapeHtml(displayValue)}</textarea></div>`;
   }
   if (fieldType === "policy-revision") {
     return `<div class="field"><label>${escapeHtml(label)}</label><input class="input-basic" id="lcPolicyRevision" data-lc-field="${key}" value="${escapeHtml(nextPolicyRevision(record))}" readonly></div>`;
@@ -2411,7 +2413,7 @@ function leadershipFieldHtml(key, label, fieldType = "text", options = [], value
           return `<label class="participant-option"><input type="checkbox" value="${escapeHtml(participantId)}" data-lc-participant ${selectedIds.includes(participantId) ? "checked" : ""}><span><strong>${escapeHtml(participant.displayName)}</strong><small>${escapeHtml(participant.email)}</small></span></label>`;
         }).join("")
       : '<span class="participants-empty">Nenhum usuário disponível.</span>';
-    return `<div class="field full"><label id="lcParticipantsLabel">${escapeHtml(label)}</label><div class="participants-checklist" role="group" aria-labelledby="lcParticipantsLabel" aria-describedby="lcParticipantsHelp">${optionsHtml}</div><small class="field-help" id="lcParticipantsHelp">Selecione um ou mais usuários cadastrados. Os participantes recebem o convite ao salvar uma reunião.</small></div>`;
+    return `<div class="field full leadership-participants-field"><label id="lcParticipantsLabel">${escapeHtml(label)}</label><div class="participants-checklist" role="group" aria-labelledby="lcParticipantsLabel" aria-describedby="lcParticipantsHelp">${optionsHtml}</div><small class="field-help" id="lcParticipantsHelp">Selecione um ou mais usuários cadastrados. Os participantes recebem o convite ao salvar uma reunião.</small></div>`;
   }
   return `<div class="field"><label>${escapeHtml(label)}</label><input class="input-basic" data-lc-field="${key}" type="${fieldType}" value="${escapeHtml(displayValue)}"></div>`;
 }
