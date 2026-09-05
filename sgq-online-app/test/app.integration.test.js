@@ -117,6 +117,7 @@ test("Vercel publica os estilos específicos dos dashboards como arquivos estát
   const routes = new Map(config.routes.map((route) => [route.src, route.dest]));
   assert.equal(routes.get("/home-dashboard.css"), "/public/home-dashboard.css");
   assert.equal(routes.get("/modules-dashboard.css"), "/public/modules-dashboard.css");
+  assert.equal(routes.get("/sgq-health-data.js"), "/public/sgq-health-data.js");
 });
 
 test("admin, exportações, backup e revogação de sessão funcionam", async (t) => {

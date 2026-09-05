@@ -80,3 +80,9 @@ footer { display: flex; justify-content: space-between; gap: 20px; margin-top: 1
   .tv-panel.tv-pareto, .tv-panel.tv-wide { grid-column: span 1; }
   footer { flex-direction: column; }
 }
+ .tv-theme-light { color-scheme: light; --bg: #e7eef5; --panel: #f8fbff; --text: #132238; --muted: #5f7186; }
+.tv-embedded { min-width: 0; overflow: auto; background: var(--bg); }
+.tv-embedded .tv-shell { min-height: 0; padding: 18px; }
+.tv-embedded .tv-brand img, .tv-embedded footer { display: none; }
+.tv-embedded .tv-header { justify-content: flex-end; }
+.tv-embedded .tv-header-actions { width: 100%; justify-content: flex-end; }

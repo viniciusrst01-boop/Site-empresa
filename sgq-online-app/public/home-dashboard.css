@@ -834,30 +834,6 @@ body.home-dashboard .home-v2-module:focus-visible {
   }
 }
 
-/* Grafico compacto dentro da altura original do painel de saude. */
-.home-v2-health-chart { display: grid; gap: 8px; min-height: 0; }
-.home-v2-health-cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
-.home-v2-health-card { display: grid; grid-template-columns: 30px minmax(0, 1fr); align-items: center; gap: 3px 7px; min-width: 0; padding: 9px; border: 1px solid var(--home-line); border-radius: 8px; }
-.home-v2-health-card-icon { display: grid; grid-row: span 2; width: 30px; height: 30px; place-items: center; border-radius: 50%; background: color-mix(in srgb, var(--item-color) 14%, transparent); color: var(--item-color); }
-.home-v2-health-card-icon .icon { width: 16px; height: 16px; }
-.home-v2-health-card-label { display: block; overflow: hidden; font-size: 10px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
-.home-v2-health-card strong { display: block; font-size: 22px; line-height: 1.1; }
-.home-v2-health-card > i { grid-column: 1 / -1; display: block; height: 3px; margin-top: 3px; border-radius: 99px; background: var(--item-color); }
-.home-v2-chart-head strong { font-size: 15px; }
-.home-v2-line-chart { min-width: 0; border: 1px solid var(--home-line); border-radius: 8px; padding: 4px 8px 0; }
-.home-v2-line-chart svg { display: block; width: 100%; height: 150px; }
-.home-v2-chart-grid line { stroke: var(--home-line); stroke-width: 1; }
-.home-v2-line-chart polyline { fill: none; stroke: var(--series-color); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
-.home-v2-line-chart circle { fill: var(--series-color); }
-.home-v2-line-chart text { fill: var(--home-muted); font-size: 8px; text-anchor: middle; }
-.home-v2-chart-legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 5px 12px; color: var(--home-copy); font-size: 8px; }
-.home-v2-chart-legend span { display: inline-flex; align-items: center; gap: 3px; }
-.home-v2-chart-legend i { width: 5px; height: 5px; border-radius: 50%; }
-
-@media (max-width: 900px) {
-  .home-v2-health-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-
 /* Mantem os participantes compactos sem reduzir a area de rolagem da lista. */
 .leadership-action-modal .participants-checklist {
   gap: 2px;
@@ -1124,7 +1100,7 @@ body.home-dashboard .page-content {
 }
 
 @media (min-width: 801px) {
-  body.home-dashboard .sidebar {
+  body .sidebar {
     width: 210px;
   }
 }
@@ -1176,3 +1152,109 @@ body.home-dashboard .page-content {
   width: 13px;
   height: 13px;
 }
+
+/* Health owns its internal layout; the dashboard's grid tracks remain unchanged. */
+.home-v2-health {
+  position: relative;
+  container: sgq-health / inline-size;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 10px;
+  min-width: 0;
+  min-height: 0;
+}
+.home-v2-health .sgq-health-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 0; }
+.home-v2-health .sgq-health-title { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+.home-v2-health .sgq-health-title h2 { margin: 0; color: var(--home-copy); font-size: 18px; line-height: 1.2; white-space: nowrap; }
+.home-v2-health .sgq-health-title p { margin: 0; color: var(--home-muted); font-size: 11px; line-height: 1.3; }
+.home-v2-health .sgq-health-period { display: flex; align-items: center; flex: 0 0 auto; gap: 6px; padding: 5px 7px; border: 1px solid var(--home-line); border-radius: 6px; background: var(--home-tile); color: var(--home-muted); }
+.home-v2-health .sgq-health-period .icon { width: 16px; height: 16px; }
+.home-v2-health .sgq-health-period select { border: 0; padding: 0; max-width: 140px; background: transparent; color: var(--home-copy); font: inherit; font-size: 11px; cursor: pointer; }
+.home-v2-health .sgq-health-period option { color: var(--text-primary); background: var(--bg-card, #0D3155); }
+.home-v2-health .sgq-health-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 34%); gap: 12px; min-width: 0; min-height: 0; }
+.home-v2-health .sgq-health-plot { position: relative; display: grid; grid-template-rows: minmax(0, 1fr) auto auto; gap: 5px; min-width: 0; min-height: 0; padding: 7px; border: 1px solid var(--home-line); border-radius: 8px; }
+.home-v2-health .sgq-health-canvas { position: relative; min-width: 0; min-height: 0; }
+.home-v2-health .sgq-health-canvas canvas { position: absolute; inset: 0; width: 100% !important; height: 100% !important; }
+.home-v2-health .sgq-health-legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 10px; color: var(--home-muted); font-size: 10px; line-height: 1.25; }
+.home-v2-health .sgq-health-legend > span { display: inline-flex; align-items: center; gap: 5px; }
+.home-v2-health .sgq-health-legend i { width: 8px; height: 8px; flex: 0 0 8px; border-radius: 50%; }
+.home-v2-health .sgq-health-history-note { color: var(--home-muted); text-align: center; font-size: 10px; line-height: 1.2; }
+.home-v2-health .sgq-health-message { position: absolute; inset: 4px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; background: var(--home-surface); border-radius: 6px; color: var(--home-muted); font-size: 12px; text-align: center; }
+.home-v2-health [hidden] { display: none; }
+.home-v2-health .sgq-health-skeleton { width: 90%; height: 50%; border-radius: 6px; background: var(--home-soft); animation: sgq-health-loading 1.4s ease-in-out infinite alternate; }
+@keyframes sgq-health-loading { to { opacity: .35; } }
+.home-v2-health .sgq-health-retry { border: 1px solid var(--home-line); border-radius: 6px; background: var(--home-tile); color: var(--home-copy); padding: 5px 9px; cursor: pointer; font: inherit; }
+.home-v2-health .sgq-health-indicators { display: grid; grid-template-rows: repeat(4, minmax(0, 1fr)); gap: 8px; min-height: 0; min-width: 0; }
+.home-v2-health .sgq-health-indicator { display: grid; grid-template-columns: 32px minmax(0, 1fr) 14px; gap: 9px; align-items: center; width: 100%; min-width: 0; min-height: 0; padding: 5px 9px; border: 1px solid var(--home-line); border-left: 4px solid var(--health-color); border-radius: 8px; background: var(--home-tile); color: var(--home-copy); font: inherit; text-align: left; cursor: pointer; transition: background .15s, border-color .15s; }
+.home-v2-health .sgq-health-indicator:hover:not(:disabled) { background: var(--home-soft); border-color: var(--health-color); }
+.home-v2-health .sgq-health-indicator:disabled { cursor: default; }
+.home-v2-health .sgq-health-indicator:focus-visible,
+.home-v2-health .sgq-health-period:focus-within { outline: 2px solid #20A4FF; outline-offset: 2px; }
+.home-v2-health .sgq-health-icon { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; color: var(--health-color); background: color-mix(in srgb, var(--health-color) 12%, transparent); }
+.home-v2-health .sgq-health-icon .icon { width: 19px; height: 19px; }
+.home-v2-health .sgq-health-copy { display: grid; gap: 1px; min-width: 0; }
+.home-v2-health .sgq-health-copy > span { font-size: 11px; line-height: 1.2; overflow-wrap: anywhere; }
+.home-v2-health .sgq-health-copy strong { font-size: 23px; line-height: 1; color: var(--health-color); font-variant-numeric: tabular-nums; }
+.home-v2-health .sgq-health-indicator > .icon { width: 14px; height: 14px; color: var(--home-muted); }
+.home-v2-health .sgq-health-tooltip { position: absolute; z-index: 3; width: 260px; max-width: calc(100% - 12px); padding: 9px; border: 1px solid rgba(72,156,220,.6); border-radius: 6px; background: #0B2B4A; color: #F4F8FC; box-shadow: 0 3px 10px #0003; pointer-events: none; font-size: 10px; line-height: 1.4; }
+.home-v2-health .sgq-health-tooltip > strong { display: block; margin-bottom: 5px; font-size: 11px; }
+.home-v2-health .sgq-health-tooltip > div { display: grid; grid-template-columns: 7px minmax(0, 1fr) auto; gap: 5px; align-items: center; padding: 2px 0; }
+.home-v2-health .sgq-health-tooltip i { width: 7px; height: 7px; border-radius: 50%; }
+
+@container sgq-health (min-width: 900px) {
+  .home-v2-health .sgq-health-title h2 { font-size: 21px; }
+  .home-v2-health .sgq-health-title p { font-size: 12px; }
+  .home-v2-health .sgq-health-copy > span { font-size: 12px; }
+  .home-v2-health .sgq-health-icon { width: 36px; height: 36px; }
+  .home-v2-health .sgq-health-indicator { grid-template-columns: 36px minmax(0, 1fr) 16px; }
+}
+@container sgq-health (max-width: 640px) {
+  .home-v2-health .sgq-health-header { gap: 5px; }
+  .home-v2-health .sgq-health-title { display: block; }
+  .home-v2-health .sgq-health-title h2 { font-size: 15px; }
+  .home-v2-health .sgq-health-title p { font-size: 10px; }
+  .home-v2-health .sgq-health-layout { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; gap: 7px; }
+  .home-v2-health .sgq-health-indicators { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); gap: 5px; }
+  .home-v2-health .sgq-health-indicator { grid-template-columns: 24px minmax(0, 1fr) 12px; gap: 5px; padding: 4px 5px; }
+  .home-v2-health .sgq-health-icon { width: 24px; height: 24px; }
+  .home-v2-health .sgq-health-icon .icon { width: 15px; height: 15px; }
+  .home-v2-health .sgq-health-copy strong { font-size: 17px; }
+  .home-v2-health .sgq-health-copy > span { font-size: 10px; }
+  .home-v2-health .sgq-health-legend { font-size: 9px; }
+}
+@media (min-width: 801px) and (max-width: 1280px) {
+  body.home-dashboard .home-v2-health { gap: 5px; padding: 7px 8px; }
+  .home-v2-health .sgq-health-title h2 { font-size: 14px; }
+  .home-v2-health .sgq-health-title p { font-size: 9px; }
+  .home-v2-health .sgq-health-period { padding: 4px; gap: 4px; }
+  .home-v2-health .sgq-health-period select { font-size: 10px; }
+  .home-v2-health .sgq-health-period .icon { width: 13px; height: 13px; }
+  .home-v2-health .sgq-health-layout { gap: 5px; }
+  .home-v2-health .sgq-health-plot { padding: 3px; gap: 2px; }
+  .home-v2-health .sgq-health-legend { gap: 2px 8px; font-size: 8px; }
+  .home-v2-health .sgq-health-history-note { font-size: 8px; }
+  .home-v2-health .sgq-health-indicators { grid-template-rows: repeat(2, 20px); gap: 3px; }
+  .home-v2-health .sgq-health-indicator { grid-template-columns: 14px minmax(0, 1fr) 10px; gap: 4px; padding: 1px 4px; border-left-width: 3px; }
+  .home-v2-health .sgq-health-icon { width: 14px; height: 14px; }
+  .home-v2-health .sgq-health-icon .icon { width: 12px; height: 12px; }
+  .home-v2-health .sgq-health-indicator > .icon { width: 10px; height: 10px; }
+  .home-v2-health .sgq-health-copy { grid-template-columns: minmax(0, 1fr) auto; gap: 3px; align-items: center; }
+  .home-v2-health .sgq-health-copy > span { font-size: 8px; }
+  .home-v2-health .sgq-health-copy strong { font-size: 15px; }
+}
+@media (max-width: 800px) {
+  .home-v2-health { min-height: 370px; }
+}
+@media (max-width: 480px) {
+  .home-v2-health { min-height: 515px; }
+  .home-v2-health .sgq-health-header { flex-wrap: wrap; }
+  .home-v2-health .sgq-health-layout { grid-template-rows: minmax(170px, 1fr) auto; }
+  .home-v2-health .sgq-health-indicators { grid-template-columns: minmax(0, 1fr); grid-template-rows: repeat(4, 43px); }
+  .home-v2-health .sgq-health-copy > span { font-size: 11px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .home-v2-health .sgq-health-skeleton { animation: none; }
+}
+/* Reuse the complete live dashboard inside the module tab. */
+.nc-dashboard-embed { width: 100%; min-height: 780px; overflow: hidden; }
+.nc-dashboard-embed iframe { display: block; width: 100%; height: 780px; border: 0; background: transparent; }

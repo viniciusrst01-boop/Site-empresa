@@ -36,6 +36,7 @@ const {
   getUserSecurity,
   hasRecentCompanyEvent,
   listCompanyData,
+  listSGQHealthData,
   listBackupSnapshots,
   listBillingEvents,
   listCompanyUsers,
@@ -65,6 +66,7 @@ const {
   validateUserSession,
   verifyUserPassword,
 } = require("./db");
+const { getSGQHealthHistory, HEALTH_PREFIX } = require("./sgq-health");
 const { createExcelReport, createPdfReport } = require("./exporters");
 const {
   changeSubscriptionPlan,
@@ -589,7 +591,7 @@ async function buildCompanyReport(companyId) {
     listUsersWithCompanySettings(companyId),
     listCompanyData(companyId),
   ]);
-  const modules = Object.fromEntries(dataRows.filter((row) => row.key !== "supplierRncPrivate" && !row.key.startsWith("ncAttachment:")).map((row) => [row.key, row.value]));
+  const modules = Object.fromEntries(dataRows.filter((row) => row.key !== "supplierRncPrivate" && !row.key.startsWith("ncAttachment:") && !row.key.startsWith(HEALTH_PREFIX)).map((row) => [row.key, row.value]));
   return {
     generatedAt: new Date().toISOString(),
     company,
@@ -2071,6 +2073,22 @@ async function handleApiRequest(req, res, url, session) {
       `backup-sgq-${scope}-${new Date().toISOString().slice(0, 10)}.json`,
       buffer,
     );
+    return;
+  }
+
+  if (url.pathname === "/api/dashboard/health-history" && req.method === "GET") {
+    const months = Number(url.searchParams.get("months") || 6);
+    if (![1, 3, 6, 12].includes(months)) {
+      sendJson(res, 400, { error: "invalid_health_period" });
+      return;
+    }
+    const permissions = await getSessionPermissions(session);
+    if (!["contexto", "riscos", "documentos", "auditorias", "nao-conformidades"].some((module) => canViewModule(permissions, module))) {
+      sendJson(res, 403, { error: "forbidden" });
+      return;
+    }
+    const data = await listSGQHealthData(companyId);
+    sendJson(res, 200, getSGQHealthHistory(data, { months, canView: (module) => canViewModule(permissions, module) }));
     return;
   }
 

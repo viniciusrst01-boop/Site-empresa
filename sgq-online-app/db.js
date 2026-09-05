@@ -3,6 +3,7 @@ const fs = require("fs");
 const os = require("os");
 const path = require("path");
 const { isDeepStrictEqual } = require("util");
+const { HEALTH_SOURCES, HEALTH_PREFIX, healthObservation } = require("./sgq-health");
 
 const databaseUrl = process.env.DATABASE_URL || "";
 const usePostgres = Boolean(databaseUrl) && process.env.SGQ_DATABASE_MODE !== "local";
@@ -2542,6 +2543,22 @@ async function getCompanyData(companyId, key) {
   return row?.data_json ?? null;
 }
 
+async function listSGQHealthData(companyId) {
+  await ensureInitialized();
+  const result = usePostgres ? (await getPool().query(
+    "SELECT data_key, data_json, updated_at FROM company_data WHERE company_id = $1 AND (data_key = ANY($2) OR data_key LIKE $3)",
+    [Number(companyId), HEALTH_SOURCES, `${HEALTH_PREFIX}%`],
+  )).rows : getStore().companyData.filter((row) => row.company_id === Number(companyId) && (HEALTH_SOURCES.includes(row.data_key) || row.data_key.startsWith(HEALTH_PREFIX)));
+  return result.map((row) => ({ key: row.data_key, value: row.data_json, updatedAt: row.updated_at }));
+}
+
+function setLocalHealthObservation(database, companyId, observation) {
+  if (!observation) return;
+  let row = database.companyData.find((item) => item.company_id === Number(companyId) && item.data_key === observation.key);
+  if (!row) { row = { company_id: Number(companyId), data_key: observation.key }; database.companyData.push(row); }
+  Object.assign(row, { data_json: observation.value, updated_at: observation.value.recordedAt });
+}
+
 // Serializes portal responses and internal state saves for the same company.
 async function mutateSupplierData(companyId, mutate) {
   await ensureInitialized();
@@ -2559,6 +2576,8 @@ async function mutateSupplierData(companyId, mutate) {
         if (!Object.hasOwn(data, key)) continue;
         await client.query("INSERT INTO company_data (company_id, data_key, data_json) VALUES ($1, $2, $3) ON CONFLICT (company_id, data_key) DO UPDATE SET data_json = EXCLUDED.data_json, updated_at = NOW()", [Number(companyId), key, JSON.stringify(data[key])]);
       }
+      const observation = healthObservation("state", data.state);
+      if (observation) await client.query("INSERT INTO company_data (company_id, data_key, data_json) VALUES ($1, $2, $3) ON CONFLICT (company_id, data_key) DO UPDATE SET data_json = EXCLUDED.data_json, updated_at = NOW()", [Number(companyId), observation.key, JSON.stringify(observation.value)]);
       await client.query("COMMIT");
       return result;
     } catch (error) {
@@ -2577,6 +2596,7 @@ async function mutateSupplierData(companyId, mutate) {
     if (!row) { row = { company_id: Number(companyId), data_key: key }; database.companyData.push(row); }
     Object.assign(row, { data_json: data[key], updated_at: timestamp() });
   }
+  setLocalHealthObservation(database, companyId, healthObservation("state", data.state));
   saveStore();
   return result;
 }
@@ -2590,15 +2610,17 @@ async function setCompanyData(companyId, key, value) {
   }
 
   if (usePostgres) {
+    const observation = healthObservation(key, value);
     await getPool().query(
       `
         INSERT INTO company_data (company_id, data_key, data_json, updated_at)
-        VALUES ($1, $2, $3, NOW())
+        SELECT $1::integer, $2::text, $3::jsonb, NOW()
+        UNION ALL SELECT $1::integer, $4::text, $5::jsonb, NOW() WHERE $4::text IS NOT NULL
         ON CONFLICT (company_id, data_key) DO UPDATE SET
           data_json = EXCLUDED.data_json,
           updated_at = NOW()
       `,
-      [Number(companyId), key, JSON.stringify(value ?? null)],
+      [Number(companyId), key, JSON.stringify(value ?? null), observation?.key || null, JSON.stringify(observation?.value || null)],
     );
     return;
   }
@@ -2616,10 +2638,12 @@ async function setCompanyData(companyId, key, value) {
     row.updated_at = timestamp();
   }
 
+  setLocalHealthObservation(database, companyId, healthObservation(key, value));
   saveStore();
 }
 
 module.exports = {
+  listSGQHealthData,
   mutateSupplierData,
   canAddCompanyUser,
   checkDatabaseHealth,

@@ -4,6 +4,10 @@ let selectedYear = params.get("ano") || "todos";
 let selectedDimension = params.get("dim") || "processo";
 let currentState = null;
 let companyName = "Empresa";
+const embedded = params.get("embedded") === "1";
+const theme = params.get("theme") || "dark";
+document.body.classList.toggle("tv-embedded", embedded);
+document.body.classList.toggle("tv-theme-light", theme !== "dark");
 
 const colors = ["#46d9f5", "#4fa3ff", "#34d399", "#fbbf24", "#f87171", "#fb923c", "#a78bfa"];
 const $ = (selector) => document.querySelector(selector);

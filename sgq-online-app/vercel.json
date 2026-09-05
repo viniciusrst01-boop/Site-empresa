@@ -46,6 +46,10 @@
       "dest": "/public/app.js"
     },
     {
+      "src": "/sgq-health-data.js",
+      "dest": "/public/sgq-health-data.js"
+    },
+    {
       "src": "/nc-tv.css",
       "dest": "/public/nc-tv.css"
     },

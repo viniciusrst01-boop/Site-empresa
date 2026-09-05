@@ -1,4 +1,7 @@
 const STORAGE_KEY = "qualitypro-cloud-state-v1";
+const LAST_VIEW_STORAGE_KEY = "qualitypro-last-view-v1";
+const MODULE_TABS_STORAGE_KEY = "qualitypro-module-tabs-v1";
+const RISK_TAB_STORAGE_KEY = "qualitypro-risk-tab-v1";
 
 const modules = [
   {
@@ -60,9 +63,9 @@ const modules = [
 ];
 
 const moduleHeaderMeta = {
-  contexto: { category: "ORGANIZAÇÃO", description: "Compreensão da organização, das partes interessadas, do escopo do SGQ e do mapeamento de processos." },
+  contexto: { category: "", description: "Contexto organizacional, partes interessadas, escopo do SGQ e gestão de processos." },
   lideranca: { category: "DIREÇÃO", description: "Comprometimento da Alta Direção, política da qualidade e papéis, responsabilidades e autoridades do SGQ." },
-  riscos: { category: "PLANEJAMENTO", description: "Identificação e tratamento de riscos e oportunidades, objetivos da qualidade e planejamento de mudanças." },
+  riscos: { category: "", description: "Planejamento e acompanhamento de riscos, oportunidades, objetivos da qualidade e mudanças." },
   documentos: { category: "DOCUMENTAÇÃO" },
   auditorias: { category: "AVALIAÇÃO" },
   "nao-conformidades": { category: "MELHORIA CONTÍNUA", description: "Registro, análise de causa, ações corretivas, avaliação de eficácia e rastreabilidade de RNCs." },
@@ -350,6 +353,7 @@ let contextData = null;
 let currentUser = null;
 let csrfToken = "";
 let activeView = "inicio";
+let restoringBrowserHistory = false;
 let lastClientErrorAt = 0;
 const nativeFetch = window.fetch.bind(window);
 window.fetch = (input, options = {}) => {
@@ -399,9 +403,24 @@ function saveState() {
 async function initializeApp() {
   try {
     const needsOnboarding = await loadRemoteData();
-    if (currentUser?.isAdmin) render("gerenciamento");
+    const currentUrl = `${window.location.pathname}${window.location.search}`;
+    const savedView = localStorage.getItem(LAST_VIEW_STORAGE_KEY) || (currentUser?.isAdmin ? "gerenciamento" : "inicio");
+    window.history.replaceState({ sgqView: savedView }, "", currentUrl);
+    window.addEventListener("popstate", (event) => {
+      const previousView = event.state?.sgqView;
+      if (!previousView) return;
+      restoringBrowserHistory = true;
+      if (String(previousView).startsWith("module:")) renderModuleDetail(String(previousView).slice(7));
+      else render(previousView);
+      restoringBrowserHistory = false;
+    });
+    if (currentUser?.isAdmin && !localStorage.getItem(LAST_VIEW_STORAGE_KEY)) render("gerenciamento");
     else if (needsOnboarding) renderOnboarding();
-    else render("inicio");
+    else if (String(savedView).startsWith("module:")) renderModuleDetail(String(savedView).slice(7));
+    else {
+      if (savedView === "empresa") restoreModuleTabs("empresa");
+      render(savedView);
+    }
   } finally {
     updateNotificationBadge();
     updateOperationalStatus();
@@ -974,6 +993,7 @@ function render(view = "inicio") {
     view = "gerenciamento";
   }
   activeView = view;
+  localStorage.setItem(LAST_VIEW_STORAGE_KEY, view);
   if (view === "relatorios" && currentUser?.permissions?.reports === false) {
     toast("Seu perfil não possui permissão para visualizar relatórios.");
     view = "inicio";
@@ -985,6 +1005,10 @@ function render(view = "inicio") {
   if (view === "modulos" && !accessibleModules().length) {
     toast("Seu perfil não possui módulos liberados.");
     view = "inicio";
+  }
+
+  if (!restoringBrowserHistory && window.history.state?.sgqView !== view) {
+    window.history.pushState({ sgqView: view }, "", `${window.location.pathname}${window.location.search}`);
   }
 
   document.body.classList.toggle("home-dashboard", view === "inicio");
@@ -1031,6 +1055,7 @@ function renderInicio() {
   pageContent.innerHTML = renderDashboardHtml();
   syncDashboardFooterDate();
   bindDashboardActions();
+  mountSGQHealth();
 }
 
 function renderDashboardHtml() {
@@ -1060,7 +1085,6 @@ function renderDashboardHtml() {
   const tasks = dashboardTaskItems(...taskGroups);
   const hasMoreTasks = taskGroups.reduce((total, items) => total + items.length, 0) > 6;
   const alerts = dashboardAlertItems(summary, openNcs, pendingDocs, certification);
-  const healthMax = Math.max(openNcs.length, summary.openActions, plannedAudits.length, pendingDocs.length, 1);
 
   return `
     <div class="home-v2">
@@ -1076,13 +1100,7 @@ function renderDashboardHtml() {
 
       <div class="home-v2-core-grid">
         <section class="home-v2-panel home-v2-health">
-          <div class="home-v2-heading"><div><h2>Saúde do SGQ</h2><p>Visão geral dos pontos que exigem atenção.</p></div></div>
-          <div class="home-v2-health-list">
-            ${dashboardPanoramaRow("Não conformidades abertas", openNcs.length, healthMax, "#ff646f", "nao-conformidades")}
-            ${dashboardPanoramaRow("Ações em acompanhamento", summary.openActions, healthMax, "#43a7ff", "check-circle")}
-            ${dashboardPanoramaRow("Auditorias planejadas", plannedAudits.length, healthMax, "#9a75ff", "auditorias")}
-            ${dashboardPanoramaRow("Documentos pendentes", pendingDocs.length, healthMax, "#27c99f", "documentos")}
-          </div>
+          ${sgqHealthHtml()}
         </section>
         <section class="home-v2-panel home-v2-tasks">
           <div class="home-v2-heading"><div><h2>Minhas tarefas</h2><p>Atividades que exigem sua atenção.</p></div></div>
@@ -1178,9 +1196,190 @@ function dashboardAlertItems(summary, openNcs, pendingDocs, certification) {
   return items.map((item) => `<button type="button" ${item.module ? `data-module="${item.module}"` : `data-view-target="${item.view}"`} style="--item-color:${item.color}"><span>${moduleIcon(item.icon)}</span><div><strong>${escapeHtml(item.value)}</strong><p>${escapeHtml(item.detail)}</p></div></button>`).join("");
 }
 
-function dashboardPanoramaRow(label, value, max, color, icon = "info") {
-  const width = value ? Math.max(8, Math.round((value / max) * 100)) : 0;
-  return `<div class="home-v2-bar" style="--item-color:${color}"><span class="home-v2-bar-icon">${moduleIcon(icon)}</span><div><span>${escapeHtml(label)}</span><strong>${value}</strong><i><b style="width:${width}%; background:${color}"></b></i></div></div>`;
+const sgqHealthMetrics = [
+  { key: "nonConformities", title: "Não conformidades abertas", color: "#FF5364", icon: "nao-conformidades", module: "nao-conformidades", target: "controle" },
+  { key: "actions", title: "Ações em acompanhamento", color: "#20A4FF", icon: "check-circle" },
+  { key: "audits", title: "Auditorias planejadas", color: "#8B5CF6", icon: "auditorias", module: "auditorias" },
+  { key: "documents", title: "Documentos pendentes", color: "#18D69B", icon: "documentos", module: "documentos" },
+];
+let sgqHealthPeriod = 6;
+let disposeSGQHealth = () => {};
+
+function healthIndicatorCard(metric) {
+  const allowed = metric.module ? canViewModule(metric.module) : currentUser?.permissions?.reports !== false;
+  const target = allowed && metric.module
+    ? `data-module="${metric.module}"${metric.target ? ` data-health-target="${metric.target}"` : ""}`
+    : "disabled";
+  return `<button type="button" class="sgq-health-indicator" ${target} style="--health-color:${metric.color}">
+    <span class="sgq-health-icon">${moduleIcon(metric.icon)}</span>
+    <span class="sgq-health-copy"><span>${metric.title}</span><strong data-health-value="${metric.key}">—</strong></span>
+    ${allowed && metric.module ? moduleIcon("arrow") : ""}
+  </button>`;
+}
+
+function sgqHealthHtml() {
+  return `<header class="sgq-health-header">
+    <div class="sgq-health-title"><h2>Saúde do SGQ</h2><p>Visão geral dos pontos que exigem atenção.</p></div>
+    <label class="sgq-health-period">${moduleIcon("calendar")}<select aria-label="Período da saúde do SGQ">${[1, 3, 6, 12].map((months) => `<option value="${months}" ${sgqHealthPeriod === months ? "selected" : ""}>${months === 1 ? "Último mês" : `Últimos ${months} meses`}</option>`).join("")}</select></label>
+  </header>
+  <div class="sgq-health-layout">
+    <div class="sgq-health-plot" aria-busy="true">
+      <div class="sgq-health-canvas"><canvas role="img" aria-label="Histórico mensal da saúde do SGQ"></canvas></div>
+      <div class="sgq-health-message" role="status"><span class="sgq-health-skeleton" aria-hidden="true"></span><span>Carregando histórico...</span></div>
+      <div class="sgq-health-legend">${sgqHealthMetrics.map((metric) => `<span><i style="background:${metric.color}"></i>${metric.title}</span>`).join("")}</div>
+      <span class="sgq-health-history-note" hidden>Meses sem histórico registrado aparecem sem pontos.</span>
+    </div>
+    <div class="sgq-health-indicators">${sgqHealthMetrics.map(healthIndicatorCard).join("")}</div>
+  </div><div class="sgq-health-tooltip" role="tooltip" hidden></div>`;
+}
+
+function sgqHealthPreview(months, url = location.href) {
+  const previewUrl = new URL(url);
+  const requested = previewUrl.searchParams.get("previewHealth");
+  const localPreviewServer = ["4180", "4198"].includes(previewUrl.port);
+  const enabled = requested === "1" || (requested === null && localPreviewServer);
+  if (!["localhost", "127.0.0.1", "[::1]"].includes(previewUrl.hostname) || !enabled) return null;
+  // Visual samples on the local review servers only; previewHealth=0 restores real data.
+  const samples = [
+    [8, 18, 1, 6], [11, 24, 2, 5], [7, 21, 4, 3],
+    [9, 30, 3, 4], [5, 34, 4, 2], [2, 38, 2, 1],
+  ];
+  const template = SGQHealthData.getSGQHealthHistory([], { months, canView: canViewModule });
+  const points = template.points.map((point, index) => {
+    const sample = samples[index + samples.length - template.points.length];
+    return { month: point.month, ...Object.fromEntries(sgqHealthMetrics.map((metric, column) => [
+      metric.key, sample && template.current[metric.key] !== null ? sample[column] : null,
+    ])) };
+  });
+  const current = Object.fromEntries(sgqHealthMetrics.map((metric) => [metric.key, points.at(-1)[metric.key]]));
+  return { ...template, points, current, hasData: true, simulated: true };
+}
+
+async function getSGQHealthHistory({ months, signal }) {
+  const preview = sgqHealthPreview(months);
+  if (preview) return preview;
+  const response = await fetch(`/api/dashboard/health-history?months=${months}`, { headers: { Accept: "application/json" }, cache: "no-store", signal });
+  // An older local server can serve new assets before its API is restarted.
+  if (response.status === 404) {
+    const bootstrapResponse = await fetch("/api/bootstrap", { headers: { Accept: "application/json" }, cache: "no-store", signal });
+    if (!bootstrapResponse.ok) throw new Error("health_current_unavailable");
+    const bootstrap = await bootstrapResponse.json();
+    const rows = SGQHealthData.HEALTH_SOURCES
+      .filter((key) => bootstrap[key] && typeof bootstrap[key] === "object")
+      .map((key) => ({ key, value: bootstrap[key] }));
+    return { ...SGQHealthData.getSGQHealthHistory(rows, { months, canView: canViewModule }), historyAvailable: false };
+  }
+  if (!response.ok) throw new Error("health_history_unavailable");
+  const data = await response.json();
+  if (!Array.isArray(data.points) || !data.current) throw new Error("invalid_health_history");
+  return data;
+}
+
+function mountSGQHealth() {
+  disposeSGQHealth();
+  const root = pageContent.querySelector(".home-v2-health");
+  if (!root) return;
+  const select = root.querySelector("select");
+  const plot = root.querySelector(".sgq-health-plot");
+  const message = root.querySelector(".sgq-health-message");
+  const canvas = root.querySelector("canvas");
+  const note = root.querySelector(".sgq-health-history-note");
+  const tooltipElement = root.querySelector(".sgq-health-tooltip");
+  const cache = new Map();
+  let chart;
+  let controller;
+  const number = new Intl.NumberFormat("pt-BR");
+  const label = (month, long = false) => new Intl.DateTimeFormat("pt-BR", { month: long ? "long" : "short", ...(long ? { year: "numeric" } : {}), timeZone: "UTC" }).format(new Date(`${month}-15T12:00:00Z`)).replace(".", "");
+  const draw = (data) => {
+    root.querySelectorAll("[data-health-value]").forEach((element) => {
+      const value = data.current[element.dataset.healthValue];
+      element.textContent = value === null ? "—" : number.format(value);
+    });
+    if (!data.hasData) {
+      message.textContent = "Nenhum histórico registrado neste período.";
+      message.hidden = false;
+      return;
+    }
+    if (typeof Chart === "undefined") throw new Error("chart_unavailable");
+    message.hidden = true;
+    note.textContent = data.historyAvailable === false
+      ? "Histórico mensal indisponível. Exibindo os dados atuais."
+      : "Meses sem histórico registrado aparecem sem pontos.";
+    note.hidden = data.simulated || (data.historyAvailable !== false && !data.points.some((point) => sgqHealthMetrics.some((metric) => point[metric.key] === null && data.current[metric.key] !== null)));
+    const style = getComputedStyle(root);
+    const text = style.getPropertyValue("--home-muted").trim() || "#AFC4DB";
+    const white = document.body.classList.contains("theme-white");
+    chart = new Chart(canvas, {
+      type: "line",
+      data: {
+        labels: data.points.map((point) => label(point.month)),
+        datasets: sgqHealthMetrics.map((metric) => ({
+          label: metric.title, data: data.points.map((point) => point[metric.key]), borderColor: metric.color,
+          backgroundColor: metric.color, borderWidth: 2, pointRadius: 3, pointHoverRadius: 5,
+          pointBackgroundColor: white ? "#fff" : "#0D3155", pointBorderWidth: 2,
+          cubicInterpolationMode: "monotone", spanGaps: false,
+        })),
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false, animation: false,
+        interaction: { mode: "index", intersect: false },
+        layout: { padding: { top: 3, right: 7 } },
+        plugins: {
+          legend: { display: false }, datalabels: { display: false },
+          tooltip: {
+            enabled: false,
+            external: ({ tooltip }) => {
+              const point = data.points[tooltip.dataPoints?.[0]?.dataIndex];
+              tooltipElement.hidden = !tooltip.opacity || !point;
+              if (tooltipElement.hidden) return;
+              tooltipElement.innerHTML = `<strong>${escapeHtml(label(point.month, true))}</strong>${sgqHealthMetrics.map((metric) => `<div><i style="background:${metric.color}"></i><span>${metric.title}</span><b>${point[metric.key] === null ? "—" : number.format(point[metric.key])}</b></div>`).join("")}`;
+              const outer = root.getBoundingClientRect();
+              const inner = canvas.getBoundingClientRect();
+              tooltipElement.style.left = `${Math.max(6, Math.min(inner.left - outer.left + tooltip.caretX + 8, root.clientWidth - tooltipElement.offsetWidth - 6))}px`;
+              tooltipElement.style.top = `${Math.max(6, Math.min(inner.top - outer.top + tooltip.caretY + 8, root.clientHeight - tooltipElement.offsetHeight - 6))}px`;
+            },
+          },
+        },
+        scales: {
+          x: { grid: { color: "rgba(120,170,210,.12)" }, border: { color: text }, ticks: { color: text, font: { size: 11 }, padding: 1, maxRotation: 0, autoSkip: true, maxTicksLimit: 12 } },
+          y: { beginAtZero: true, suggestedMax: 1, grid: { color: "rgba(120,170,210,.12)" }, border: { display: false }, ticks: { color: text, font: { size: 11 }, padding: 1, precision: 0, maxTicksLimit: 6 } },
+        },
+      },
+    });
+  };
+  const load = async () => {
+    controller?.abort();
+    const request = new AbortController();
+    controller = request;
+    chart?.destroy();
+    chart = null;
+    tooltipElement.hidden = true;
+    note.hidden = true;
+    message.innerHTML = '<span class="sgq-health-skeleton" aria-hidden="true"></span><span>Carregando histórico...</span>';
+    message.hidden = false;
+    plot.setAttribute("aria-busy", "true");
+    const months = Number(select.value);
+    sgqHealthPeriod = months;
+    try {
+      const data = cache.get(months) || await getSGQHealthHistory({ months, signal: request.signal });
+      if (request.signal.aborted || !root.isConnected) return;
+      cache.set(months, data);
+      draw(data);
+    } catch (error) {
+      if (request.signal.aborted || !root.isConnected) return;
+      message.innerHTML = '<span>Não foi possível carregar o histórico.</span><button type="button" class="sgq-health-retry">Tentar novamente</button>';
+      message.hidden = false;
+      message.querySelector("button").onclick = () => { cache.delete(months); void load(); };
+    } finally {
+      if (!request.signal.aborted) plot.setAttribute("aria-busy", "false");
+    }
+  };
+  select.addEventListener("change", load);
+  const observer = new MutationObserver(() => { if (!root.isConnected) dispose(); });
+  observer.observe(pageContent, { childList: true });
+  const dispose = () => { controller?.abort(); chart?.destroy(); chart = null; observer.disconnect(); select.removeEventListener("change", load); };
+  disposeSGQHealth = dispose;
+  void load();
 }
 
 function dashboardActivityRows(docs, audits, ncs) {
@@ -1453,6 +1652,8 @@ function moduleIcon(name) {
     minus: '<svg class="icon" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 12h8"/></svg>',
     "check-circle": '<svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 12l2 2 4-4"/></svg>',
     edit: '<svg class="icon" viewBox="0 0 24 24"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z"/></svg>',
+    configuracoes: '<svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-1.7 1.7-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.56V21h-2.4v-.2a1.7 1.7 0 0 0-1.03-1.56 1.7 1.7 0 0 0-1.88.34l-.06.06-1.7-1.7.06-.06A1.7 1.7 0 0 0 8.46 15a1.7 1.7 0 0 0-1.56-1.03H6.7v-2.4h.2A1.7 1.7 0 0 0 8.46 10a1.7 1.7 0 0 0-.34-1.88l-.06-.06 1.7-1.7.06.06a1.7 1.7 0 0 0 1.88.34A1.7 1.7 0 0 0 12.73 5.2V5h2.4v.2a1.7 1.7 0 0 0 1.03 1.56 1.7 1.7 0 0 0 1.88-.34l.06-.06 1.7 1.7-.06.06A1.7 1.7 0 0 0 19.4 10a1.7 1.7 0 0 0 1.56 1.03h.2v2.4h-.2A1.7 1.7 0 0 0 19.4 15z"/></svg>',
+    gear: '<svg class="icon" viewBox="0 0 24 24"><g stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.64 5.64l2.12 2.12M16.24 16.24l2.12 2.12M18.36 5.64l-2.12 2.12M7.76 16.24l-2.12 2.12"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></g></svg>',
     eye: '<svg class="icon" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>',
     trash: '<svg class="icon" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>',
     shield: '<svg class="icon" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>',
@@ -1465,6 +1666,13 @@ function moduleIcon(name) {
     close: '<svg class="icon" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
     "trend-up": '<svg class="trend-icon" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="8 7 17 7 17 16"/></svg>',
     "trend-down": '<svg class="trend-icon" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2"><line x1="7" y1="7" x2="17" y2="17"/><polyline points="17 8 17 17 8 17"/></svg>',
+    "bar-chart": '<svg class="icon" viewBox="0 0 24 24"><line x1="4" y1="20" x2="20" y2="20"/><rect x="5" y="11" width="3" height="7" rx=".5"/><rect x="11" y="7" width="3" height="11" rx=".5"/><rect x="17" y="3" width="3" height="15" rx=".5"/></svg>',
+    users: '<svg class="icon" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
+    clipboard: '<svg class="icon" viewBox="0 0 24 24"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1M9 10h6M9 14h6M9 18h4"/></svg>',
+    "eye-bars": '<svg class="icon icon-eye-bars" viewBox="0 0 32 24"><path d="M1.5 10.5s3.7-5.5 8.8-5.5 8.8 5.5 8.8 5.5-3.7 5.5-8.8 5.5-8.8-5.5-8.8-5.5z"/><circle cx="10.3" cy="10.5" r="2.5"/><path d="M20 21h11"/><rect x="20.5" y="15" width="2.2" height="6" rx=".5"/><rect x="24.4" y="11" width="2.2" height="10" rx=".5"/><rect x="28.3" y="7" width="2.2" height="14" rx=".5"/></svg>',
+    "calendar-clock": '<svg class="icon icon-calendar-clock" viewBox="0 0 30 24"><rect x="2" y="4" width="19" height="17" rx="2"/><path d="M6 2v5M17 2v5M2 10h19"/><circle cx="22" cy="16" r="5"/><path d="M22 13.5v2.8l2 1.2"/></svg>',
+    "org-chart": '<svg class="icon" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="5" rx="1"/><rect x="2" y="16" width="6" height="5" rx="1"/><rect x="16" y="16" width="6" height="5" rx="1"/><path d="M12 8v4M5 12h14M5 12v4M19 12v4"/></svg>',
+    "process-flow": '<svg class="icon" viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="5" rx="1"/><rect x="3" y="17" width="6" height="5" rx="1"/><rect x="15" y="17" width="6" height="5" rx="1"/><path d="M12 7v5M6 12h12M6 12v5M18 12v5"/></svg>',
   };
   return icons[name] || icons.modulos;
 }
@@ -1484,7 +1692,9 @@ function hexToRgba(hex, alpha) {
 function moduleHeaderHtml(moduleId, options = {}) {
   const module = modules.find((item) => item.id === moduleId) || modules[0];
   const meta = moduleHeaderMeta[module.id] || {};
-  const category = options.category || meta.category || "GESTÃO DA QUALIDADE";
+  const category = options.category !== undefined
+    ? options.category
+    : (meta.category ?? "GESTÃO DA QUALIDADE");
   const description = options.description || meta.description || module.desc;
   const toolbarClass = options.toolbarClass ? ` ${options.toolbarClass}` : "";
   const defaultActions = canEditModule(module.id) ? `<div class="toolbar-actions">${moduleHistoryControlsHtml(module.id)}</div>` : "";
@@ -1498,7 +1708,7 @@ function moduleHeaderHtml(moduleId, options = {}) {
     </div>
     <div class="page-toolbar module-summary-toolbar${toolbarClass}">
       <div>
-        <div class="welcome-eyebrow">${escapeHtml(category)}</div>
+        ${category ? `<div class="welcome-eyebrow">${escapeHtml(category)}</div>` : ""}
         <p class="welcome-sub">${escapeHtml(description)}</p>
       </div>
       ${actions}
@@ -1506,10 +1716,11 @@ function moduleHeaderHtml(moduleId, options = {}) {
   `;
 }
 
-function renderModuleDetail(moduleId) {
+function renderModuleDetail(moduleId, options = {}) {
   document.body.classList.remove("home-dashboard");
   document.body.classList.add("module-detail-view");
   activeView = "modulos";
+  localStorage.setItem(LAST_VIEW_STORAGE_KEY, `module:${moduleId}`);
   setActiveNav("modulos");
   pageContent.classList.remove(
     "company-page-content",
@@ -1526,6 +1737,7 @@ function renderModuleDetail(moduleId) {
     return;
   }
   currentDetailModule = moduleId;
+  if (options.restoreTabs !== false) restoreModuleTabs(moduleId);
   bindModuleHistoryActions();
 
   if (moduleId === "contexto") {
@@ -1544,7 +1756,6 @@ function renderModuleDetail(moduleId) {
   }
 
   if (moduleId === "nao-conformidades") {
-    ncMainTab = "registrar";
     renderNonConformityModule();
     return;
   }
@@ -1779,7 +1990,7 @@ function renderLeadershipModule() {
   pageContent.classList.remove("context-page-content");
   pageContent.classList.add("leadership-page-content");
   pageContent.innerHTML = `
-    ${moduleHeaderHtml("lideranca", { toolbarClass: "context-toolbar" })}
+    ${moduleHeaderHtml("lideranca", { toolbarClass: "context-toolbar", actions: false })}
 
     <div class="context-kpi-row" id="leadershipKpis"></div>
 
@@ -1788,7 +1999,7 @@ function renderLeadershipModule() {
       <button class="ctx-tab" data-leadership-main="politica" type="button">Política da Qualidade</button>
       <button class="ctx-tab" data-leadership-main="papeis" type="button">Papéis e Responsabilidades</button>
     </div>
-    <div class="subfilter-row" id="leadershipSubTabs"></div>
+    <div class="leadership-subnav"><div class="subfilter-row" id="leadershipSubTabs"></div><div class="module-tabs-actions toolbar-actions">${moduleHistoryControlsHtml("lideranca")}</div></div>
     <div id="leadershipTabContent"></div>
     <div id="leadershipModalMount"></div>
   `;
@@ -1804,6 +2015,7 @@ function bindLeadershipStaticActions() {
     button.addEventListener("click", () => {
       currentLeadershipMainTab = button.dataset.leadershipMain;
       currentLeadershipSubTab = leadershipTabs[currentLeadershipMainTab][0][0];
+      saveModuleTabs("lideranca");
       renderLeadershipTabs();
     });
   });
@@ -1825,7 +2037,38 @@ function bindLeadershipStaticActions() {
   });
 }
 
+function readModuleTabs() {
+  try { return JSON.parse(localStorage.getItem(MODULE_TABS_STORAGE_KEY) || "{}"); } catch { return {}; }
+}
+
+function saveModuleTabs(moduleId) {
+  const tabs = readModuleTabs();
+  if (moduleId === "empresa") tabs[moduleId] = { main: currentCompanyTab };
+  if (moduleId === "contexto") tabs[moduleId] = { main: currentContextTab };
+  if (moduleId === "lideranca") tabs[moduleId] = { main: currentLeadershipMainTab, sub: currentLeadershipSubTab };
+  if (moduleId === "riscos") tabs[moduleId] = { main: currentRiskTab };
+  if (moduleId === "nao-conformidades") tabs[moduleId] = { main: ncMainTab, sub: ncSubTab };
+  localStorage.setItem(MODULE_TABS_STORAGE_KEY, JSON.stringify(tabs));
+}
+
+function restoreModuleTabs(moduleId) {
+  const saved = readModuleTabs()[moduleId];
+  if (!saved) return;
+  if (moduleId === "empresa" && saved.main) currentCompanyTab = saved.main;
+  if (moduleId === "contexto" && saved.main) currentContextTab = saved.main;
+  if (moduleId === "lideranca") {
+    if (saved.main) currentLeadershipMainTab = saved.main;
+    if (saved.sub) currentLeadershipSubTab = saved.sub;
+  }
+  if (moduleId === "riscos") currentRiskTab = localStorage.getItem(RISK_TAB_STORAGE_KEY) || saved.main || currentRiskTab;
+  if (moduleId === "nao-conformidades") {
+    if (saved.main) ncMainTab = saved.main;
+    if (saved.sub) ncSubTab = saved.sub;
+  }
+}
+
 function renderLeadershipTabs() {
+  saveModuleTabs("lideranca");
   document.querySelectorAll("[data-leadership-main]").forEach((button) => {
     button.classList.toggle("active", button.dataset.leadershipMain === currentLeadershipMainTab);
   });
@@ -2308,6 +2551,7 @@ function handleLeadershipAction(action, id) {
   }
   if (action === "switch-tab") {
     currentLeadershipSubTab = id;
+    saveModuleTabs("lideranca");
     renderLeadershipTabs();
     return;
   }
@@ -2829,7 +3073,7 @@ function renderRiskOpportunityModule() {
   pageContent.classList.remove("context-page-content");
   pageContent.classList.add("risk-page-content");
   pageContent.innerHTML = `
-    ${moduleHeaderHtml("riscos", { toolbarClass: "risk-toolbar" })}
+    ${moduleHeaderHtml("riscos", { toolbarClass: "risk-toolbar", actions: false })}
 
     <div class="risk-kpi-row">
       <article class="kpi-card" style="--accent-line:#F87171;">
@@ -2837,35 +3081,36 @@ function renderRiskOpportunityModule() {
           <div class="kpi-icon" style="border-color:rgba(248,113,113,0.4); color:#F87171;">${moduleIcon("nao-conformidades")}</div>
           <div><div class="kpi-label">Riscos e oportunidades</div><div class="kpi-value big" id="riskKpiTotal">-</div></div>
         </div>
-        <div class="kpi-caption" id="riskKpiTotalCaption">carregando...</div>
+        <div class="risk-kpi-detail">${moduleIcon("documentos")}<div class="kpi-caption" id="riskKpiTotalCaption">carregando...</div>${moduleIcon("arrow-right")}</div>
       </article>
       <article class="kpi-card" style="--accent-line:#fb923c;">
         <div class="kpi-top">
           <div class="kpi-icon" style="border-color:rgba(251,146,60,0.4); color:#fb923c;">${moduleIcon("minus")}</div>
           <div><div class="kpi-label">Críticos/Altos</div><div class="kpi-value big" id="riskKpiHigh">-</div></div>
         </div>
-        <div class="kpi-caption">nível >= 10 (probabilidade x impacto)</div>
+        <div class="risk-kpi-detail">${moduleIcon("bar-chart")}<div class="kpi-caption">Ações de alta prioridade<br>em andamento</div>${moduleIcon("arrow-right")}</div>
       </article>
       <article class="kpi-card" style="--accent-line:#34D399;">
         <div class="kpi-top">
           <div class="kpi-icon" style="border-color:rgba(52,211,153,0.4); color:#34D399;">${moduleIcon("check-circle")}</div>
           <div><div class="kpi-label">Objetivos da qualidade</div><div class="kpi-value big" id="riskKpiGoals">-</div></div>
         </div>
-        <div class="kpi-caption" id="riskKpiGoalsCaption">carregando...</div>
+        <div class="risk-kpi-detail">${moduleIcon("gear")}<div class="kpi-caption">Riscos mitigados ou<br>sob controle</div>${moduleIcon("arrow-right")}</div>
       </article>
       <article class="kpi-card" style="--accent-line:#4fa3ff;">
         <div class="kpi-top">
           <div class="kpi-icon" style="border-color:rgba(47,143,240,0.4); color:#4fa3ff;">${moduleIcon("edit")}</div>
           <div><div class="kpi-label">Mudanças em execução</div><div class="kpi-value big" id="riskKpiChanges">-</div></div>
         </div>
-        <div class="kpi-caption">planejamento de mudanças · 6.3</div>
+        <div class="risk-kpi-detail">${moduleIcon("users")}<div class="kpi-caption">Planos de ação em execução<br>com acompanhamento</div>${moduleIcon("arrow-right")}</div>
       </article>
     </div>
 
     <div class="ctx-tabs" id="riskTabs">
-      <button class="ctx-tab active" data-risk-tab="riscos" type="button">Matriz de riscos</button>
-      <button class="ctx-tab" data-risk-tab="objetivos" type="button">Objetivos da Qualidade</button>
-      <button class="ctx-tab" data-risk-tab="mudancas" type="button">Planejamento de Mudanças</button>
+      <button class="ctx-tab${currentRiskTab === "riscos" ? " active" : ""}" data-risk-tab="riscos" type="button">Matriz de riscos</button>
+      <button class="ctx-tab${currentRiskTab === "objetivos" ? " active" : ""}" data-risk-tab="objetivos" type="button">Objetivos da Qualidade</button>
+      <button class="ctx-tab${currentRiskTab === "mudancas" ? " active" : ""}" data-risk-tab="mudancas" type="button">Planejamento de Mudanças</button>
+      <div class="risk-content-actions toolbar-actions">${moduleHistoryControlsHtml("riscos")}</div>
     </div>
 
     <div id="riskTabContent"></div>
@@ -2917,6 +3162,8 @@ function bindRiskTabs() {
   document.querySelectorAll("[data-risk-tab]").forEach((tab) => {
     tab.addEventListener("click", () => {
       currentRiskTab = tab.dataset.riskTab;
+      localStorage.setItem(RISK_TAB_STORAGE_KEY, currentRiskTab);
+      saveModuleTabs("riscos");
       document.querySelectorAll("[data-risk-tab]").forEach((item) => {
         item.classList.toggle("active", item.dataset.riskTab === currentRiskTab);
       });
@@ -2926,6 +3173,8 @@ function bindRiskTabs() {
 }
 
 function renderRiskTab() {
+  localStorage.setItem(RISK_TAB_STORAGE_KEY, currentRiskTab);
+  saveModuleTabs("riscos");
   const target = document.querySelector("#riskTabContent");
   if (!target) return;
   if (currentRiskTab === "objetivos") target.innerHTML = riskGoalsHtml();
@@ -2948,7 +3197,6 @@ function renderRiskKpis() {
   setText("#riskKpiTotalCaption", `${riskCount} riscos · ${opportunityCount} oportunidades`);
   setText("#riskKpiHigh", high);
   setText("#riskKpiGoals", objetivos.length);
-  setText("#riskKpiGoalsCaption", `${goalsDone} atingidos, ${objetivos.length - goalsDone} em andamento`);
   setText("#riskKpiChanges", changesRunning);
 }
 
@@ -3071,36 +3319,37 @@ function renderContextModule() {
   pageContent.innerHTML = `
     ${moduleHeaderHtml("contexto", {
       toolbarClass: "context-toolbar",
+      actions: false,
     })}
 
     <div class="context-kpi-row">
       <article class="kpi-card" style="--accent-line:#A78BFA;">
         <div class="kpi-top">
-          <div class="kpi-icon" style="border-color:rgba(167,139,250,0.4); color:#A78BFA;">${moduleIcon("modulos")}</div>
+          <div class="kpi-icon context-reference-icon">${moduleIcon("modulos")}</div>
           <div><div class="kpi-label">Itens SWOT</div><div class="kpi-value big" id="ctxKpiSwot">-</div></div>
         </div>
-        <div class="kpi-caption" id="ctxKpiSwotCaption">carregando...</div>
+        <div class="kpi-detail-row">${moduleIcon("clipboard")}<div class="kpi-caption" id="ctxKpiSwotCaption">carregando...</div>${moduleIcon("arrow-right")}</div>
       </article>
       <article class="kpi-card" style="--accent-line:#4fa3ff;">
         <div class="kpi-top">
-          <div class="kpi-icon" style="border-color:rgba(47,143,240,0.4); color:#4fa3ff;">${moduleIcon("contexto")}</div>
+          <div class="kpi-icon context-reference-icon">${moduleIcon("contexto")}</div>
           <div><div class="kpi-label">Partes interessadas</div><div class="kpi-value big" id="ctxKpiPartes">-</div></div>
         </div>
-        <div class="kpi-caption" id="ctxKpiPartesCaption">mapeadas e monitoradas</div>
+        <div class="kpi-detail-row">${moduleIcon("eye-bars")}<div class="kpi-caption" id="ctxKpiPartesCaption">mapeadas e monitoradas</div>${moduleIcon("arrow-right")}</div>
       </article>
       <article class="kpi-card" style="--accent-line:#34D399;">
         <div class="kpi-top">
-          <div class="kpi-icon" style="border-color:rgba(52,211,153,0.4); color:#34D399;">${moduleIcon("check-circle")}</div>
+          <div class="kpi-icon context-reference-icon">${moduleIcon("shield")}</div>
           <div><div class="kpi-label">Escopo do SGQ</div><div class="kpi-value" id="ctxKpiEscopo">-</div></div>
         </div>
-        <div class="kpi-caption" id="ctxKpiEscopoCaption">-</div>
+        <div class="kpi-detail-row">${moduleIcon("calendar-clock")}<div class="kpi-caption" id="ctxKpiEscopoCaption">-</div>${moduleIcon("arrow-right")}</div>
       </article>
       <article class="kpi-card" style="--accent-line:#F2B705;">
         <div class="kpi-top">
-          <div class="kpi-icon" style="border-color:rgba(242,183,5,0.4); color:#F2B705;">${moduleIcon("home")}</div>
+          <div class="kpi-icon context-reference-icon">${moduleIcon("process-flow")}</div>
           <div><div class="kpi-label">Processos mapeados</div><div class="kpi-value big" id="ctxKpiProcessos">-</div></div>
         </div>
-        <div class="kpi-caption" id="ctxKpiProcessosCaption">estratégicos, operacionais e de suporte</div>
+        <div class="kpi-detail-row">${moduleIcon("org-chart")}<div class="kpi-caption" id="ctxKpiProcessosCaption">estratégicos, operacionais e de suporte</div>${moduleIcon("arrow-right")}</div>
       </article>
     </div>
 
@@ -3109,6 +3358,7 @@ function renderContextModule() {
       <button class="ctx-tab${currentContextTab === "partes" ? " active" : ""}" data-context-tab="partes" type="button">Partes Interessadas</button>
       <button class="ctx-tab${currentContextTab === "escopo" ? " active" : ""}" data-context-tab="escopo" type="button">Escopo</button>
       <button class="ctx-tab${currentContextTab === "processos" ? " active" : ""}" data-context-tab="processos" type="button">Processos</button>
+      <div class="module-tabs-actions toolbar-actions">${moduleHistoryControlsHtml("contexto")}</div>
     </div>
 
     <div id="contextTabContent"></div>
@@ -3162,6 +3412,7 @@ function bindContextTabs() {
   document.querySelectorAll("[data-context-tab]").forEach((tab) => {
     tab.addEventListener("click", () => {
       currentContextTab = tab.dataset.contextTab;
+      saveModuleTabs("contexto");
       document.querySelectorAll("[data-context-tab]").forEach((item) => item.classList.toggle("active", item.dataset.contextTab === currentContextTab));
       renderContextTab();
     });
@@ -3169,6 +3420,7 @@ function bindContextTabs() {
 }
 
 function renderContextTab() {
+  saveModuleTabs("contexto");
   const target = document.querySelector("#contextTabContent");
   if (!target) return;
   if (currentContextTab === "partes") target.innerHTML = contextPartesHtml();
@@ -4470,11 +4722,12 @@ function renderNonConformityModule() {
   pageContent.classList.add("nc-page-content");
   pageContent.innerHTML = `
     ${moduleHeaderHtml("nao-conformidades", {
-      actions: `<div class="toolbar-actions">${moduleHistoryControlsHtml("nao-conformidades")}<a class="btn-transmit" data-nc-tv href="${ncTvUrl()}" target="_blank" rel="noopener"><span class="live-dot"></span>${moduleIcon("external")} Transmitir</a></div>`,
+      actions: `<div class="toolbar-actions"><a class="btn-transmit" data-nc-tv href="${ncTvUrl()}" target="_blank" rel="noopener"><span class="live-dot"></span>${moduleIcon("external")} Transmitir</a></div>`,
     })}
     <div id="ncKpis"></div>
     <div class="ctx-tabs" id="ncMainTabs">
       ${[["registrar", "Registrar NC"], ["controle", "Controle"], ["cadastros", "Cadastros"], ["dashboards", "Dashboards"]].map(([id, label]) => `<button class="ctx-tab ${ncMainTab === id ? "active" : ""}" data-nc-tab="${id}" type="button">${label}</button>`).join("")}
+      <div class="module-tabs-actions toolbar-actions">${moduleHistoryControlsHtml("nao-conformidades")}</div>
     </div>
     <div class="subtab-row" id="ncSubTabs"></div><div id="ncTabContent"></div><div id="ncModalMount"></div>`;
   pageContent.querySelectorAll("[data-nc-tab]").forEach((button) => button.addEventListener("click", () => {
@@ -4507,6 +4760,7 @@ function ncKpi(label, value, caption, color, icon) {
 }
 
 function renderNcTab() {
+  saveModuleTabs("nao-conformidades");
   const sub = pageContent.querySelector("#ncSubTabs");
   sub.innerHTML = ncMainTab === "cadastros" ? Object.entries(ncCatalogConfig).map(([id, cfg]) => `<button class="subtab-pill ${ncSubTab === id ? "active" : ""}" data-nc-subtab="${id}" type="button">${cfg.title}</button>`).join("") : "";
   sub.hidden = ncMainTab !== "cadastros";
@@ -5129,10 +5383,9 @@ function ncAggregate() {
 }
 
 function ncDashboardHtml() {
-  const agg = ncAggregate(); const years = [...new Set(state.ncs.map((row) => String(row.dataOrigem || "").slice(0, 4)).filter(Boolean))].sort().reverse();
-  const data = Object.entries(agg.dimensions[ncDashDimension] || {}).sort((a, b) => b[1] - a[1]); const max = Math.max(1, ...data.map(([, value]) => value));
-  const status = ["Aguardando análise", "Ações em andamento", "Aguardando eficácia", "Encerrado"].map((name) => [name, agg.rows.filter((row) => row.status === name).length]);
-  return `<div class="dash-toolbar"><label class="fg">Ano<select class="input-basic" data-nc-dash="year"><option value="todos">Todos os anos</option>${years.map((year) => `<option ${ncDashYear === year ? "selected" : ""}>${year}</option>`).join("")}</select></label></div><div class="dash-cards">${[["Total de RNCs", agg.rows.length, `${agg.open} abertas`], ["Gravidade maior", agg.major, "maior severidade"], ["Reincidentes", agg.repeat, "atenção especial"], ["Taxa de encerramento", agg.rows.length ? `${Math.round(agg.closed / agg.rows.length * 100)}%` : "0%", "eficácia comprovada"]].map(([label, value, caption], index) => `<article class="dash-solid-card dash-color-${index}"><div class="sc-label">${label}</div><div class="sc-value">${value}</div><div class="sc-caption">${caption}</div></article>`).join("")}</div><div class="chart-grid"><section class="chart-card full"><div class="chart-card-hd"><div><h4>Gráfico de Pareto</h4><div class="sub">Frequência por dimensão</div></div><select class="input-basic" data-nc-dash="dimension">${[["processo", "Processo"], ["setor", "Setor"], ["origem", "Origem"], ["gravidade", "Gravidade"], ["referencia", "Cliente/Fornecedor"]].map(([value, label]) => `<option value="${value}" ${ncDashDimension === value ? "selected" : ""}>${label}</option>`).join("")}</select></div><div class="nc-bars">${data.map(([label, value]) => `<div class="nc-bar-row"><span>${escapeHtml(label)}</span><div><i style="width:${value / max * 100}%"></i></div><strong>${value}</strong></div>`).join("") || `<div class="empty-state">Sem dados para o período.</div>`}</div></section><section class="chart-card"><div class="chart-card-hd"><h4>Status dos RNCs</h4></div><div class="nc-status-chart">${status.map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${value}</strong></div>`).join("")}</div></section><section class="chart-card"><div class="chart-card-hd"><h4>Ações corretivas</h4></div><div class="nc-status-chart"><div><span>Concluídas</span><strong>${agg.actions.filter((row) => row.status === "Concluída").length}</strong></div><div><span>Pendentes</span><strong>${agg.actions.filter((row) => row.status !== "Concluída").length}</strong></div><div><span>Atrasadas</span><strong>${agg.actions.filter((row) => row.status !== "Concluída" && row.prazo < ncToday()).length}</strong></div></div></section></div>`;
+  const theme = state.settings?.theme || "dark";
+  const query = new URLSearchParams({ ano: ncDashYear, dim: ncDashDimension, embedded: "1", theme }).toString();
+  return `<section class="nc-dashboard-embed"><iframe title="Dashboard de Não conformidades" src="${ncTvUrl()}&${query}"></iframe></section>`;
 }
 
 function renderOperationalTable(moduleId) {
@@ -5327,6 +5580,7 @@ async function persistCompanyProfile(message = "Dados da empresa salvos.") {
 }
 
 function renderEmpresa() {
+  saveModuleTabs("empresa");
   setTopbar("Empresa", "Dados principais da organização");
   pageContent.classList.remove("risk-page-content");
   pageContent.classList.remove("context-page-content");
@@ -7742,6 +7996,27 @@ function bindModuleButtons() {
   bindModuleCards();
 }
 
+function resetModuleTabsForFreshEntry(moduleId) {
+  const tabs = readModuleTabs();
+  delete tabs[moduleId];
+  localStorage.setItem(MODULE_TABS_STORAGE_KEY, JSON.stringify(tabs));
+
+  if (moduleId === "empresa") currentCompanyTab = "dados";
+  if (moduleId === "contexto") currentContextTab = "swot";
+  if (moduleId === "lideranca") {
+    currentLeadershipMainTab = "lideranca";
+    currentLeadershipSubTab = "acoes";
+  }
+  if (moduleId === "riscos") {
+    currentRiskTab = "riscos";
+    localStorage.setItem(RISK_TAB_STORAGE_KEY, "riscos");
+  }
+  if (moduleId === "nao-conformidades") {
+    ncMainTab = "registrar";
+    ncSubTab = "clientes";
+  }
+}
+
 function bindModuleCards() {
   markModuleCards();
   if (document.body.dataset.moduleCardsBound === "true") return;
@@ -7753,7 +8028,10 @@ function bindModuleCards() {
     const moduleId = resolveModuleId(trigger);
     if (!moduleId) return;
     event.preventDefault();
-    renderModuleDetail(moduleId);
+    if (trigger.dataset.healthTarget === "controle") ncMainTab = "controle";
+    resetModuleTabsForFreshEntry(moduleId);
+    if (trigger.dataset.healthTarget === "controle") ncMainTab = "controle";
+    renderModuleDetail(moduleId, { restoreTabs: false });
   });
 
   document.addEventListener("keydown", (event) => {
@@ -7763,7 +8041,10 @@ function bindModuleCards() {
     const moduleId = resolveModuleId(trigger);
     if (!moduleId) return;
     event.preventDefault();
-    renderModuleDetail(moduleId);
+    if (trigger.dataset.healthTarget === "controle") ncMainTab = "controle";
+    resetModuleTabsForFreshEntry(moduleId);
+    if (trigger.dataset.healthTarget === "controle") ncMainTab = "controle";
+    renderModuleDetail(moduleId, { restoreTabs: false });
   });
 }
 
