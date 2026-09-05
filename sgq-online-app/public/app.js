@@ -2283,7 +2283,7 @@ async function openLeadershipForm(type, id = "") {
   if (type === "acao") await loadLeadershipParticipants();
   const rows = config.singleton ? [] : leadershipGet(config.key);
   const item = config.singleton ? leadershipGet(config.key) : rows.find((row) => row.id === id);
-  const actionLabel = id || config.singleton ? "Editar" : type === "delegacao" ? "Nova" : "Novo";
+  const actionLabel = id || config.singleton ? "Editar" : type === "delegacao" || type === "acao" ? "Nova" : "Novo";
   const title = `${actionLabel} ${leadershipTypeLabel(type)}`;
   document.querySelector("#leadershipModalMount").innerHTML = `
     <div class="modal-overlay show" id="leadershipRecordModal">
@@ -2619,7 +2619,7 @@ async function persistLeadershipRecord() {
   }
   closeLeadershipModal();
   const savedMessage = type === "acao"
-    ? `Ação salva. Verifique seu calendário.${invitationMessage}`
+    ? `${id ? "Ação atualizada" : "Nova ação salva"}. Verifique seu calendário.${invitationMessage}`
     : `${leadershipTypeLabel(type)} salvo.${invitationMessage}`;
   refreshLeadershipScreen(savedMessage);
 }

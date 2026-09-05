@@ -19,7 +19,7 @@ test("editing sends a fresh notification to previously invited selected particip
     await page.locator("[data-lc-participant]").first().check();
     await page.getByRole("button", { name: "Salvar", exact: true }).click();
     await expect(page.locator("#leadershipRecordModal")).toHaveCount(0);
-    await expect(page.getByText(/Ação salva\. Verifique seu calendário\./)).toBeVisible();
+    await expect(page.getByText(/(?:Nova ação salva|Ação atualizada)\. Verifique seu calendário\./)).toBeVisible();
   }
   expect(notifications).toHaveLength(2);
   expect(notifications[1].participantIds).toEqual(notifications[0].participantIds);

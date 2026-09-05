@@ -6967,6 +6967,19 @@ body.theme-white .app-footer {
     grid-row: 3 / span 2;
   }
 
+  .leadership-action-modal .leadership-description-field textarea {
+    min-height: 132px;
+  }
+
+  .leadership-action-modal .modal-actions {
+    position: sticky;
+    bottom: -26px;
+    z-index: 2;
+    margin: 18px -38px -26px;
+    padding: 12px 38px 26px;
+    background: var(--bg-panel);
+  }
+
   body .app-footer {
     position: relative;
     min-height: 34px !important;
@@ -6997,7 +7010,7 @@ body.theme-white .app-footer {
   body .modal-overlay .modal-box {
     width: min(92vw, 1480px) !important;
     max-width: 1480px !important;
-    max-height: 90vh;
+    max-height: 94vh;
     border-radius: 24px !important;
     padding: 30px 38px 26px;
     box-sizing: border-box;
@@ -7053,6 +7066,20 @@ body.theme-white .app-footer {
   flex: 1 1 auto;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+@media screen and (min-width: 801px) {
+  .leadership-action-modal .leadership-evidence-field #lcEvidenceFileName {
+    line-height: 1.1;
+  }
+
+  .leadership-action-modal .leadership-evidence-field #lcEvidenceFileName .nc-attachment-row {
+    min-height: 0;
+    margin-top: 2px;
+    padding: 3px 6px;
+    border: 0;
+    background: transparent;
+  }
 }
 
 body.theme-white .tb-icon-btn:hover,
