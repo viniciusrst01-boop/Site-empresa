@@ -1877,7 +1877,7 @@ function leadershipActionsHtml() {
     <tr>
       <td class="mono">${formatDate(item.data)}</td><td>${leadershipActionTypeChip(item.tipo)}</td>
       <td class="desc-cell">${escapeHtml(item.descricao)}</td><td class="desc-cell">${escapeHtml(item.participantes)}</td>
-      <td>${item.evidenciaArquivo?.id ? `<a class="table-file-link" href="/api/leadership-attachments?id=${encodeURIComponent(item.evidenciaArquivo.id)}" target="_blank" rel="noopener">${escapeHtml(item.evidenciaArquivo.name)}</a>` : escapeHtml(item.evidencia || "-")}</td><td><span class="status-pill ${statusClass(item.status)}"><span class="status-dot2"></span>${escapeHtml(item.status)}</span></td>
+      <td>${item.evidenciaArquivo?.id ? `<a class="table-file-link" href="/api/leadership-attachments?id=${encodeURIComponent(item.evidenciaArquivo.id)}" target="_blank" rel="noopener">${escapeHtml(item.evidenciaArquivo.name)}</a>` : ""}</td><td><span class="status-pill ${statusClass(item.status)}"><span class="status-dot2"></span>${escapeHtml(item.status)}</span></td>
       <td>${leadershipActions("acao", item.id)}</td>
     </tr>`).join("") : `<tr><td colspan="7"><div class="empty-state">Nenhuma ação registrada.</div></td></tr>`;
   return leadershipCard("Ações da Direção", "Evidências do comprometimento da Alta Direção com o SGQ · 5.1", "Nova ação", "new-acao", `
@@ -2016,7 +2016,7 @@ function leadershipPolicyHtml() {
 function leadershipCommunicationHtml() {
   const rows = leadershipGet("comunicacao").sort((a, b) => new Date(b.data) - new Date(a.data));
   const body = rows.length ? rows.map((item) => `
-    <tr><td class="mono">${formatDate(item.data)}</td><td>${chip(item.forma, "mchip-blue")}</td><td class="desc-cell">${escapeHtml(item.setor)}</td><td class="mono strong-cell">${escapeHtml(item.qtdPessoas)}</td><td>${item.evidenciaArquivo?.id ? `<a class="table-file-link" href="/api/leadership-attachments?id=${encodeURIComponent(item.evidenciaArquivo.id)}" target="_blank" rel="noopener">${escapeHtml(item.evidenciaArquivo.name)}</a>` : escapeHtml(item.evidencia || "-")}</td><td>${leadershipActions("comunicacao", item.id)}</td></tr>
+    <tr><td class="mono">${formatDate(item.data)}</td><td>${chip(item.forma, "mchip-blue")}</td><td class="desc-cell">${escapeHtml(item.setor)}</td><td class="mono strong-cell">${escapeHtml(item.qtdPessoas)}</td><td>${item.evidenciaArquivo?.id ? `<a class="table-file-link" href="/api/leadership-attachments?id=${encodeURIComponent(item.evidenciaArquivo.id)}" target="_blank" rel="noopener">${escapeHtml(item.evidenciaArquivo.name)}</a>` : ""}</td><td>${leadershipActions("comunicacao", item.id)}</td></tr>
   `).join("") : `<tr><td colspan="6"><div class="empty-state">Nenhum registro de comunicação.</div></td></tr>`;
   return leadershipCard("Comunicação da Política", "Registro de como a política foi comunicada · 5.2", "Novo registro", "new-comunicacao", `
     <table class="ctxtbl"><thead><tr><th>Data</th><th>Forma</th><th>Setor</th><th>Qtd. pessoas</th><th>Evidência</th><th>Ações</th></tr></thead><tbody>${body}</tbody></table>`);
@@ -2263,7 +2263,7 @@ function handleLeadershipAction(action, id) {
 }
 
 const leadershipCollections = {
-  acao: { key: "acoes", prefix: "AD", fields: [["data", "Data", "date"], ["tipo", "Tipo", "select", ["Reunião Estratégica", "Análise de Indicadores", "Decisão Estratégica", "Alocação de Recursos"]], ["descricao", "Descrição", "textarea"], ["participantIds", "Participantes", "participants"], ["evidencia", "Evidência", "file"], ["responsavel", "Responsável", "people"], ["status", "Status", "select", ["Programada", "Concluída", "Não Realizada"]]] },
+  acao: { key: "acoes", prefix: "AD", fields: [["data", "Data", "date"], ["horaInicio", "Horário de início", "time"], ["horaFim", "Horário de término", "time"], ["tipo", "Tipo", "select", ["Reunião Estratégica", "Análise de Indicadores", "Decisão Estratégica", "Alocação de Recursos"]], ["descricao", "Descrição", "textarea"], ["participantIds", "Participantes", "participants"], ["evidencia", "Evidência", "file"], ["responsavel", "Responsável", "people"], ["status", "Status", "select", ["Programada", "Concluída", "Não Realizada"]]] },
   plano: { key: "plano", prefix: "P5W2H", fields: [["oQue", "O quê", "textarea"], ["porQue", "Por quê", "textarea"], ["onde", "Onde"], ["quando", "Quando", "date"], ["quem", "Quem", "people"], ["como", "Como", "textarea"], ["quanto", "Quanto", "number"], ["status", "Status", "select", ["Não Iniciado", "Em Andamento", "Atrasado", "Concluído"]]] },
   comunicacao: { key: "comunicacao", prefix: "COMPOL", fields: [["data", "Data", "date"], ["forma", "Forma", "select", ["Reunião de Equipe", "E-mail", "Treinamento", "Integração", "Mural/Comunicado Interno"]], ["setor", "Setor"], ["qtdPessoas", "Qtd. pessoas", "number"], ["evidencia", "Evidência", "file"]] },
   cargo: { key: "cargos", prefix: "CARGO", fields: [["nome", "Nome"], ["cargo", "Cargo"], ["departamento", "Departamento"], ["substituto", "Substituto"], ["status", "Status", "select", ["Ativo", "Inativo"]], ["descricao", "Descrição", "textarea"], ["responsabilidades", "Responsabilidades, uma por linha", "lines"], ["autoridades", "Autoridades, uma por linha", "lines"]] },
@@ -2317,6 +2317,11 @@ async function openLeadershipForm(type, id = "") {
     event.currentTarget.hidden = true;
   });
   document.querySelector("#lcPolicyApprover")?.addEventListener("change", syncLeadershipApproverRole);
+  if (type === "acao") {
+    const updateSlots = () => updateLeadershipMeetingSlots(item?.id || "");
+    document.querySelector("[data-lc-field='data']")?.addEventListener("change", updateSlots);
+    updateSlots();
+  }
   if (type === "politica") syncLeadershipApproverRole();
   document.querySelector("#lcDelegationHolder")?.addEventListener("change", syncLeadershipDelegationRole);
   if (type === "delegacao") syncLeadershipDelegationRole();
@@ -2391,6 +2396,10 @@ function leadershipFieldHtml(key, label, fieldType = "text", options = [], value
     const choices = fieldType === "people" ? ["Hugo Melo", "Marina Souza", "Carlos Andrade", "Beatriz Santos", "Rafael Costa", "João Pereira", "Eduardo Lima"] : options;
     return `<div class="field"><label>${escapeHtml(label)}</label><select class="input-basic" data-lc-field="${key}">${choices.map((option) => `<option ${option === displayValue ? "selected" : ""}>${escapeHtml(option)}</option>`).join("")}</select></div>`;
   }
+  if (fieldType === "time") {
+    const listId = `lc-${key}-slots`;
+    return `<div class="field"><label for="lc-${key}">${escapeHtml(label)}</label><input class="input-basic" id="lc-${key}" data-lc-field="${key}" type="time" list="${listId}" value="${escapeHtml(displayValue)}"><datalist id="${listId}"></datalist></div>`;
+  }
   if (fieldType === "participants") {
     const savedNames = String(record?.participantes || "").split(",").map((name) => name.trim());
     const selectedIds = Array.isArray(record?.participantIds)
@@ -2405,6 +2414,23 @@ function leadershipFieldHtml(key, label, fieldType = "text", options = [], value
     return `<div class="field full"><label id="lcParticipantsLabel">${escapeHtml(label)}</label><div class="participants-checklist" role="group" aria-labelledby="lcParticipantsLabel" aria-describedby="lcParticipantsHelp">${optionsHtml}</div><small class="field-help" id="lcParticipantsHelp">Selecione um ou mais usuários cadastrados. Os participantes recebem o convite ao salvar uma reunião.</small></div>`;
   }
   return `<div class="field"><label>${escapeHtml(label)}</label><input class="input-basic" data-lc-field="${key}" type="${fieldType}" value="${escapeHtml(displayValue)}"></div>`;
+}
+
+function updateLeadershipMeetingSlots(excludeId = "") {
+  const date = document.querySelector("[data-lc-field='data']")?.value || "";
+  const meetings = leadershipGet("acoes").filter((row) => row.id !== excludeId && row.data === date && row.horaInicio && row.horaFim);
+  const slots = Array.from({ length: 21 }, (_, index) => `${String(8 + Math.floor(index / 2)).padStart(2, "0")}:${index % 2 ? "30" : "00"}`)
+    .filter((slot) => !meetings.some((row) => slot >= row.horaInicio && slot < row.horaFim));
+  ["horaInicio", "horaFim"].forEach((key) => {
+    const list = document.querySelector(`#lc-${key}-slots`);
+    if (list) list.innerHTML = slots.map((slot) => `<option value="${slot}"></option>`).join("");
+  });
+}
+
+function leadershipMeetingConflicts(candidate, excludeId = "") {
+  if (!candidate.data || !candidate.horaInicio || !candidate.horaFim) return false;
+  if (candidate.horaInicio >= candidate.horaFim) return true;
+  return leadershipGet("acoes").some((row) => row.id !== excludeId && row.data === candidate.data && row.horaInicio && row.horaFim && candidate.horaInicio < row.horaFim && candidate.horaFim > row.horaInicio);
 }
 
 async function saveLeadershipRecord() {
@@ -2424,6 +2450,10 @@ async function saveLeadershipRecord() {
   });
   if (type === "acao") {
     record.participantIds = [...document.querySelectorAll("[data-lc-participant]:checked")].map((field) => field.value);
+    if (record.tipo === "Reunião Estratégica" && leadershipMeetingConflicts(record, id)) {
+      toast(record.horaInicio >= record.horaFim ? "O horário de término deve ser posterior ao início." : "Esse horário não está disponível nesse dia.");
+      return;
+    }
   }
   const evidenceInput = document.querySelector("#lcEvidenceFile");
   const removeEvidence = inputValue("lcRemoveEvidence") === "true";
