@@ -6940,15 +6940,30 @@ body.theme-white .app-footer {
   }
 }
 
-@media (min-width: 801px) {
-  /* The action form follows the spacious leadership reference layout. */
-  body .leadership-action-modal {
+@media screen and (min-width: 801px) {
+  body .modal-overlay .modal-box {
     width: min(92vw, 1480px) !important;
     max-width: 1480px !important;
     max-height: 90vh;
     border-radius: 24px !important;
     padding: 30px 38px 26px;
     box-sizing: border-box;
+    overflow-y: auto;
+  }
+}
+
+@media screen and (max-width: 800px) {
+  body .modal-overlay {
+    padding: 12px;
+  }
+
+  body .modal-overlay .modal-box {
+    width: 100%;
+    max-width: 100%;
+    max-height: calc(100dvh - 24px);
+    padding: 20px;
+    box-sizing: border-box;
+    overflow-y: auto;
   }
 }
 
