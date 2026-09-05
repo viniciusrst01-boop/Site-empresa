@@ -1916,7 +1916,7 @@ function leadershipCalendarHtml() {
     const meetings = meetingsByDate.get(dateKey) || [];
     cells.push(`<article class="leadership-calendar-day ${meetings.length ? "has-meeting" : ""} ${dateKey === todayKey ? "today" : ""}">
       <div class="leadership-calendar-date">${day}</div>
-      ${meetings.map((meeting) => `<button class="leadership-calendar-event" data-lc-action="view-meeting" data-id="${escapeHtml(meeting.id)}" type="button" title="Ver resumo de ${escapeHtml(meeting.descricao || "reunião estratégica")}">${moduleIcon("calendar")}<span class="leadership-calendar-event-copy"><span class="leadership-calendar-event-title">${escapeHtml(meeting.descricao || meeting.tipo)}</span><span class="leadership-calendar-event-status ${leadershipMeetingStatusClass(meeting.status)}">${escapeHtml(meeting.status || "Programada")}</span></span></button>`).join("")}
+      ${meetings.length ? `<button class="leadership-calendar-event leadership-calendar-day-link" data-lc-action="view-day" data-id="${dateKey}" type="button" title="Ver todas as reuniões de ${formatDate(dateKey)}">${moduleIcon("calendar")}<span class="leadership-calendar-event-copy"><span class="leadership-calendar-event-title">${escapeHtml(meetings[0].descricao || meetings[0].tipo)}${meetings.length > 1 ? ` (+${meetings.length - 1})` : ""}</span><span class="leadership-calendar-event-status ${leadershipMeetingStatusClass(meetings[0].status)}">${escapeHtml(meetings[0].status || "Programada")}</span></span></button>` : ""}
     </article>`);
   }
   while (cells.length % 7) cells.push('<div class="leadership-calendar-day empty" aria-hidden="true"></div>');
@@ -2243,6 +2243,10 @@ function handleLeadershipAction(action, id) {
   }
   if (action === "view-meeting") {
     viewLeadershipMeeting(id);
+    return;
+  }
+  if (action === "view-day") {
+    viewLeadershipDay(id);
     return;
   }
   if (action === "save-position") {
@@ -2651,6 +2655,11 @@ function viewLeadershipRecord(type, id) {
         <div class="modal-actions"><button class="btn-ghost" data-lc-action="close-modal" type="button">Fechar</button></div>
       </div>
     </div>`;
+}
+
+function viewLeadershipDay(date) {
+  const meetings = leadershipGet("acoes").filter((item) => item.data === date && /reunião/i.test(String(item.tipo || "")));
+  document.querySelector("#leadershipModalMount").innerHTML = `<div class="modal-overlay show" id="leadershipRecordModal"><div class="modal-box wide leadership-day-modal"><div class="modal-hd"><div><h3>Reuniões do dia</h3><p>${formatDate(date)}</p></div><button class="modal-close" data-lc-action="close-modal" type="button">${moduleIcon("close")}</button></div><div class="leadership-day-meetings">${meetings.map((meeting) => `<div class="leadership-day-meeting"><div><strong>${escapeHtml(meeting.descricao || meeting.tipo)}</strong><span>${escapeHtml(meeting.horaInicio || "Horário não informado")} ${meeting.horaFim ? ` às ${escapeHtml(meeting.horaFim)}` : ""}</span><em class="leadership-calendar-event-status ${leadershipMeetingStatusClass(meeting.status)}">${escapeHtml(meeting.status || "Programada")}</em></div><button class="module-history-btn" data-lc-action="view-meeting" data-id="${escapeHtml(meeting.id)}" type="button" title="Ver detalhes" aria-label="Ver detalhes">${moduleIcon("external")}</button></div>`).join("") || '<div class="empty-state">Nenhuma reunião encontrada.</div>'}</div></div></div>`;
 }
 
 function viewLeadershipMeeting(id) {

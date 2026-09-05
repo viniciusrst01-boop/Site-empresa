@@ -465,7 +465,9 @@ test("calendário da alta direção usa as reuniões cadastradas e abre o resumo
   const meetingDescription = await page.locator(".leadership-calendar-event-title").first().innerText();
   await page.locator(".leadership-calendar-event").first().scrollIntoViewIfNeeded();
   await page.screenshot({ path: testInfo.outputPath("leadership-calendar-status.png") });
-  await page.locator(".leadership-calendar-event").first().click();
+  await page.locator(".leadership-calendar-day-link").first().click();
+  await expect(page.getByRole("heading", { name: "Reuniões do dia" })).toBeVisible();
+  await page.locator(".leadership-day-meeting .module-history-btn").first().click();
   await expect(page.getByRole("heading", { name: "Resumo da reunião" })).toBeVisible();
   await expect(page.locator(".meeting-summary-grid")).toContainText("Descrição");
   await expect(page.locator(".meeting-summary-grid")).toContainText(meetingDescription);

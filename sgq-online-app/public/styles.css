@@ -5001,6 +5001,41 @@ body.theme-white .leadership-chart-card { background: #f8fcff; border-color: rgb
   text-align: left;
 }
 
+.leadership-calendar-day-link {
+  align-items: center;
+  min-height: 38px;
+}
+
+.leadership-day-meetings {
+  display: grid;
+  gap: 10px;
+}
+
+.leadership-day-meeting {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--bg-panel-hover) 55%, transparent);
+}
+
+.leadership-day-meeting > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.leadership-day-meeting strong,
+.leadership-day-meeting span {
+  overflow-wrap: anywhere;
+}
+
+.leadership-day-meeting span { color: var(--text-secondary); font-size: 12px; }
+.leadership-day-meeting .module-history-btn { flex: 0 0 34px; }
+
 .leadership-calendar-event:hover,
 .leadership-calendar-event:focus-visible { border-color: var(--accent-cyan); outline: none; }
 .leadership-calendar-event .icon { width: 13px; height: 13px; flex: 0 0 auto; color: var(--accent-cyan); }
