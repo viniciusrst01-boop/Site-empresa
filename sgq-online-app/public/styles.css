@@ -2905,6 +2905,24 @@ body.theme-light .btn-ghost-cta {
   flex-wrap: wrap;
 }
 
+.page-content .module-summary-toolbar {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.module-summary-toolbar > .toolbar-actions {
+  margin-left: auto;
+  max-width: none;
+  justify-content: flex-end;
+}
+
+.module-summary-toolbar .toolbar-actions > [data-module-history-action] {
+  order: 1;
+  flex-shrink: 0;
+}
+
 .module-history-btn {
   width: 36px;
   height: 34px;

@@ -65,17 +65,22 @@ function addAction(action = {}) {
     deadline.dispatchEvent(new Event("input", { bubbles: true }));
   });
   element.querySelector("[data-remove]").onclick = () => { if (confirm("Remover esta ação da resposta?")) element.remove(); };
+  element.querySelector('input[type="file"]').multiple = true;
+  element.querySelector('input[type="file"]').nextElementSibling.textContent = "Até 3 anexos por ação, com no máximo 2 MB por arquivo.";
   element.querySelector('input[type="file"]').onchange = async (event) => {
-    const file = event.target.files[0];
-    if (!file || busy) return;
-    if (file.size > 2 * 1024 * 1024) { notify(messages.invalid_evidence, true); event.target.value = ""; return; }
+    const files = [...event.target.files];
+    if (!files.length || busy) return;
+    if (element.evidenceIds.length + files.length > 3) { notify("Selecione no máximo 3 anexos por ação.", true); event.target.value = ""; return; }
+    if (files.some((file) => file.size > 2 * 1024 * 1024)) { notify(messages.invalid_evidence, true); event.target.value = ""; return; }
     lock(true);
     try {
-      const base64 = await new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(reader.result.split(",")[1]); reader.onerror = reject; reader.readAsDataURL(file); });
-      const uploaded = await (await request("/evidence", { method: "POST", body: JSON.stringify({ name: file.name, base64 }) })).json();
-      record.evidences.push(uploaded);
-      element.evidenceIds.push(uploaded.id);
-      renderFiles(element);
+      for (const file of files) {
+        const base64 = await new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(reader.result.split(",")[1]); reader.onerror = reject; reader.readAsDataURL(file); });
+        const uploaded = await (await request("/evidence", { method: "POST", body: JSON.stringify({ name: file.name, base64 }) })).json();
+        record.evidences.push(uploaded);
+        element.evidenceIds.push(uploaded.id);
+        renderFiles(element);
+      }
       notify("Evidência anexada. Salve a resposta para vinculá-la à ação.");
     } catch (error) { notify(error.message, true); }
     finally { lock(false); event.target.value = ""; }
@@ -101,7 +106,8 @@ function renderFiles(element) {
     const remove = document.createElement("button");
     remove.type = "button";
     remove.className = "file-remove";
-    remove.textContent = "Excluir";
+    remove.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 6h18M9 6V4h6v2M5 6l1 14h12l1-14M10 10v6M14 10v6"/></svg>';
+    remove.title = `Excluir ${file.name}`;
     remove.setAttribute("aria-label", `Excluir ${file.name}`);
     remove.onclick = async () => {
       if (busy || !confirm(`Excluir o arquivo ${file.name}?`)) return;

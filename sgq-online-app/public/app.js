@@ -1877,7 +1877,7 @@ function leadershipActionsHtml() {
     <tr>
       <td class="mono">${formatDate(item.data)}</td><td>${leadershipActionTypeChip(item.tipo)}</td>
       <td class="desc-cell">${escapeHtml(item.descricao)}</td><td class="desc-cell">${escapeHtml(item.participantes)}</td>
-      <td>${item.evidenciaArquivo?.id ? `<a class="table-file-link" href="/api/leadership-attachments?id=${encodeURIComponent(item.evidenciaArquivo.id)}" target="_blank" rel="noopener">${escapeHtml(item.evidenciaArquivo.name)}</a>` : ""}</td><td><span class="status-pill ${statusClass(item.status)}"><span class="status-dot2"></span>${escapeHtml(item.status)}</span></td>
+      <td>${leadershipAttachmentLinks(item)}</td><td><span class="status-pill ${statusClass(item.status)}"><span class="status-dot2"></span>${escapeHtml(item.status)}</span></td>
       <td>${leadershipActions("acao", item.id)}</td>
     </tr>`).join("") : `<tr><td colspan="7"><div class="empty-state">Nenhuma ação registrada.</div></td></tr>`;
   return leadershipCard("Ações da Direção", "Evidências do comprometimento da Alta Direção com o SGQ · 5.1", "Nova ação", "new-acao", `
@@ -2016,7 +2016,7 @@ function leadershipPolicyHtml() {
 function leadershipCommunicationHtml() {
   const rows = leadershipGet("comunicacao").sort((a, b) => new Date(b.data) - new Date(a.data));
   const body = rows.length ? rows.map((item) => `
-    <tr><td class="mono">${formatDate(item.data)}</td><td>${chip(item.forma, "mchip-blue")}</td><td class="desc-cell">${escapeHtml(item.setor)}</td><td class="mono strong-cell">${escapeHtml(item.qtdPessoas)}</td><td>${item.evidenciaArquivo?.id ? `<a class="table-file-link" href="/api/leadership-attachments?id=${encodeURIComponent(item.evidenciaArquivo.id)}" target="_blank" rel="noopener">${escapeHtml(item.evidenciaArquivo.name)}</a>` : ""}</td><td>${leadershipActions("comunicacao", item.id)}</td></tr>
+    <tr><td class="mono">${formatDate(item.data)}</td><td>${chip(item.forma, "mchip-blue")}</td><td class="desc-cell">${escapeHtml(item.setor)}</td><td class="mono strong-cell">${escapeHtml(item.qtdPessoas)}</td><td>${leadershipAttachmentLinks(item)}</td><td>${leadershipActions("comunicacao", item.id)}</td></tr>
   `).join("") : `<tr><td colspan="6"><div class="empty-state">Nenhum registro de comunicação.</div></td></tr>`;
   return leadershipCard("Comunicação da Política", "Registro de como a política foi comunicada · 5.2", "Novo registro", "new-comunicacao", `
     <table class="ctxtbl"><thead><tr><th>Data</th><th>Forma</th><th>Setor</th><th>Qtd. pessoas</th><th>Evidência</th><th>Ações</th></tr></thead><tbody>${body}</tbody></table>`);
@@ -2283,14 +2283,14 @@ async function openLeadershipForm(type, id = "") {
   const title = `${actionLabel} ${leadershipTypeLabel(type)}`;
   document.querySelector("#leadershipModalMount").innerHTML = `
     <div class="modal-overlay show" id="leadershipRecordModal">
-      <div class="modal-box wide ${type === "acao" ? "leadership-action-modal" : ""}">
+      <div class="modal-box wide ${type === "acao" ? "leadership-action-modal" : ""} ${type === "plano" ? "leadership-plan-modal" : ""}">
         <div class="modal-hd">
           <div><h3>${escapeHtml(title)}</h3><p>Direção · cláusula 5</p></div>
           <button class="modal-close" data-lc-action="close-modal" type="button">${moduleIcon("close")}</button>
         </div>
         <input type="hidden" id="lcRecordType" value="${type}">
         <input type="hidden" id="lcRecordId" value="${escapeHtml(id)}">
-        <div class="field-row2">${config.fields.map(([key, label, fieldType, options]) => leadershipFieldHtml(key, label, fieldType, options, item?.[key], item)).join("")}</div>
+        <div class="${type === "plano" ? "leadership-plan-grid" : "field-row2"}">${config.fields.map(([key, label, fieldType, options]) => leadershipFieldHtml(key, label, fieldType, options, item?.[key], item)).join("")}</div>
         <div class="modal-actions">
           <button class="btn-ghost" data-lc-action="close-modal" type="button">Cancelar</button>
           <button class="btn-primary" data-lc-action="save-record" type="button">Salvar</button>
@@ -2300,25 +2300,27 @@ async function openLeadershipForm(type, id = "") {
   document.querySelector("#leadershipRecordModal")?.addEventListener("click", (event) => {
     if (event.target.id === "leadershipRecordModal") closeLeadershipModal();
   });
-  document.querySelector("#lcEvidenceFile")?.addEventListener("change", (event) => {
-    const file = event.currentTarget.files?.[0];
-    const name = document.querySelector("#lcEvidenceFileName");
-    const removal = document.querySelector("#lcRemoveEvidence");
-    const removeButton = document.querySelector("[data-lc-remove-evidence]");
-    if (file && removal) removal.value = "false";
-    if (removeButton) removeButton.hidden = !file && !item?.evidenciaArquivo?.id && !item?.evidencia;
-    if (name) name.textContent = file ? file.name : (item?.evidencia || "Nenhum arquivo selecionado");
-  });
+  const multiEvidence = document.querySelector("#lcEvidenceFile");
+  if (multiEvidence) {
+    multiEvidence.multiple = true;
+    bindNcAttachmentEditor(multiEvidence, document.querySelector("#lcEvidenceFileName"), leadershipAttachments(item), false, "lideranca");
+  }
   document.querySelector("[data-lc-remove-evidence]")?.addEventListener("click", (event) => {
     const input = document.querySelector("#lcEvidenceFile");
     const removal = document.querySelector("#lcRemoveEvidence");
     const name = document.querySelector("#lcEvidenceFileName");
     if (input) input.value = "";
+    if (input) input.ncFiles = [];
     if (removal) removal.value = "true";
     if (name) name.textContent = "Anexo será removido ao salvar.";
     event.currentTarget.hidden = true;
   });
   document.querySelector("#lcPolicyApprover")?.addEventListener("change", syncLeadershipApproverRole);
+  document.querySelector("#lcRoleTitleSelect")?.addEventListener("change", (event) => {
+    const input = document.querySelector("#lcNewRoleTitle");
+    input.hidden = event.currentTarget.value !== "__new_role__";
+    if (!input.hidden) input.focus();
+  });
   if (type === "acao") {
     const updateSlots = () => updateLeadershipMeetingSlots(item?.id || "");
     document.querySelector("[data-lc-field='data']")?.addEventListener("change", updateSlots);
@@ -2366,14 +2368,27 @@ async function loadLeadershipParticipants() {
   }
 }
 
+function leadershipAttachments(record) {
+  return Array.isArray(record?.evidenciaArquivos) ? record.evidenciaArquivos : record?.evidenciaArquivo?.id ? [record.evidenciaArquivo] : [];
+}
+
+function leadershipAttachmentLinks(record) {
+  return leadershipAttachments(record).map((file) => `<a class="table-file-link" href="/api/leadership-attachments?id=${encodeURIComponent(file.id)}" target="_blank" rel="noopener">${escapeHtml(file.name)}</a>`).join("<br>");
+}
+
 function leadershipFieldHtml(key, label, fieldType = "text", options = [], value = "", record = {}) {
   const displayValue = Array.isArray(value) ? value.join("\n") : value || "";
+  if (key === "cargo" && fieldType === "text") {
+    const titles = [...new Set([...leadershipGet("cargos").map((role) => String(role.cargo || "").trim()), displayValue].filter(Boolean))].sort((a, b) => a.localeCompare(b, "pt-BR"));
+    return `<div class="field"><label for="lcRoleTitleSelect">${escapeHtml(label)}</label><select class="input-basic" id="lcRoleTitleSelect" data-lc-field="${key}"><option value="">Selecione um cargo</option>${titles.map((title) => `<option value="${escapeHtml(title)}" ${title === displayValue ? "selected" : ""}>${escapeHtml(title)}</option>`).join("")}<option value="__new_role__">Cadastrar novo cargo</option></select><input class="input-basic" id="lcNewRoleTitle" aria-label="Novo cargo" placeholder="Nome do novo cargo" hidden></div>`;
+  }
   if (fieldType === "file") {
     const hasEvidence = Boolean(displayValue || record?.evidenciaArquivo?.id);
     return `<div class="field full leadership-evidence-field"><label for="lcEvidenceFile">${escapeHtml(label)}</label><div class="leadership-evidence-control"><input class="input-basic" id="lcEvidenceFile" type="file" accept="application/pdf,image/png,image/jpeg,image/webp,.pdf,.png,.jpg,.jpeg,.webp"><button class="leadership-evidence-remove" data-lc-remove-evidence type="button" title="Remover anexo" aria-label="Remover anexo" ${hasEvidence ? "" : "hidden"}>${moduleIcon("trash")}</button></div><input id="lcRemoveEvidence" type="hidden" value="false"><small id="lcEvidenceFileName">${escapeHtml(displayValue || record?.evidenciaArquivo?.name || "Nenhum arquivo selecionado")}</small></div>`;
   }
   if (fieldType === "textarea" || fieldType === "lines") {
-    return `<div class="field full ${key === "descricao" ? "leadership-description-field" : ""}"><label>${escapeHtml(label)}</label><textarea class="input-basic" data-lc-field="${key}" data-lc-field-type="${fieldType}">${escapeHtml(displayValue)}</textarea></div>`;
+    const planClass = key === "oQue" ? "leadership-plan-what" : key === "porQue" ? "leadership-plan-why" : key === "como" ? "leadership-plan-how" : "";
+    return `<div class="field full ${key === "descricao" ? "leadership-description-field" : ""} ${planClass}"><label>${escapeHtml(label)}</label><textarea class="input-basic" data-lc-field="${key}" data-lc-field-type="${fieldType}">${escapeHtml(displayValue)}</textarea></div>`;
   }
   if (fieldType === "policy-revision") {
     return `<div class="field"><label>${escapeHtml(label)}</label><input class="input-basic" id="lcPolicyRevision" data-lc-field="${key}" value="${escapeHtml(nextPolicyRevision(record))}" readonly></div>`;
@@ -2396,7 +2411,8 @@ function leadershipFieldHtml(key, label, fieldType = "text", options = [], value
   }
   if (fieldType === "select" || fieldType === "people") {
     const choices = fieldType === "people" ? ["Hugo Melo", "Marina Souza", "Carlos Andrade", "Beatriz Santos", "Rafael Costa", "João Pereira", "Eduardo Lima"] : options;
-    return `<div class="field"><label>${escapeHtml(label)}</label><select class="input-basic" data-lc-field="${key}">${choices.map((option) => `<option ${option === displayValue ? "selected" : ""}>${escapeHtml(option)}</option>`).join("")}</select></div>`;
+    const planClass = key === "quem" ? "leadership-plan-who" : key === "status" ? "leadership-plan-status" : "";
+    return `<div class="field ${planClass}"><label>${escapeHtml(label)}</label><select class="input-basic" data-lc-field="${key}">${choices.map((option) => `<option ${option === displayValue ? "selected" : ""}>${escapeHtml(option)}</option>`).join("")}</select></div>`;
   }
   if (fieldType === "time") {
     const listId = `lc-${key}-slots`;
@@ -2415,7 +2431,8 @@ function leadershipFieldHtml(key, label, fieldType = "text", options = [], value
       : '<span class="participants-empty">Nenhum usuário disponível.</span>';
     return `<div class="field full leadership-participants-field"><label id="lcParticipantsLabel">${escapeHtml(label)}</label><div class="participants-checklist" role="group" aria-labelledby="lcParticipantsLabel" aria-describedby="lcParticipantsHelp">${optionsHtml}</div><small class="field-help" id="lcParticipantsHelp">Selecione um ou mais usuários cadastrados. Os participantes recebem o convite ao salvar uma reunião.</small></div>`;
   }
-  return `<div class="field"><label>${escapeHtml(label)}</label><input class="input-basic" data-lc-field="${key}" type="${fieldType}" value="${escapeHtml(displayValue)}"></div>`;
+  const planClass = key === "onde" ? "leadership-plan-where" : key === "quando" ? "leadership-plan-when" : key === "quem" ? "leadership-plan-who" : key === "quanto" ? "leadership-plan-amount" : key === "status" ? "leadership-plan-status" : "";
+  return `<div class="field ${planClass}"><label>${escapeHtml(label)}</label><input class="input-basic" data-lc-field="${key}" type="${fieldType}" value="${escapeHtml(displayValue)}"></div>`;
 }
 
 function updateLeadershipMeetingSlots(excludeId = "") {
@@ -2435,7 +2452,20 @@ function leadershipMeetingConflicts(candidate, excludeId = "") {
   return leadershipGet("acoes").some((row) => row.id !== excludeId && row.data === candidate.data && row.horaInicio && row.horaFim && candidate.horaInicio < row.horaFim && candidate.horaFim > row.horaInicio);
 }
 
+let leadershipSavePending = false;
 async function saveLeadershipRecord() {
+  if (leadershipSavePending) return;
+  leadershipSavePending = true;
+  const button = document.querySelector('[data-lc-action="save-record"]');
+  if (button) button.disabled = true;
+  try { await persistLeadershipRecord(); }
+  finally {
+    leadershipSavePending = false;
+    if (button?.isConnected) button.disabled = false;
+  }
+}
+
+async function persistLeadershipRecord() {
   const type = inputValue("lcRecordType");
   const id = inputValue("lcRecordId");
   const config = leadershipCollections[type];
@@ -2450,6 +2480,13 @@ async function saveLeadershipRecord() {
         : field.value;
     record[key] = field.type === "number" ? Number(value) || 0 : value;
   });
+  if (type === "cargo") {
+    if (record.cargo === "__new_role__") record.cargo = inputValue("lcNewRoleTitle").trim();
+    if (!record.cargo) {
+      toast("Selecione ou informe um cargo.");
+      return;
+    }
+  }
   if (type === "acao") {
     record.participantIds = [...document.querySelectorAll("[data-lc-participant]:checked")].map((field) => field.value);
     if (record.tipo === "Reunião Estratégica" && leadershipMeetingConflicts(record, id)) {
@@ -2459,22 +2496,27 @@ async function saveLeadershipRecord() {
   }
   const evidenceInput = document.querySelector("#lcEvidenceFile");
   const removeEvidence = inputValue("lcRemoveEvidence") === "true";
-  const previousAttachment = config.singleton
-    ? leadershipGet(config.key)?.evidenciaArquivo
-    : leadershipGet(config.key).find((row) => row.id === id)?.evidenciaArquivo;
+  const previousAttachments = leadershipAttachments(config.singleton
+    ? leadershipGet(config.key)
+    : leadershipGet(config.key).find((row) => row.id === id));
   if (removeEvidence) {
     record.evidencia = "";
     record.evidenciaArquivo = null;
   }
-  if (evidenceInput?.files?.[0]) {
+  if (evidenceInput) {
     try {
-      const attachment = await uploadLeadershipAttachment(evidenceInput.files[0]);
-      record.evidencia = attachment.name;
-      record.evidenciaArquivo = attachment;
+      if (evidenceInput.ncFiles.length > 3) throw new Error("Selecione no máximo 3 anexos por campo.");
+      evidenceInput.ncBusy = true;
+      for (const entry of evidenceInput.ncFiles) {
+        if (entry.file && !entry.id) Object.assign(entry, await uploadLeadershipAttachment(entry.file));
+      }
+      record.evidenciaArquivos = evidenceInput.ncFiles.map(({ file, ...metadata }) => metadata);
+      record.evidencia = record.evidenciaArquivos.map((file) => file.name).join(", ");
+      record.evidenciaArquivo = record.evidenciaArquivos[0] || null;
     } catch (error) {
       toast(error.message || "Não foi possível enviar a evidência.");
       return;
-    }
+    } finally { evidenceInput.ncBusy = false; }
   }
   let nextRecord;
   if (config.singleton) {
@@ -2522,31 +2564,32 @@ async function saveLeadershipRecord() {
     }
   }
 
-  if (previousAttachment?.id && (removeEvidence || record.evidenciaArquivo?.id !== previousAttachment.id)) {
-    deleteLeadershipAttachment(previousAttachment.id).catch(console.warn);
+  if (evidenceInput) for (const previous of previousAttachments) {
+    if (!record.evidenciaArquivos.some((file) => file.id === previous.id)) deleteLeadershipAttachment(previous.id).catch(console.warn);
   }
 
   let invitationMessage = "";
-  if (type === "acao" && nextRecord.tipo === "Reunião Estratégica" && nextRecord.participantIds.length) {
+  if (type === "acao" && nextRecord.participantIds.length) {
     const alreadyInvited = new Set((nextRecord.meetingInvitationRecipients || []).map(String));
-    const recipients = nextRecord.participantIds.filter((participantId) => !alreadyInvited.has(String(participantId)));
+    const recipients = [...new Set(nextRecord.participantIds.map(String))];
+    const notificationId = crypto.randomUUID();
     if (recipients.length) {
       try {
         const response = await fetch("/api/leadership/meeting-invitations", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ actionId: nextRecord.id, meetingDate: nextRecord.data, description: nextRecord.descricao, participantIds: recipients }),
+          body: JSON.stringify({ actionId: nextRecord.id, meetingDate: nextRecord.data, description: nextRecord.descricao, participantIds: recipients, notificationId }),
         });
         const result = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(result.error || "meeting_invitation_failed");
         const delivered = result.deliveries?.filter((delivery) => delivery.delivery === "sent").map((delivery) => String(delivery.userId)) || [];
         if (delivered.length) {
-          nextRecord.meetingInvitationRecipients = [...alreadyInvited, ...delivered];
+          nextRecord.meetingInvitationRecipients = [...new Set([...alreadyInvited, ...delivered])];
           nextRecord.meetingInvitationSentAt = new Date().toISOString();
           const updatedRows = leadershipGet(config.key).map((row) => row.id === nextRecord.id ? nextRecord : row);
           await leadershipSet(config.key, updatedRows);
         }
-        invitationMessage = result.sent ? ` ${result.sent} convite(s) enviado(s).` : " A reunião foi salva, mas o e-mail ainda não está configurado.";
+        invitationMessage = result.sent === recipients.length ? ` ${result.sent} e-mail(s) enviado(s).` : ` Alterações salvas. ${result.sent || 0} de ${recipients.length} e-mail(s) enviado(s); houve falha nos demais envios.`;
       } catch (error) {
         console.warn(error);
         invitationMessage = " A reunião foi salva, mas não foi possível enviar os convites.";
@@ -2554,8 +2597,8 @@ async function saveLeadershipRecord() {
     }
   }
   closeLeadershipModal();
-  const savedMessage = type === "acao" && !id
-    ? `Nova ação salva. Verifique o calendário.${invitationMessage}`
+  const savedMessage = type === "acao"
+    ? `Ação salva. Verifique seu calendário.${invitationMessage}`
     : `${leadershipTypeLabel(type)} salvo.${invitationMessage}`;
   refreshLeadershipScreen(savedMessage);
 }
@@ -2613,9 +2656,7 @@ function viewLeadershipRecord(type, id) {
 function viewLeadershipMeeting(id) {
   const meeting = leadershipGet("acoes").find((item) => String(item.id) === String(id));
   if (!meeting) return;
-  const evidence = meeting.evidenciaArquivo?.id
-    ? `<a class="table-file-link" href="/api/leadership-attachments?id=${encodeURIComponent(meeting.evidenciaArquivo.id)}" target="_blank" rel="noopener">${escapeHtml(meeting.evidenciaArquivo.name)}</a>`
-    : escapeHtml(meeting.evidencia || "Não informada");
+  const evidence = leadershipAttachmentLinks(meeting) || "Não informada";
   document.querySelector("#leadershipModalMount").innerHTML = `
     <div class="modal-overlay show" id="leadershipRecordModal">
       <div class="modal-box meeting-summary-modal">
@@ -4434,12 +4475,13 @@ function ncClientAttachments(row) {
   return Array.isArray(row?.rncClienteArquivos) ? row.rncClienteArquivos : row?.rncClientePdf ? [{ name: row.rncClientePdf }] : [];
 }
 
-function bindNcAttachmentEditor(input, list, existing = [], pdfOnly = false) {
+function bindNcAttachmentEditor(input, list, existing = [], pdfOnly = false, moduleId = "nao-conformidades") {
   if (!input || !list) return;
   input.ncFiles = existing.map((file) => ({ ...file }));
   input.ncPdfOnly = pdfOnly;
   const render = () => {
     list.replaceChildren();
+    if (!input.ncFiles.length) list.textContent = "Nenhum arquivo selecionado";
     for (const entry of input.ncFiles) {
       const item = document.createElement("div");
       item.className = "nc-attachment-row";
@@ -4453,20 +4495,20 @@ function bindNcAttachmentEditor(input, list, existing = [], pdfOnly = false) {
       remove.innerHTML = moduleIcon("trash");
       remove.disabled = input.disabled;
       remove.onclick = () => {
-        if (input.ncBusy || !canEditModule("nao-conformidades")) return;
+        if (input.ncBusy || !canEditModule(moduleId)) return;
         input.ncFiles = input.ncFiles.filter((file) => file !== entry);
         render();
       };
       item.append(name);
-      if (canEditModule("nao-conformidades")) item.append(remove);
+      if (canEditModule(moduleId)) item.append(remove);
       list.append(item);
     }
   };
   input.addEventListener("change", () => {
-    if (!canEditModule("nao-conformidades") || input.ncBusy) return;
+    if (!canEditModule(moduleId) || input.ncBusy) return;
     const files = [...input.files];
     input.value = "";
-    if (input.ncFiles.length + files.length > 3) return void toast(pdfOnly ? "Selecione no máximo 3 PDFs de RNC do cliente." : "Selecione no máximo 3 fotos por NC.");
+    if (input.ncFiles.length + files.length > 3) return void toast("Selecione no máximo 3 anexos por campo.");
     if (pdfOnly && files.some((file) => !/\.pdf$/i.test(file.name))) return void toast("Anexe apenas PDF no RNC enviado pelo cliente.");
     if (files.some((file) => file.size > 2 * 1024 * 1024 || !file.size)) return void toast("Cada anexo deve ter conteúdo e no máximo 2 MB.");
     input.ncFiles.push(...files.map((file) => ({ name: file.name, file })));
@@ -4750,6 +4792,13 @@ function openNcDetail(id) {
   document.querySelector("#ncEditIsh")?.addEventListener("click", openNcIshikawa);
   document.querySelector("#ncManageActions")?.addEventListener("click", openNcActions);
   document.querySelector("#ncCloseRnc")?.addEventListener("click", closeNcRnc);
+  for (const action of rnc.acoes || []) {
+    const target = document.querySelector(`[data-nc-action-id="${CSS.escape(action.id)}"]`);
+    if (!target || !action.evidencias?.length) continue;
+    const files = document.createElement("div");
+    files.innerHTML = action.evidencias.map((file) => `<div><a class="table-file-link" href="/api/nc-attachments?id=${encodeURIComponent(file.id)}" target="_blank" rel="noopener">${escapeHtml(file.name)}</a></div>`).join("");
+    target.append(files);
+  }
   if (rnc.origem === "Fornecedor") renderNcSupplierStatus(rnc.id);
 }
 
@@ -4885,19 +4934,11 @@ function openNcActions(editId = "") {
   document.querySelectorAll("[data-action-delete]").forEach((button) => button.addEventListener("click", () => deleteNcAction(button.dataset.actionDelete)));
   document.querySelector("#ncResetAction")?.addEventListener("click", () => openNcActions());
   document.querySelector("#ncActionStatus")?.addEventListener("change", updateNcActionEvidenceVisibility);
-  document.querySelector("#ncActionEvidence")?.addEventListener("change", (event) => {
-    const file = event.currentTarget.files?.[0];
-    document.querySelector("#ncEvidenceName").textContent = file?.name || edit?.evidencia || "Nenhum arquivo selecionado";
-    document.querySelector("#ncActionEvidenceRemove").hidden = !file && !edit?.evidencia;
-    document.querySelector("#ncActionRemoveEvidence").value = "false";
-  });
-  document.querySelector("#ncActionEvidenceRemove")?.addEventListener("click", () => {
-    document.querySelector("#ncActionEvidence").value = "";
-    document.querySelector("#ncActionRemoveEvidence").value = "true";
-    document.querySelector("#ncEvidenceName").textContent = "Nenhum arquivo selecionado";
-    document.querySelector("#ncActionEvidenceRemove").hidden = true;
-  });
   document.querySelector("#ncSaveAction")?.addEventListener("click", saveNcAction);
+  const actionEvidence = document.querySelector("#ncActionEvidence");
+  actionEvidence.multiple = true;
+  document.querySelector("#ncActionEvidenceRemove")?.remove();
+  bindNcAttachmentEditor(actionEvidence, document.querySelector("#ncEvidenceName"), edit?.evidencias || []);
   if (row.origem === "Fornecedor") {
     for (const [id, value] of [["ncActionDue", edit?.prazo], ["ncActionOwner", edit?.responsavel], ["ncActionStatus", edit?.status]]) {
       const previous = document.getElementById(id);
@@ -4921,14 +4962,24 @@ async function saveNcAction() {
   const existing = (row.acoes || []).find((item) => item.id === id); const selectedStatus = document.querySelector("#ncActionStatus")?.value;
   const prazo = document.querySelector("#ncActionDue")?.value || "";
   const status = row.origem === "Fornecedor" ? selectedStatus : selectedStatus === "Concluída" ? "Concluída" : prazo && prazo < ncToday() ? "Atrasada" : "Em andamento";
-  const file = document.querySelector("#ncActionEvidence")?.files?.[0];
+  const attachmentInput = document.querySelector("#ncActionEvidence");
+  let evidencias;
+  try { evidencias = await uploadNcAttachments(attachmentInput); }
+  catch (error) { toast(error.message); return; }
+  const file = { name: evidencias.map((entry) => entry.name).join(", ") };
   const removeEvidence = document.querySelector("#ncActionRemoveEvidence")?.value === "true";
   if (file && file.size > 5 * 1024 * 1024) return void toast("O arquivo deve ter no máximo 5 MB.");
   const action = { ...existing, id: id || `AC-${Date.now()}`, desc, prazo, responsavel: document.querySelector("#ncActionOwner")?.value || "", status, evidencia: removeEvidence ? "" : file?.name || existing?.evidencia || "", concluidaEm: status === "Concluída" ? existing?.concluidaEm || ncToday() : "" };
   recordModuleSnapshot("nao-conformidades");
+  action.evidencias = evidencias;
+  action.evidencia = file.name;
   row.acoes ||= []; const index = row.acoes.findIndex((item) => item.id === id); if (index >= 0) row.acoes[index] = action; else row.acoes.push(action);
   ncRecalculateStatus(row); ncAddHistory(row, `${currentUser?.name || "Usuário"} ${existing ? "atualizou" : "criou"} uma ação corretiva.`);
-  await saveNcData("Ação corretiva salva."); openNcActions(); renderNcKpis();
+  if (!(await saveNcData("Ação corretiva salva."))) return;
+  for (const previous of existing?.evidencias || []) {
+    if (!evidencias.some((file) => file.id === previous.id)) await fetch(`/api/nc-attachments?id=${encodeURIComponent(previous.id)}`, { method: "DELETE" }).catch(() => null);
+  }
+  openNcActions(); renderNcKpis();
 }
 
 async function deleteNcAction(id) {

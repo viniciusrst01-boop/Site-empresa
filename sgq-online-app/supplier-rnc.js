@@ -113,7 +113,7 @@ function createSupplierRnc({ secret, appUrl, sendEmail = mailer.sendEmail, now =
         if (seen.has(id)) throw error("invalid_action");
         seen.add(id);
         const evidenceIds = action.evidenceIds || [];
-        if (!Array.isArray(evidenceIds) || evidenceIds.length > 10 || evidenceIds.some((id) => !(entry.files || []).some((file) => file.id === id))) throw error("invalid_evidence");
+        if (!Array.isArray(evidenceIds) || evidenceIds.length > 3 || evidenceIds.some((id) => !(entry.files || []).some((file) => file.id === id))) throw error("invalid_evidence");
         const result = { id, desc: text(action.desc), prazo: text(action.prazo, 120), responsavel: text(action.responsavel, 200), status: text(action.status, 120), evidenceIds: [...new Set(evidenceIds)], supplier: true };
         if (![result.desc, result.prazo, result.responsavel, result.status].every(Boolean)) throw error("incomplete_action");
         result.evidencia = evidenceIds.map((id) => entry.files.find((file) => file.id === id).name).join(", ");

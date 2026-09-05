@@ -771,6 +771,28 @@ body.home-dashboard .home-v2-module:focus-visible {
   }
 }
 
+/* Mantem os participantes compactos sem reduzir a area de rolagem da lista. */
+.leadership-action-modal .participants-checklist {
+  gap: 2px;
+  padding: 4px;
+}
+
+.leadership-action-modal .participant-option {
+  min-height: 15px;
+  padding: 0 3px;
+  line-height: 12px;
+}
+
+.leadership-action-modal .participant-option span {
+  line-height: 12px;
+}
+
+.leadership-action-modal .participant-option input {
+  width: 13px;
+  height: 13px;
+}
+
+
 @media (min-width: 801px) and (max-width: 900px) {
   body.home-dashboard .topbar {
     padding-inline: 8px;
@@ -860,5 +882,65 @@ body.home-dashboard .home-v2-module:focus-visible {
 
   .home-v2-heading button {
     display: inline-flex;
+  }
+}
+/* Plano Estrategico: formulario horizontal e mais legivel em desktop. */
+@media (min-width: 801px) {
+  body .modal-overlay .modal-box.leadership-plan-modal {
+    width: min(92vw, 1020px) !important;
+    max-width: 1020px !important;
+  }
+
+  .leadership-plan-grid {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 18px 12px;
+  }
+
+  .leadership-plan-grid > .field {
+    min-width: 0;
+    grid-column: span 2;
+  }
+
+  .leadership-plan-grid > .leadership-plan-what,
+  .leadership-plan-grid > .leadership-plan-why {
+    grid-column: span 3;
+  }
+
+  .leadership-plan-grid > .leadership-plan-how {
+    grid-column: span 4;
+    grid-row: span 2;
+  }
+
+  .leadership-plan-grid > .leadership-plan-amount,
+  .leadership-plan-grid > .leadership-plan-status {
+    grid-column: span 2;
+  }
+
+  .leadership-plan-grid > .field textarea {
+    min-height: 92px;
+  }
+
+  .leadership-plan-grid > .leadership-plan-how textarea {
+    min-height: 126px;
+  }
+
+  .leadership-plan-modal .modal-actions {
+    margin-top: 22px;
+    padding-top: 18px;
+    border-top: 1px solid var(--border-color, rgba(120, 150, 180, .25));
+  }
+}
+
+@media (max-width: 800px) {
+  .leadership-plan-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+  }
+
+  .leadership-plan-grid > .field,
+  .leadership-plan-grid > .field.full {
+    grid-column: 1;
   }
 }

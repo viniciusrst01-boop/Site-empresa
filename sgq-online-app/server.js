@@ -2238,6 +2238,10 @@ async function handleApiRequest(req, res, url, session) {
     }
     const body = await readJsonBody(req);
     const actionId = String(body?.actionId || "").trim();
+    const notificationId = String(body?.notificationId || "");
+    if (notificationId && !/^[a-f0-9-]{36}$/i.test(notificationId)) {
+      sendJson(res, 400, { error: "invalid_notification_id" }); return;
+    }
     const meetingDate = String(body?.meetingDate || "").trim();
     const description = String(body?.description || "").trim().slice(0, 2000);
     const participantIds = [...new Set((Array.isArray(body?.participantIds) ? body.participantIds : [])
@@ -2268,7 +2272,7 @@ async function handleApiRequest(req, res, url, session) {
           description,
         }),
         tag: "leadership_meeting_invitation",
-        idempotencyKey: `leadership-meeting:${companyId}:${actionId}:${recipient.id}`,
+        idempotencyKey: `leadership-meeting:${companyId}:${actionId}:${recipient.id}${notificationId ? `:${notificationId}` : ""}`,
       });
       deliveries.push({ userId: recipient.id, delivery: result.status });
     }
@@ -2763,7 +2767,7 @@ async function handleApiRequest(req, res, url, session) {
     const id = url.searchParams.get("id") || "";
     if (!/^[a-f0-9-]{36}$/.test(id)) { sendJson(res, 400, { error: "invalid_attachment" }); return; }
     const data = await getCompanyData(companyId, "state");
-    const referenced = (data?.ncs || []).some((nc) => ["evidencias", "rncClienteArquivos"].some((key) => Array.isArray(nc[key]) && nc[key].some((file) => file.id === id)));
+    const referenced = (data?.ncs || []).some((nc) => ["evidencias", "rncClienteArquivos"].some((key) => Array.isArray(nc[key]) && nc[key].some((file) => file.id === id)) || (nc.acoes || []).some((action) => (action.evidencias || []).some((file) => file.id === id)));
     if (req.method === "DELETE") {
       if (referenced) { sendJson(res, 409, { error: "attachment_in_use" }); return; }
       await setCompanyData(companyId, `ncAttachment:${id}`, null);
@@ -2816,7 +2820,7 @@ async function handleApiRequest(req, res, url, session) {
       sendJson(res, 200, { ok: true }); return;
     }
     const leadership = await getCompanyData(companyId, "leadership");
-    const referenced = ["acoes", "comunicacao"].some((collection) => (leadership?.[collection] || []).some((record) => record?.evidenciaArquivo?.id === id));
+    const referenced = ["acoes", "comunicacao"].some((collection) => (leadership?.[collection] || []).some((record) => record?.evidenciaArquivo?.id === id || (record.evidenciaArquivos || []).some((file) => file.id === id)));
     if (req.method === "GET") {
       const file = referenced && await getCompanyData(companyId, `leadershipAttachment:${id}`);
       if (!file?.base64) { sendJson(res, 404, { error: "attachment_not_found" }); return; }
@@ -2845,6 +2849,12 @@ async function handleApiRequest(req, res, url, session) {
 
   if (url.pathname === "/api/data" && req.method === "POST") {
     const body = await readJsonBody(req);
+    const attachmentRows = body?.key === "leadership"
+      ? [...(body.value?.acoes || []), ...(body.value?.comunicacao || [])]
+      : body?.key === "state" ? (body.value?.ncs || []).flatMap((nc) => nc.acoes || []) : [];
+    if (attachmentRows.some((row) => ["evidenciaArquivos", "evidencias"].some((key) => Array.isArray(row[key]) && row[key].length > 3))) {
+      sendJson(res, 400, { error: "too_many_attachments" }); return;
+    }
     if (body?.key === "state" && Array.isArray(body.value?.ncs) && body.value.ncs.some((nc) => ["evidencias", "rncClienteArquivos"].some((key) => Array.isArray(nc[key]) && nc[key].length > 3))) {
       sendJson(res, 400, { error: "too_many_nc_attachments" }); return;
     }
