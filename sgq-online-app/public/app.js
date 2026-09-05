@@ -3083,6 +3083,7 @@ function renderContextTab() {
   else if (currentContextTab === "processos") target.innerHTML = contextProcessosHtml();
   else target.innerHTML = contextSwotHtml();
   bindContextActions();
+  if (currentContextTab === "escopo") bindAutomaticCargo("#ctxEscopo-aprovador", "#ctxEscopo-aprovadorCargo");
 }
 
 function renderContextKpis() {
