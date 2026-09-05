@@ -53,6 +53,52 @@ body.home-dashboard .footer-status {
   margin-left: 8px;
 }
 
+@keyframes footer-status-breathe {
+  0%, 100% { opacity: 1; box-shadow: 0 0 6px currentColor; }
+  50% { opacity: 0; box-shadow: none; }
+}
+
+body.home-dashboard .footer-status .status-dot {
+  color: #34d399;
+  animation: footer-status-breathe 3.6s ease-in-out infinite;
+}
+
+/* Mantem uma unica medida de lacuna entre os blocos da pagina inicial. */
+body.home-dashboard .home-v2,
+body.home-dashboard .home-v2-core-grid,
+body.home-dashboard .home-v2-bottom-grid {
+  gap: 10px;
+}
+
+@media (min-width: 801px) {
+  body.home-dashboard .home-v2-summary {
+    display: flex;
+    min-height: 0;
+  }
+
+  body.home-dashboard .home-v2-kpis {
+    flex: 1;
+    height: auto;
+    min-width: 0;
+    gap: 10px;
+  }
+
+  body.home-dashboard .home-v2-kpi {
+    height: 100%;
+    min-height: 0;
+  }
+}
+
+body.home-dashboard .footer-status.status-maintenance .status-dot {
+  background: #f2b84b;
+  color: #f2b84b;
+}
+
+body.home-dashboard .footer-status.status-offline .status-dot {
+  background: #ef5965;
+  color: #ef5965;
+}
+
 body.home-dashboard .app-footer {
   position: relative;
   column-gap: 18px;
@@ -771,6 +817,47 @@ body.home-dashboard .home-v2-module:focus-visible {
   }
 }
 
+/* Libera altura para os painéis principais da home, mantendo os indicadores compactos. */
+@media (min-width: 1281px) {
+  body.home-dashboard .home-v2 {
+    grid-template-rows: minmax(78px, .58fr) minmax(205px, 1.55fr) minmax(100px, .7fr) minmax(132px, .9fr);
+    gap: 10px;
+  }
+
+  body.home-dashboard .home-v2-summary {
+    padding-top: 10px;
+    padding-bottom: 0;
+  }
+
+  body.home-dashboard .home-v2-core-grid {
+    grid-template-columns: 1.25fr .75fr;
+  }
+}
+
+/* Grafico compacto dentro da altura original do painel de saude. */
+.home-v2-health-chart { display: grid; gap: 8px; min-height: 0; }
+.home-v2-health-cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.home-v2-health-card { display: grid; grid-template-columns: 30px minmax(0, 1fr); align-items: center; gap: 3px 7px; min-width: 0; padding: 9px; border: 1px solid var(--home-line); border-radius: 8px; }
+.home-v2-health-card-icon { display: grid; grid-row: span 2; width: 30px; height: 30px; place-items: center; border-radius: 50%; background: color-mix(in srgb, var(--item-color) 14%, transparent); color: var(--item-color); }
+.home-v2-health-card-icon .icon { width: 16px; height: 16px; }
+.home-v2-health-card-label { display: block; overflow: hidden; font-size: 10px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.home-v2-health-card strong { display: block; font-size: 22px; line-height: 1.1; }
+.home-v2-health-card > i { grid-column: 1 / -1; display: block; height: 3px; margin-top: 3px; border-radius: 99px; background: var(--item-color); }
+.home-v2-chart-head strong { font-size: 15px; }
+.home-v2-line-chart { min-width: 0; border: 1px solid var(--home-line); border-radius: 8px; padding: 4px 8px 0; }
+.home-v2-line-chart svg { display: block; width: 100%; height: 150px; }
+.home-v2-chart-grid line { stroke: var(--home-line); stroke-width: 1; }
+.home-v2-line-chart polyline { fill: none; stroke: var(--series-color); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.home-v2-line-chart circle { fill: var(--series-color); }
+.home-v2-line-chart text { fill: var(--home-muted); font-size: 8px; text-anchor: middle; }
+.home-v2-chart-legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 5px 12px; color: var(--home-copy); font-size: 8px; }
+.home-v2-chart-legend span { display: inline-flex; align-items: center; gap: 3px; }
+.home-v2-chart-legend i { width: 5px; height: 5px; border-radius: 50%; }
+
+@media (max-width: 900px) {
+  .home-v2-health-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
 /* Mantem os participantes compactos sem reduzir a area de rolagem da lista. */
 .leadership-action-modal .participants-checklist {
   gap: 2px;
@@ -790,6 +877,64 @@ body.home-dashboard .home-v2-module:focus-visible {
 .leadership-action-modal .participant-option input {
   width: 13px;
   height: 13px;
+}
+
+.leadership-action-modal .participant-option {
+  align-items: flex-start !important;
+  line-height: 16px;
+}
+
+.leadership-action-modal .participant-option input {
+  flex: 0 0 13px;
+  margin: 2px 0 0;
+  align-self: flex-start;
+}
+
+.leadership-action-modal .participant-option span {
+  display: flex !important;
+  align-items: baseline;
+  line-height: 16px;
+}
+
+.participants-field-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.participants-selection-button {
+  border: 0;
+  padding: 0;
+  color: var(--accent-blue-bright, #1683f5);
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.participants-selection-button:hover { text-decoration: underline; }
+
+.participants-selection-menu { position: relative; }
+.participants-role-menu { position: absolute; z-index: 5; top: calc(100% + 4px); right: 0; display: grid; min-width: 190px; padding: 4px; border: 1px solid color-mix(in srgb, var(--accent-blue-bright, #1683f5) 55%, transparent); border-radius: 6px; background: #0f345d; box-shadow: 0 8px 20px rgba(0, 0, 0, .28); }
+.participants-role-menu[hidden] { display: none; }
+.participants-role-menu button { border: 0; padding: 6px 8px; color: #f5f9ff; background: transparent; cursor: pointer; text-align: left; font: inherit; font-size: 11px; }
+.participants-role-menu button:hover { background: rgba(67, 167, 255, .24); }
+.participants-role-options { display: grid; gap: 2px; margin: 3px 0; padding: 4px 0; border-top: 1px solid rgba(255, 255, 255, .16); border-bottom: 1px solid rgba(255, 255, 255, .16); }
+.participants-role-options label { display: flex; align-items: center; gap: 7px; padding: 5px 8px; color: #f5f9ff; cursor: pointer; font-size: 11px; }
+.participants-role-options label:hover { background: rgba(67, 167, 255, .24); }
+.participants-role-options input { width: 14px; height: 14px; margin: 0; accent-color: #43a7ff; }
+.participants-role-apply { margin-top: 2px; color: #8ed0ff !important; }
+
+body.home-dashboard .home-v2-activity-list {
+  max-height: none;
+  overflow: visible;
+  padding: 2px;
+}
+
+body.home-dashboard .home-v2-activity-list > button {
+  width: calc(100% - 2px);
 }
 
 
@@ -885,6 +1030,35 @@ body.home-dashboard .home-v2-module:focus-visible {
   }
 }
 /* Plano Estrategico: formulario horizontal e mais legivel em desktop. */
+/* Indicador de notificacoes com destaque ciano neon em todos os temas. */
+body .tb-badge {
+  background: #ef5965;
+  color: #ffffff;
+  border-width: 1px;
+  border-color: var(--bg-deep, #071a33);
+  box-shadow: 0 0 8px rgba(239, 89, 101, .55);
+  top: 3px;
+  right: 3px;
+  min-width: 18px;
+  width: 18px;
+  height: 15px;
+  padding: 0;
+  border-radius: 999px;
+  font-size: 8px;
+  font-weight: 800;
+  text-shadow: none;
+}
+
+body.home-dashboard .tb-icon-btn > .icon {
+  width: 21px;
+  height: 21px;
+}
+
+body.theme-light .tb-badge,
+body.theme-white .tb-badge {
+  color: #ffffff;
+}
+
 @media (min-width: 801px) {
   body .modal-overlay .modal-box.leadership-plan-modal {
     width: min(92vw, 1020px) !important;
@@ -943,4 +1117,62 @@ body.home-dashboard .home-v2-module:focus-visible {
   .leadership-plan-grid > .field.full {
     grid-column: 1;
   }
+}
+
+body.home-dashboard .page-content {
+  padding-bottom: 10px;
+}
+
+@media (min-width: 801px) {
+  body.home-dashboard .sidebar {
+    width: 210px;
+  }
+}
+
+.home-v2-tasks-footer {
+  display: flex;
+  justify-content: flex-end;
+  flex-shrink: 0;
+  margin-top: auto;
+  padding-top: 8px;
+}
+
+.home-v2-tasks .home-v2-heading > div,
+.home-v2-health .home-v2-heading > div {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  min-width: 0;
+}
+
+.home-v2-tasks .home-v2-heading h2,
+.home-v2-tasks .home-v2-heading p,
+.home-v2-health .home-v2-heading h2,
+.home-v2-health .home-v2-heading p {
+  margin: 0;
+}
+
+.home-v2-tasks .home-v2-list {
+  max-height: none;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.home-v2-tasks-footer button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 0;
+  background: transparent;
+  color: #2da7ed;
+  cursor: pointer;
+  font: inherit;
+  font-size: 10.5px;
+  font-weight: 700;
+}
+
+.home-v2-tasks-footer button .icon {
+  width: 13px;
+  height: 13px;
 }

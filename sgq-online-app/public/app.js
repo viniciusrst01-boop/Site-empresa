@@ -129,6 +129,7 @@ const seedState = {
     weeklyReport: true,
     companyAccess: "Plano Professional",
     theme: "dark",
+    operationalStatus: "updated",
   },
 };
 
@@ -402,6 +403,8 @@ async function initializeApp() {
     else if (needsOnboarding) renderOnboarding();
     else render("inicio");
   } finally {
+    updateNotificationBadge();
+    updateOperationalStatus();
     document.body.classList.remove("app-loading");
   }
 }
@@ -1044,7 +1047,18 @@ function renderDashboardHtml() {
   const plannedAudits = audits.filter((item) => !isClosedStatus(item.status));
   const pendingDocs = docs.filter((item) => item.status !== "Aprovado");
   const certification = state.company.certification || "Não informada";
-  const tasks = dashboardTaskItems(openNcs, plannedAudits, pendingDocs);
+  // Temporary task preview for the local visual review server.
+  const localTaskPreview = ["localhost", "127.0.0.1"].includes(location.hostname) && location.port === "4180";
+  const previewTaskCount = Number(new URLSearchParams(location.search).get("previewTasks") ?? (localTaskPreview ? "10" : "0"));
+  const previewTasks = ["localhost", "127.0.0.1"].includes(location.hostname)
+    && [7, 10].includes(previewTaskCount);
+  const taskGroups = previewTasks ? [
+    Array.from({ length: 3 }, (_, i) => ({ id: `NC-PREVIA-00${i + 1}`, status: "Em aberto" })),
+    [{ title: "Auditoria interna (prévia)", status: "Planejada" }, { title: "Auditoria de processos (prévia)", status: "Planejada" }],
+    Array.from({ length: previewTaskCount - 5 }, (_, i) => ({ code: `PR-00${i + 1} (prévia)`, status: "Em revisão" })),
+  ] : [openNcs, plannedAudits, pendingDocs];
+  const tasks = dashboardTaskItems(...taskGroups);
+  const hasMoreTasks = taskGroups.reduce((total, items) => total + items.length, 0) > 6;
   const alerts = dashboardAlertItems(summary, openNcs, pendingDocs, certification);
   const healthMax = Math.max(openNcs.length, summary.openActions, plannedAudits.length, pendingDocs.length, 1);
 
@@ -1071,8 +1085,9 @@ function renderDashboardHtml() {
           </div>
         </section>
         <section class="home-v2-panel home-v2-tasks">
-          <div class="home-v2-heading"><div><h2>Minhas tarefas</h2><p>Atividades que exigem sua atenção.</p></div><button type="button" data-view-target="relatorios">Ver todas ${moduleIcon("arrow")}</button></div>
+          <div class="home-v2-heading"><div><h2>Minhas tarefas</h2><p>Atividades que exigem sua atenção.</p></div></div>
           <div class="home-v2-list">${tasks}</div>
+          ${hasMoreTasks ? `<div class="home-v2-tasks-footer"><button type="button" data-view-target="relatorios">Ver todas ${moduleIcon("arrow")}</button></div>` : ""}
         </section>
       </div>
 
@@ -1146,10 +1161,10 @@ function dashboardCompactModuleCard(module, info) {
 
 function dashboardTaskItems(openNcs, plannedAudits, pendingDocs) {
   const items = [
-    ...openNcs.slice(0, 2).map((item) => ({ label: `Tratar ${item.id || item.code || "não conformidade"}`, meta: item.status || "Em aberto", color: "#ff646f", module: "nao-conformidades" })),
-    ...plannedAudits.slice(0, 1).map((item) => ({ label: item.title || "Auditoria planejada", meta: item.date ? formatDate(item.date) : item.status, color: "#ffad32", module: "auditorias" })),
-    ...pendingDocs.slice(0, 1).map((item) => ({ label: `Revisar ${item.code || item.title || "documento"}`, meta: item.status, color: "#43a7ff", module: "documentos" })),
-  ].slice(0, 4);
+    ...openNcs.map((item) => ({ label: `Tratar ${item.id || item.code || "não conformidade"}`, meta: item.status || "Em aberto", color: "#ff646f", module: "nao-conformidades" })),
+    ...plannedAudits.map((item) => ({ label: item.title || "Auditoria planejada", meta: item.date ? formatDate(item.date) : item.status, color: "#ffad32", module: "auditorias" })),
+    ...pendingDocs.map((item) => ({ label: `Revisar ${item.code || item.title || "documento"}`, meta: item.status, color: "#43a7ff", module: "documentos" })),
+  ].slice(0, 6);
   if (!items.length) return `<div class="home-v2-empty">Nenhuma tarefa pendente no momento.</div>`;
   return items.map((item) => `<button type="button" data-module="${item.module}" style="--item-color:${item.color}"><small>${escapeHtml(item.meta || "Atenção")}</small><span>${escapeHtml(item.label)}</span>${moduleIcon("arrow")}</button>`).join("");
 }
@@ -1169,6 +1184,10 @@ function dashboardPanoramaRow(label, value, max, color, icon = "info") {
 }
 
 function dashboardActivityRows(docs, audits, ncs) {
+  const recent = (items) => [...items].sort((a, b) => new Date(b.updatedAt || b.dataAtualizacao || b.data || b.createdAt || 0) - new Date(a.updatedAt || a.dataAtualizacao || a.data || a.createdAt || 0));
+  docs = recent(docs);
+  audits = recent(audits);
+  ncs = recent(ncs);
   const rows = [
     docs[0] && { icon: "documentos", label: `Documento: ${docs[0].code || docs[0].title}`, detail: docs[0].status, color: "#43a7ff", module: "documentos" },
     audits[0] && { icon: "auditorias", label: audits[0].title || "Auditoria", detail: audits[0].status, color: "#31d392", module: "auditorias" },
@@ -1797,6 +1816,13 @@ function bindLeadershipStaticActions() {
     event.preventDefault();
     handleLeadershipAction(button.dataset.lcAction, button.dataset.id);
   });
+  document.addEventListener("change", (event) => {
+    if (!event.target.matches("[data-lc-role-filter]")) return;
+    const selectedRoles = new Set([...document.querySelectorAll("[data-lc-role-filter]:checked")].map((field) => field.value));
+    document.querySelectorAll("[data-lc-participant]").forEach((field) => {
+      field.checked = selectedRoles.has(field.closest(".participant-option")?.dataset.participantRole);
+    });
+  });
 }
 
 function renderLeadershipTabs() {
@@ -2023,7 +2049,15 @@ function leadershipCommunicationHtml() {
 }
 
 function leadershipRolesHtml() {
-  const rows = leadershipGet("cargos");
+  const rows = [...leadershipGet("cargos")];
+  const knownPeople = new Set(rows.map((item) => `${item.nome}|${item.cargo}`));
+  const users = companyUsersData.length ? companyUsersData : (state.users || []);
+  users.forEach((user) => {
+    const name = user.displayName || user.name;
+    const cargo = user.role || "Colaborador";
+    if (!name || knownPeople.has(`${name}|${cargo}`)) return;
+    rows.push({ id: `USER-${user.id || name}`, nome: name, cargo, departamento: user.department || "Não informado", descricao: "Cargo definido no gerenciamento de usuários.", substituto: "-", status: user.status === "Ativo" ? "Ativo" : "Inativo" });
+  });
   const body = rows.length ? rows.map((item) => `
     <tr><td>${personCell(item.nome, item.cargo)}</td><td>${chip(item.departamento, "mchip-purple")}</td><td class="desc-cell">${escapeHtml(item.descricao)}</td><td>${escapeHtml(item.substituto || "-")}</td><td><span class="status-pill ${statusClass(item.status)}"><span class="status-dot2"></span>${escapeHtml(item.status)}</span></td><td>${leadershipActions("cargo", item.id, true)}</td></tr>
   `).join("") : `<tr><td colspan="6"><div class="empty-state">Nenhum cargo cadastrado.</div></td></tr>`;
@@ -2230,6 +2264,48 @@ function handleLeadershipAction(action, id) {
     void saveLeadershipRecord();
     return;
   }
+  if (action === "toggle-all-participants") {
+    const fields = [...document.querySelectorAll("[data-lc-participant]")];
+    const selectAll = fields.some((field) => !field.checked);
+    fields.forEach((field) => { field.checked = selectAll; });
+    const toggle = document.querySelector('[data-lc-action="toggle-all-participants"]');
+    if (toggle) toggle.textContent = selectAll ? "Desmarcar todos" : "Selecionar todos";
+    return;
+  }
+  if (action === "toggle-participant-menu") {
+    const menu = document.querySelector(".participants-role-menu");
+    const toggle = document.querySelector('[data-lc-action="toggle-participant-menu"]');
+    if (menu && toggle) {
+      menu.hidden = !menu.hidden;
+      toggle.setAttribute("aria-expanded", String(!menu.hidden));
+    }
+    return;
+  }
+  if (action === "clear-participants") {
+    document.querySelectorAll("[data-lc-participant]").forEach((field) => { field.checked = false; });
+    document.querySelector(".participants-role-menu")?.setAttribute("hidden", "");
+    document.querySelector('[data-lc-action="toggle-participant-menu"]')?.setAttribute("aria-expanded", "false");
+    return;
+  }
+  if (action === "select-all-participants" || action === "select-participants-by-role") {
+    const role = action === "select-participants-by-role" ? id : "";
+    document.querySelectorAll("[data-lc-participant]").forEach((field) => {
+      const option = field.closest(".participant-option");
+      field.checked = !role || option?.dataset.participantRole === role;
+    });
+    document.querySelector(".participants-role-menu")?.setAttribute("hidden", "");
+    document.querySelector('[data-lc-action="toggle-participant-menu"]')?.setAttribute("aria-expanded", "false");
+    return;
+  }
+  if (action === "apply-participant-roles") {
+    const roles = new Set([...document.querySelectorAll("[data-lc-role-filter]:checked")].map((field) => field.value));
+    document.querySelectorAll("[data-lc-participant]").forEach((field) => {
+      field.checked = roles.has(field.closest(".participant-option")?.dataset.participantRole);
+    });
+    document.querySelector(".participants-role-menu")?.setAttribute("hidden", "");
+    document.querySelector('[data-lc-action="toggle-participant-menu"]')?.setAttribute("aria-expanded", "false");
+    return;
+  }
   if (action === "switch-tab") {
     currentLeadershipSubTab = id;
     renderLeadershipTabs();
@@ -2346,6 +2422,15 @@ function activeLeadershipRoles() {
   return leadershipGet("cargos").filter((role) => role.status !== "Inativo" && role.nome && role.cargo);
 }
 
+function updateNotificationBadge() {
+  const badge = document.querySelector("[data-notification-badge]");
+  if (!badge) return;
+  const previewCount = Number(badge.dataset.notificationPreview);
+  const count = previewCount || (Array.isArray(state.notifications) ? state.notifications.length : 0);
+  badge.textContent = count > 10 ? "+10" : String(count);
+  badge.hidden = count === 0;
+}
+
 function leadershipRoleForPerson(name) {
   return activeLeadershipRoles().find((role) => role.nome === name)?.cargo || "";
 }
@@ -2382,6 +2467,13 @@ async function loadLeadershipParticipants() {
     if (!response.ok) throw new Error("participants_unavailable");
     const payload = await response.json();
     leadershipParticipants = Array.isArray(payload.users) ? payload.users : [];
+    if ((location.hostname === "localhost" || location.hostname === "127.0.0.1") && leadershipParticipants.length) {
+      const testRoles = ["Diretor Geral", "Gestor da Qualidade", "Coordenador Comercial", "Analista de Processos"];
+      leadershipParticipants = leadershipParticipants.map((participant, index) => ({
+        ...participant,
+        cargo: participant.cargo || testRoles[index % testRoles.length],
+      }));
+    }
   } catch (error) {
     console.warn(error);
     leadershipParticipants = [];
@@ -2447,10 +2539,11 @@ function leadershipFieldHtml(key, label, fieldType = "text", options = [], value
     const optionsHtml = sortedParticipants.length
       ? sortedParticipants.map((participant) => {
           const participantId = String(participant.id);
-          return `<label class="participant-option"><input type="checkbox" value="${escapeHtml(participantId)}" data-lc-participant ${selectedIds.includes(participantId) ? "checked" : ""}><span><strong>${escapeHtml(participant.displayName)}</strong><small>${escapeHtml(participant.email)}</small></span></label>`;
+          return `<label class="participant-option" data-participant-role="${escapeHtml(participant.cargo || "Sem cargo")}"><input type="checkbox" value="${escapeHtml(participantId)}" data-lc-participant ${selectedIds.includes(participantId) ? "checked" : ""}><span><strong>${escapeHtml(participant.displayName)}</strong><small>${escapeHtml(participant.email)}</small></span></label>`;
         }).join("")
       : '<span class="participants-empty">Nenhum usuário disponível.</span>';
-    return `<div class="field full leadership-participants-field"><label id="lcParticipantsLabel">${escapeHtml(label)}</label><div class="participants-checklist" role="group" aria-labelledby="lcParticipantsLabel" aria-describedby="lcParticipantsHelp">${optionsHtml}</div><small class="field-help" id="lcParticipantsHelp">Selecione um ou mais usuários cadastrados. Os participantes recebem o convite ao salvar uma reunião.</small></div>`;
+    const roles = [...new Set(sortedParticipants.map((participant) => String(participant.cargo || "Sem cargo").trim()))].sort((a, b) => a.localeCompare(b, "pt-BR"));
+    return `<div class="field full leadership-participants-field"><div class="participants-field-head"><label id="lcParticipantsLabel">${escapeHtml(label)}</label><div class="participants-selection-menu"><button type="button" class="participants-selection-button" data-lc-action="toggle-participant-menu" aria-expanded="false">Opções de seleção</button><div class="participants-role-menu" hidden><button type="button" data-lc-action="select-all-participants">Todos os participantes</button><button type="button" data-lc-action="clear-participants">Desmarcar todos</button><div class="participants-role-options">${roles.map((role) => `<label><input type="checkbox" data-lc-role-filter value="${escapeHtml(role)}"><span>${escapeHtml(role)}</span></label>`).join("")}</div><button type="button" class="participants-role-apply" data-lc-action="apply-participant-roles">Aplicar cargos selecionados</button></div></div></div><div class="participants-checklist" role="group" aria-labelledby="lcParticipantsLabel" aria-describedby="lcParticipantsHelp">${optionsHtml}</div><small class="field-help" id="lcParticipantsHelp">Selecione todos, desmarque ou filtre por vários cargos.</small></div>`;
   }
   const planClass = key === "onde" ? "leadership-plan-where" : key === "quando" ? "leadership-plan-when" : key === "quem" ? "leadership-plan-who" : key === "quanto" ? "leadership-plan-amount" : key === "status" ? "leadership-plan-status" : "";
   return `<div class="field ${planClass}"><label>${escapeHtml(label)}</label><input class="input-basic" data-lc-field="${key}" type="${fieldType}" value="${escapeHtml(displayValue)}"></div>`;
@@ -7251,6 +7344,7 @@ async function renderConfiguracoes() {
       </label>
       <label class="check-row"><input name="emailAlerts" type="checkbox" ${state.settings.emailAlerts ? "checked" : ""} /> <span>Enviar alertas por e-mail</span></label>
       <label class="check-row"><input name="weeklyReport" type="checkbox" ${state.settings.weeklyReport ? "checked" : ""} /> <span>Gerar resumo semanal</span></label>
+      ${currentUser?.isAdmin ? `<label><span>Status do sistema</span><select name="operationalStatus"><option value="updated" ${state.settings.operationalStatus === "updated" ? "selected" : ""}>Sistema atualizado</option><option value="maintenance" ${state.settings.operationalStatus === "maintenance" ? "selected" : ""}>Sistema em manutenção</option><option value="offline" ${state.settings.operationalStatus === "offline" ? "selected" : ""}>Sistema offline</option></select></label>` : ""}
       <button type="submit">Salvar configurações</button>
     </form>
     ${canManageCompany() ? `<section id="billingSettings" class="billing-settings"><div class="qp-card admin-loading">Carregando assinatura...</div></section>` : ""}
@@ -7263,12 +7357,25 @@ async function renderConfiguracoes() {
       emailAlerts: data.has("emailAlerts"),
       weeklyReport: data.has("weeklyReport"),
       theme: data.get("theme") || "dark",
+      operationalStatus: currentUser?.isAdmin ? (data.get("operationalStatus") || "updated") : (state.settings.operationalStatus || "updated"),
     };
     saveState();
     applyTheme();
+    updateOperationalStatus();
     toast("Configurações salvas.");
   });
   if (canManageCompany()) await loadBillingSettings();
+}
+
+function updateOperationalStatus() {
+  const footer = document.querySelector(".footer-status");
+  const dot = footer?.querySelector(".status-dot");
+  if (!footer || !dot) return;
+  const statuses = { updated: "Sistema atualizado", maintenance: "Sistema em manutenção", offline: "Sistema offline" };
+  const status = statuses[state.settings.operationalStatus] ? state.settings.operationalStatus : "updated";
+  footer.classList.remove("status-maintenance", "status-offline");
+  if (status !== "updated") footer.classList.add(`status-${status}`);
+  footer.lastChild.textContent = statuses[status];
 }
 
 async function loadBillingSettings() {
