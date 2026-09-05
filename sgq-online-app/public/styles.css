@@ -7016,7 +7016,7 @@ body.theme-white .home-v2-activity-list > button {
 
 body.theme-white .home-v2-modules .home-v2-module {
   border-color: #c5d0de;
-  background: #e3e8ef;
+  background: #eef2f7;
 }
 
 body.theme-white .home-v2-module:hover,
@@ -7032,7 +7032,7 @@ body.theme-white .home-v2-alerts > button:hover {
 
 body.theme-white .home-v2-modules .home-v2-module:hover,
 body.theme-white .home-v2-modules .home-v2-module:focus-visible {
-  background: #dce5ef;
+  background: #e7eef6;
 }
 
 body.theme-white .home-v2-list button:hover,
