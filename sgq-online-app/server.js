@@ -2243,6 +2243,9 @@ async function handleApiRequest(req, res, url, session) {
       sendJson(res, 400, { error: "invalid_notification_id" }); return;
     }
     const meetingDate = String(body?.meetingDate || "").trim();
+    const startTime = String(body?.startTime || "").trim();
+    const endTime = String(body?.endTime || "").trim();
+    const location = String(body?.location || "").trim().slice(0, 300);
     const description = String(body?.description || "").trim().slice(0, 2000);
     const participantIds = [...new Set((Array.isArray(body?.participantIds) ? body.participantIds : [])
       .map((id) => Number(id)).filter(Number.isInteger))].slice(0, 100);
@@ -2269,6 +2272,9 @@ async function handleApiRequest(req, res, url, session) {
           companyName: company?.name || "sua empresa",
           organizerName: session.displayName || session.username,
           meetingDate: formattedDate,
+          startTime,
+          endTime,
+          location,
           description,
         }),
         tag: "leadership_meeting_invitation",

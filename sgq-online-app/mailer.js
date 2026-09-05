@@ -73,12 +73,14 @@ function invitationEmail({ name, companyName, inviterName, link }) {
   );
 }
 
-function meetingInvitationEmail({ recipientName, companyName, organizerName, meetingDate, description }) {
+function meetingInvitationEmail({ recipientName, companyName, organizerName, meetingDate, startTime, endTime, location, description }) {
   return emailShell(
     `Convite para reunião - ${companyName}`,
     `<p>Olá, <strong>${escapeHtml(recipientName)}</strong>.</p>
      <p>Você foi selecionado(a) para participar de uma reunião estratégica da <strong>${escapeHtml(companyName)}</strong>.</p>
      <p><strong>Data:</strong> ${escapeHtml(meetingDate)}</p>
+     <p><strong>Horário:</strong> ${escapeHtml(startTime || "Não informado")}${endTime ? ` às ${escapeHtml(endTime)}` : ""}</p>
+     <p><strong>Local:</strong> ${escapeHtml(location || "Não informado")}</p>
      <p><strong>Responsável:</strong> ${escapeHtml(organizerName || "Direção")}</p>
      <p><strong>Pauta:</strong> ${escapeHtml(description || "A pauta será apresentada pela direção.")}</p>
      <p style="margin-top:22px">Sua participação é importante para o alinhamento das decisões e objetivos do Sistema de Gestão da Qualidade.</p>

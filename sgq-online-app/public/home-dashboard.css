@@ -778,13 +778,13 @@ body.home-dashboard .home-v2-module:focus-visible {
 }
 
 .leadership-action-modal .participant-option {
-  min-height: 15px;
+  min-height: 18px;
   padding: 0 3px;
-  line-height: 12px;
+  line-height: 16px;
 }
 
 .leadership-action-modal .participant-option span {
-  line-height: 12px;
+  line-height: 16px;
 }
 
 .leadership-action-modal .participant-option input {

@@ -2267,7 +2267,7 @@ function handleLeadershipAction(action, id) {
 }
 
 const leadershipCollections = {
-  acao: { key: "acoes", prefix: "AD", fields: [["data", "Data", "date"], ["horaInicio", "Horário de início", "time"], ["horaFim", "Horário de término", "time"], ["tipo", "Tipo", "select", ["Reunião Estratégica", "Análise de Indicadores", "Decisão Estratégica", "Alocação de Recursos"]], ["responsavel", "Responsável", "people"], ["status", "Status", "select", ["Programada", "Concluída", "Não Realizada"]], ["descricao", "Descrição", "textarea"], ["participantIds", "Participantes", "participants"], ["evidencia", "Evidência", "file"]] },
+  acao: { key: "acoes", prefix: "AD", fields: [["data", "Data", "date"], ["horaInicio", "Horário de início", "time"], ["horaFim", "Horário de término", "time"], ["local", "Local da reunião"], ["tipo", "Tipo", "select", ["Reunião Estratégica", "Análise de Indicadores", "Decisão Estratégica", "Alocação de Recursos"]], ["responsavel", "Responsável", "people"], ["status", "Status", "select", ["Programada", "Concluída", "Não Realizada"]], ["descricao", "Descrição", "textarea"], ["participantIds", "Participantes", "participants"], ["evidencia", "Evidência", "file"]] },
   plano: { key: "plano", prefix: "P5W2H", fields: [["oQue", "O quê", "textarea"], ["porQue", "Por quê", "textarea"], ["onde", "Onde"], ["quando", "Quando", "date"], ["quem", "Quem", "people"], ["como", "Como", "textarea"], ["quanto", "Quanto", "number"], ["status", "Status", "select", ["Não Iniciado", "Em Andamento", "Atrasado", "Concluído"]]] },
   comunicacao: { key: "comunicacao", prefix: "COMPOL", fields: [["data", "Data", "date"], ["forma", "Forma", "select", ["Reunião de Equipe", "E-mail", "Treinamento", "Integração", "Mural/Comunicado Interno"]], ["setor", "Setor"], ["qtdPessoas", "Qtd. pessoas", "number"], ["evidencia", "Evidência", "file"]] },
   cargo: { key: "cargos", prefix: "CARGO", fields: [["nome", "Nome"], ["cargo", "Cargo"], ["departamento", "Departamento"], ["substituto", "Substituto"], ["status", "Status", "select", ["Ativo", "Inativo"]], ["descricao", "Descrição", "textarea"], ["responsabilidades", "Responsabilidades, uma por linha", "lines"], ["autoridades", "Autoridades, uma por linha", "lines"]] },
@@ -2582,7 +2582,7 @@ async function persistLeadershipRecord() {
         const response = await fetch("/api/leadership/meeting-invitations", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ actionId: nextRecord.id, meetingDate: nextRecord.data, description: nextRecord.descricao, participantIds: recipients, notificationId }),
+          body: JSON.stringify({ actionId: nextRecord.id, meetingDate: nextRecord.data, startTime: nextRecord.horaInicio, endTime: nextRecord.horaFim, location: nextRecord.local, description: nextRecord.descricao, participantIds: recipients, notificationId }),
         });
         const result = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(result.error || "meeting_invitation_failed");
@@ -2678,6 +2678,7 @@ function viewLeadershipMeeting(id) {
           <div class="full"><small>Descrição</small><p>${escapeHtml(meeting.descricao || "Não informada")}</p></div>
           <div><small>Participantes</small><p>${escapeHtml(meeting.participantes || "Não informados")}</p></div>
           <div><small>Responsável</small><p>${escapeHtml(meeting.responsavel || "Não informado")}</p></div>
+          <div><small>Local da reunião</small><p>${escapeHtml(meeting.local || "Não informado")}</p></div>
           <div class="full"><small>Evidência</small><p>${evidence}</p></div>
         </div>
         <div class="modal-actions"><button class="btn-ghost" data-lc-action="close-modal" type="button">Fechar</button></div>
