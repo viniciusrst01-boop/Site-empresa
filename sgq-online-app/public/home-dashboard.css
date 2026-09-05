@@ -1193,15 +1193,20 @@ body.theme-white .home-v2-health .sgq-health-period option { color: var(--home-c
 .home-v2-health .sgq-health-indicator:focus-visible { outline: 2px solid #20A4FF; outline-offset: 2px; }
 .home-v2-health .sgq-health-period select:focus { outline: none; box-shadow: none; }
 body.theme-white .home-v2-health .sgq-health-period {
-  gap: 6px;
-  padding: 6px 8px;
+  gap: 4px;
+  padding: 4px 6px;
   border: 1px solid var(--home-line);
-  border-radius: 7px;
+  border-radius: 6px;
   background: #fff;
   box-shadow: 0 2px 8px rgba(35, 69, 106, .12);
 }
+body.theme-white .home-v2-health .sgq-health-period .icon {
+  width: 14px;
+  height: 14px;
+}
 body.theme-white .home-v2-health .sgq-health-period select {
-  min-height: 24px;
+  min-height: 20px;
+  padding: 2px 18px 2px 6px;
 }
 .home-v2-health .sgq-health-icon { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; color: var(--health-color); background: color-mix(in srgb, var(--health-color) 12%, transparent); }
 .home-v2-health .sgq-health-icon .icon { width: 19px; height: 19px; }
