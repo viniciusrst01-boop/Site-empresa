@@ -1171,6 +1171,7 @@ body.home-dashboard .page-content {
 .home-v2-health .sgq-health-period .icon { width: 16px; height: 16px; }
 .home-v2-health .sgq-health-period select { border: 0; padding: 0; max-width: 140px; background: transparent; color: var(--home-copy); font: inherit; font-size: 11px; cursor: pointer; }
 .home-v2-health .sgq-health-period option { color: var(--text-primary); background: var(--bg-card, #0D3155); }
+body.theme-white .home-v2-health .sgq-health-period option { color: var(--home-copy); background: var(--home-surface); }
 .home-v2-health .sgq-health-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 34%); gap: 12px; min-width: 0; min-height: 0; }
 .home-v2-health .sgq-health-plot { position: relative; display: grid; grid-template-rows: minmax(0, 1fr) auto auto; gap: 5px; min-width: 0; min-height: 0; padding: 7px; border: 1px solid var(--home-line); border-radius: 8px; }
 .home-v2-health .sgq-health-canvas { position: relative; min-width: 0; min-height: 0; transition: opacity .22s ease; }

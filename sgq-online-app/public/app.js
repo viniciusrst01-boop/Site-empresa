@@ -1300,6 +1300,25 @@ function mountSGQHealth() {
   let transitionTimer;
   const number = new Intl.NumberFormat("pt-BR");
   const reducedMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const chartAnimationDuration = 620;
+  const progressiveRevealPlugin = {
+    id: "sgqHealthProgressiveReveal",
+    beforeDatasetsDraw: (instance) => {
+      const progress = instance.$sgqRevealProgress;
+      if (progress === undefined || progress >= 1 || !instance.chartArea) return;
+      const { ctx, chartArea } = instance;
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(chartArea.left - 1, chartArea.top - 1, (chartArea.right - chartArea.left + 2) * Math.max(0, progress), chartArea.bottom - chartArea.top + 2);
+      ctx.clip();
+      instance.$sgqRevealClipped = true;
+    },
+    afterDatasetsDraw: (instance) => {
+      if (!instance.$sgqRevealClipped) return;
+      instance.ctx.restore();
+      instance.$sgqRevealClipped = false;
+    },
+  };
   const label = (point, long = false) => {
     if (point.dayLabel) {
       return long
@@ -1337,12 +1356,25 @@ function mountSGQHealth() {
         dataset.data = data.points.map((point) => point[sgqHealthMetrics[index].key]);
         dataset.pointBackgroundColor = white ? "#fff" : "#0D3155";
       });
-      chart.options.animation = animate && !reducedMotion ? { duration: 620, easing: "easeInOutQuart" } : false;
+      const animateChart = animate && !reducedMotion;
+      chart.$sgqRevealProgress = animateChart ? 0 : 1;
+      chart.options.animation = animateChart
+        ? {
+          duration: chartAnimationDuration,
+          easing: "easeOutQuart",
+          onProgress: (animation) => { animation.chart.$sgqRevealProgress = animation.numSteps ? animation.currentStep / animation.numSteps : 1; },
+          onComplete: (animation) => {
+            animation.chart.$sgqRevealProgress = 1;
+            animation.chart.options.animation = false;
+          },
+        }
+        : false;
       chart.update();
       clearTimeout(transitionTimer);
       if (animate && !reducedMotion) {
         plot.classList.add("is-refreshing");
-        transitionTimer = setTimeout(() => plot.classList.remove("is-refreshing"), 700);
+        const transitionTime = chartAnimationDuration + Math.min(Math.max(data.points.length - 1, 0) * 18, 360) + 100;
+        transitionTimer = setTimeout(() => plot.classList.remove("is-refreshing"), transitionTime);
       } else {
         plot.classList.remove("is-refreshing");
       }
@@ -1350,6 +1382,7 @@ function mountSGQHealth() {
     }
     chart = new Chart(canvas, {
       type: "line",
+      plugins: [progressiveRevealPlugin],
       data: {
         labels: data.points.map((point) => label(point)),
         datasets: sgqHealthMetrics.map((metric) => ({

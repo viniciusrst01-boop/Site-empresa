@@ -53,6 +53,10 @@ test("health keeps the desktop shell and renders contained charts in all themes"
     for (const theme of ["theme-dark", "theme-light", "theme-white"]) {
       await page.evaluate((name) => { document.body.classList.remove("theme-light", "theme-white", "theme-dark"); document.body.classList.add(name); mountSGQHealth(); }, theme);
       await expect(page.locator(".sgq-health-plot")).toHaveAttribute("aria-busy", "false");
+      if (theme === "theme-white") {
+        await expect(page.locator(".sgq-health-period option").first()).toHaveCSS("color", "rgb(23, 36, 58)");
+        await expect(page.locator(".sgq-health-period option").first()).toHaveCSS("background-color", "rgb(255, 255, 255)");
+      }
       const measured = await page.locator(".home-v2-health").evaluate((root) => {
         const rect = root.getBoundingClientRect();
         const clipped = [...root.querySelectorAll(".sgq-health-layout, .sgq-health-indicator, .sgq-health-copy, .sgq-health-legend, .sgq-health-title, .sgq-health-period, canvas")].filter((node) => {
@@ -104,7 +108,17 @@ test("periods, error recovery, empty state, mobile layout and navigation", async
     await select.selectOption(String(months));
     await expect.poll(() => page.locator(".sgq-health-canvas canvas").evaluate((canvas) => Chart.getChart(canvas)?.data.labels.length)).toBe(months === 1 ? 30 : months);
   }
-  expect(await page.locator(".sgq-health-canvas canvas").evaluate((canvas) => Chart.getChart(canvas)?.options.animation)).toMatchObject({ duration: 620, easing: "easeInOutQuart" });
+  await expect.poll(() => page.locator(".sgq-health-canvas canvas").evaluate((canvas) => Chart.getChart(canvas)?.$sgqRevealProgress)).toBe(1);
+  const animation = await page.locator(".sgq-health-canvas canvas").evaluate((canvas) => {
+    const chart = Chart.getChart(canvas);
+    const options = chart?.options.animation;
+    return { animationDisabled: options === false, revealProgress: chart?.$sgqRevealProgress };
+  });
+  expect(animation).toEqual({ animationDisabled: true, revealProgress: 1 });
+  const canvasBox = await page.locator(".sgq-health-canvas canvas").boundingBox();
+  await page.mouse.move(canvasBox.x + canvasBox.width / 2, canvasBox.y + canvasBox.height / 2);
+  await page.waitForTimeout(120);
+  expect(await page.locator(".sgq-health-canvas canvas").evaluate((canvas) => Chart.getChart(canvas)?.$sgqRevealProgress)).toBe(1);
   await select.selectOption("1");
   await expect.poll(() => page.locator(".sgq-health-canvas canvas").evaluate((canvas) => Chart.getChart(canvas)?.data.labels.length)).toBe(30);
   expect(calls).toEqual([6, 1, 3, 12]);
