@@ -3047,7 +3047,10 @@ function blankContextEscopo() {
     dataAtualizacao: "",
     statusAprovacao: "",
     aprovador: "",
+    aprovadorCargo: "",
     dataAprovacao: "",
+    revisao: "00",
+    historico: [],
   };
 }
 
@@ -3144,6 +3147,7 @@ function contextEscopoHtml() {
       <div class="context-scope-head">
         <div><div class="dcc-title">Escopo do Sistema de Gestão da Qualidade</div><div class="dcc-sub">Abrangência do SGQ · cláusula 4.3</div></div>
         <div class="escopo-topbar">
+          ${canEditModule("contexto") ? `<button class="btn-ghost" data-context-action="edit-escopo" type="button">${moduleIcon("edit")} Editar controle</button>` : ""}
           <div class="escopo-pill">Última atualização: <strong>${data.dataAtualizacao ? formatDate(data.dataAtualizacao) : "-"}</strong></div>
           <div class="escopo-pill ${data.statusAprovacao === "Aprovado" ? "approved" : ""}">${escapeHtml(statusText)}</div>
         </div>
@@ -3157,8 +3161,10 @@ function contextEscopoHtml() {
         <div class="escopo-card full">
           <h4>Aprovação pela Alta Direção</h4>
           <div class="field-row3">
+            <div class="field"><label>Revisão</label><input class="input-basic" id="ctxEscopo-revisao" value="${escapeHtml(data.revisao || "00")}" readonly></div>
             <div class="field"><label>Status de aprovação</label><select class="input-basic" id="ctxEscopo-statusAprovacao"${disabled}>${["Pendente", "Aprovado", "Reprovado"].map((status) => `<option value="${status}" ${data.statusAprovacao === status ? "selected" : ""}>${status}</option>`).join("")}</select></div>
             <div class="field"><label>Aprovador</label><input class="input-basic" id="ctxEscopo-aprovador" type="text" value="${escapeHtml(data.aprovador || "")}"${readonly}></div>
+            <div class="field"><label>Cargo</label><input class="input-basic" id="ctxEscopo-aprovadorCargo" type="text" value="${escapeHtml(data.aprovadorCargo || "")}"${readonly}></div>
             <div class="field"><label>Data de aprovação</label><input class="input-basic" id="ctxEscopo-dataAprovacao" type="date" value="${escapeHtml(data.dataAprovacao || "")}"${readonly}></div>
           </div>
         </div>
@@ -3167,6 +3173,10 @@ function contextEscopoHtml() {
         <div class="escopo-saved-msg" id="ctxEscopoSavedMsg">Alterações salvas</div>
         <button class="btn-ghost danger-text" data-context-action="clear-escopo" type="button">Limpar escopo</button>
         <button class="btn-primary" data-context-action="save-escopo" type="button">Salvar alterações</button>
+      </div>
+      <div class="context-revision-history">
+        <h4>Histórico de revisões</h4>
+        ${(Array.isArray(data.historico) && data.historico.length) ? data.historico.slice().reverse().map((item) => `<div><strong>Rev. ${escapeHtml(item.revisao)}</strong> · ${formatDate(item.data)} · ${escapeHtml(item.aprovador || "Sem aprovador")} · ${escapeHtml(item.descricao || "Atualização do escopo.")}</div>`).join("") : "<div class=\"empty-state\">Nenhuma revisão registrada.</div>"}
       </div>
     </section>`;
 }
@@ -3372,6 +3382,7 @@ function handleContextAction(action, id) {
     "delete-parte": () => deleteContextParte(id),
     "save-parte": () => saveContextParte(),
     "save-escopo": () => saveContextEscopo(),
+    "edit-escopo": () => document.querySelector("#ctxEscopo-aprovador")?.focus(),
     "clear-escopo": () => clearContextEscopo(),
     "view-processo": () => viewContextProcesso(id),
     "new-processo": () => openContextProcesso(),
@@ -3513,6 +3524,9 @@ function deleteContextParte(id) {
 }
 
 function saveContextEscopo() {
+  const previous = contextGet("escopo");
+  const nextRevision = String(Number.parseInt(previous.revisao || "00", 10) + 1).padStart(2, "0");
+  const dataAtualizacao = new Date().toISOString().slice(0, 10);
   const escopo = {
     unidades: inputValue("ctxEscopo-unidades"),
     produtos: inputValue("ctxEscopo-produtos"),
@@ -3521,8 +3535,11 @@ function saveContextEscopo() {
     justificativas: inputValue("ctxEscopo-justificativas"),
     statusAprovacao: inputValue("ctxEscopo-statusAprovacao"),
     aprovador: inputValue("ctxEscopo-aprovador"),
+    aprovadorCargo: inputValue("ctxEscopo-aprovadorCargo"),
     dataAprovacao: inputValue("ctxEscopo-dataAprovacao"),
-    dataAtualizacao: new Date().toISOString().slice(0, 10),
+    dataAtualizacao,
+    revisao: nextRevision,
+    historico: [...(Array.isArray(previous.historico) ? previous.historico : []), { revisao: nextRevision, data: dataAtualizacao, aprovador: inputValue("ctxEscopo-aprovador"), descricao: "Atualização do escopo." }],
   };
   contextSet("escopo", escopo);
   renderContextTab();
