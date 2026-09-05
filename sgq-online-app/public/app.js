@@ -1244,11 +1244,19 @@ function sgqHealthPreview(months, url = location.href) {
     [8, 18, 1, 6], [11, 24, 2, 5], [7, 21, 4, 3],
     [9, 30, 3, 4], [5, 34, 4, 2], [2, 38, 2, 1],
   ];
+  const monthlySamples = months === 12 ? [
+    [5, 13, 1, 7], [7, 16, 2, 6], [6, 19, 2, 5],
+    [10, 22, 3, 4], [8, 20, 3, 4], [12, 27, 3, 3],
+    ...samples,
+  ] : samples;
   const template = SGQHealthData.getSGQHealthHistory([], { months, canView: canViewModule });
   const points = template.points.map((point, index) => {
-    const sample = samples[index + samples.length - template.points.length];
-    return { month: point.month, ...Object.fromEntries(sgqHealthMetrics.map((metric, column) => [
-      metric.key, sample && template.current[metric.key] !== null ? sample[column] : null,
+    const sampleIndex = months === 1 ? Math.min(monthlySamples.length - 1, Math.floor(index / 5)) : index + monthlySamples.length - template.points.length;
+    const sample = monthlySamples[sampleIndex];
+    const nextSample = months === 1 ? monthlySamples[Math.min(monthlySamples.length - 1, sampleIndex + 1)] : sample;
+    const progress = months === 1 ? (index % 5) / 5 : 0;
+    return { month: point.month, ...(point.dayLabel ? { dayLabel: point.dayLabel } : {}), ...Object.fromEntries(sgqHealthMetrics.map((metric, column) => [
+      metric.key, sample && template.current[metric.key] !== null ? Math.round(sample[column] + (nextSample[column] - sample[column]) * progress) : null,
     ])) };
   });
   const current = Object.fromEntries(sgqHealthMetrics.map((metric) => [metric.key, points.at(-1)[metric.key]]));
@@ -1288,19 +1296,33 @@ function mountSGQHealth() {
   const cache = new Map();
   let chart;
   let controller;
+  let activeData;
+  let transitionTimer;
   const number = new Intl.NumberFormat("pt-BR");
-  const label = (month, long = false) => new Intl.DateTimeFormat("pt-BR", { month: long ? "long" : "short", ...(long ? { year: "numeric" } : {}), timeZone: "UTC" }).format(new Date(`${month}-15T12:00:00Z`)).replace(".", "");
-  const draw = (data) => {
+  const reducedMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const label = (point, long = false) => {
+    if (point.dayLabel) {
+      return long
+        ? new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" }).format(new Date(`${point.month}T12:00:00Z`))
+        : point.dayLabel;
+    }
+    return new Intl.DateTimeFormat("pt-BR", { month: long ? "long" : "short", ...(long ? { year: "numeric" } : {}), timeZone: "UTC" }).format(new Date(`${point.month}-15T12:00:00Z`)).replace(".", "");
+  };
+  const draw = (data, animate = false) => {
     root.querySelectorAll("[data-health-value]").forEach((element) => {
       const value = data.current[element.dataset.healthValue];
       element.textContent = value === null ? "—" : number.format(value);
     });
     if (!data.hasData) {
+      chart?.destroy();
+      chart = null;
+      plot.classList.remove("is-refreshing");
       message.textContent = "Nenhum histórico registrado neste período.";
       message.hidden = false;
       return;
     }
     if (typeof Chart === "undefined") throw new Error("chart_unavailable");
+    activeData = data;
     message.hidden = true;
     note.textContent = data.historyAvailable === false
       ? "Histórico mensal indisponível. Exibindo os dados atuais."
@@ -1309,10 +1331,27 @@ function mountSGQHealth() {
     const style = getComputedStyle(root);
     const text = style.getPropertyValue("--home-muted").trim() || "#AFC4DB";
     const white = document.body.classList.contains("theme-white");
+    if (chart) {
+      chart.data.labels = data.points.map((point) => label(point));
+      chart.data.datasets.forEach((dataset, index) => {
+        dataset.data = data.points.map((point) => point[sgqHealthMetrics[index].key]);
+        dataset.pointBackgroundColor = white ? "#fff" : "#0D3155";
+      });
+      chart.options.animation = animate && !reducedMotion ? { duration: 620, easing: "easeInOutQuart" } : false;
+      chart.update();
+      clearTimeout(transitionTimer);
+      if (animate && !reducedMotion) {
+        plot.classList.add("is-refreshing");
+        transitionTimer = setTimeout(() => plot.classList.remove("is-refreshing"), 700);
+      } else {
+        plot.classList.remove("is-refreshing");
+      }
+      return;
+    }
     chart = new Chart(canvas, {
       type: "line",
       data: {
-        labels: data.points.map((point) => label(point.month)),
+        labels: data.points.map((point) => label(point)),
         datasets: sgqHealthMetrics.map((metric) => ({
           label: metric.title, data: data.points.map((point) => point[metric.key]), borderColor: metric.color,
           backgroundColor: metric.color, borderWidth: 2, pointRadius: 3, pointHoverRadius: 5,
@@ -1329,10 +1368,10 @@ function mountSGQHealth() {
           tooltip: {
             enabled: false,
             external: ({ tooltip }) => {
-              const point = data.points[tooltip.dataPoints?.[0]?.dataIndex];
+              const point = activeData?.points[tooltip.dataPoints?.[0]?.dataIndex];
               tooltipElement.hidden = !tooltip.opacity || !point;
               if (tooltipElement.hidden) return;
-              tooltipElement.innerHTML = `<strong>${escapeHtml(label(point.month, true))}</strong>${sgqHealthMetrics.map((metric) => `<div><i style="background:${metric.color}"></i><span>${metric.title}</span><b>${point[metric.key] === null ? "—" : number.format(point[metric.key])}</b></div>`).join("")}`;
+              tooltipElement.innerHTML = `<strong>${escapeHtml(label(point, true))}</strong>${sgqHealthMetrics.map((metric) => `<div><i style="background:${metric.color}"></i><span>${metric.title}</span><b>${point[metric.key] === null ? "—" : number.format(point[metric.key])}</b></div>`).join("")}`;
               const outer = root.getBoundingClientRect();
               const inner = canvas.getBoundingClientRect();
               tooltipElement.style.left = `${Math.max(6, Math.min(inner.left - outer.left + tooltip.caretX + 8, root.clientWidth - tooltipElement.offsetWidth - 6))}px`;
@@ -1348,15 +1387,19 @@ function mountSGQHealth() {
     });
   };
   const load = async () => {
+    const animate = Boolean(chart);
     controller?.abort();
     const request = new AbortController();
     controller = request;
-    chart?.destroy();
-    chart = null;
     tooltipElement.hidden = true;
     note.hidden = true;
-    message.innerHTML = '<span class="sgq-health-skeleton" aria-hidden="true"></span><span>Carregando histórico...</span>';
-    message.hidden = false;
+    if (animate) {
+      plot.classList.add("is-refreshing");
+      message.hidden = true;
+    } else {
+      message.innerHTML = '<span class="sgq-health-skeleton" aria-hidden="true"></span><span>Carregando histórico...</span>';
+      message.hidden = false;
+    }
     plot.setAttribute("aria-busy", "true");
     const months = Number(select.value);
     sgqHealthPeriod = months;
@@ -1364,11 +1407,12 @@ function mountSGQHealth() {
       const data = cache.get(months) || await getSGQHealthHistory({ months, signal: request.signal });
       if (request.signal.aborted || !root.isConnected) return;
       cache.set(months, data);
-      draw(data);
+      draw(data, animate);
     } catch (error) {
       if (request.signal.aborted || !root.isConnected) return;
       message.innerHTML = '<span>Não foi possível carregar o histórico.</span><button type="button" class="sgq-health-retry">Tentar novamente</button>';
       message.hidden = false;
+      plot.classList.remove("is-refreshing");
       message.querySelector("button").onclick = () => { cache.delete(months); void load(); };
     } finally {
       if (!request.signal.aborted) plot.setAttribute("aria-busy", "false");
@@ -1377,7 +1421,7 @@ function mountSGQHealth() {
   select.addEventListener("change", load);
   const observer = new MutationObserver(() => { if (!root.isConnected) dispose(); });
   observer.observe(pageContent, { childList: true });
-  const dispose = () => { controller?.abort(); chart?.destroy(); chart = null; observer.disconnect(); select.removeEventListener("change", load); };
+  const dispose = () => { controller?.abort(); clearTimeout(transitionTimer); chart?.destroy(); chart = null; observer.disconnect(); select.removeEventListener("change", load); };
   disposeSGQHealth = dispose;
   void load();
 }

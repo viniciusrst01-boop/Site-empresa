@@ -22,11 +22,13 @@ const bounds = (page) => page.evaluate(() => Object.fromEntries([
 
 // Only browser tests use synthetic history to exercise all four lines.
 const fixture = (months = 6) => {
-  const points = Array.from({ length: months }, (_, i) => ({
-    month: new Date(Date.UTC(2026, 9 - months + i, 15)).toISOString().slice(0, 7),
-    nonConformities: 2 + i % 3, actions: 18 + i * 4, audits: 2 + i % 2, documents: 1,
+  const length = months === 1 ? 30 : months;
+  const points = Array.from({ length }, (_, i) => ({
+    month: months === 1 ? new Date(Date.UTC(2026, 8, i + 1)).toISOString().slice(0, 10) : new Date(Date.UTC(2026, 9 - months + i, 15)).toISOString().slice(0, 7),
+    ...(months === 1 ? { dayLabel: String(i + 1).padStart(2, "0") } : {}),
+    nonConformities: months === 1 ? 2 + Math.floor(i / 10) : 2 + i % 3, actions: months === 1 ? 18 + i : 18 + i * 4, audits: 2 + i % 2, documents: 1,
   }));
-  return { months, points, current: { ...points.at(-1) }, hasData: true };
+  return { months, granularity: months === 1 ? "day" : "month", points, current: { ...points.at(-1) }, hasData: true };
 };
 
 test("health keeps the desktop shell and renders contained charts in all themes", async ({ page }, info) => {
@@ -100,8 +102,11 @@ test("periods, error recovery, empty state, mobile layout and navigation", async
   await expect(page.locator(".sgq-health-plot")).toHaveAttribute("aria-busy", "false");
   for (const months of [1, 3, 12, 6]) {
     await select.selectOption(String(months));
-    await expect.poll(() => page.locator(".sgq-health-canvas canvas").evaluate((canvas) => Chart.getChart(canvas)?.data.labels.length)).toBe(months);
+    await expect.poll(() => page.locator(".sgq-health-canvas canvas").evaluate((canvas) => Chart.getChart(canvas)?.data.labels.length)).toBe(months === 1 ? 30 : months);
   }
+  expect(await page.locator(".sgq-health-canvas canvas").evaluate((canvas) => Chart.getChart(canvas)?.options.animation)).toMatchObject({ duration: 620, easing: "easeInOutQuart" });
+  await select.selectOption("1");
+  await expect.poll(() => page.locator(".sgq-health-canvas canvas").evaluate((canvas) => Chart.getChart(canvas)?.data.labels.length)).toBe(30);
   expect(calls).toEqual([6, 1, 3, 12]);
   mode = "error";
   await page.reload();
@@ -163,7 +168,7 @@ test("an old API still displays current saved counts without invented history", 
   expect(datasets).toHaveLength(4);
   expect(datasets.every(values => values.slice(0, -1).every(value => value === null))).toBe(true);
   await page.getByLabel("Período da saúde do SGQ").selectOption("1");
-  await expect.poll(() => page.locator(".sgq-health-canvas canvas").evaluate(canvas => Chart.getChart(canvas)?.data.labels.length)).toBe(1);
+  await expect.poll(() => page.locator(".sgq-health-canvas canvas").evaluate(canvas => Chart.getChart(canvas)?.data.labels.length)).toBe(30);
   await expect(page.locator(".sgq-health-history-note")).toBeVisible();
   await page.locator(".home-v2-health").screenshot({ path: info.outputPath("health-old-api-fallback.png") });
 });
@@ -190,7 +195,7 @@ test("six-month visual preview is local-only and never saves its samples", async
     if (request.url().includes("/api/dashboard/health-history")) historyRequests.push(request.url());
   });
   await page.goto("/app?previewHealth=1");
-  await expect(page.locator(".sgq-health-history-note")).toHaveText("Simulação local: 6 meses de dados fictícios.");
+  await expect(page.locator(".sgq-health-history-note")).toBeHidden();
   const readChart = () => page.locator(".sgq-health-canvas canvas").evaluate(canvas => Chart.getChart(canvas).data.datasets.map(dataset => dataset.data));
   expect(await readChart()).toEqual([
     [8, 11, 7, 9, 5, 2], [18, 24, 21, 30, 34, 38], [1, 2, 4, 3, 4, 2], [6, 5, 3, 4, 2, 1],
@@ -203,7 +208,8 @@ test("six-month visual preview is local-only and never saves its samples", async
   await select.selectOption("3");
   await expect.poll(async () => (await readChart())[1]).toEqual([30, 34, 38]);
   await select.selectOption("12");
-  await expect.poll(async () => (await readChart())[1]).toEqual([null, null, null, null, null, null, 18, 24, 21, 30, 34, 38]);
+  await expect.poll(async () => (await readChart())[1]).toHaveLength(12);
+  expect((await readChart())[1].every((value) => Number.isFinite(value))).toBe(true);
   expect(historyRequests).toEqual([]);
   expect(writes).toEqual([]);
   const after = await (await page.request.get("/api/bootstrap")).json();

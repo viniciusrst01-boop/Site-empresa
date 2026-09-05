@@ -39,8 +39,8 @@ test("history carries actual observations forward without backfilling unknown mo
 test("periods cross the year correctly and respect the Sao Paulo month boundary", () => {
   for (const months of [1, 3, 6, 12]) {
     const result = getSGQHealthHistory([], { months, now: new Date("2026-01-01T01:00:00Z") });
-    assert.equal(result.points.length, months);
-    assert.equal(result.points.at(-1).month, "2025-12");
+    assert.equal(result.points.length, months === 1 ? 30 : months);
+    assert.equal(result.points.at(-1).month.slice(0, 7), "2025-12");
   }
   assert.throws(() => getSGQHealthHistory([], { months: 2 }), /invalid_health_period/);
   assert.equal(healthObservation("leadership", {}, now), null);
@@ -64,4 +64,17 @@ test("a current document's update date is not fabricated as a historical snapsho
   assert.equal(result.points[0].documents, null);
   assert.equal(result.current.documents, 1);
   assert.equal(healthObservation("state", null, now).value.documents, 0);
+});
+
+test("the one-month period exposes daily points and carries saved daily changes", () => {
+  const dailyRows = [
+    { key: "state", value: { ncs: [{ status: "Aberta" }], audits: [], documents: [] }, updatedAt: "2026-08-20T12:00:00Z" },
+    healthObservation("state", { ncs: [{ status: "Aberta" }, { status: "Aberta" }], audits: [], documents: [] }, "2026-08-25T12:00:00Z").value,
+  ];
+  const result = getSGQHealthHistory(dailyRows.map((value) => value.key ? value : { key: "sgqHealth:state:2026-08-25", value }), { months: 1, now });
+  assert.equal(result.granularity, "day");
+  assert.equal(result.points.length, 30);
+  assert.match(result.points[0].dayLabel, /^\d{2}$/);
+  assert.equal(result.points.at(-1).nonConformities, 1);
+  assert.equal(result.points.find((point) => point.month === "2026-08-25").nonConformities, 2);
 });
