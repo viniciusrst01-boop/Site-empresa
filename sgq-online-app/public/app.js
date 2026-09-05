@@ -2346,6 +2346,22 @@ function activeLeadershipRoles() {
   return leadershipGet("cargos").filter((role) => role.status !== "Inativo" && role.nome && role.cargo);
 }
 
+function leadershipRoleForPerson(name) {
+  return activeLeadershipRoles().find((role) => role.nome === name)?.cargo || "";
+}
+
+function bindAutomaticCargo(personSelector, cargoSelector) {
+  const person = document.querySelector(personSelector);
+  const cargo = document.querySelector(cargoSelector);
+  if (!person || !cargo) return;
+  const update = () => {
+    const role = leadershipRoleForPerson(person.value);
+    if (role) cargo.value = role;
+  };
+  person.addEventListener("change", update);
+  update();
+}
+
 function syncLeadershipApproverRole() {
   const approver = document.querySelector("#lcPolicyApprover")?.value || "";
   const role = activeLeadershipRoles().find((item) => item.nome === approver);
@@ -2427,8 +2443,9 @@ function leadershipFieldHtml(key, label, fieldType = "text", options = [], value
     const selectedIds = Array.isArray(record?.participantIds)
       ? record.participantIds.map(String)
       : leadershipParticipants.filter((participant) => savedNames.includes(participant.displayName)).map((participant) => String(participant.id));
-    const optionsHtml = leadershipParticipants.length
-      ? leadershipParticipants.map((participant) => {
+    const sortedParticipants = [...leadershipParticipants].sort((first, second) => String(first.cargo || "Sem cargo").localeCompare(String(second.cargo || "Sem cargo"), "pt-BR", { sensitivity: "base" }) || String(first.displayName || "").localeCompare(String(second.displayName || ""), "pt-BR", { sensitivity: "base" }));
+    const optionsHtml = sortedParticipants.length
+      ? sortedParticipants.map((participant) => {
           const participantId = String(participant.id);
           return `<label class="participant-option"><input type="checkbox" value="${escapeHtml(participantId)}" data-lc-participant ${selectedIds.includes(participantId) ? "checked" : ""}><span><strong>${escapeHtml(participant.displayName)}</strong><small>${escapeHtml(participant.email)}</small></span></label>`;
         }).join("")
@@ -3657,6 +3674,7 @@ function openContextProcesso(id = "") {
   setInputValue("contextProcessoEntradas", (item?.entradas || []).join("\n"));
   setInputValue("contextProcessoSaidas", (item?.saidas || []).join("\n"));
   openContextModal("contextProcessoModal");
+  bindAutomaticCargo("#contextProcessoResponsavel", "#contextProcessoCargo");
 }
 
 function saveContextProcesso() {
@@ -4098,6 +4116,7 @@ function openGoal(id = "") {
   setInputValue("goalRecursos", plan.recursos || "");
   setInputValue("goalComo", plan.como || "");
   openRiskModal("goalModal");
+  bindAutomaticCargo("#goalResponsavel", "#goalCargo");
 }
 
 function saveGoal() {

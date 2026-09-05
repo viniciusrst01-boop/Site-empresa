@@ -456,7 +456,7 @@ async function listLeadershipParticipantUsers(companyId) {
       const email = isEmail(user.username)
         ? user.username
         : savedUser?.email || savedUser?.username || (user.username.toLowerCase() === adminUser.toLowerCase() || user.role === "Administrador" ? adminContactEmail : "");
-      return { ...user, contactEmail: isEmail(email) ? email : "" };
+      return { ...user, cargo: user.cargo || savedUser?.cargo || "", contactEmail: isEmail(email) ? email : "" };
     })
     .filter((user) => user.contactEmail);
 }
@@ -2225,7 +2225,7 @@ async function handleApiRequest(req, res, url, session) {
     }
     const users = await listLeadershipParticipantUsers(companyId);
     sendJson(res, 200, {
-      users: users.map((user) => ({ id: user.id, displayName: user.displayName, email: user.contactEmail })),
+      users: users.map((user) => ({ id: user.id, displayName: user.displayName, email: user.contactEmail, cargo: user.cargo || "" })),
     });
     return;
   }
