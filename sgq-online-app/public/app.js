@@ -2552,7 +2552,10 @@ async function saveLeadershipRecord() {
     }
   }
   closeLeadershipModal();
-  refreshLeadershipScreen(`${leadershipTypeLabel(type)} salvo.${invitationMessage}`);
+  const savedMessage = type === "acao" && !id
+    ? `Nova ação salva. Verifique o calendário.${invitationMessage}`
+    : `${leadershipTypeLabel(type)} salvo.${invitationMessage}`;
+  refreshLeadershipScreen(savedMessage);
 }
 
 async function uploadLeadershipAttachment(file) {
