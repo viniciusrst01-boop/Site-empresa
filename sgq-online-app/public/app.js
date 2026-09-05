@@ -1249,12 +1249,30 @@ function sgqHealthPreview(months, url = location.href) {
     [10, 22, 3, 4], [8, 20, 3, 4], [12, 27, 3, 3],
     ...samples,
   ] : samples;
+  const threeMonthSamples = [
+    [9, 30, 3, 4], [8, 31, 3, 4], [7, 32, 3, 3], [6, 33, 3, 3],
+    [6, 33, 3, 3], [5, 34, 3, 3], [4, 36, 2, 2], [3, 37, 2, 2],
+    [3, 36, 2, 2], [3, 37, 2, 2], [2, 38, 2, 1], [2, 38, 2, 1],
+  ];
   const template = SGQHealthData.getSGQHealthHistory([], { months, canView: canViewModule });
-  const points = template.points.map((point, index) => {
+  const previewPoints = months === 3 ? Array.from({ length: 12 }, (_, index) => {
+    const monthPoint = template.points[Math.floor(index / 4)];
+    const day = String([1, 8, 15, 22][index % 4]).padStart(2, "0");
+    const date = new Date(`${monthPoint.month}-${day}T12:00:00Z`);
+    const axisLabel = index % 4 === 0
+      ? new Intl.DateTimeFormat("pt-BR", { month: "short", timeZone: "UTC" }).format(date).replace(".", "")
+      : "";
+    const sample = threeMonthSamples[index];
+    return { month: date.toISOString().slice(0, 10), axisLabel, ...Object.fromEntries(sgqHealthMetrics.map((metric, column) => [
+      metric.key, template.current[metric.key] !== null ? sample[column] : null,
+    ])) };
+  }) : template.points;
+  const points = previewPoints.map((point, index) => {
     const sampleIndex = months === 1 ? Math.min(monthlySamples.length - 1, Math.floor(index / 5)) : index + monthlySamples.length - template.points.length;
     const sample = monthlySamples[sampleIndex];
     const nextSample = months === 1 ? monthlySamples[Math.min(monthlySamples.length - 1, sampleIndex + 1)] : sample;
     const progress = months === 1 ? (index % 5) / 5 : 0;
+    if (months === 3) return point;
     return { month: point.month, ...(point.dayLabel ? { dayLabel: point.dayLabel } : {}), ...Object.fromEntries(sgqHealthMetrics.map((metric, column) => [
       metric.key, sample && template.current[metric.key] !== null ? Math.round(sample[column] + (nextSample[column] - sample[column]) * progress) : null,
     ])) };
@@ -1320,6 +1338,11 @@ function mountSGQHealth() {
     },
   };
   const label = (point, long = false) => {
+    if (point.axisLabel !== undefined) {
+      return long
+        ? new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" }).format(new Date(`${point.month}T12:00:00Z`))
+        : point.axisLabel;
+    }
     if (point.dayLabel) {
       return long
         ? new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" }).format(new Date(`${point.month}T12:00:00Z`))
@@ -1389,7 +1412,7 @@ function mountSGQHealth() {
           label: metric.title, data: data.points.map((point) => point[metric.key]), borderColor: metric.color,
           backgroundColor: metric.color, borderWidth: 2, pointRadius: 3, pointHoverRadius: 5,
           pointBackgroundColor: white ? "#fff" : "#0D3155", pointBorderWidth: 2,
-          cubicInterpolationMode: "monotone", spanGaps: false,
+          cubicInterpolationMode: "default", tension: 0.55, spanGaps: false,
         })),
       },
       options: {

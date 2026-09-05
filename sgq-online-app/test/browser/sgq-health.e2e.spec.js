@@ -104,6 +104,10 @@ test("periods, error recovery, empty state, mobile layout and navigation", async
   await home(page);
   const select = page.getByLabel("Período da saúde do SGQ");
   await expect(page.locator(".sgq-health-plot")).toHaveAttribute("aria-busy", "false");
+  expect(await page.locator(".sgq-health-canvas canvas").evaluate((canvas) => Chart.getChart(canvas).data.datasets.map((dataset) => ({ mode: dataset.cubicInterpolationMode, tension: dataset.tension })))).toEqual([
+    { mode: "default", tension: 0.55 }, { mode: "default", tension: 0.55 },
+    { mode: "default", tension: 0.55 }, { mode: "default", tension: 0.55 },
+  ]);
   for (const months of [1, 3, 12, 6]) {
     await select.selectOption(String(months));
     await expect.poll(() => page.locator(".sgq-health-canvas canvas").evaluate((canvas) => Chart.getChart(canvas)?.data.labels.length)).toBe(months === 1 ? 30 : months);
@@ -220,7 +224,7 @@ test("six-month visual preview is local-only and never saves its samples", async
   await page.locator(".home-v2-health").screenshot({ path: info.outputPath("health-six-month-local-preview.png"), animations: "disabled" });
   const select = page.getByLabel("Período da saúde do SGQ");
   await select.selectOption("3");
-  await expect.poll(async () => (await readChart())[1]).toEqual([30, 34, 38]);
+  await expect.poll(async () => (await readChart())[1]).toEqual([30, 31, 32, 33, 33, 34, 36, 37, 36, 37, 38, 38]);
   await select.selectOption("12");
   await expect.poll(async () => (await readChart())[1]).toHaveLength(12);
   expect((await readChart())[1].every((value) => Number.isFinite(value))).toBe(true);
