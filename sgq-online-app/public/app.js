@@ -4,6 +4,7 @@ const MODULE_TABS_STORAGE_KEY = "qualitypro-module-tabs-v1";
 const RISK_TAB_STORAGE_KEY = "qualitypro-risk-tab-v1";
 
 const modules = [
+  { id: "mudancas-climaticas", title: "Mudanças Climáticas", accent: "#34D399", desc: "Determinação de relevância, questões climáticas e indicadores da Emenda 2024." },
   {
     id: "contexto",
     title: "Contexto da Organização",
@@ -63,6 +64,7 @@ const modules = [
 ];
 
 const moduleHeaderMeta = {
+  "mudancas-climaticas": { category: "ISO 9001:2015 · EMENDA 2024", description: "Determinação de relevância, controle das questões e ações climáticas e indicadores de acompanhamento." },
   contexto: { category: "", description: "Contexto organizacional, partes interessadas, escopo do SGQ e gestão de processos." },
   lideranca: { category: "DIREÇÃO", description: "Comprometimento da Alta Direção, política da qualidade e papéis, responsabilidades e autoridades do SGQ." },
   riscos: { category: "", description: "Planejamento e acompanhamento de riscos, oportunidades, objetivos da qualidade e mudanças." },
@@ -1675,7 +1677,7 @@ function firstName(name) {
 function renderModulos() {
   setTopbar("Meus módulos", "Módulos do QualityPro Cloud contratados pela sua empresa");
   pageContent.classList.add("modules-page-content");
-  const moduleOrder = ["contexto", "lideranca", "riscos", "documentos", "auditorias", "nao-conformidades", "equipamentos"];
+  const moduleOrder = ["contexto", "lideranca", "riscos", "documentos", "auditorias", "nao-conformidades", "equipamentos", "mudancas-climaticas"];
   const futureModuleOrder = ["satisfacao-clientes", "fornecedores"];
   const activeModules = moduleOrder
     .map((id) => modules.find((module) => module.id === id))
@@ -1881,6 +1883,7 @@ function renderModuleDetail(moduleId, options = {}) {
     "context-page-content",
     "leadership-page-content",
     "nc-page-content",
+    "climate-page-content",
   );
   if (!canViewModule(moduleId)) {
     toast("Seu perfil não possui acesso a este módulo.");
@@ -1908,6 +1911,11 @@ function renderModuleDetail(moduleId, options = {}) {
 
   if (moduleId === "nao-conformidades") {
     renderNonConformityModule();
+    return;
+  }
+
+  if (moduleId === "mudancas-climaticas") {
+    renderClimateModule();
     return;
   }
 
