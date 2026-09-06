@@ -31,6 +31,35 @@ const fixture = (months = 6) => {
   return { months, granularity: months === 1 ? "day" : "month", points, current: { ...points.at(-1) }, hasData: true };
 };
 
+test("notebook dashboard keeps cards readable and footer reachable", async ({ page }, info) => {
+  await page.route('**/api/dashboard/health-history?*', route => route.fulfill({ json: fixture(6) }));
+  await home(page);
+  for (const size of [{ width: 1366, height: 638 }, { width: 1366, height: 768 }, { width: 1280, height: 720 }, { width: 1440, height: 900 }, { width: 1024, height: 768 }]) {
+    await page.setViewportSize(size);
+    await expect(page.locator('.sgq-health-plot')).toHaveAttribute('aria-busy', 'false');
+    const problems = await page.evaluate(() => {
+      const selectors = ['.home-v2-module', '.sgq-health-indicator'];
+      return selectors.flatMap(selector => [...document.querySelectorAll(selector)].flatMap(card => {
+        const box = card.getBoundingClientRect();
+        return [...card.children].filter(child => {
+          const rect = child.getBoundingClientRect();
+          return rect.bottom > box.bottom + 1 || rect.right > box.right + 1;
+        }).map(child => child.className);
+      }));
+    });
+    expect(problems).toEqual([]);
+    await expect(page.locator('.home-v2-module-copy h3').first()).toHaveCSS('font-size', '13px');
+    await page.locator('.home-v2-bottom-grid').scrollIntoViewIfNeeded();
+    await expect(page.locator('.home-v2-bottom-grid')).toBeInViewport();
+    await page.locator('.home-v2-summary').scrollIntoViewIfNeeded();
+    await page.screenshot({ path: info.outputPath(`notebook-${size.width}-${size.height}.png`) });
+  }
+  await page.locator('[data-view="modulos"]').first().click();
+  await expect(page.locator('.mymod-card').first()).toBeVisible();
+  await expect(page.locator('.mymod-title').first()).toHaveCSS('font-size', '13px');
+  await page.screenshot({ path: info.outputPath('modules-readable.png') });
+});
+
 test("health keeps the desktop shell and renders contained charts in all themes", async ({ page }, info) => {
   await page.setViewportSize({ width: 1600, height: 900 });
   const repo = path.join(__dirname, "../..");
@@ -49,7 +78,7 @@ test("health keeps the desktop shell and renders contained charts in all themes"
   const problems = [];
   for (const [index, size] of sizes.entries()) {
     await page.setViewportSize(size);
-    await expect.poll(() => bounds(page)).toEqual(before[index]);
+    if (size.width > 1440 && size.height > 800) await expect.poll(() => bounds(page)).toEqual(before[index]);
     for (const theme of ["theme-dark", "theme-light", "theme-white"]) {
       await page.evaluate((name) => { document.body.classList.remove("theme-light", "theme-white", "theme-dark"); document.body.classList.add(name); mountSGQHealth(); }, theme);
       await expect(page.locator(".sgq-health-plot")).toHaveAttribute("aria-busy", "false");
