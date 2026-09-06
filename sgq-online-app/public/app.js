@@ -2315,7 +2315,7 @@ function leadershipActionsHtml() {
 
 function leadershipCalendarHtml() {
   const scheduledActions = leadershipGet("acoes")
-    .filter((action) => /reunião/i.test(String(action.tipo || "")) && /^\d{4}-\d{2}-\d{2}$/.test(String(action.data || "")))
+    .filter((action) => /^\d{4}-\d{2}-\d{2}$/.test(String(action.data || "")))
     .sort((first, second) => String(first.data).localeCompare(String(second.data)));
   if (!leadershipCalendarMonth) {
     const today = new Date();
@@ -2356,7 +2356,7 @@ function leadershipCalendarHtml() {
   return `
     <section class="leadership-calendar-panel">
       <div class="leadership-calendar-head">
-        <div><div class="dcc-title">Calendário da alta direção</div><div class="dcc-sub">Reuniões estratégicas cadastradas em Comprometimento da Direção.</div></div>
+        <div><div class="dcc-title">Calendário da alta direção</div><div class="dcc-sub">Todos os compromissos cadastrados em Comprometimento da Direção.</div></div>
         <div class="leadership-calendar-nav">
           <button class="module-history-btn" data-lc-action="calendar-prev" type="button" title="Mês anterior" aria-label="Mês anterior">${moduleIcon("arrow-left")}</button>
           <strong>${escapeHtml(monthLabel)}</strong>
@@ -2367,7 +2367,7 @@ function leadershipCalendarHtml() {
       <div class="leadership-calendar-grid">${cells.join("")}</div>
       <div class="leadership-calendar-summary">${meetingsInMonth.length
         ? meetingsInMonth.map(({ date, meeting }) => `<div><strong>${formatDate(date)}</strong><span>${escapeHtml(meeting.descricao || meeting.tipo)}</span><em class="leadership-calendar-event-status ${leadershipMeetingStatusClass(meeting.status)}">${escapeHtml(meeting.status || "Programada")}</em></div>`).join("")
-        : '<span>Nenhuma reunião estratégica agendada neste mês.</span>'}</div>
+        : '<span>Nenhum compromisso agendado neste mês.</span>'}</div>
     </section>`;
 }
 
@@ -3171,7 +3171,7 @@ function viewLeadershipRecord(type, id) {
 }
 
 function viewLeadershipDay(date) {
-  const meetings = leadershipGet("acoes").filter((item) => item.data === date && /reunião/i.test(String(item.tipo || "")));
+  const meetings = leadershipGet("acoes").filter((item) => item.data === date);
   document.querySelector("#leadershipModalMount").innerHTML = `<div class="modal-overlay show" id="leadershipRecordModal"><div class="modal-box wide leadership-day-modal"><div class="modal-hd"><div><h3>Reuniões do dia</h3><p>${formatDate(date)}</p></div><button class="modal-close" data-lc-action="close-modal" type="button">${moduleIcon("close")}</button></div><div class="leadership-day-meetings">${meetings.map((meeting) => `<div class="leadership-day-meeting"><div><strong>${escapeHtml(meeting.descricao || meeting.tipo)}</strong><span>${escapeHtml(meeting.horaInicio || "Horário não informado")} ${meeting.horaFim ? ` às ${escapeHtml(meeting.horaFim)}` : ""}</span><em class="leadership-calendar-event-status ${leadershipMeetingStatusClass(meeting.status)}">${escapeHtml(meeting.status || "Programada")}</em></div><button class="module-history-btn" data-lc-action="view-meeting" data-id="${escapeHtml(meeting.id)}" type="button" title="Ver detalhes" aria-label="Ver detalhes">${moduleIcon("external")}</button></div>`).join("") || '<div class="empty-state">Nenhuma reunião encontrada.</div>'}</div></div></div>`;
 }
 
