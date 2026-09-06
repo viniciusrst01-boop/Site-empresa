@@ -60,6 +60,7 @@ const modules = [
     desc: "Homologação, avaliação e acompanhamento de fornecedores críticos.",
     future: true,
   },
+  { id: "mudancas-climaticas", title: "Mudanças Climáticas", accent: "#34D399", desc: "Determinação de relevância, questões climáticas e indicadores da Emenda 2024." },
 ];
 
 const moduleHeaderMeta = {
@@ -70,6 +71,7 @@ const moduleHeaderMeta = {
   auditorias: { category: "AVALIAÇÃO" },
   "nao-conformidades": { category: "MELHORIA CONTÍNUA", description: "Registro, análise de causa, ações corretivas, avaliação de eficácia e rastreabilidade de RNCs." },
   equipamentos: { category: "RECURSOS" },
+  "mudancas-climaticas": { category: "ISO 9001:2015 · EMENDA 2024", description: "Determinação de relevância, controle das questões e ações climáticas para o SGQ." },
 };
 
 const seedState = {
@@ -1054,11 +1056,11 @@ function fitDashboardToViewport() {
   const dashboard = pageContent.querySelector('.home-v2');
   if (!dashboard) return;
   const fit = () => {
-    const isTargetResolution = (window.innerWidth === 1366 && window.innerHeight === 768)
-      || (window.innerWidth === 1536 && window.innerHeight === 864)
-      || (window.innerWidth === 1440 && window.innerHeight === 900)
-      || (window.innerWidth === 1280 && window.innerHeight === 720)
-      || (window.innerWidth === 1366 && window.innerHeight === 638);
+    const isTargetResolution = (window.innerWidth === 1366 && window.innerHeight <= 768)
+      || (window.innerWidth === 1536 && window.innerHeight <= 864)
+      || (window.innerWidth === 1440 && window.innerHeight <= 900)
+      || (window.innerWidth === 1280 && window.innerHeight <= 720)
+      || (window.innerWidth >= 1000 && window.innerWidth <= 1300 && window.innerHeight <= 720 && window.innerWidth / window.innerHeight >= 1.6);
     if (!isTargetResolution) {
       pageContent.style.height = '';
       dashboard.style.zoom = '';
@@ -1875,6 +1877,7 @@ function renderModuleDetail(moduleId, options = {}) {
     "context-page-content",
     "leadership-page-content",
     "nc-page-content",
+    "climate-page-content",
   );
   if (!canViewModule(moduleId)) {
     toast("Seu perfil não possui acesso a este módulo.");
@@ -1902,6 +1905,11 @@ function renderModuleDetail(moduleId, options = {}) {
 
   if (moduleId === "nao-conformidades") {
     renderNonConformityModule();
+    return;
+  }
+
+  if (moduleId === "mudancas-climaticas") {
+    renderClimateModule();
     return;
   }
 
@@ -4250,7 +4258,7 @@ function riskChangesHtml() {
     ? rows
         .map((item) => `
           <tr>
-            <td class="mono muted-cell">${escapeHtml(item.id)}</td>
+            <td class="mono muted-cell">${escapeHtml(item.codigo || item.id)}</td>
             <td class="strong-cell">${escapeHtml(item.mudanca)}</td>
             <td class="desc-cell">${escapeHtml(item.areaImpactada)}</td>
             <td>${priorityChip(item.prioridade)}</td>
@@ -4408,30 +4416,50 @@ function riskModalsHtml() {
     </div>
 
     <div class="modal-overlay" id="changeModal">
-      <div class="modal-box wide">
+      <div class="modal-box change-plan-modal">
         <div class="modal-hd">
-          <div><h3 id="changeTitle">Nova mudança</h3><p>Planejamento de Mudanças · cláusula 6.3</p></div>
+          <div class="change-plan-modal-heading"><span>${moduleIcon("documentos")}</span><div><h3 id="changeTitle">Registrar mudança</h3><p>Planejamento de mudanças · cláusula 6.3</p></div></div>
           <button class="modal-close" data-risk-close="changeModal" type="button">${moduleIcon("close")}</button>
         </div>
         <input type="hidden" id="changeEditId">
-        <div class="field"><label>Mudança</label><input class="input-basic" id="changeMudanca" placeholder="Ex.: Implantação de novo ERP/CRM comercial"></div>
-        <div class="field"><label>Propósito</label><textarea class="input-basic" id="changeProposito"></textarea></div>
-        <div class="field-row2">
-          <div class="field"><label>Área impactada</label><input class="input-basic" id="changeArea" placeholder="Ex.: TI / Todos os Processos"></div>
-          <div class="field"><label>Responsável</label><select class="input-basic" id="changeResponsavel">${peopleOptions()}</select></div>
-        </div>
-        <div class="field-row3">
-          <div class="field"><label>Status</label><select class="input-basic" id="changeStatus"><option>Em planejamento</option><option>Em execução</option><option>Concluída</option></select></div>
-          <div class="field"><label>Prioridade</label><select class="input-basic" id="changePrioridade"><option>Alta</option><option>Média</option><option>Baixa</option></select></div>
-          <div class="field"><label>Data prevista</label><input class="input-basic" type="date" id="changeData"></div>
-        </div>
-        <div class="field-row2">
-          <div class="field"><label>Recursos necessários</label><textarea class="input-basic" id="changeRecursosDesc"></textarea></div>
-          <div class="field"><label>Valor estimado (R$)</label><input class="input-basic" type="number" min="0" step="100" id="changeRecursosValor" placeholder="Ex.: 5000"></div>
-        </div>
+        <section class="change-plan-section">
+          <div class="change-plan-section-title"><span>1</span> Informações gerais da mudança</div>
+          <div class="change-plan-general-grid">
+            <div class="field change-title-field"><label>Título da mudança</label><input class="input-basic" id="changeMudanca" placeholder="Ex.: Troca de equipamento por modelo de maior capacidade"></div>
+            <div class="field"><label>Código de referência</label><input class="input-basic" id="changeCodigo" placeholder="Opcional"></div>
+            <div class="field"><label>Data do registro</label><input class="input-basic" type="date" id="changeRegistro"></div>
+            <div class="field"><label>Área impactada</label><input class="input-basic" id="changeArea" placeholder="Ex.: Produção / Corte"></div>
+            <div class="field"><label>Responsável</label><select class="input-basic" id="changeResponsavel">${peopleOptions()}</select></div>
+            <div class="field"><label>Prioridade</label><select class="input-basic" id="changePrioridade"><option>Alta</option><option>Média</option><option>Baixa</option></select></div>
+            <div class="field"><label>Status</label><select class="input-basic" id="changeStatus"><option>Em planejamento</option><option>Em execução</option><option>Concluída</option></select></div>
+            <div class="field"><label>Previsão de implementação</label><input class="input-basic" type="date" id="changeData"></div>
+          </div>
+          <div class="field"><label>Motivação e propósito</label><textarea class="input-basic" id="changeProposito" placeholder="Descreva o resultado pretendido e a razão para a mudança."></textarea></div>
+        </section>
+
+        <section class="change-plan-section">
+          <div class="change-plan-section-title"><span>2</span> Planejamento da mudança <small>Cláusula 6.3</small></div>
+          <div class="change-plan-stages">
+            <article class="change-stage stage-impact"><div class="change-stage-head"><span>${moduleIcon("riscos")}</span><div><h4>Impacto</h4><p>Consequências e requisitos afetados</p></div></div><textarea class="input-basic" id="changeImpacto" placeholder="Registre os impactos identificados."></textarea></article>
+            <article class="change-stage stage-plan"><div class="change-stage-head"><span>${moduleIcon("clipboard")}</span><div><h4>Planejamento</h4><p>Ações, recursos e preparação</p></div></div><textarea class="input-basic" id="changePlanejamento" placeholder="Defina as ações necessárias."></textarea></article>
+            <article class="change-stage stage-communication"><div class="change-stage-head"><span>${moduleIcon("mail")}</span><div><h4>Comunicação</h4><p>Pessoas e informações envolvidas</p></div></div><textarea class="input-basic" id="changeComunicacao" placeholder="Registre como a mudança será comunicada."></textarea></article>
+            <article class="change-stage stage-implementation"><div class="change-stage-head"><span>${moduleIcon("configuracoes")}</span><div><h4>Implementação</h4><p>Execução e validações previstas</p></div></div><textarea class="input-basic" id="changeImplementacao" placeholder="Descreva a execução planejada."></textarea></article>
+            <article class="change-stage stage-monitoring"><div class="change-stage-head"><span>${moduleIcon("bar-chart")}</span><div><h4>Acompanhamento</h4><p>Monitoramento após a mudança</p></div></div><textarea class="input-basic" id="changeAcompanhamento" placeholder="Defina os acompanhamentos necessários."></textarea><div class="stage-date"><label>Data da revisão</label><input class="input-basic" type="date" id="changeRevisao"></div></article>
+            <article class="change-stage stage-effectiveness"><div class="change-stage-head"><span>${moduleIcon("shield")}</span><div><h4>Eficácia</h4><p>Critérios para confirmar o resultado</p></div></div><textarea class="input-basic" id="changeEficacia" placeholder="Defina como a eficácia será avaliada."></textarea><div class="stage-date"><label>Data da avaliação</label><input class="input-basic" type="date" id="changeEficaciaData"></div></article>
+          </div>
+        </section>
+
+        <section class="change-plan-section change-plan-resources">
+          <div class="change-plan-section-title"><span>3</span> Recursos e observações</div>
+          <div class="change-plan-resource-grid">
+            <div class="field"><label>Recursos necessários</label><textarea class="input-basic" id="changeRecursosDesc" placeholder="Pessoas, treinamentos, infraestrutura ou materiais necessários."></textarea></div>
+            <div class="field"><label>Valor estimado (R$)</label><input class="input-basic" type="number" min="0" step="100" id="changeRecursosValor" placeholder="Ex.: 5000"></div>
+            <div class="field"><label>Observações adicionais</label><textarea class="input-basic" id="changeObservacoes" placeholder="Registre informações complementares relevantes."></textarea></div>
+          </div>
+        </section>
         <div class="modal-actions">
           <button class="btn-ghost" data-risk-close="changeModal" type="button">Cancelar</button>
-          <button class="btn-primary" data-risk-action="save-change" type="button">Salvar</button>
+          <button class="btn-primary" data-risk-action="save-change" type="button">Salvar mudança</button>
         </div>
       </div>
     </div>
@@ -4664,17 +4692,29 @@ function viewGoal(id) {
 
 function openChange(id = "") {
   const item = id ? riskGet("mudancas").find((row) => row.id === id) : null;
+  const plan = item?.planejamento || {};
   setText("#changeTitle", item ? "Editar mudança" : "Nova mudança");
   setInputValue("changeEditId", item?.id || "");
   setInputValue("changeMudanca", item?.mudanca || "");
+  setInputValue("changeCodigo", item?.codigo || "");
+  setInputValue("changeRegistro", item?.dataRegistro || new Date().toISOString().slice(0, 10));
   setInputValue("changeProposito", item?.proposito || "");
   setInputValue("changeArea", item?.areaImpactada || "");
   setInputValue("changeResponsavel", item?.responsavel || "Hugo Melo");
   setInputValue("changeStatus", item?.status || "Em planejamento");
   setInputValue("changePrioridade", item?.prioridade || "Média");
   setInputValue("changeData", item?.dataPrevista || "");
+  setInputValue("changeImpacto", plan.impacto || "");
+  setInputValue("changePlanejamento", plan.planejamento || "");
+  setInputValue("changeComunicacao", plan.comunicacao || "");
+  setInputValue("changeImplementacao", plan.implementacao || "");
+  setInputValue("changeAcompanhamento", plan.acompanhamento || "");
+  setInputValue("changeRevisao", plan.dataRevisao || "");
+  setInputValue("changeEficacia", plan.eficacia || "");
+  setInputValue("changeEficaciaData", plan.dataEficacia || "");
   setInputValue("changeRecursosDesc", item?.recursos?.descricao || "");
   setInputValue("changeRecursosValor", item?.recursos?.valor || "");
+  setInputValue("changeObservacoes", item?.observacoes || "");
   openRiskModal("changeModal");
 }
 
@@ -4684,16 +4724,29 @@ function saveChange() {
   const record = {
     id: id || `MD-${new Date().getFullYear()}-${String(rows.length + 1).padStart(3, "0")}`,
     mudanca: inputValue("changeMudanca"),
+    codigo: inputValue("changeCodigo"),
+    dataRegistro: inputValue("changeRegistro"),
     proposito: inputValue("changeProposito"),
     areaImpactada: inputValue("changeArea"),
     responsavel: inputValue("changeResponsavel"),
     status: inputValue("changeStatus"),
     prioridade: inputValue("changePrioridade"),
     dataPrevista: inputValue("changeData"),
+    planejamento: {
+      impacto: inputValue("changeImpacto"),
+      planejamento: inputValue("changePlanejamento"),
+      comunicacao: inputValue("changeComunicacao"),
+      implementacao: inputValue("changeImplementacao"),
+      acompanhamento: inputValue("changeAcompanhamento"),
+      dataRevisao: inputValue("changeRevisao"),
+      eficacia: inputValue("changeEficacia"),
+      dataEficacia: inputValue("changeEficaciaData"),
+    },
     recursos: {
       descricao: inputValue("changeRecursosDesc"),
       valor: Number(inputValue("changeRecursosValor")) || 0,
     },
+    observacoes: inputValue("changeObservacoes"),
   };
   const index = rows.findIndex((item) => item.id === id);
   if (index >= 0) rows[index] = record;

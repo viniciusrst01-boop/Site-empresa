@@ -48,7 +48,10 @@ test("notebook dashboard keeps cards readable and footer reachable", async ({ pa
       }));
     });
     expect(problems).toEqual([]);
-    const target = size.width === 1366 && size.height === 768;
+    const target = (size.width === 1366 && size.height <= 768)
+      || (size.width === 1536 && size.height <= 864)
+      || (size.width === 1440 && size.height <= 900)
+      || (size.width === 1280 && size.height <= 720);
     await expect(page.locator('.home-v2-module-copy h3').first()).toHaveCSS('font-size', target ? '11px' : '13px');
     if (target) {
       await expect(page.locator('.home-v2-bottom-grid')).toBeInViewport({ ratio: 1 });
@@ -106,7 +109,8 @@ test("health keeps the desktop shell and renders contained charts in all themes"
       const point = await page.locator("canvas").first().evaluate((canvas) => {
         const chart = Chart.getChart(canvas);
         const dot = chart.getDatasetMeta(1).data.at(-1);
-        return { x: dot.x, y: dot.y };
+        const scale = canvas.getBoundingClientRect().width / chart.width;
+        return { x: dot.x * scale, y: dot.y * scale };
       });
       await page.locator(".sgq-health-canvas canvas").hover({ position: point });
       await expect(page.locator(".sgq-health-tooltip")).toBeVisible();

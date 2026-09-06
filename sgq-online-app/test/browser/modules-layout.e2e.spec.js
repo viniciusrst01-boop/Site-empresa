@@ -8,6 +8,59 @@ async function login(page) {
   await expect(page).toHaveURL(/\/app$/);
 }
 
+test("módulo de mudanças climáticas registra questões e exibe indicadores", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await login(page);
+  await page.evaluate(() => renderModuleDetail("mudancas-climaticas"));
+  await expect(page.locator(".topbar-title")).toHaveText("Mudanças Climáticas");
+  await expect(page.getByText("Determinação da empresa quanto a condições climáticas")).toBeVisible();
+  await page.getByRole("button", { name: "Questões climáticas" }).click();
+  await page.getByRole("button", { name: "Nova questão" }).click();
+  await page.locator("#climateIssueDescription").fill("Risco climático de teste");
+  await page.locator("#climateIssueImpact").fill("Pode afetar a continuidade da operação.");
+  await page.getByRole("button", { name: "Salvar", exact: true }).click();
+  await expect(page.locator(".climate-table")).toContainText("Risco climático de teste");
+  await page.getByRole("button", { name: "Indicadores" }).click();
+  await expect(page.locator("#climateStatusChart")).toBeVisible();
+});
+
+test("planejamento de mudanças registra as etapas da cláusula 6.3", async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await login(page);
+  await page.evaluate(() => renderModuleDetail("riscos"));
+  await page.locator('[data-risk-tab="mudancas"]').click();
+  await page.getByRole("button", { name: "Nova mudança" }).click();
+
+  await expect(page.locator("#changeModal")).toBeVisible();
+  await expect(page.locator(".change-stage")).toHaveCount(6);
+  await expect(page.locator(".change-plan-section-title").filter({ hasText: "Planejamento da mudança" })).toBeVisible();
+  const stageTextareas = await page.locator(".change-stage textarea").evaluateAll((fields) =>
+    fields.map((field) => field.getBoundingClientRect().height),
+  );
+  expect(Math.min(...stageTextareas)).toBeGreaterThanOrEqual(138);
+
+  await page.locator("#changeMudanca").fill("Substituição de máquina de corte");
+  await page.locator("#changeCodigo").fill("MUD-2026-021");
+  await page.locator("#changeArea").fill("Produção / Corte");
+  await page.locator("#changeImpacto").fill("Avaliar parâmetros, documentação e capacitação da equipe.");
+  await page.locator("#changePlanejamento").fill("Programar parada, treinamento e validação da máquina.");
+  await page.locator("#changeComunicacao").fill("Comunicar a produção e a manutenção antes da implantação.");
+  await page.locator("#changeImplementacao").fill("Instalar, testar e liberar gradualmente a operação.");
+  await page.locator("#changeAcompanhamento").fill("Monitorar desempenho e retrabalho nas semanas seguintes.");
+  await page.locator("#changeEficacia").fill("Comparar os indicadores antes e depois da alteração.");
+  await page.locator("#changeObservacoes").fill("Validar requisitos do produto após a liberação.");
+  await page.locator(".change-plan-modal").evaluate((modal) => { modal.scrollTop = 0; });
+  await page.screenshot({ path: testInfo.outputPath("change-planning-modal.png"), fullPage: true });
+  await page.getByRole("button", { name: "Salvar mudança" }).click();
+
+  await expect(page.locator("#changeModal")).toBeHidden();
+  await expect(page.locator(".ctxtbl")).toContainText("MUD-2026-021");
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("qps_ro_mudancas") || "[]").find((item) => item.codigo === "MUD-2026-021"));
+  expect(saved.planejamento.impacto).toContain("parâmetros");
+  expect(saved.planejamento.eficacia).toContain("indicadores");
+  expect(saved.observacoes).toContain("produto");
+});
+
 test("Meus módulos segue a grade compacta sem rolagem", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1830, height: 860 });
   await login(page);
