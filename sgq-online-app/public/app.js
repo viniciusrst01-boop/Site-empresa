@@ -66,11 +66,11 @@ const modules = [
 const moduleHeaderMeta = {
   "mudancas-climaticas": { category: "ISO 9001:2015 · EMENDA 2024", description: "Determinação de relevância, controle das questões e ações climáticas e indicadores de acompanhamento." },
   contexto: { category: "", description: "Contexto organizacional, partes interessadas, escopo do SGQ e gestão de processos." },
-  lideranca: { category: "DIREÇÃO", description: "Comprometimento da Alta Direção, política da qualidade e papéis, responsabilidades e autoridades do SGQ." },
+  lideranca: { category: "", description: "Liderança, compromisso e responsabilidades da Alta Direção na gestão da qualidade.", topbarSubtitle: "Direcionamento da Alta Direção para assegurar a efetividade do SGQ." },
   riscos: { category: "", description: "Planejamento e acompanhamento de riscos, oportunidades, objetivos da qualidade e mudanças." },
   documentos: { category: "DOCUMENTAÇÃO" },
   auditorias: { category: "AVALIAÇÃO" },
-  "nao-conformidades": { category: "MELHORIA CONTÍNUA", description: "Registro, análise de causa, ações corretivas, avaliação de eficácia e rastreabilidade de RNCs." },
+  "nao-conformidades": { category: "", description: "Registre, acompanhe e avalie cada ação de melhoria.", topbarSubtitle: "Acompanhe melhorias, ações corretivas e a evolução dos processos." },
   equipamentos: { category: "RECURSOS" },
 };
 
@@ -1801,6 +1801,8 @@ function moduleIcon(name) {
     arrow: '<svg class="icon" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>',
     "arrow-left": '<svg class="icon" viewBox="0 0 24 24"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 5 5 12 12 19"/></svg>',
     "arrow-right": '<svg class="icon" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>',
+    undo: '<svg class="icon" viewBox="0 0 24 24"><path d="M9 7 4 12l5 5"/><path d="M4 12h9a7 7 0 0 1 7 7"/></svg>',
+    redo: '<svg class="icon" viewBox="0 0 24 24"><path d="m15 7 5 5-5 5"/><path d="M20 12h-9a7 7 0 0 0-7 7"/></svg>',
     plus: '<svg class="icon" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>',
     minus: '<svg class="icon" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 12h8"/></svg>',
     "check-circle": '<svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 12l2 2 4-4"/></svg>',
@@ -1809,6 +1811,7 @@ function moduleIcon(name) {
     gear: '<svg class="icon" viewBox="0 0 24 24"><g stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.64 5.64l2.12 2.12M16.24 16.24l2.12 2.12M18.36 5.64l-2.12 2.12M7.76 16.24l-2.12 2.12"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></g></svg>',
     eye: '<svg class="icon" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>',
     trash: '<svg class="icon" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>',
+    save: '<svg class="icon" viewBox="0 0 24 24"><path d="M5 3h12l3 3v15H5z"/><path d="M8 3v6h8V3"/><rect x="8" y="14" width="8" height="6" rx="1"/></svg>',
     shield: '<svg class="icon" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>',
     key: '<svg class="icon" viewBox="0 0 24 24"><circle cx="7.5" cy="14.5" r="3.5"/><path d="M10 12l9-9"/><path d="M15 4l5 5"/><path d="M14 8l2 2"/></svg>',
     mail: '<svg class="icon" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><polyline points="3 7 12 13 21 7"/></svg>',
@@ -1848,11 +1851,12 @@ function moduleHeaderHtml(moduleId, options = {}) {
   const category = options.category !== undefined
     ? options.category
     : (meta.category ?? "GESTÃO DA QUALIDADE");
-  const description = options.description || meta.description || module.desc;
+  const description = options.description !== undefined ? options.description : (meta.description ?? module.desc);
+  const topbarSubtitle = options.topbarSubtitle !== undefined ? options.topbarSubtitle : (meta.topbarSubtitle ?? module.desc);
   const toolbarClass = options.toolbarClass ? ` ${options.toolbarClass}` : "";
   const defaultActions = canEditModule(module.id) ? `<div class="toolbar-actions">${moduleHistoryControlsHtml(module.id)}</div>` : "";
   const actions = options.actions === false ? "" : options.actions || defaultActions;
-  setTopbar(module.title, module.desc);
+  setTopbar(module.title, topbarSubtitle);
   return `
     <div class="breadcrumb module-breadcrumb">
       <button type="button" data-view-target="modulos">Meus módulos</button>
@@ -1951,8 +1955,8 @@ function renderModuleDetail(moduleId, options = {}) {
 function moduleHistoryControlsHtml(moduleId) {
   const history = moduleHistoryState(moduleId);
   return `
-    <button class="module-history-btn" data-module-history-action="undo" data-module-id="${moduleId}" type="button" title="Voltar ação" aria-label="Voltar ação" ${history.undo.length ? "" : "disabled"}>${moduleIcon("arrow-left")}</button>
-    <button class="module-history-btn" data-module-history-action="redo" data-module-id="${moduleId}" type="button" title="Avançar ação" aria-label="Avançar ação" ${history.redo.length ? "" : "disabled"}>${moduleIcon("arrow-right")}</button>`;
+    <button class="module-history-btn" data-module-history-action="undo" data-module-id="${moduleId}" type="button" title="Voltar ação" aria-label="Voltar ação" ${history.undo.length ? "" : "disabled"}>${moduleIcon("undo")}</button>
+    <button class="module-history-btn" data-module-history-action="redo" data-module-id="${moduleId}" type="button" title="Avançar ação" aria-label="Avançar ação" ${history.redo.length ? "" : "disabled"}>${moduleIcon("redo")}</button>`;
 }
 
 function moduleHistoryState(moduleId) {
@@ -2249,21 +2253,21 @@ function renderLeadershipKpis() {
   const target = document.querySelector("#leadershipKpis");
   if (!target) return;
   target.innerHTML = `
-    ${leadershipKpi("Comprometimento da direção", data.acoes.length, `${completeActions} concluídas`, "#F2B705", "lideranca")}
-    ${leadershipKpi("Política da qualidade", `Rev. ${data.politica.revisao || "-"}`, data.politica.status || "-", "#46D9F5", "documentos")}
-    ${leadershipKpi("Comunicações da política", data.comunicacao.length, `${reachedPeople} pessoas alcançadas`, "#34D399", "contexto")}
-    ${leadershipKpi("Cargos mapeados", data.cargos.length, `${activeRoles} ativos`, "#A78BFA", "modulos")}
+    ${leadershipKpi("Comprometimento da direção", data.acoes.length, `${completeActions} concluídas`, "#F2B705", "lideranca", "calendar")}
+    ${leadershipKpi("Política da qualidade", `Rev. ${data.politica.revisao || "-"}`, data.politica.status || "-", "#46D9F5", "documentos", "check-circle")}
+    ${leadershipKpi("Comunicações da política", data.comunicacao.length, `${reachedPeople} pessoas alcançadas`, "#34D399", "contexto", "users")}
+    ${leadershipKpi("Cargos mapeados", data.cargos.length, `${activeRoles} ativos`, "#A78BFA", "modulos", "org-chart")}
   `;
 }
 
-function leadershipKpi(label, value, caption, color, icon) {
+function leadershipKpi(label, value, caption, color, icon, detailIcon = "bar-chart") {
   return `
     <article class="kpi-card" style="--accent-line:${color};">
       <div class="kpi-top">
         <div class="kpi-icon" style="border-color:${hexToRgba(color, 0.4)}; color:${color};">${moduleIcon(icon)}</div>
         <div><div class="kpi-label">${escapeHtml(label)}</div><div class="kpi-value big">${escapeHtml(value)}</div></div>
       </div>
-      <div class="kpi-caption">${escapeHtml(caption)}</div>
+      <div class="module-kpi-detail">${moduleIcon(detailIcon)}<div class="kpi-caption">${escapeHtml(caption)}</div>${moduleIcon("arrow-right")}</div>
     </article>`;
 }
 
@@ -3240,28 +3244,28 @@ function renderRiskOpportunityModule() {
           <div class="kpi-icon" style="border-color:rgba(248,113,113,0.4); color:#F87171;">${moduleIcon("nao-conformidades")}</div>
           <div><div class="kpi-label">Riscos e oportunidades</div><div class="kpi-value big" id="riskKpiTotal">-</div></div>
         </div>
-        <div class="risk-kpi-detail">${moduleIcon("documentos")}<div class="kpi-caption" id="riskKpiTotalCaption">carregando...</div>${moduleIcon("arrow-right")}</div>
+        <div class="module-kpi-detail">${moduleIcon("documentos")}<div class="kpi-caption" id="riskKpiTotalCaption">carregando...</div>${moduleIcon("arrow-right")}</div>
       </article>
       <article class="kpi-card" style="--accent-line:#fb923c;">
         <div class="kpi-top">
           <div class="kpi-icon" style="border-color:rgba(251,146,60,0.4); color:#fb923c;">${moduleIcon("minus")}</div>
           <div><div class="kpi-label">Críticos/Altos</div><div class="kpi-value big" id="riskKpiHigh">-</div></div>
         </div>
-        <div class="risk-kpi-detail">${moduleIcon("bar-chart")}<div class="kpi-caption">Ações de alta prioridade<br>em andamento</div>${moduleIcon("arrow-right")}</div>
+        <div class="module-kpi-detail">${moduleIcon("bar-chart")}<div class="kpi-caption">Ações de alta prioridade<br>em andamento</div>${moduleIcon("arrow-right")}</div>
       </article>
       <article class="kpi-card" style="--accent-line:#34D399;">
         <div class="kpi-top">
           <div class="kpi-icon" style="border-color:rgba(52,211,153,0.4); color:#34D399;">${moduleIcon("check-circle")}</div>
           <div><div class="kpi-label">Objetivos da qualidade</div><div class="kpi-value big" id="riskKpiGoals">-</div></div>
         </div>
-        <div class="risk-kpi-detail">${moduleIcon("gear")}<div class="kpi-caption">Riscos mitigados ou<br>sob controle</div>${moduleIcon("arrow-right")}</div>
+        <div class="module-kpi-detail">${moduleIcon("gear")}<div class="kpi-caption">Riscos mitigados ou<br>sob controle</div>${moduleIcon("arrow-right")}</div>
       </article>
       <article class="kpi-card" style="--accent-line:#4fa3ff;">
         <div class="kpi-top">
           <div class="kpi-icon" style="border-color:rgba(47,143,240,0.4); color:#4fa3ff;">${moduleIcon("edit")}</div>
           <div><div class="kpi-label">Mudanças em execução</div><div class="kpi-value big" id="riskKpiChanges">-</div></div>
         </div>
-        <div class="risk-kpi-detail">${moduleIcon("users")}<div class="kpi-caption">Planos de ação em execução<br>com acompanhamento</div>${moduleIcon("arrow-right")}</div>
+        <div class="module-kpi-detail">${moduleIcon("users")}<div class="kpi-caption">Planos de ação em execução<br>com acompanhamento</div>${moduleIcon("arrow-right")}</div>
       </article>
     </div>
 
@@ -3487,28 +3491,28 @@ function renderContextModule() {
           <div class="kpi-icon context-reference-icon">${moduleIcon("modulos")}</div>
           <div><div class="kpi-label">Itens SWOT</div><div class="kpi-value big" id="ctxKpiSwot">-</div></div>
         </div>
-        <div class="kpi-detail-row">${moduleIcon("clipboard")}<div class="kpi-caption" id="ctxKpiSwotCaption">carregando...</div>${moduleIcon("arrow-right")}</div>
+        <div class="module-kpi-detail">${moduleIcon("clipboard")}<div class="kpi-caption" id="ctxKpiSwotCaption">carregando...</div>${moduleIcon("arrow-right")}</div>
       </article>
       <article class="kpi-card" style="--accent-line:#4fa3ff;">
         <div class="kpi-top">
           <div class="kpi-icon context-reference-icon">${moduleIcon("contexto")}</div>
           <div><div class="kpi-label">Partes interessadas</div><div class="kpi-value big" id="ctxKpiPartes">-</div></div>
         </div>
-        <div class="kpi-detail-row">${moduleIcon("eye-bars")}<div class="kpi-caption" id="ctxKpiPartesCaption">mapeadas e monitoradas</div>${moduleIcon("arrow-right")}</div>
+        <div class="module-kpi-detail">${moduleIcon("eye-bars")}<div class="kpi-caption" id="ctxKpiPartesCaption">mapeadas e monitoradas</div>${moduleIcon("arrow-right")}</div>
       </article>
       <article class="kpi-card" style="--accent-line:#34D399;">
         <div class="kpi-top">
           <div class="kpi-icon context-reference-icon">${moduleIcon("shield")}</div>
           <div><div class="kpi-label">Escopo do SGQ</div><div class="kpi-value" id="ctxKpiEscopo">-</div></div>
         </div>
-        <div class="kpi-detail-row">${moduleIcon("calendar-clock")}<div class="kpi-caption" id="ctxKpiEscopoCaption">-</div>${moduleIcon("arrow-right")}</div>
+        <div class="module-kpi-detail">${moduleIcon("calendar-clock")}<div class="kpi-caption" id="ctxKpiEscopoCaption">-</div>${moduleIcon("arrow-right")}</div>
       </article>
       <article class="kpi-card" style="--accent-line:#F2B705;">
         <div class="kpi-top">
           <div class="kpi-icon context-reference-icon">${moduleIcon("process-flow")}</div>
           <div><div class="kpi-label">Processos mapeados</div><div class="kpi-value big" id="ctxKpiProcessos">-</div></div>
         </div>
-        <div class="kpi-detail-row">${moduleIcon("org-chart")}<div class="kpi-caption" id="ctxKpiProcessosCaption">estratégicos, operacionais e de suporte</div>${moduleIcon("arrow-right")}</div>
+        <div class="module-kpi-detail">${moduleIcon("org-chart")}<div class="kpi-caption" id="ctxKpiProcessosCaption">estratégicos, operacionais e de suporte</div>${moduleIcon("arrow-right")}</div>
       </article>
     </div>
 
@@ -4967,15 +4971,15 @@ function renderNcKpis() {
   const late = actions.filter((row) => row.status !== "Concluída" && row.prazo && row.prazo < ncToday()).length;
   const closed = state.ncs.filter((row) => row.status === "Encerrado").length;
   pageContent.querySelector("#ncKpis").innerHTML = `<div class="kpi-row">
-    ${ncKpi("RNCs em aberto", open, `${awaiting} aguardando análise`, "#F87171", "nao-conformidades")}
-    ${ncKpi("Ações em andamento", running, "ações corretivas não concluídas", "#FBBF24", "plano")}
-    ${ncKpi("Ações atrasadas", late, "prazo vencido", "#fb923c", "notificacoes")}
-    ${ncKpi("Encerradas", closed, "eficácia comprovada", "#34D399", "auditorias")}
+    ${ncKpi("RNCs em aberto", open, `${awaiting} aguardando análise`, "#F87171", "nao-conformidades", "documentos")}
+    ${ncKpi("Ações em andamento", running, "ações corretivas não concluídas", "#FBBF24", "plano", "bar-chart")}
+    ${ncKpi("Ações atrasadas", late, "prazo vencido", "#fb923c", "notificacoes", "calendar-clock")}
+    ${ncKpi("Encerradas", closed, "eficácia comprovada", "#34D399", "auditorias", "check-circle")}
   </div>`;
 }
 
-function ncKpi(label, value, caption, color, icon) {
-  return `<article class="kpi-card" style="--accent-line:${color}"><div class="kpi-top"><div class="kpi-icon" style="border-color:${hexToRgba(color, .4)};color:${color}">${moduleIcon(icon)}</div><div><div class="kpi-label">${label}</div><div class="kpi-value big">${value}</div></div></div><div class="kpi-caption">${caption}</div></article>`;
+function ncKpi(label, value, caption, color, icon, detailIcon) {
+  return `<article class="kpi-card" style="--accent-line:${color}"><div class="kpi-top"><div class="kpi-icon" style="border-color:${hexToRgba(color, .4)};color:${color}">${moduleIcon(icon)}</div><div><div class="kpi-label">${label}</div><div class="kpi-value big">${value}</div></div></div><div class="module-kpi-detail">${moduleIcon(detailIcon)}<div class="kpi-caption">${caption}</div>${moduleIcon("arrow-right")}</div></article>`;
 }
 
 function renderNcTab() {
@@ -8289,6 +8293,30 @@ function bindViewTargetButtons() {
   });
 }
 
+function standardizeActionButtons(root = document) {
+  const buttons = root.matches?.("button") ? [root] : [...root.querySelectorAll?.("button") || []];
+  buttons.forEach((button) => {
+    if (button.dataset.standardAction) return;
+    const label = button.textContent.replace(/\s+/g, " ").trim();
+    const kind = /^salvar\b/i.test(label) ? "save" : /^limpar\b/i.test(label) ? "clear" : "";
+    if (!kind) return;
+    button.dataset.standardAction = kind;
+    button.classList.add(kind === "save" ? "btn-save" : "btn-clear");
+    const icon = button.querySelector(".icon");
+    if (icon) icon.outerHTML = moduleIcon(kind === "save" ? "save" : "trash");
+    else button.insertAdjacentHTML("afterbegin", moduleIcon(kind === "save" ? "save" : "trash"));
+  });
+}
+
+function observeStandardActionButtons() {
+  standardizeActionButtons();
+  new MutationObserver((mutations) => {
+    mutations.forEach((mutation) => mutation.addedNodes.forEach((node) => {
+      if (node.nodeType === Node.ELEMENT_NODE) standardizeActionButtons(node);
+    }));
+  }).observe(document.body, { childList: true, subtree: true });
+}
+
 function confirmSensitiveAction(title, description = "Confirme sua senha para continuar.") {
   return new Promise((resolve) => {
     const overlay = document.createElement("div");
@@ -8347,4 +8375,5 @@ document.querySelectorAll(".nav-item").forEach((item) => {
 });
 
 syncDashboardFooterDate();
+observeStandardActionButtons();
 initializeApp();
