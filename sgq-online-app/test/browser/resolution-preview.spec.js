@@ -11,12 +11,13 @@ test('dashboard fits every resolution', async ({ page }) => {
   await page.locator('.home-v2, #onboardingForm').first().waitFor();
   const onboarding = page.getByRole('button', { name: 'Salvar e entrar no sistema' });
   if (await onboarding.count()) await onboarding.click();
-  const sizes = [[1920,1080],[1536,864],[1440,900],[1366,768],[1366,638],[1280,720],[1024,768],[768,1024],[390,844]];
+  const sizes = [[1920,1080],[1536,864],[1440,900],[1366,768],[1366,638],[1280,720],[1280,600],[1024,500],[1024,768],[768,1024],[390,844]];
   for (const [width,height] of sizes) {
     await page.setViewportSize({ width, height });
     await page.goto('/app?previewHealth=1');
     await expect(page.locator('.sgq-health-plot')).toHaveAttribute('aria-busy','false');
-    const target = (width === 1366 && height === 768) || (width === 1536 && height === 864) || (width === 1440 && height === 900) || (width === 1280 && height === 720) || (width === 1366 && height === 638);
+    const scaled1280 = width >= 1000 && width <= 1300 && height <= 720 && width / height >= 1.6;
+    const target = (width === 1366 && height <= 768) || (width === 1536 && height <= 864) || (width === 1440 && height <= 900) || scaled1280;
     await expect.poll(() => page.locator('.home-v2').evaluate((dashboard) => Boolean(dashboard.style.zoom))).toBe(target);
     if (target) {
       await expect.poll(() => page.evaluate(() => {
@@ -43,20 +44,29 @@ test('dashboard fits every resolution', async ({ page }) => {
         return Math.abs(title.top - description.top);
       }));
       expect(bottomHeadingRows.every((difference) => difference < 4)).toBe(true);
-      const compact1280 = (width === 1280 && height === 720) || (width === 1366 && height === 638);
+      const compact1280 = scaled1280 || (width === 1366 && height <= 680);
       await expect(page.locator('.topbar-title')).toHaveCSS('font-size', compact1280 ? '14px' : '15px');
       await expect(page.locator('.topbar-subtitle')).toHaveCSS('font-size', compact1280 ? '9.5px' : '11px');
       await expect(page.locator('.tb-user-name')).toHaveCSS('font-size', compact1280 ? '10px' : '11.5px');
-      await expect(page.locator('.tb-user-role')).toHaveCSS('font-size', compact1280 ? '9px' : '10px');
+      await expect(page.locator('.tb-user-role')).toHaveCSS('font-size', scaled1280 ? '8.5px' : compact1280 ? '9px' : '10px');
       await expect(page.locator('.sidebar')).toHaveCSS('width', compact1280 ? '160px' : '180px');
       await expect(page.locator('.nav-item').first()).toHaveCSS('font-size', compact1280 ? '11px' : '12px');
       await expect(page.locator('.sb-help-card .htitle')).toHaveCSS('font-size', compact1280 ? '11px' : '12px');
       await expect(page.locator('.sb-help-card .hdesc')).toHaveCSS('font-size', compact1280 ? '9.5px' : '10.5px');
       await expect(page.locator('.btn-support')).toHaveCSS('font-size', compact1280 ? '10px' : '11px');
+      const footerOverlaps = await page.evaluate(() => {
+        const items = [...document.querySelector('.app-footer').children].filter((item) => getComputedStyle(item).display !== 'none');
+        return items.some((item, index) => items.slice(index + 1).some((other) => {
+          const a = item.getBoundingClientRect();
+          const b = other.getBoundingClientRect();
+          return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+        }));
+      });
+      expect(footerOverlaps).toBe(false);
     }
     await page.screenshot({ path: path.join(output, `${width}-${height}.png`), animations:'disabled' });
   }
-  for (const [width, height] of [[1366, 768], [1536, 864], [1440, 900], [1280, 720], [1366, 638]]) {
+  for (const [width, height] of [[1366, 768], [1536, 864], [1440, 900], [1280, 720], [1280, 600], [1024, 500], [1366, 638]]) {
     await page.setViewportSize({ width, height });
     await page.goto('/app?previewHealth=1');
     const sidebarMetrics = () => page.evaluate(() => {
@@ -75,7 +85,63 @@ test('dashboard fits every resolution', async ({ page }) => {
       await page.locator(`[data-view="${view}"]`).first().click();
       await expect(page.locator(`[data-view="${view}"]`).first()).toHaveClass(/active/);
       await expect.poll(sidebarMetrics).toEqual(expectedSidebar);
-      if (view === 'modulos') await page.screenshot({ path: path.join(output, `${width}-${height}-modulos.png`), animations:'disabled' });
+      const scaled1280 = width >= 1000 && width <= 1300 && height <= 720 && width / height >= 1.6;
+      if (scaled1280) {
+        await expect(page.locator('.topbar')).toHaveCSS('height', '52px');
+        await expect(page.locator('.topbar-title')).toHaveCSS('font-size', '13px');
+        await expect(page.locator('.topbar-search')).toHaveCSS('height', '32px');
+        await expect(page.locator('.tb-avatar')).toHaveCSS('width', '30px');
+        const topbar = await page.evaluate(() => {
+          const search = document.querySelector('.topbar-search').getBoundingClientRect();
+          const profile = document.querySelector('.tb-user').getBoundingClientRect();
+          const name = document.querySelector('.tb-user-name').getBoundingClientRect();
+          return { searchWidth: search.width, profileRight: profile.right, nameHeight: name.height };
+        });
+        expect(topbar.searchWidth).toBeLessThanOrEqual(320);
+        expect(topbar.profileRight).toBeLessThanOrEqual(1280);
+        expect(topbar.nameHeight).toBeLessThan(14);
+        await page.screenshot({ path: path.join(output, `${width}-${height}-${view}.png`), animations:'disabled' });
+      }
+      if (view === 'modulos') {
+        if (scaled1280) {
+          const moduleLayout = await page.evaluate(() => {
+            const cards = [...document.querySelectorAll('.mymods-reference-grid .mymod-card')];
+            const first = cards[0].getBoundingClientRect();
+            const rowTops = new Set(cards.map((card) => Math.round(card.getBoundingClientRect().top)));
+            return {
+              cardHeight: first.height,
+              columns: cards.filter((card) => Math.abs(card.getBoundingClientRect().top - first.top) < 2).length,
+              rows: rowTops.size,
+              kpiHeight: document.querySelector('.mymods-kpi-row .kpi-card').getBoundingClientRect().height,
+            };
+          });
+          expect(moduleLayout.columns).toBe(5);
+          expect(moduleLayout.rows).toBe(2);
+          expect(moduleLayout.cardHeight).toBeLessThanOrEqual(120);
+          expect(moduleLayout.kpiHeight).toBeLessThanOrEqual(72);
+          await expect(page.locator('.topbar-title')).toHaveCSS('font-size', '13px');
+          await expect(page.locator('.topbar-search')).toHaveCSS('height', '32px');
+          await expect(page.locator('.tb-avatar')).toHaveCSS('width', '30px');
+          const topbarLayout = await page.evaluate(() => {
+            const search = document.querySelector('.topbar-search').getBoundingClientRect();
+            const profile = document.querySelector('.tb-user').getBoundingClientRect();
+            const name = document.querySelector('.tb-user-name').getBoundingClientRect();
+            return { searchWidth: search.width, profileRight: profile.right, nameHeight: name.height };
+          });
+          expect(topbarLayout.searchWidth).toBeLessThanOrEqual(320);
+          expect(topbarLayout.profileRight).toBeLessThanOrEqual(1280);
+          expect(topbarLayout.nameHeight).toBeLessThan(14);
+        }
+        await page.screenshot({ path: path.join(output, `${width}-${height}-modulos.png`), animations:'disabled' });
+      }
     }
+  }
+
+  for (const [width, height] of [[1350, 750], [1420, 820], [1510, 820]]) {
+    await page.setViewportSize({ width, height });
+    await page.goto('/app?previewHealth=1');
+    await page.locator('[data-view="inicio"]').first().click();
+    await expect.poll(() => page.locator('.home-v2').evaluate((dashboard) => Boolean(dashboard.style.zoom))).toBe(true);
+    await expect(page.locator('.sidebar')).toHaveCSS('width', '180px');
   }
 });
