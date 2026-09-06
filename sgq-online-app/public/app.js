@@ -4787,6 +4787,22 @@ let ncFilters = { origem: "", referencia: "", processo: "", setor: "", gravidade
 let ncDashYear = "todos";
 let ncDashDimension = "processo";
 
+function ncCompanyRecords(key) {
+  return getCompanyProfile().registry[key] || [];
+}
+
+function ncCompanyOptions(key, selected = "") {
+  return ncCompanyRecords(key)
+    .map((row) => `<option value="${escapeHtml(row.nome)}"${row.nome === selected ? " selected" : ""}>${escapeHtml(row.nome)}</option>`)
+    .join("");
+}
+
+function ncProcessOptions(selected = "") {
+  return contextGet("processos")
+    .map((row) => `<option value="${escapeHtml(row.nome)}"${row.nome === selected ? " selected" : ""}>${escapeHtml(row.nome)}</option>`)
+    .join("");
+}
+
 const ncCatalogConfig = {
   clientes: { title: "Clientes", prefix: "CLI", hasCode: true },
   fornecedores: { title: "Fornecedores", prefix: "FOR", hasCode: true },
@@ -4918,6 +4934,7 @@ function replaceNcTvButtonWithLink(button) {
 function renderNonConformityModule() {
   ncEvidenceCleanup?.();
   ensureNcData();
+  if (ncMainTab === "cadastros") ncMainTab = "registrar";
   currentDetailModule = "nao-conformidades";
   bindModuleHistoryActions();
   pageContent.classList.remove("risk-page-content", "context-page-content", "leadership-page-content");
@@ -4928,10 +4945,10 @@ function renderNonConformityModule() {
     })}
     <div id="ncKpis"></div>
     <div class="ctx-tabs" id="ncMainTabs">
-      ${[["registrar", "Registrar NC"], ["controle", "Controle"], ["cadastros", "Cadastros"], ["dashboards", "Dashboards"]].map(([id, label]) => `<button class="ctx-tab ${ncMainTab === id ? "active" : ""}" data-nc-tab="${id}" type="button">${label}</button>`).join("")}
+      ${[["registrar", "Registrar NC"], ["controle", "Controle"], ["dashboards", "Dashboards"]].map(([id, label]) => `<button class="ctx-tab ${ncMainTab === id ? "active" : ""}" data-nc-tab="${id}" type="button">${label}</button>`).join("")}
       <div class="module-tabs-actions toolbar-actions">${moduleHistoryControlsHtml("nao-conformidades")}</div>
     </div>
-    <div class="subtab-row" id="ncSubTabs"></div><div id="ncTabContent"></div><div id="ncModalMount"></div>`;
+    <div id="ncTabContent"></div><div id="ncModalMount"></div>`;
   pageContent.querySelectorAll("[data-nc-tab]").forEach((button) => button.addEventListener("click", () => {
     ncMainTab = button.dataset.ncTab;
     renderNonConformityModule();
@@ -4963,12 +4980,7 @@ function ncKpi(label, value, caption, color, icon) {
 
 function renderNcTab() {
   saveModuleTabs("nao-conformidades");
-  const sub = pageContent.querySelector("#ncSubTabs");
-  sub.innerHTML = ncMainTab === "cadastros" ? Object.entries(ncCatalogConfig).map(([id, cfg]) => `<button class="subtab-pill ${ncSubTab === id ? "active" : ""}" data-nc-subtab="${id}" type="button">${cfg.title}</button>`).join("") : "";
-  sub.hidden = ncMainTab !== "cadastros";
-  sub.querySelectorAll("[data-nc-subtab]").forEach((button) => button.addEventListener("click", () => { ncSubTab = button.dataset.ncSubtab; renderNcTab(); }));
   const content = pageContent.querySelector("#ncTabContent");
-  if (ncMainTab === "cadastros") content.innerHTML = ncCatalogHtml();
   if (ncMainTab === "registrar") content.innerHTML = ncRegisterHtml();
   if (ncMainTab === "controle") content.innerHTML = ncControlHtml();
   if (ncMainTab === "dashboards") content.innerHTML = ncDashboardHtml();
@@ -4982,7 +4994,6 @@ function ncCatalogHtml() {
 }
 
 function ncRegisterHtml() {
-  const options = (key) => state.ncCatalogs[key].map((row) => `<option value="${escapeHtml(row.nome)}">${escapeHtml(row.nome)}</option>`).join("");
   const disabled = canEditModule("nao-conformidades") ? "" : "disabled";
   return `<section class="form-card nc-register-form">
     <div class="nc-register-head"><h2 class="dcc-title">Registrar Não Conformidade</h2><p class="dcc-sub nc-form-intro">O número é gerado automaticamente · próximo: <strong class="mono">${ncNextNumber()}</strong></p></div>
@@ -4991,10 +5002,11 @@ function ncRegisterHtml() {
         <div class="field-row2"><label class="field">Data de origem<input class="input-basic" id="ncData" type="date" value="${ncToday()}" ${disabled}></label><label class="field">Código do item<input class="input-basic" id="ncItem" placeholder="Ex.: PRD-4471" ${disabled}></label></div>
         <div class="field-row2"><label class="field">Origem<select class="input-basic" id="ncOrigin" ${disabled}><option value="">Selecione...</option><option>Interno</option><option>Fornecedor</option><option>Cliente</option></select></label><label class="field" id="ncReferenceWrap" hidden>Referência<select class="input-basic" id="ncReference" ${disabled}></select></label></div>
         <label class="field" id="ncSupplierEmailWrap" hidden>E-mail do fornecedor<input class="input-basic" id="ncSupplierEmail" type="email" maxlength="254" autocomplete="email" ${disabled}></label>
-        <label class="field">Setor<select class="input-basic" id="ncSector" ${disabled}><option value="">Selecione...</option>${options("setores")}</select></label>
+        <div class="field-row2"><label class="field">Cliente<select class="input-basic" id="ncClient" ${disabled}><option value="">Selecione...</option>${ncCompanyOptions("clientes")}</select></label><label class="field">Fornecedor<select class="input-basic" id="ncSupplier" ${disabled}><option value="">Selecione...</option>${ncCompanyOptions("fornecedores")}</select></label></div>
+        <label class="field">Setor<select class="input-basic" id="ncSector" ${disabled}><option value="">Selecione...</option>${ncCompanyOptions("setores")}</select></label>
       </div>
       <div class="nc-register-column nc-register-column-right">
-        <div class="field-row2"><label class="field">Gravidade<select class="input-basic" id="ncSeverity" ${disabled}><option>Menor</option><option selected>Média</option><option>Maior</option></select></label><label class="field">Processo envolvido<select class="input-basic" id="ncProcess" ${disabled}><option value="">Selecione...</option>${options("processos")}</select></label></div>
+        <div class="field-row2"><label class="field">Gravidade<select class="input-basic" id="ncSeverity" ${disabled}><option>Menor</option><option selected>Média</option><option>Maior</option></select></label><label class="field">Processo envolvido<select class="input-basic" id="ncProcess" ${disabled}><option value="">Selecione...</option>${ncProcessOptions()}</select></label></div>
         <label class="field nc-description-field">Descrição da não conformidade<textarea class="input-basic" id="ncDescription" ${disabled}></textarea></label>
         <div class="field nc-client-pdf-field" id="ncClientPdfWrap" hidden><label for="ncClientPdf">RNCs enviadas pelo cliente</label><input class="input-basic" id="ncClientPdf" type="file" accept="application/pdf,.pdf" multiple ${disabled}><div id="ncClientPdfList"></div></div>
         <div class="field"><label for="ncEvidence">Evidências da não conformidade</label><input class="input-basic" id="ncEvidence" type="file" multiple ${disabled}><div id="ncEvidenceList"></div></div>
@@ -5008,11 +5020,11 @@ function ncRegisterHtml() {
 }
 
 function ncControlHtml() {
-  const values = (key) => state.ncCatalogs[key].map((row) => row.nome);
+  const values = (key) => key === "processos" ? contextGet("processos").map((row) => row.nome) : ncCompanyRecords(key).map((row) => row.nome);
   const option = (items, selected) => `<option value="">Todos</option>${items.map((item) => `<option ${selected === item ? "selected" : ""}>${escapeHtml(item)}</option>`).join("")}`;
   const filtered = state.ncs.filter((row) => {
-    const haystack = `${row.id} ${row.codigoItem} ${row.descricao} ${row.origemRef} ${row.setor} ${row.processo}`.toLowerCase();
-    return (!ncFilters.origem || row.origem === ncFilters.origem) && (!ncFilters.referencia || row.origemRef === ncFilters.referencia) && (!ncFilters.processo || row.processo === ncFilters.processo) && (!ncFilters.setor || row.setor === ncFilters.setor) && (!ncFilters.gravidade || row.gravidade === ncFilters.gravidade) && (!ncFilters.status || row.status === ncFilters.status) && (!ncFilters.busca || haystack.includes(ncFilters.busca.toLowerCase()));
+    const haystack = `${row.id} ${row.codigoItem} ${row.descricao} ${row.origemRef} ${row.cliente} ${row.fornecedor} ${row.setor} ${row.processo}`.toLowerCase();
+    return (!ncFilters.origem || row.origem === ncFilters.origem) && (!ncFilters.referencia || [row.origemRef, row.cliente, row.fornecedor].includes(ncFilters.referencia)) && (!ncFilters.processo || row.processo === ncFilters.processo) && (!ncFilters.setor || row.setor === ncFilters.setor) && (!ncFilters.gravidade || row.gravidade === ncFilters.gravidade) && (!ncFilters.status || row.status === ncFilters.status) && (!ncFilters.busca || haystack.includes(ncFilters.busca.toLowerCase()));
   }).sort((a, b) => String(b.id).localeCompare(String(a.id)));
   return `<div class="filter-bar">
     ${ncFilterSelect("origem", "Origem", ["Interno", "Fornecedor", "Cliente"])}
@@ -5134,7 +5146,7 @@ function updateNcReference() {
   const supplierEmailWrap = pageContent.querySelector("#ncSupplierEmailWrap");
   if (supplierEmailWrap) supplierEmailWrap.hidden = origin !== "Fornecedor";
   const key = origin === "Cliente" ? "clientes" : "fornecedores";
-  select.innerHTML = `<option value="">Selecione...</option>${state.ncCatalogs[key].map((row) => `<option>${escapeHtml(row.nome)}</option>`).join("")}`;
+  select.innerHTML = `<option value="">Selecione...</option>${ncCompanyOptions(key)}`;
 }
 
 async function saveNewNc() {
@@ -5155,7 +5167,7 @@ async function saveNewNc() {
   catch (error) { toast(error.message); return; }
   const evidence = { name: attachments.map((file) => file.name).join(", ") };
   const clientPdf = { name: clientAttachments.map((file) => file.name).join(", ") };
-  const rnc = { id: ncNextNumber(), dataOrigem: value("#ncData") || ncToday(), codigoItem: value("#ncItem"), origem: origin, origemRef: origin === "Interno" ? "" : reference, setor: value("#ncSector"), processo: value("#ncProcess"), gravidade: value("#ncSeverity"), reincidente: pageContent.querySelector("#ncRepeat")?.checked || false, descricao: value("#ncDescription"), evidencia: evidence?.name || "", rncClientePdf: origin === "Cliente" ? clientPdf?.name || "" : "", status: "Aguardando análise", ishikawa: { metodo: "", maquina: "", maoObra: "", material: "", medicao: "", meioAmbiente: "", causaRaiz: "" }, acoes: [], eficaciaIniciadaEm: "", encerradoEm: "", historico: [] };
+  const rnc = { id: ncNextNumber(), dataOrigem: value("#ncData") || ncToday(), codigoItem: value("#ncItem"), origem: origin, origemRef: origin === "Interno" ? "" : reference, cliente: value("#ncClient"), fornecedor: value("#ncSupplier"), setor: value("#ncSector"), processo: value("#ncProcess"), gravidade: value("#ncSeverity"), reincidente: pageContent.querySelector("#ncRepeat")?.checked || false, descricao: value("#ncDescription"), evidencia: evidence?.name || "", rncClientePdf: origin === "Cliente" ? clientPdf?.name || "" : "", status: "Aguardando análise", ishikawa: { metodo: "", maquina: "", maoObra: "", material: "", medicao: "", meioAmbiente: "", causaRaiz: "" }, acoes: [], eficaciaIniciadaEm: "", encerradoEm: "", historico: [] };
   ncAddHistory(rnc, `RNC aberta por ${currentUser?.name || "Usuário"}.`);
   rnc.evidencias = attachments;
   rnc.rncClienteArquivos = clientAttachments;
@@ -5175,12 +5187,12 @@ function openNcEdit(id) {
   const row = state.ncs.find((item) => item.id === id);
   if (!row || !canEditModule("nao-conformidades")) return;
   const selected = (value, current) => value === current ? "selected" : "";
-  const options = (key, current) => state.ncCatalogs[key].map((item) => `<option value="${escapeHtml(item.nome)}" ${selected(item.nome, current)}>${escapeHtml(item.nome)}</option>`).join("");
   const referenceKey = row.origem === "Cliente" ? "clientes" : "fornecedores";
   mountNcModal(`<div class="modal-box wide"><div class="modal-hd"><div><h3>Editar ${escapeHtml(row.id)}</h3><p>Atualize os dados principais da não conformidade.</p></div><button class="modal-close" data-nc-close>${moduleIcon("close")}</button></div>
     <div class="field-row2"><label class="field">Data de origem<input class="input-basic" id="ncEditData" type="date" value="${escapeHtml(row.dataOrigem || ncToday())}"></label><label class="field">Código do item<input class="input-basic" id="ncEditItem" value="${escapeHtml(row.codigoItem || "")}"></label></div>
-    <div class="field-row2"><label class="field">Origem<select class="input-basic" id="ncEditOrigin"><option ${selected("Interno", row.origem)}>Interno</option><option ${selected("Fornecedor", row.origem)}>Fornecedor</option><option ${selected("Cliente", row.origem)}>Cliente</option></select></label><label class="field" id="ncEditReferenceWrap" ${row.origem === "Interno" ? "hidden" : ""}>Referência<select class="input-basic" id="ncEditReference"><option value="">Selecione...</option>${options(referenceKey, row.origemRef)}</select></label></div>
-    <div class="field-row2"><label class="field">Setor<select class="input-basic" id="ncEditSector"><option value="">Selecione...</option>${options("setores", row.setor)}</select></label><label class="field">Processo envolvido<select class="input-basic" id="ncEditProcess"><option value="">Selecione...</option>${options("processos", row.processo)}</select></label></div>
+    <div class="field-row2"><label class="field">Origem<select class="input-basic" id="ncEditOrigin"><option ${selected("Interno", row.origem)}>Interno</option><option ${selected("Fornecedor", row.origem)}>Fornecedor</option><option ${selected("Cliente", row.origem)}>Cliente</option></select></label><label class="field" id="ncEditReferenceWrap" ${row.origem === "Interno" ? "hidden" : ""}>Referência<select class="input-basic" id="ncEditReference"><option value="">Selecione...</option>${ncCompanyOptions(referenceKey, row.origemRef)}</select></label></div>
+    <div class="field-row2"><label class="field">Cliente<select class="input-basic" id="ncEditClient"><option value="">Selecione...</option>${ncCompanyOptions("clientes", row.cliente || "")}</select></label><label class="field">Fornecedor<select class="input-basic" id="ncEditSupplier"><option value="">Selecione...</option>${ncCompanyOptions("fornecedores", row.fornecedor || "")}</select></label></div>
+    <div class="field-row2"><label class="field">Setor<select class="input-basic" id="ncEditSector"><option value="">Selecione...</option>${ncCompanyOptions("setores", row.setor)}</select></label><label class="field">Processo envolvido<select class="input-basic" id="ncEditProcess"><option value="">Selecione...</option>${ncProcessOptions(row.processo)}</select></label></div>
     <div class="field-row2"><label class="field">Gravidade<select class="input-basic" id="ncEditSeverity"><option ${selected("Menor", row.gravidade)}>Menor</option><option ${selected("Média", row.gravidade)}>Média</option><option ${selected("Maior", row.gravidade)}>Maior</option></select></label><label class="check-row nc-edit-repeat"><input type="checkbox" id="ncEditRepeat" ${row.reincidente ? "checked" : ""}> Esta não conformidade é reincidente</label></div>
     <label class="field" id="ncEditSupplierEmailWrap" ${row.origem === "Fornecedor" ? "" : "hidden"}>E-mail do fornecedor<input class="input-basic" id="ncEditSupplierEmail" type="email" maxlength="254" value="${escapeHtml(row.fornecedorEmail || "")}"></label>
     <label class="field">Descrição da não conformidade<textarea class="input-basic" id="ncEditDescription">${escapeHtml(row.descricao || "")}</textarea></label>
@@ -5215,7 +5227,7 @@ function updateNcEditReference() {
   if (!wrap || !select) return;
   wrap.hidden = origin === "Interno";
   const key = origin === "Cliente" ? "clientes" : "fornecedores";
-  select.innerHTML = `<option value="">Selecione...</option>${state.ncCatalogs[key].map((item) => `<option value="${escapeHtml(item.nome)}">${escapeHtml(item.nome)}</option>`).join("")}`;
+  select.innerHTML = `<option value="">Selecione...</option>${ncCompanyOptions(key)}`;
 }
 
 async function saveNcEdit(id) {
@@ -5251,6 +5263,8 @@ async function saveNcEdit(id) {
     codigoItem: value("#ncEditItem"),
     origem: origin,
     origemRef: origin === "Interno" ? "" : reference,
+    cliente: value("#ncEditClient"),
+    fornecedor: value("#ncEditSupplier"),
     fornecedorEmail: origin === "Fornecedor" ? supplierEmail : "",
     setor: value("#ncEditSector"),
     processo: value("#ncEditProcess"),
@@ -5333,7 +5347,7 @@ function openNcDetail(id) {
   const actionRows = (rnc.acoes || []).map((action) => `<div class="acao-item" data-nc-action-id="${escapeHtml(action.id)}"><div class="acao-item-hd"><div><div class="acao-item-desc">${escapeHtml(action.desc)}</div><div class="acao-item-meta"><span>Prazo: <b>${ncDate(action.prazo)}</b></span><span>Responsável: <b>${escapeHtml(action.responsavel)}</b></span>${action.evidencia ? `<span>Arquivo: <b>${escapeHtml(action.evidencia)}</b></span>` : ""}</div></div>${ncStatusHtml(ncActionEffectiveStatus(action))}</div></div>`).join("");
   const days = rnc.eficaciaIniciadaEm ? Math.floor((Date.now() - new Date(`${rnc.eficaciaIniciadaEm}T00:00:00`).getTime()) / 86400000) : 0;
   mountNcModal(`<div class="modal-box xwide nc-rnc-modal"><div class="modal-hd"><div><h3>${escapeHtml(rnc.id)}</h3><p>Registro de Não Conformidade · ${escapeHtml(rnc.status)}</p></div><div class="nc-modal-tools"><button class="btn-sm" id="ncPrint" type="button">${moduleIcon("download")} Imprimir PDF</button><button class="modal-close" data-nc-close type="button" title="Fechar" aria-label="Fechar">${moduleIcon("close")}</button></div></div>
-    <div class="rnc-detail-grid">${[["Data de origem", ncDate(rnc.dataOrigem)], ["Código do item", rnc.codigoItem || "-"], ["Origem", rnc.origem === "Interno" ? "Interno" : `${rnc.origem} · ${rnc.origemRef}`], ["Setor", rnc.setor], ["Processo", rnc.processo], ["Gravidade", rnc.gravidade], ["Status", rnc.status], ["Reincidente", rnc.reincidente ? "Sim" : "Não"], ["RNC do cliente", rnc.rncClientePdf || "-"], ["Evidências", `${attachments.length} arquivo(s)`], ["Ações", `${count.done}/${count.total}`]].map(([label, value]) => `<div class="detail-item"><div class="l">${label}</div><div class="v">${escapeHtml(value)}</div></div>`).join("")}</div>
+    <div class="rnc-detail-grid">${[["Data de origem", ncDate(rnc.dataOrigem)], ["Código do item", rnc.codigoItem || "-"], ["Origem", rnc.origem === "Interno" ? "Interno" : `${rnc.origem} · ${rnc.origemRef}`], ["Cliente", rnc.cliente || "-"], ["Fornecedor", rnc.fornecedor || "-"], ["Setor", rnc.setor], ["Processo", rnc.processo], ["Gravidade", rnc.gravidade], ["Status", rnc.status], ["Reincidente", rnc.reincidente ? "Sim" : "Não"], ["RNC do cliente", rnc.rncClientePdf || "-"], ["Evidências", `${attachments.length} arquivo(s)`], ["Ações", `${count.done}/${count.total}`]].map(([label, value]) => `<div class="detail-item"><div class="l">${label}</div><div class="v">${escapeHtml(value)}</div></div>`).join("")}</div>
     <section class="rnc-section"><div class="rnc-section-hd"><h4>Descrição da não conformidade</h4></div><p>${escapeHtml(rnc.descricao)}</p></section>
     <section class="rnc-section"><div class="rnc-section-hd"><h4>Análise de causa · Ishikawa <span class="num">6M</span></h4>${canEditModule("nao-conformidades") ? `<button class="btn-sm" id="ncEditIsh">${moduleIcon("edit")} Editar análise</button>` : ""}</div>${ishFilled ? `<div class="ishikawa-grid">${[["Método", ish.metodo], ["Máquina", ish.maquina], ["Mão de obra", ish.maoObra], ["Material", ish.material], ["Medição", ish.medicao], ["Meio ambiente", ish.meioAmbiente]].map(([label, value]) => `<div class="ishikawa-cell"><div class="m-label">${label}</div><div class="m-text">${escapeHtml(value || "-")}</div></div>`).join("")}</div>${ish.causaRaiz ? `<div class="causa-raiz-box"><div class="crlabel">Conclusão / Causa raiz</div><div class="crtext">${escapeHtml(ish.causaRaiz)}</div></div>` : ""}` : `<div class="empty-state">Análise de causa ainda não preenchida.</div>`}</section>
     <section class="rnc-section"><div class="rnc-section-hd"><h4>Ações corretivas <span class="num">${count.done}/${count.total}</span></h4>${canEditModule("nao-conformidades") ? `<button class="btn-sm" id="ncManageActions">${moduleIcon("edit")} Gerenciar ações</button>` : ""}</div>${actionRows || `<div class="empty-state">Nenhuma ação cadastrada.</div>`}</section>
