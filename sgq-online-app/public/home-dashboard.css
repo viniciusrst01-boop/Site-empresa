@@ -1309,3 +1309,84 @@ body.theme-white .home-v2-health .sgq-health-period select {
   body.home-dashboard .home-v2-core-grid { grid-template-columns: minmax(0, 1fr); }
   body.home-dashboard .home-v2-tasks { min-height: 235px; }
 }
+
+/* The sidebar measurements in this block apply to every app section. */
+@media (width: 1366px) and (height: 768px), (width: 1536px) and (height: 864px), (width: 1440px) and (height: 900px), (width: 1280px) and (height: 720px), (width: 1366px) and (height: 638px) {
+  body .sidebar { width: 180px; padding-inline: 10px; }
+  body .sidebar .sb-logo-row { padding-inline: 5px; }
+  body .sidebar .sb-logo-img { max-width: 150px; }
+  body .sidebar .sb-section-label { font-size: 9px; }
+  body .sidebar .sb-nav { gap: 2px; }
+  body .sidebar .nav-item { min-height: 34px; gap: 8px; padding: 6px 9px; font-size: 12px; }
+  body .sidebar .nav-item .icon { width: 17px; height: 17px; }
+  body .sidebar .sb-help-card { margin-inline: 4px; padding: 9px; gap: 6px; }
+  body .sidebar .sb-help-icon { width: 28px; height: 28px; }
+  body .sidebar .sb-help-icon .icon { width: 14px; height: 14px; }
+  body .sidebar .sb-help-card .htitle { font-size: 12px; }
+  body .sidebar .sb-help-card .hdesc { font-size: 10.5px; line-height: 1.35; }
+  body .sidebar .btn-support { padding: 6px 8px; font-size: 11px; }
+  body .sidebar .btn-support .icon { width: 13px; height: 13px; }
+  body.home-dashboard .topbar-title { font-size: 15px; }
+  body.home-dashboard .topbar-subtitle { font-size: 11px; line-height: 1.2; }
+  body.home-dashboard .tb-user-name { font-size: 11.5px; }
+  body.home-dashboard .tb-user-role { font-size: 10px; }
+  body.home-dashboard .page-content { flex: 0 0 auto; min-height: 0; padding: 10px; overflow: hidden; }
+  body.home-dashboard .home-v2 { display: grid; min-height: 0; grid-template-rows: 90px minmax(300px, 1fr) 165px 165px; gap: 10px; overflow: visible; transform-origin: top left; }
+  body.home-dashboard .home-v2-summary { display: flex; height: auto; min-height: 0; padding: 0; }
+  body.home-dashboard .home-v2-kpis { display: grid; width: 100%; height: 100%; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
+  body.home-dashboard .home-v2-kpi:nth-child(n) { display: block; min-height: 0; height: 100%; padding: 10px; }
+  body.home-dashboard .home-v2-kpi small { font-size: 9px; }
+  body.home-dashboard .home-v2-kpi strong { font-size: 18px; }
+  body.home-dashboard .home-v2-kpi p { display: block; font-size: 11px; margin: 5px 0; }
+  body.home-dashboard .home-v2-core-grid { display: grid; grid-template-columns: minmax(0, 1.8fr) minmax(0, 1fr); min-height: 0; gap: 10px; }
+  body.home-dashboard .home-v2-panel { min-height: 0; padding: 12px; }
+  body.home-dashboard .home-v2-health { min-height: 0; gap: 10px; }
+  body.home-dashboard .sgq-health-title { display: flex; }
+  body.home-dashboard .sgq-health-title h2 { font-size: 21px; }
+  body.home-dashboard .sgq-health-title p { font-size: 12px; }
+  body.home-dashboard .sgq-health-layout { grid-template-columns: minmax(0, 1fr) 250px; grid-template-rows: minmax(0, 1fr); }
+  body.home-dashboard .sgq-health-legend { flex-wrap: nowrap; gap: 4px 12px; font-size: 9px; }
+  body.home-dashboard .sgq-health-legend > span { white-space: nowrap; }
+  body.home-dashboard .sgq-health-indicators { grid-template-columns: minmax(0, 1fr); grid-template-rows: repeat(4, minmax(0, 1fr)); gap: 8px; }
+  body.home-dashboard .sgq-health-indicator { grid-template-columns: 30px minmax(0, 1fr) 14px; padding: 6px 8px; }
+  body.home-dashboard .sgq-health-copy > span { font-size: 12px; }
+  body.home-dashboard .sgq-health-copy strong { font-size: 22px; }
+  body.home-dashboard .home-v2-tasks { min-height: 0; }
+  body.home-dashboard .home-v2-module-grid { height: calc(100% - 26px); grid-template-columns: repeat(7, minmax(0, 1fr)); grid-template-rows: minmax(0, 1fr); grid-auto-rows: auto; gap: 8px; }
+  body.home-dashboard .home-v2-module { min-height: 0; height: 100%; grid-template-columns: 28px minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; padding: 8px; gap: 5px; }
+  body.home-dashboard .home-v2-module-icon { width: 28px; height: 28px; }
+  body.home-dashboard .home-v2-module-copy h3 { font-size: 11px; white-space: normal; line-height: 1.25; }
+  body.home-dashboard .home-v2-module-copy p { font-size: 10px; line-height: 1.25; }
+  body.home-dashboard .home-v2-module-foot { font-size: 9px; }
+  body.home-dashboard .home-v2-bottom-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.8fr); min-height: 0; gap: 10px; }
+  body.home-dashboard .home-v2-activity-list, body.home-dashboard .home-v2-alerts { height: auto; max-height: none; overflow: visible; }
+  body.home-dashboard .home-v2-activity-list > button, body.home-dashboard .home-v2-alerts > button { min-height: 32px; }
+  body.home-dashboard .home-v2-heading { margin-bottom: 6px; }
+  body.home-dashboard .home-v2-heading h2 { font-size: 14px; }
+  body.home-dashboard .home-v2-heading p { font-size: 11px; white-space: normal; }
+  body.home-dashboard .home-v2-bottom-grid .home-v2-heading > div { display: flex; align-items: baseline; flex-wrap: nowrap; gap: 8px; min-width: 0; }
+  body.home-dashboard .home-v2-bottom-grid .home-v2-heading h2,
+  body.home-dashboard .home-v2-bottom-grid .home-v2-heading p { margin: 0; white-space: nowrap; }
+  body.home-dashboard .home-v2-list button { min-height: 33px; }
+  body.home-dashboard .home-v2-list button span { font-size: 11px; }
+}
+
+@media (width: 1280px) and (height: 720px), (width: 1366px) and (height: 638px) {
+  body .sidebar { width: 160px; padding-inline: 8px; }
+  body .sidebar .sb-logo-row { padding-inline: 4px; }
+  body .sidebar .sb-logo-img { max-width: 132px; }
+  body .sidebar .sb-section-label { padding-inline: 8px; font-size: 8px; }
+  body .sidebar .nav-item { min-height: 32px; gap: 7px; padding: 5px 7px; font-size: 11px; }
+  body .sidebar .nav-item .icon { width: 15px; height: 15px; }
+  body .sidebar .sb-help-card { margin-inline: 2px; padding: 7px; gap: 5px; }
+  body .sidebar .sb-help-icon { width: 25px; height: 25px; }
+  body .sidebar .sb-help-icon .icon { width: 12px; height: 12px; }
+  body .sidebar .sb-help-card .htitle { font-size: 11px; }
+  body .sidebar .sb-help-card .hdesc { font-size: 9.5px; line-height: 1.3; }
+  body .sidebar .btn-support { padding: 5px 7px; font-size: 10px; }
+  body .sidebar .btn-support .icon { width: 12px; height: 12px; }
+  body.home-dashboard .topbar-title { font-size: 14px; }
+  body.home-dashboard .topbar-subtitle { font-size: 9.5px; }
+  body.home-dashboard .tb-user-name { font-size: 10px; }
+  body.home-dashboard .tb-user-role { font-size: 9px; }
+}

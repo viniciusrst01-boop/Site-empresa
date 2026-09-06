@@ -48,10 +48,15 @@ test("notebook dashboard keeps cards readable and footer reachable", async ({ pa
       }));
     });
     expect(problems).toEqual([]);
-    await expect(page.locator('.home-v2-module-copy h3').first()).toHaveCSS('font-size', '13px');
-    await page.locator('.home-v2-bottom-grid').scrollIntoViewIfNeeded();
-    await expect(page.locator('.home-v2-bottom-grid')).toBeInViewport();
-    await page.locator('.home-v2-summary').scrollIntoViewIfNeeded();
+    const target = size.width === 1366 && size.height === 768;
+    await expect(page.locator('.home-v2-module-copy h3').first()).toHaveCSS('font-size', target ? '11px' : '13px');
+    if (target) {
+      await expect(page.locator('.home-v2-bottom-grid')).toBeInViewport({ ratio: 1 });
+    } else {
+      await page.locator('.home-v2-bottom-grid').scrollIntoViewIfNeeded();
+      await expect(page.locator('.home-v2-bottom-grid')).toBeInViewport();
+      await page.locator('.home-v2-summary').scrollIntoViewIfNeeded();
+    }
     await page.screenshot({ path: info.outputPath(`notebook-${size.width}-${size.height}.png`) });
   }
   await page.locator('[data-view="modulos"]').first().click();

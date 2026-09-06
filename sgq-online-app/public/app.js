@@ -1048,6 +1048,49 @@ function scrollPageToTop() {
   pageContent.scrollTop = 0;
 }
 
+let disposeDashboardFit = () => {};
+function fitDashboardToViewport() {
+  disposeDashboardFit();
+  const dashboard = pageContent.querySelector('.home-v2');
+  if (!dashboard) return;
+  const fit = () => {
+    const isTargetResolution = (window.innerWidth === 1366 && window.innerHeight === 768)
+      || (window.innerWidth === 1536 && window.innerHeight === 864)
+      || (window.innerWidth === 1440 && window.innerHeight === 900)
+      || (window.innerWidth === 1280 && window.innerHeight === 720)
+      || (window.innerWidth === 1366 && window.innerHeight === 638);
+    if (!isTargetResolution) {
+      pageContent.style.height = '';
+      dashboard.style.zoom = '';
+      dashboard.style.width = '';
+      dashboard.style.height = '';
+      return;
+    }
+    const footerHeight = document.querySelector('.app-footer')?.getBoundingClientRect().height || 0;
+    pageContent.style.height = `${Math.max(0, window.innerHeight - pageContent.getBoundingClientRect().top - footerHeight)}px`;
+    const style = getComputedStyle(pageContent);
+    const width = pageContent.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+    const height = pageContent.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom);
+    if (width <= 0 || height <= 0) return;
+    const scale = Math.min(1, width / 1500, height / 750);
+    dashboard.style.zoom = String(scale);
+    dashboard.style.width = `${width / scale}px`;
+    dashboard.style.height = `${Math.min(height / scale, 1000)}px`;
+  };
+  const observer = new ResizeObserver(fit);
+  observer.observe(pageContent);
+  window.addEventListener('resize', fit);
+  const removed = new MutationObserver(() => { if (!dashboard.isConnected) disposeDashboardFit(); });
+  removed.observe(pageContent, { childList: true });
+  disposeDashboardFit = () => {
+    observer.disconnect();
+    removed.disconnect();
+    window.removeEventListener('resize', fit);
+    pageContent.style.height = '';
+  };
+  fit();
+}
+
 function renderInicio() {
   setTopbar(`Olá, ${firstName(currentUser?.name || "Usuário")}!`, "Aqui está um resumo do seu Sistema de Gestão.");
   ensureRiskData();
@@ -1055,6 +1098,7 @@ function renderInicio() {
   pageContent.innerHTML = renderDashboardHtml();
   syncDashboardFooterDate();
   bindDashboardActions();
+  fitDashboardToViewport();
   mountSGQHealth();
 }
 
@@ -1430,8 +1474,9 @@ function mountSGQHealth() {
               tooltipElement.innerHTML = `<strong>${escapeHtml(label(point, true))}</strong>${sgqHealthMetrics.map((metric) => `<div><i style="background:${metric.color}"></i><span>${metric.title}</span><b>${point[metric.key] === null ? "—" : number.format(point[metric.key])}</b></div>`).join("")}`;
               const outer = root.getBoundingClientRect();
               const inner = canvas.getBoundingClientRect();
-              tooltipElement.style.left = `${Math.max(6, Math.min(inner.left - outer.left + tooltip.caretX + 8, root.clientWidth - tooltipElement.offsetWidth - 6))}px`;
-              tooltipElement.style.top = `${Math.max(6, Math.min(inner.top - outer.top + tooltip.caretY + 8, root.clientHeight - tooltipElement.offsetHeight - 6))}px`;
+              const scale = outer.width / root.offsetWidth || 1;
+              tooltipElement.style.left = `${Math.max(6, Math.min((inner.left - outer.left) / scale + tooltip.caretX + 8, root.clientWidth - tooltipElement.offsetWidth - 6))}px`;
+              tooltipElement.style.top = `${Math.max(6, Math.min((inner.top - outer.top) / scale + tooltip.caretY + 8, root.clientHeight - tooltipElement.offsetHeight - 6))}px`;
             },
           },
         },
