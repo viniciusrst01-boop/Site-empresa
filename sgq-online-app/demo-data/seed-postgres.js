@@ -90,7 +90,7 @@ async function applyScenario(client, source, date) {
   await client.query('ALTER TABLE user_sessions ALTER COLUMN company_id DROP NOT NULL');
   await upsertCompany(client, companyId, scenario.company, scenario.operational.length);
   await client.query('DELETE FROM user_sessions');
-  await client.query('UPDATE users SET company_id = CASE WHEN lower(username)=lower($1) THEN NULL ELSE $2 END, role = CASE WHEN lower(username)=lower($3) THEN $4 ELSE role END', ['viniciusrst', companyId, 'hugo.melo', 'Administrador']);
+  await client.query('UPDATE users SET company_id = CASE WHEN lower(username)=lower($1) THEN NULL ELSE $2::integer END, role = CASE WHEN lower(username)=lower($3) THEN $4 ELSE role END', ['viniciusrst', companyId, 'hugo.melo', 'Administrador']);
   await client.query('DELETE FROM company_data');
   for (const row of scenarioRows(scenario, companyId, source)) {
     await client.query('INSERT INTO company_data (company_id, data_key, data_json, updated_at) VALUES ($1,$2,$3::jsonb,$4)', [row.companyId, row.key, JSON.stringify(row.value), row.updatedAt]);
