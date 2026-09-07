@@ -565,6 +565,7 @@ function applyUserProfile() {
   if (userName) userName.textContent = name;
   if (userRole) userRole.textContent = role;
   document.body.classList.toggle("readonly-company-user", !canManageCompany());
+  document.body.classList.toggle("admin-mode", Boolean(currentUser?.isAdmin));
   const logoutForm = document.querySelector('form[action="/logout"]');
   if (logoutForm) {
     let field = logoutForm.querySelector('input[name="csrfToken"]');
@@ -595,19 +596,20 @@ function updateAdminNav() {
     return;
   }
 
-  document.querySelectorAll(".sb-nav .nav-item").forEach((item) => {
-    if (item.dataset.view !== "gerenciamento") item.remove();
-  });
-
-  if (document.querySelector('[data-view="gerenciamento"]')) return;
-
   const nav = document.querySelector(".sb-nav");
-  const item = document.createElement("div");
-  item.className = "nav-item";
-  item.dataset.view = "gerenciamento";
-  item.innerHTML = `${moduleIcon("plano")} Gerenciamento`;
-  item.addEventListener("click", () => render("gerenciamento"));
-  nav?.appendChild(item);
+  if (!nav) return;
+  document.querySelector(".sb-section-label").textContent = "ADMINISTRAÇÃO";
+  nav.innerHTML = [
+    ["gerenciamento", "modulos", "Visão geral"],
+    ["admin-empresas", "building", "Empresas"],
+    ["admin-usuarios", "users", "Usuários"],
+    ["admin-planos", "credit-card", "Planos e pagamentos"],
+    ["admin-seguranca", "shield", "Segurança"],
+    ["admin-backups", "database", "Backups"],
+    ["admin-logs", "scroll-text", "Logs e auditoria"],
+    ["configuracoes", "configuracoes", "Configurações"],
+  ].map(([view, icon, label]) => `<div class="nav-item" data-view="${view}">${moduleIcon(icon)} ${label}</div>`).join("");
+  nav.querySelectorAll(".nav-item").forEach((item) => item.addEventListener("click", () => render(item.dataset.view)));
 }
 
 function renderOnboarding() {
@@ -998,7 +1000,7 @@ function setActiveNav(view) {
 }
 
 function render(view = "inicio") {
-  const adminAllowedViews = ["gerenciamento", "configuracoes", "perfil"];
+  const adminAllowedViews = ["gerenciamento", "admin-empresas", "admin-usuarios", "admin-planos", "admin-seguranca", "admin-backups", "admin-logs", "configuracoes", "perfil"];
   if (currentUser?.isAdmin && !adminAllowedViews.includes(view)) {
     view = "gerenciamento";
   }
@@ -1023,6 +1025,7 @@ function render(view = "inicio") {
 
   document.body.classList.toggle("home-dashboard", view === "inicio");
   document.body.classList.remove("module-detail-view");
+  pageContent.classList.remove("admin-overview-page");
   setActiveNav(view);
   pageContent.classList.remove("risk-page-content");
   pageContent.classList.remove("context-page-content");
@@ -1043,6 +1046,12 @@ function render(view = "inicio") {
     notificacoes: renderNotificacoes,
     relatorios: renderRelatorios,
     gerenciamento: renderGerenciamento,
+    "admin-empresas": () => renderAdminLegacySection("admin-empresas"),
+    "admin-usuarios": () => renderAdminLegacySection("admin-usuarios"),
+    "admin-planos": () => renderAdminLegacySection("admin-planos"),
+    "admin-seguranca": () => renderAdminLegacySection("admin-seguranca"),
+    "admin-backups": () => renderAdminLegacySection("admin-backups"),
+    "admin-logs": () => renderAdminLegacySection("admin-logs"),
     configuracoes: renderConfiguracoes,
     ajuda: renderAjuda,
   };
@@ -1796,6 +1805,10 @@ function moduleIcon(name) {
   const icons = {
     modulos: '<svg class="icon" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>',
     plano: '<svg class="icon" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="3" y1="12" x2="21" y2="12"/></svg>',
+    building: '<svg class="icon" viewBox="0 0 24 24"><path d="M4 21V5l8-3v19M12 9h8v12M2 21h20"/><path d="M7 7h2M7 11h2M7 15h2M15 13h2M15 17h2"/></svg>',
+    "credit-card": '<svg class="icon" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/></svg>',
+    database: '<svg class="icon" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v6c0 1.7 4 3 9 3s9-1.3 9-3V5M3 11v6c0 1.7 4 3 9 3s9-1.3 9-3v-6"/></svg>',
+    "scroll-text": '<svg class="icon" viewBox="0 0 24 24"><path d="M6 3h12v16a2 2 0 0 1-2 2H7a3 3 0 0 1-3-3V5a2 2 0 0 1 2-2z"/><path d="M4 17h10v2a2 2 0 0 0 2 2M9 8h6M9 12h6"/></svg>',
     calendar: '<svg class="icon" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
     home: '<svg class="icon" viewBox="0 0 24 24"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M9 20v-6h6v6"/></svg>',
     contexto: '<svg class="icon" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/><circle cx="10" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
@@ -1839,6 +1852,8 @@ function moduleIcon(name) {
     "calendar-clock": '<svg class="icon icon-calendar-clock" viewBox="0 0 30 24"><rect x="2" y="4" width="19" height="17" rx="2"/><path d="M6 2v5M17 2v5M2 10h19"/><circle cx="22" cy="16" r="5"/><path d="M22 13.5v2.8l2 1.2"/></svg>',
     "org-chart": '<svg class="icon" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="5" rx="1"/><rect x="2" y="16" width="6" height="5" rx="1"/><rect x="16" y="16" width="6" height="5" rx="1"/><path d="M12 8v4M5 12h14M5 12v4M19 12v4"/></svg>',
     "process-flow": '<svg class="icon" viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="5" rx="1"/><rect x="3" y="17" width="6" height="5" rx="1"/><rect x="15" y="17" width="6" height="5" rx="1"/><path d="M12 7v5M6 12h12M6 12v5M18 12v5"/></svg>',
+    mission: '<svg class="icon" viewBox="0 0 24 24"><path d="M5 21 12 9l7 12H5Z"/><path d="m9 16 3-3 3 3M12 9V3M12 3h6l-2 2 2 2h-6"/></svg>',
+    diamond: '<svg class="icon" viewBox="0 0 24 24"><path d="m3 8 4-5h10l4 5-9 13L3 8Z"/><path d="m7 3 2 5 3-5 3 5 2-5M3 8h18M9 8l3 13 3-13"/></svg>',
   };
   return icons[name] || icons.modulos;
 }
@@ -2299,6 +2314,7 @@ function renderLeadershipTabContent() {
     calendario: leadershipCalendarHtml,
   };
   target.innerHTML = (renderers[currentLeadershipSubTab] || leadershipActionsHtml)();
+  if (currentLeadershipSubTab === "posicionamento") bindLeadershipPositionControls();
   if (currentLeadershipSubTab === "indicadores") requestAnimationFrame(renderLeadershipIndicatorCharts);
   if (currentLeadershipSubTab === "indicadoresPapeis") requestAnimationFrame(renderLeadershipRoleIndicatorCharts);
 }
@@ -2406,18 +2422,84 @@ function leadershipActionTypeChip(type) {
 
 function leadershipPositionHtml() {
   const item = leadershipGet("posicionamento");
-  const readonly = canEditModule("lideranca") ? "" : " readonly";
+  const editable = canEditModule("lideranca");
+  const readonly = editable ? "" : " readonly";
+  const values = [...new Set((item.valores || []).map((value) => String(value).trim()).filter(Boolean))];
+  const suggestions = ["Inovação", "Sustentabilidade", "Excelência", "Colaboração"];
   return `
-    <section class="doc-card">
-      <div class="dcc-hd plain-head">
-        <div><div class="dcc-title">Posicionamento Estratégico</div><div class="dcc-sub">Missão, visão e valores da organização · 5.1</div></div>
-        ${canEditModule("lideranca") ? `<button class="btn-grad" data-lc-action="save-position" type="button">${moduleIcon("check-circle")}Salvar alterações</button>` : ""}
+    <section class="doc-card leadership-position-card">
+      <header class="leadership-position-head">
+        <div class="leadership-position-heading">
+          <span class="leadership-position-icon is-heading">${moduleIcon("riscos")}</span>
+          <div><div class="dcc-title">Posicionamento Estratégico</div><div class="dcc-sub">Missão, visão e valores da organização · 5.1</div></div>
+        </div>
+        ${editable ? `<button class="btn-grad leadership-position-save" data-lc-action="save-position" type="button">${moduleIcon("save")}<span>Salvar alterações</span></button>` : ""}
+      </header>
+      <div class="leadership-position-body">
+        ${leadershipPositionTextRow("mission", "Missão", "Qual é o propósito da sua organização?", "lcPosMissao", item.missao, "Descreva aqui a missão da sua organização...", readonly)}
+        ${leadershipPositionTextRow("eye", "Visão", "Onde sua organização deseja chegar?", "lcPosVisao", item.visao, "Descreva aqui a visão da sua organização...", readonly)}
+        <div class="leadership-position-row leadership-values-row">
+          <span class="leadership-position-icon">${moduleIcon("diamond")}</span>
+          <div class="leadership-position-label"><strong>Valores</strong><span>Quais princípios orientam as decisões e atitudes?</span></div>
+          <div class="leadership-values-editor">
+            ${editable ? `<div class="leadership-value-entry"><input class="input-basic" id="lcPosValueInput" maxlength="60" placeholder="Digite um valor e pressione Enter..." autocomplete="off"><button class="btn-grad leadership-value-add" data-lc-action="add-position-value" type="button" aria-label="Adicionar valor">${moduleIcon("plus")}<span>Adicionar</span></button></div>` : ""}
+            <div class="leadership-value-chips" id="lcPosValueChips" aria-label="Valores da organização">${values.map((value) => leadershipPositionValueChip(value, editable)).join("")}</div>
+            ${editable ? `<div class="leadership-value-suggestions"><span>Sugestões:</span><div id="lcPosValueSuggestions">${suggestions.filter((suggestion) => !values.some((value) => normalizeLeadershipPositionValue(value) === normalizeLeadershipPositionValue(suggestion))).map(leadershipPositionSuggestion).join("")}</div></div>` : ""}
+          </div>
+        </div>
       </div>
-      <div class="field"><label>Missão</label><textarea class="input-basic" id="lcPosMissao"${readonly}>${escapeHtml(item.missao)}</textarea></div>
-      <div class="field"><label>Visão</label><textarea class="input-basic" id="lcPosVisao"${readonly}>${escapeHtml(item.visao)}</textarea></div>
-      <div class="field"><label>Valores, um por linha</label><textarea class="input-basic" id="lcPosValores"${readonly}>${escapeHtml((item.valores || []).join("\n"))}</textarea></div>
-      <div class="valores-chips">${(item.valores || []).map((value) => chip(value, "mchip-gold")).join("")}</div>
     </section>`;
+}
+
+function leadershipPositionTextRow(icon, label, help, id, value, placeholder, readonly) {
+  const text = String(value || "").slice(0, 500);
+  return `<div class="leadership-position-row">
+    <span class="leadership-position-icon">${moduleIcon(icon)}</span>
+    <label class="leadership-position-label" for="${id}"><strong>${escapeHtml(label)}</strong><span>${escapeHtml(help)}</span></label>
+    <div class="leadership-position-text"><textarea class="input-basic" id="${id}" maxlength="500" placeholder="${escapeHtml(placeholder)}"${readonly}>${escapeHtml(text)}</textarea><output for="${id}" data-position-counter="${id}">${text.length}/500</output></div>
+  </div>`;
+}
+
+function leadershipPositionValueChip(value, removable) {
+  return `<span class="leadership-value-chip" data-position-value="${escapeHtml(value)}"><span>${escapeHtml(value)}</span>${removable ? `<button type="button" data-lc-action="remove-position-value" data-id="${escapeHtml(value)}" aria-label="Remover ${escapeHtml(value)}">${moduleIcon("close")}</button>` : ""}</span>`;
+}
+
+function leadershipPositionSuggestion(value) {
+  return `<button type="button" data-lc-action="suggest-position-value" data-position-suggestion="${escapeHtml(value)}" data-id="${escapeHtml(value)}">${moduleIcon("plus")}<span>${escapeHtml(value)}</span></button>`;
+}
+
+function normalizeLeadershipPositionValue(value) {
+  return String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+}
+
+function bindLeadershipPositionControls() {
+  document.querySelectorAll("[data-position-counter]").forEach((counter) => {
+    const field = document.querySelector(`#${counter.dataset.positionCounter}`);
+    field?.addEventListener("input", () => { counter.textContent = `${field.value.length}/500`; });
+  });
+  document.querySelector("#lcPosValueInput")?.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" || event.isComposing) return;
+    event.preventDefault();
+    addLeadershipPositionValue(event.currentTarget.value);
+  });
+}
+
+function addLeadershipPositionValue(rawValue) {
+  const input = document.querySelector("#lcPosValueInput");
+  const list = document.querySelector("#lcPosValueChips");
+  const value = String(rawValue || input?.value || "").trim();
+  if (!value || !list) return;
+  const exists = [...list.querySelectorAll("[data-position-value]")].some((chipElement) => normalizeLeadershipPositionValue(chipElement.dataset.positionValue) === normalizeLeadershipPositionValue(value));
+  if (!exists) list.insertAdjacentHTML("beforeend", leadershipPositionValueChip(value.slice(0, 60), true));
+  [...document.querySelectorAll("[data-position-suggestion]")].find((button) => normalizeLeadershipPositionValue(button.dataset.positionSuggestion) === normalizeLeadershipPositionValue(value))?.remove();
+  if (input) { input.value = ""; input.focus(); }
+}
+
+function returnLeadershipPositionValueToSuggestions(value) {
+  const suggestions = document.querySelector("#lcPosValueSuggestions");
+  if (!value || !suggestions) return;
+  const exists = [...suggestions.querySelectorAll("[data-position-suggestion]")].some((button) => normalizeLeadershipPositionValue(button.dataset.positionSuggestion) === normalizeLeadershipPositionValue(value));
+  if (!exists) suggestions.insertAdjacentHTML("beforeend", leadershipPositionSuggestion(value));
 }
 
 function leadershipPlanHtml() {
@@ -2747,11 +2829,20 @@ function handleLeadershipAction(action, id) {
     leadershipSet("posicionamento", {
       missao: inputValue("lcPosMissao"),
       visao: inputValue("lcPosVisao"),
-      valores: linesToArray(inputValue("lcPosValores")),
+      valores: [...document.querySelectorAll("[data-position-value]")].map((element) => element.dataset.positionValue),
       dataAtualizacao: new Date().toISOString().slice(0, 10),
       aprovadoPor: currentUser?.name || "Hugo Melo",
     });
     refreshLeadershipScreen("Posicionamento salvo.");
+    return;
+  }
+  if (action === "add-position-value" || action === "suggest-position-value") {
+    addLeadershipPositionValue(action === "suggest-position-value" ? id : "");
+    return;
+  }
+  if (action === "remove-position-value") {
+    [...document.querySelectorAll("[data-position-value]")].find((element) => element.dataset.positionValue === id)?.remove();
+    returnLeadershipPositionValueToSuggestions(id);
     return;
   }
   if (action.startsWith("new-")) void openLeadershipForm(action.replace("new-", ""));
@@ -6831,33 +6922,69 @@ function reportExportCard(title, format, description, queryFormat, icon) {
 }
 
 async function renderGerenciamento() {
-  setTopbar("Gerenciamento", "Clientes, planos e acessos do SGQ Online");
+  setTopbar("Gerenciamento", "Painel de controle do sistema. Acompanhe métricas, atividades e a saúde da plataforma.");
   pageContent.classList.remove("risk-page-content");
   pageContent.classList.remove("context-page-content");
+  pageContent.classList.add("admin-overview-page");
+  const globalSearch = document.querySelector("#dashboardGlobalSearch");
+  if (globalSearch) globalSearch.placeholder = "Buscar empresas, usuários, módulos, registros...";
   pageContent.innerHTML = `
-    ${viewHeader("Gerenciamento", "Acompanhe clientes pagantes, acessos ativos e usuários cadastrados automaticamente.")}
+    <div class="admin-overview-loading admin-loading qp-card">Carregando visão geral...</div>
+  `;
+
+  try {
+    const data = await loadAdminDashboardData();
+    pageContent.innerHTML = adminOverviewHtml(data);
+    bindAdminOverviewActions();
+  } catch (error) {
+    console.warn(error);
+    pageContent.innerHTML = `
+      ${viewHeader("Gerenciamento", "Painel de controle do sistema.")}
+      <article class="qp-card">
+        <h3>Não foi possível carregar</h3>
+        <p class="qp-muted">Verifique se o servidor local está rodando e tente novamente.</p>
+      </article>
+    `;
+  }
+}
+
+async function loadAdminDashboardData() {
+  const [response, operationsResponse] = await Promise.all([
+    fetch("/api/admin/overview", { headers: { Accept: "application/json" }, cache: "no-store" }),
+    fetch("/api/admin/operations", { headers: { Accept: "application/json" }, cache: "no-store" }),
+  ]);
+  if (response.status === 403) throw new Error("Acesso restrito.");
+  if (!response.ok) throw new Error("Falha ao carregar gerenciamento.");
+  const data = await response.json();
+  data.operations = operationsResponse.ok ? await operationsResponse.json() : null;
+  return data;
+}
+
+async function renderAdminLegacySection(view) {
+  const titles = {
+    "admin-empresas": ["Empresas", "Cadastros, planos e informações das empresas."],
+    "admin-usuarios": ["Usuários", "Usuários e acessos cadastrados na plataforma."],
+    "admin-planos": ["Planos e pagamentos", "Planos, cobrança e ocupação de acessos."],
+    "admin-seguranca": ["Segurança", "Acessos e eventos de segurança da plataforma."],
+    "admin-backups": ["Backups", "Execução, verificação e histórico dos backups."],
+    "admin-logs": ["Logs e auditoria", "Histórico técnico e administrativo completo."],
+  };
+  const [title, subtitle] = titles[view] || titles["admin-empresas"];
+  setTopbar(title, subtitle);
+  pageContent.classList.remove("admin-overview-page");
+  pageContent.innerHTML = `
+    ${viewHeader(title, subtitle)}
     <div class="admin-loading qp-card">Carregando dados de gerenciamento...</div>
   `;
 
   try {
-    const [response, operationsResponse] = await Promise.all([
-      fetch("/api/admin/overview", { headers: { Accept: "application/json" }, cache: "no-store" }),
-      fetch("/api/admin/operations", { headers: { Accept: "application/json" }, cache: "no-store" }),
-    ]);
-    if (response.status === 403) {
-      pageContent.innerHTML = `${viewHeader("Acesso restrito", "Esta área está disponível somente para o administrador.")}`;
-      return;
-    }
-    if (!response.ok) throw new Error("Falha ao carregar gerenciamento.");
-
-    const data = await response.json();
-    data.operations = operationsResponse.ok ? await operationsResponse.json() : null;
-    pageContent.innerHTML = adminOverviewHtml(data);
+    const data = await loadAdminDashboardData();
+    pageContent.innerHTML = adminManagementHtml(data, title, subtitle);
     bindAdminActions();
   } catch (error) {
     console.warn(error);
     pageContent.innerHTML = `
-      ${viewHeader("Gerenciamento", "Clientes, planos e acessos do SGQ Online.")}
+      ${viewHeader(title, subtitle)}
       <article class="qp-card">
         <h3>Não foi possível carregar</h3>
         <p class="qp-muted">Verifique se o servidor local está rodando e tente novamente.</p>
@@ -6871,10 +6998,168 @@ function adminOverviewHtml(data) {
   const companies = data.companies || [];
   const users = data.users || [];
   const logs = data.logs || [];
+  const operations = data.operations || {};
+  const health = operations.health || {};
+  const services = health.services || {};
+  const incidents = operations.incidents || [];
+  const backups = operations.backups || [];
+  const activeUsers = Number(summary.activeAccesses || 0);
+  const totalUsers = Number(summary.accesses || 0);
+  const activePlans = Number(summary.payingCompanies || 0);
+  const totalCompanies = Number(summary.companies || 0);
+  const activePercent = totalUsers ? Math.round(activeUsers / totalUsers * 100) : 0;
+  const planPercent = totalCompanies ? Math.round(activePlans / totalCompanies * 100) : 0;
+  const serviceStates = [services.database, services.billing, services.backup, services.email].filter(Boolean);
+  const servicesWithIssues = serviceStates.filter((service) => !service.ok).length;
+  const systemOk = serviceStates.length > 0 && servicesWithIssues === 0;
+  const latestBackup = backups[0] || services.backup?.latest || null;
+  const securityEvents = incidents.filter((incident) => incident.component === "security");
+  const featuredCompanies = companies.slice(0, 4);
+
+  return `
+    <main class="admin-overview" aria-label="Visão geral administrativa">
+      <section class="admin-metrics-grid" aria-label="Métricas principais">
+        ${adminOverviewMetric("Empresas cadastradas", totalCompanies, "Total na plataforma", "building", "blue", "admin-empresas")}
+        ${adminOverviewMetric("Usuários totais", totalUsers, "Acessos cadastrados", "users", "cyan", "admin-usuarios")}
+        ${adminOverviewMetric("Usuários ativos", activeUsers, totalUsers ? `${activePercent}% dos usuários` : "Nenhum usuário cadastrado", "contexto", "green", "admin-usuarios", activePercent)}
+        ${adminOverviewMetric("Planos ativos", activePlans, services.billing?.ok ? (totalCompanies ? `${planPercent}% das empresas` : "Nenhuma empresa cadastrada") : "Cobrança não configurada", "plano", "purple", "admin-planos", planPercent)}
+        <article class="admin-system-state ${systemOk ? "is-ok" : "has-warning"}">
+          <span class="admin-state-icon">${moduleIcon(systemOk ? "bar-chart" : "nao-conformidades")}</span>
+          <div><small>Status geral</small><strong>${systemOk ? "Sistema operacional" : "Sistema com atenção"}</strong><p>${systemOk ? "Todos os serviços disponíveis." : `${servicesWithIssues} ${servicesWithIssues === 1 ? "serviço requer" : "serviços requerem"} atenção.`}</p></div>
+        </article>
+      </section>
+
+      <section class="admin-overview-middle">
+        <article class="admin-overview-panel admin-system-overview">
+          ${adminPanelHeading("Resumo do sistema", "Status dos principais serviços e recursos da plataforma.", "admin-seguranca", "Ver detalhes")}
+          <div class="admin-services-grid">
+            ${adminServiceCard("Banco de dados", services.database?.ok, services.database?.ok ? "Online" : "Offline", services.database?.latencyMs != null ? `Latência: ${services.database.latencyMs} ms` : "Latência indisponível", "database")}
+            ${adminServiceCard("Backups", services.backup?.ok, services.backup?.ok ? "Em dia" : "Requer atenção", latestBackup ? `Último: ${formatDateTime(latestBackup.createdAt)}` : "Nenhum backup registrado", "download", "admin-backups")}
+            ${adminServiceCard("Segurança", securityEvents.length === 0, securityEvents.length === 0 ? "Sem alertas" : "Atenção", securityEvents.length ? `${securityEvents.length} ${securityEvents.length === 1 ? "evento recente" : "eventos recentes"}` : "Nenhum incidente recente", "shield", "admin-seguranca")}
+            ${adminServiceCard("E-mail e alertas", services.email?.ok && services.email?.operationalAlertsConfigured, services.email?.ok ? (services.email?.operationalAlertsConfigured ? "Operacional" : "Parcial") : "Não configurado", services.email?.operationalAlertsConfigured ? "Envio e destinatário configurados" : "Configuração incompleta", "mail", "admin-seguranca")}
+          </div>
+        </article>
+
+        <article class="admin-overview-panel admin-incidents-panel">
+          ${adminPanelHeading("Incidentes recentes", "", "admin-logs", "Ver todos")}
+          <div class="admin-incidents-list">
+            ${incidents.length ? incidents.slice(0, 5).map(adminIncidentItem).join("") : `<div class="admin-empty-state">Nenhum incidente registrado.</div>`}
+          </div>
+        </article>
+      </section>
+
+      <section class="admin-overview-bottom">
+        <article class="admin-overview-panel admin-activity-panel">
+          ${adminPanelHeading("Atividade recente", "Últimos eventos ocorridos no sistema.", "admin-logs", "Ver todos")}
+          <div class="admin-activity-wrap">
+            <table class="admin-activity-table">
+              <thead><tr><th>Data e hora</th><th>Tipo</th><th>Descrição</th><th>Usuário</th><th>Status</th></tr></thead>
+              <tbody>${logs.length ? logs.slice(0, 5).map(adminActivityRow).join("") : `<tr><td colspan="5"><div class="admin-empty-state">Nenhuma atividade registrada.</div></td></tr>`}</tbody>
+            </table>
+          </div>
+        </article>
+
+        <article class="admin-overview-panel admin-companies-panel">
+          ${adminPanelHeading("Empresas em destaque", "Empresas adicionadas mais recentemente.", "admin-empresas", "Ver todas")}
+          <div class="admin-featured-companies">
+            ${featuredCompanies.length ? featuredCompanies.map(adminFeaturedCompany).join("") : `<div class="admin-empty-state">Nenhuma empresa cadastrada.</div>`}
+          </div>
+        </article>
+      </section>
+    </main>
+  `;
+}
+
+function adminOverviewMetric(label, value, caption, icon, tone, view, percent = null) {
+  return `<button class="admin-metric-card tone-${tone}" type="button" data-admin-view="${view}">
+    <span class="admin-metric-icon">${moduleIcon(icon)}</span>
+    <span class="admin-metric-copy"><small>${escapeHtml(label)}</small><strong>${escapeHtml(value)}</strong><span>${escapeHtml(caption)}</span></span>
+    ${percent == null ? "" : `<span class="admin-metric-percent">${percent}%</span>`}
+    <span class="admin-card-arrow">${moduleIcon("arrow")}</span>
+  </button>`;
+}
+
+function adminPanelHeading(title, subtitle, view, actionLabel) {
+  return `<div class="admin-panel-heading"><div><h2>${escapeHtml(title)}</h2>${subtitle ? `<p>${escapeHtml(subtitle)}</p>` : ""}</div><button type="button" data-admin-view="${view}">${escapeHtml(actionLabel)} ${moduleIcon("arrow")}</button></div>`;
+}
+
+function adminServiceCard(title, ok, status, detail, icon, view = "admin-seguranca") {
+  return `<button class="admin-service-card ${ok ? "is-ok" : "has-warning"}" type="button" data-admin-view="${view}">
+    <span class="admin-service-icon">${moduleIcon(icon)}</span>
+    <span class="admin-service-copy"><strong>${escapeHtml(title)}</strong><span class="admin-service-status"><i></i>${escapeHtml(status)}</span><small>${escapeHtml(detail)}</small></span>
+    <span class="admin-card-arrow">${moduleIcon("arrow")}</span>
+  </button>`;
+}
+
+function adminIncidentItem(incident) {
+  const severity = String(incident.severity || "info").toLowerCase();
+  const tone = ["critical", "error"].includes(severity) ? "critical" : severity === "warning" ? "warning" : "info";
+  const status = tone === "critical" ? "Crítico" : tone === "warning" ? "Atenção" : "Informativo";
+  return `<div class="admin-incident-item ${tone}"><i></i><div><strong>${escapeHtml(adminIncidentLabel(incident))}</strong><span>${escapeHtml(formatDateTime(incident.createdAt))}</span></div><em>${status}</em></div>`;
+}
+
+function adminIncidentLabel(incident) {
+  const labels = {
+    automatic_backup_failed: "Falha no backup automático",
+    backup_verification_failed: "Falha na verificação do backup",
+    billing_webhook_failed: "Falha no processamento da cobrança",
+    billing_checkout_failed: "Falha ao iniciar cobrança",
+    billing_portal_failed: "Falha ao abrir cobrança",
+    billing_plan_change_failed: "Falha ao alterar plano",
+    database_initialization_failed: "Banco de dados indisponível",
+    deadline_email_delivery_failed: "Falha no envio de alertas",
+    login_rate_limited: "Tentativas repetidas de acesso",
+    request_failed: "Falha ao processar uma solicitação",
+  };
+  return labels[incident.eventType] || adminEventLabel(incident.eventType || incident.component || "system_event");
+}
+
+function adminActivityRow(log) {
+  const type = adminActivityType(log.eventType);
+  return `<tr><td>${escapeHtml(formatDateTime(log.createdAt))}</td><td><span class="admin-event-type type-${type.key}">${escapeHtml(type.label)}</span></td><td>${escapeHtml(adminEventLabel(log.eventType))}</td><td>${escapeHtml(log.username || "Sistema")}</td><td>${auditOutcomeBadge(log.outcome)}</td></tr>`;
+}
+
+function adminActivityType(eventType) {
+  const value = String(eventType || "");
+  if (value.includes("login") || value.includes("session") || value.includes("mfa")) return { key: "access", label: "Acesso" };
+  if (value.includes("company")) return { key: "company", label: "Empresa" };
+  if (value.includes("backup") || value.includes("module") || value.includes("export")) return { key: "system", label: "Sistema" };
+  if (value.includes("password") || value.includes("csrf")) return { key: "security", label: "Segurança" };
+  return { key: "admin", label: "Administração" };
+}
+
+function adminFeaturedCompany(company) {
+  const initials = String(company.name || "Empresa").split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase();
+  const active = String(company.billingStatus || "").toLowerCase() === "ativo";
+  return `<button class="admin-featured-company" type="button" data-admin-view="admin-empresas" data-company-id="${Number(company.id) || ""}">
+    <span class="admin-company-avatar">${escapeHtml(initials || "E")}</span>
+    <span class="admin-company-copy"><strong>${escapeHtml(company.name || "Empresa")}</strong><span>${escapeHtml(company.plan || "Sem plano")} · ${Number(company.access_count || 0)} ${Number(company.access_count || 0) === 1 ? "usuário" : "usuários"}</span></span>
+    <em class="${active ? "is-active" : "is-inactive"}"><i></i>${escapeHtml(company.billingStatus || "Sem status")}</em>
+    <span class="admin-card-arrow">${moduleIcon("arrow")}</span>
+  </button>`;
+}
+
+function bindAdminOverviewActions() {
+  pageContent.querySelectorAll("[data-admin-view]").forEach((button) => button.addEventListener("click", () => render(button.dataset.adminView)));
+}
+
+async function refreshCurrentAdminView() {
+  if (String(activeView).startsWith("admin-")) {
+    await renderAdminLegacySection(activeView);
+    return;
+  }
+  await renderGerenciamento();
+}
+
+function adminManagementHtml(data, title = "Gerenciamento", subtitle = "Clientes, planos e acessos do SGQ Online.") {
+  const summary = data.summary || {};
+  const companies = data.companies || [];
+  const users = data.users || [];
+  const logs = data.logs || [];
   const operations = data.operations || null;
 
   return `
-    ${viewHeader("Gerenciamento", "Acompanhe clientes pagantes, acessos ativos e usuários cadastrados automaticamente.")}
+    ${viewHeader(title, subtitle)}
 
     <div class="admin-kpi-row">
       ${adminMetric("Clientes", summary.companies || 0, "empresas cadastradas")}
@@ -7343,7 +7628,7 @@ async function runAdminBackup() {
     return;
   }
   toast("Backup criado e restauração isolada testada.");
-  await renderGerenciamento();
+  await refreshCurrentAdminView();
 }
 
 async function verifyAdminBackup(snapshotId) {
@@ -7362,7 +7647,7 @@ async function verifyAdminBackup(snapshotId) {
   }
   const counts = result.counts || {};
   toast(`Restauração isolada concluída: ${counts.companies || 0} empresa(s), ${counts.users || 0} usuário(s).`);
-  await renderGerenciamento();
+  await refreshCurrentAdminView();
 }
 
 async function resendAdminInvitation(button) {
@@ -7380,7 +7665,7 @@ async function resendAdminInvitation(button) {
     return;
   }
   toast(result.invitation?.delivery === "sent" ? "Convite reenviado." : "Convite renovado, mas o envio de e-mail não está configurado.");
-  await renderGerenciamento();
+  await refreshCurrentAdminView();
 }
 
 async function saveAdminCompany(event) {
@@ -7416,7 +7701,7 @@ async function saveAdminCompany(event) {
   }
 
   toast(isEditing ? "Cliente atualizado." : "Cliente cadastrado.");
-  await renderGerenciamento();
+  await refreshCurrentAdminView();
 }
 
 async function saveAdminUser(event) {
@@ -7461,7 +7746,7 @@ async function saveAdminUser(event) {
         ? "Convite enviado por e-mail."
         : "Usuário criado. Configure o e-mail para entregar o convite.",
   );
-  await renderGerenciamento();
+  await refreshCurrentAdminView();
 }
 
 async function toggleAdminUser(button) {
@@ -7493,7 +7778,7 @@ async function toggleAdminUser(button) {
   }
 
   toast(nextStatus === "Bloqueado" ? "Acesso bloqueado." : "Acesso liberado.");
-  await renderGerenciamento();
+  await refreshCurrentAdminView();
 }
 
 function fillAdminCompanyForm(company) {

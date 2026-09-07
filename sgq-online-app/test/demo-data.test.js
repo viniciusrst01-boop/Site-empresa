@@ -219,10 +219,24 @@ test('real endpoints: global admin without tenant and company owner Hugo', async
       await page.context().clearCookies();
       await page.goto(`${base}/login`); await page.locator('[name=username]').fill('viniciusrst'); await page.locator('[name=password]').fill(password); await page.locator('button[type=submit]').click();
       await page.waitForFunction(() => typeof currentUser !== 'undefined' && currentUser?.isAdmin);
-      await page.setViewportSize({ width: 1440, height: 1000 });
       await page.waitForFunction(() => document.querySelector('.page-content')?.innerText.includes('hugo.melo'));
       assert.ok((await page.locator('.page-content').innerText()).includes('Quality Pro Solutions'));
-      await page.screenshot({ path: path.join(root, 'test-results', 'demo-admin.png'), fullPage: true });
+      assert.equal(await page.locator('.admin-metric-card').count(), 4);
+      assert.equal(await page.locator('.admin-featured-company').count(), 1);
+      assert.deepEqual(await page.locator('.admin-metric-copy > strong').allTextContents(), ['1', '6', '4', '0']);
+      assert.equal(await page.locator('#dashboardGlobalSearch').getAttribute('placeholder'), 'Buscar empresas, usuários, módulos, registros...');
+      const adminSizes = [[1366, 768], [1440, 900], [1536, 864], [1600, 900], [1920, 1080]];
+      for (const [width, height] of adminSizes) {
+        await page.setViewportSize({ width, height });
+        assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), true);
+        await page.screenshot({ path: path.join(root, 'test-results', `demo-admin-${width}-${height}.png`), fullPage: false });
+      }
+      await page.locator('.admin-featured-company').click();
+      assert.equal(await page.locator('[data-view="admin-empresas"]').getAttribute('class').then(value => value.includes('active')), true);
+      await page.waitForFunction(() => document.querySelector('.page-content')?.innerText.includes('Quality Pro Solutions'));
+      assert.ok((await page.locator('.page-content').innerText()).includes('Quality Pro Solutions'));
+      await page.locator('[data-view="gerenciamento"]').click();
+      await page.waitForSelector('.admin-overview');
       assert.deepEqual(errors, []);
     } finally { await browser.close(); }
   }

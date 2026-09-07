@@ -5018,6 +5018,219 @@ body.theme-light textarea.input-basic {
   margin-top: 12px;
 }
 
+.leadership-position-card {
+  min-width: 0;
+  overflow: hidden;
+  padding: 0;
+  border-radius: 8px;
+}
+
+.leadership-position-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  min-height: 104px;
+  padding: 18px 28px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.leadership-position-heading {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 22px;
+}
+
+.leadership-position-heading .dcc-title { font-size: 24px; }
+.leadership-position-heading .dcc-sub { margin-top: 5px; font-size: 14px; }
+
+.leadership-position-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 70px;
+  height: 70px;
+  flex: 0 0 70px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent-blue-bright) 14%, var(--bg-panel));
+  color: color-mix(in srgb, var(--accent-blue-bright) 78%, white);
+}
+
+.leadership-position-icon .icon {
+  width: 34px;
+  height: 34px;
+  stroke-width: 1.8;
+}
+
+.leadership-position-icon.is-heading { width: 76px; height: 76px; flex-basis: 76px; }
+.leadership-position-icon.is-heading .icon { width: 38px; height: 38px; }
+
+.leadership-position-save {
+  min-height: 48px;
+  padding: 0 22px;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.leadership-position-body { padding: 0 28px; }
+
+.leadership-position-row {
+  display: grid;
+  grid-template-columns: 70px 220px minmax(0, 1fr);
+  align-items: start;
+  gap: 22px;
+  padding: 18px 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.leadership-position-row:last-child { border-bottom: 0; }
+
+.leadership-position-label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+  padding-top: 10px;
+  color: var(--text-primary);
+}
+
+.leadership-position-label strong { font-size: 15px; line-height: 1.3; }
+.leadership-position-label span { color: var(--text-secondary); font-size: 13px; line-height: 1.55; }
+
+.leadership-position-text { min-width: 0; }
+
+.leadership-position-text textarea.input-basic {
+  min-height: 96px;
+  padding: 13px 15px;
+  border-radius: 8px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.leadership-position-text output {
+  display: block;
+  margin-top: 5px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  text-align: right;
+}
+
+.leadership-values-editor { min-width: 0; }
+
+.leadership-value-entry {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.leadership-value-entry .input-basic { min-height: 44px; border-radius: 8px; }
+
+.leadership-value-add {
+  min-height: 44px;
+  padding: 0 18px;
+  border-radius: 8px;
+}
+
+.leadership-value-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  min-height: 34px;
+  padding: 10px 0;
+}
+
+.leadership-value-chip,
+.leadership-value-suggestions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 34px;
+  border: 1px solid transparent;
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--accent-blue-bright) 16%, var(--bg-panel));
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.leadership-value-chip { padding: 6px 10px 6px 14px; }
+
+.leadership-value-chip button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.leadership-value-chip button:hover { background: rgba(248, 113, 113, .14); color: var(--accent-red); }
+.leadership-value-chip .icon { width: 13px; height: 13px; }
+
+.leadership-value-suggestions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.leadership-value-suggestions > span { color: var(--text-secondary); font-size: 12.5px; }
+.leadership-value-suggestions > div { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.leadership-value-suggestions button {
+  padding: 6px 13px;
+  border-color: var(--border-subtle);
+  background: color-mix(in srgb, var(--accent-blue-bright) 10%, transparent);
+  cursor: pointer;
+}
+
+.leadership-value-suggestions button:hover { border-color: var(--accent-blue-bright); color: var(--accent-cyan); }
+.leadership-value-suggestions .icon { width: 14px; height: 14px; }
+
+body.theme-white .leadership-position-icon,
+body.theme-white .leadership-value-chip,
+body.theme-white .leadership-value-suggestions button {
+  background: rgba(14, 116, 202, .08);
+}
+
+@media (max-width: 1100px) {
+  .leadership-position-head { padding-inline: 20px; }
+  .leadership-position-body { padding-inline: 20px; }
+  .leadership-position-row { grid-template-columns: 62px 180px minmax(0, 1fr); gap: 16px; }
+  .leadership-position-icon { width: 62px; height: 62px; flex-basis: 62px; }
+}
+
+@media (max-width: 720px) {
+  .leadership-position-head { align-items: flex-start; min-height: 0; padding: 16px; }
+  .leadership-position-heading { gap: 12px; }
+  .leadership-position-heading .dcc-title { font-size: 18px; }
+  .leadership-position-heading .dcc-sub { font-size: 11px; }
+  .leadership-position-icon.is-heading { width: 52px; height: 52px; flex-basis: 52px; }
+  .leadership-position-icon.is-heading .icon { width: 27px; height: 27px; }
+  .leadership-position-save { min-height: 40px; padding: 0 12px; }
+  .leadership-position-save span { display: none; }
+  .leadership-position-body { padding-inline: 16px; }
+  .leadership-position-row { grid-template-columns: 52px minmax(0, 1fr); gap: 12px; padding: 16px 0; }
+  .leadership-position-icon { width: 52px; height: 52px; flex-basis: 52px; }
+  .leadership-position-icon .icon { width: 27px; height: 27px; }
+  .leadership-position-label { padding-top: 4px; }
+  .leadership-position-text,
+  .leadership-values-editor { grid-column: 1 / -1; }
+  .leadership-value-entry { grid-template-columns: minmax(0, 1fr) 44px; }
+  .leadership-value-add { width: 44px; padding: 0; }
+  .leadership-value-add span { display: none; }
+  .leadership-value-suggestions { align-items: flex-start; flex-direction: column; gap: 8px; }
+}
+
 .indicator-panel .context-kpi-row {
   margin-top: 18px;
   margin-bottom: 0;
