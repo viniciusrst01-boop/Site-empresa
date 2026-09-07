@@ -672,6 +672,17 @@ async function readJsonBody(req, maxBytes = 100000) {
   }
 }
 
+const COMPANY_LOGO_MAX_BYTES = 3 * 1024 * 1024;
+const COMPANY_PROFILE_MAX_BYTES = 4_400_000;
+
+function validateCompanyLogo(value) {
+  if (!value) return true;
+  const match = String(value).match(/^data:image\/(png|jpeg);base64,([A-Za-z0-9+/]*={0,2})$/);
+  if (!match) return false;
+  const padding = match[2].endsWith("==") ? 2 : match[2].endsWith("=") ? 1 : 0;
+  return Math.floor((match[2].length * 3) / 4) - padding <= COMPANY_LOGO_MAX_BYTES;
+}
+
 function loginPage(error = "") {
   return `<!doctype html>
 <html lang="pt-BR">
@@ -2195,9 +2206,13 @@ async function handleApiRequest(req, res, url, session) {
       return;
     }
 
-    const body = await readJsonBody(req);
+    const body = await readJsonBody(req, COMPANY_PROFILE_MAX_BYTES);
     if (!body || typeof body !== "object" || !body.name) {
       sendJson(res, 400, { error: "invalid_company" });
+      return;
+    }
+    if (!validateCompanyLogo(body.logo)) {
+      sendJson(res, 413, { error: "invalid_company_logo" });
       return;
     }
 

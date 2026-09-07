@@ -119,6 +119,11 @@ test('real endpoints: global admin without tenant and company owner Hugo', async
   assert.equal((await fetch(`${base}/api/company/users`, { headers: { Cookie: admin.cookie } })).status, 403);
   assert.equal((await fetch(`${base}/api/security`, { headers: { Cookie: admin.cookie } })).status, 200);
   const hugo = await login('hugo.melo');
+  const largeCompanyLogo = `data:image/png;base64,${Buffer.alloc(150_000, 1).toString('base64')}`;
+  const companyLogoSave = await fetch(`${base}/api/company`, { method: 'PATCH', headers: { Cookie: hugo.cookie, 'X-CSRF-Token': hugo.payload.csrfToken, 'Content-Type': 'application/json' }, body: JSON.stringify({ ...hugo.payload.state.company, logo: largeCompanyLogo }) });
+  assert.equal(companyLogoSave.status, 200, await companyLogoSave.text());
+  const companyAfterLogo = await (await fetch(`${base}/api/bootstrap`, { headers: { Cookie: hugo.cookie } })).json();
+  assert.equal(companyAfterLogo.state.company.logo, largeCompanyLogo);
   const tvHeaders = await fetch(`${base}/nc-tv`, { headers: { Cookie: hugo.cookie } });
   assert.equal(tvHeaders.headers.get('x-frame-options'), 'SAMEORIGIN');
   assert.equal(tvHeaders.headers.get('content-security-policy'), "frame-ancestors 'self'");
