@@ -20,8 +20,8 @@ async function verify() {
       if (!b.ok) throw new Error(`Bootstrap indisponível: ${b.status}`);
       const payload = await b.json();
       const asset = await fetch(new URL('/app.js', base), { headers });
-      const hash = value => crypto.createHash('sha256').update(value).digest('hex');
-      const matchesCheckout = hash(Buffer.from(await asset.arrayBuffer())) === hash(fs.readFileSync(path.join(__dirname, '../public/app.js')));
+      const hash = value => crypto.createHash('sha256').update(String(value).replace(/\r\n/g, '\n')).digest('hex');
+      const matchesCheckout = hash(await asset.text()) === hash(fs.readFileSync(path.join(__dirname, '../public/app.js'), 'utf8'));
       const item = { user: login.user, id: payload.user.id, companyId: payload.user.companyId, isAdmin: payload.user.isAdmin, canManageCompany: payload.user.canManageCompany, company: payload.company?.name || null, matchesCheckout, records: { ncs: payload.state?.ncs?.length || 0, risks: payload.risk?.riscos?.length || 0, climate: payload.state?.climate?.issues?.length || 0 } };
       if (payload.user.isAdmin) {
         const overview = await (await fetch(new URL('/api/admin/overview', base), { headers })).json();
