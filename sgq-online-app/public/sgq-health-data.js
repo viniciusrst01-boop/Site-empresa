@@ -6,7 +6,7 @@
 const HEALTH_SOURCES = ["state", "context", "risk"];
 const HEALTH_PREFIX = "sgqHealth:";
 const PERIODS = [1, 3, 6, 12];
-const closedStatuses = new Set(["Aprovado", "Atingido", "Concluído", "Concluída", "Fechado", "Fechada", "Resolvido", "Resolvida", "Encerrado", "Encerrada"]);
+const closedStatuses = new Set(["Aprovado", "Atingido", "Concluído", "Concluída", "Fechado", "Fechada", "Resolvido", "Resolvida", "Encerrado", "Encerrada", "Tratado"]);
 const rows = (value) => Array.isArray(value) ? value : [];
 const openCount = (items) => rows(items).filter((item) => !closedStatuses.has(item.status)).length;
 

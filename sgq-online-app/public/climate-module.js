@@ -35,7 +35,12 @@ function climateData() {
   return state.climate;
 }
 
-function climateSave(message) { saveState(); if (message) toast(message); }
+async function climateSave(message) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  if (await saveRemoteData("state", state, "mudancas-climaticas")) {
+    if (message) toast(message);
+  } else toast("Não foi possível salvar a avaliação climática.");
+}
 function climateIsLate(item) { return item.status !== "Concluída" && item.due && item.due < new Date().toISOString().slice(0, 10); }
 function climateStatus(item) { const text = climateIsLate(item) ? "Atrasada" : item.status; return `<span class="status-pill ${text === "Concluída" ? "s-done" : text === "Atrasada" ? "s-late" : text === "Em andamento" ? "s-prog" : text === "Monitorando" ? "s-info" : "s-pend"}"><span class="status-dot2"></span>${escapeHtml(text || "Não iniciada")}</span>`; }
 function climateRelevant(value) { return `<span class="climate-relevance ${value === "Sim" ? "yes" : value === "Parcial" ? "partial" : "no"}">${escapeHtml(value)}</span>`; }

@@ -158,6 +158,8 @@ async function initializeDatabase() {
       PRIMARY KEY (company_id, data_key)
     );
 
+    ALTER TABLE users ALTER COLUMN company_id DROP NOT NULL;
+
     ALTER TABLE companies
       ADD COLUMN IF NOT EXISTS billing_status TEXT NOT NULL DEFAULT 'Ativo',
       ADD COLUMN IF NOT EXISTS access_limit INTEGER NOT NULL DEFAULT 5,
@@ -224,7 +226,7 @@ async function initializeDatabase() {
     CREATE TABLE IF NOT EXISTS user_sessions (
       session_id TEXT PRIMARY KEY,
       user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      company_id INTEGER NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+      company_id INTEGER REFERENCES companies(id) ON DELETE CASCADE,
       ip_address TEXT NOT NULL DEFAULT '',
       user_agent TEXT NOT NULL DEFAULT '',
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -232,6 +234,8 @@ async function initializeDatabase() {
       expires_at TIMESTAMPTZ NOT NULL,
       revoked_at TIMESTAMPTZ
     );
+
+    ALTER TABLE user_sessions ALTER COLUMN company_id DROP NOT NULL;
 
     CREATE INDEX IF NOT EXISTS user_sessions_user_idx
       ON user_sessions (user_id, last_seen_at DESC);
@@ -451,6 +455,8 @@ async function syncConfiguredUsers(logins) {
 
   for (const login of logins) {
     if (!login?.user || !login?.password) continue;
+    // Existing accounts must not recreate their former tenants at every startup.
+    if (await findUserByUsername(login.user)) continue;
     const company = await ensureCompany(login.companyName || `${displayNameFromUsername(login.user)} LTDA`);
     const passwordHash = hashPassword(login.password);
 
@@ -1614,7 +1620,7 @@ function mapSession(row) {
   return {
     id: row.session_id ?? row.id,
     userId: Number(row.user_id ?? row.userId),
-    companyId: Number(row.company_id ?? row.companyId),
+    companyId: row.company_id ?? row.companyId ?? null,
     ipAddress: row.ip_address ?? row.ipAddress ?? "",
     userAgent: row.user_agent ?? row.userAgent ?? "",
     createdAt: row.created_at ?? row.createdAt,
@@ -1629,12 +1635,17 @@ async function registerUserSession(values) {
   const row = {
     id: normalizeText(values.sessionId),
     userId: Number(values.userId),
-    companyId: Number(values.companyId),
+    companyId: values.companyId == null ? null : Number(values.companyId),
     ipAddress: normalizeText(values.ipAddress).slice(0, 100),
     userAgent: normalizeText(values.userAgent).slice(0, 500),
     expiresAt: new Date(values.expiresAt).toISOString(),
   };
-  if (!row.id || !row.userId || !row.companyId) return null;
+  if (!row.id || !row.userId) return null;
+  if (row.companyId == null) {
+    const user = await getUser(row.userId);
+    const admin = process.env.SGQ_ADMIN_USER || "viniciusrst";
+    if (String(user?.username).toLowerCase() !== admin.toLowerCase()) return null;
+  }
 
   if (usePostgres) {
     const result = await getPool().query(
@@ -1681,10 +1692,10 @@ async function validateUserSession(sessionId, userId, companyId) {
          WHEN last_seen_at < NOW() - INTERVAL '5 minutes' THEN NOW()
          ELSE last_seen_at
        END
-       WHERE session_id = $1 AND user_id = $2 AND company_id = $3
+       WHERE session_id = $1 AND user_id = $2 AND company_id IS NOT DISTINCT FROM $3
          AND revoked_at IS NULL AND expires_at > NOW()
        RETURNING *`,
-      [sessionId, Number(userId), Number(companyId)],
+      [sessionId, Number(userId), companyId == null ? null : Number(companyId)],
     );
     return mapSession(result.rows[0]);
   }
@@ -2472,7 +2483,7 @@ async function testRecoveryRestore(snapshot) {
       );
       CREATE TABLE ${qualified("users")} (
         id BIGINT PRIMARY KEY,
-        company_id BIGINT NOT NULL REFERENCES ${qualified("companies")}(id) ON DELETE CASCADE,
+        company_id BIGINT REFERENCES ${qualified("companies")}(id) ON DELETE CASCADE,
         payload JSONB NOT NULL
       );
       CREATE TABLE ${qualified("company_data")} (
@@ -2492,7 +2503,7 @@ async function testRecoveryRestore(snapshot) {
     for (const user of normalizedSnapshot.users) {
       await client.query(
         `INSERT INTO ${qualified("users")} (id, company_id, payload) VALUES ($1, $2, $3::jsonb)`,
-        [Number(user.id), Number(user.company_id), JSON.stringify(user)],
+        [Number(user.id), user.company_id == null ? null : Number(user.company_id), JSON.stringify(user)],
       );
     }
     for (const row of normalizedSnapshot.companyData) {

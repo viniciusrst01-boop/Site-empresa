@@ -3,6 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "seed:demo": "node demo-data/seed.js",
+    "test:demo": "node --test test/demo-data.test.js",
     "dev": "node server.js",
     "start": "node server.js",
     "test": "node --test test/app.integration.test.js test/supplier-rnc.test.js test/billing.test.js test/sgq-health.test.js",

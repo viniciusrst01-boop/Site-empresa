@@ -399,6 +399,10 @@ function loadState() {
 
 function saveState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  if (currentUser?.isAdmin && currentUser.companyId == null) {
+    localStorage.setItem(`qualitypro-platform-settings-${currentUser.id}`, JSON.stringify(state.settings));
+    return;
+  }
   saveRemoteData("state", state);
 }
 
@@ -448,7 +452,7 @@ async function loadRemoteData() {
       localCompany.name !== seedState.company.name &&
       localCompany.name !== payload.company?.name;
 
-    if (!payload.state && hasLocalCompany) {
+    if (payload.company && !payload.state && hasLocalCompany) {
       const syncResponse = await fetch("/api/company", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -470,6 +474,10 @@ async function loadRemoteData() {
     }
 
     currentUser = payload.user || null;
+    if (currentUser?.isAdmin && currentUser.companyId == null) {
+      const settings = JSON.parse(localStorage.getItem(`qualitypro-platform-settings-${currentUser.id}`) || "{}");
+      payload.state = { company: {}, users: [], documents: [], audits: [], ncs: [], equipment: [], notifications: [], settings };
+    }
     state = normalizeState(payload.state, payload.company, payload.user);
     if (!canViewModule("documentos")) state.documents = [];
     if (!canViewModule("auditorias")) state.audits = [];
@@ -1125,8 +1133,7 @@ function renderDashboardHtml() {
   const pendingDocs = docs.filter((item) => item.status !== "Aprovado");
   const certification = state.company.certification || "Não informada";
   // Temporary task preview for the local visual review server.
-  const localTaskPreview = ["localhost", "127.0.0.1"].includes(location.hostname) && location.port === "4180";
-  const previewTaskCount = Number(new URLSearchParams(location.search).get("previewTasks") ?? (localTaskPreview ? "10" : "0"));
+  const previewTaskCount = Number(new URLSearchParams(location.search).get("previewTasks") ?? "0");
   const previewTasks = ["localhost", "127.0.0.1"].includes(location.hostname)
     && [7, 10].includes(previewTaskCount);
   const taskGroups = previewTasks ? [
@@ -1288,8 +1295,7 @@ function sgqHealthHtml() {
 function sgqHealthPreview(months, url = location.href) {
   const previewUrl = new URL(url);
   const requested = previewUrl.searchParams.get("previewHealth");
-  const localPreviewServer = ["4180", "4198"].includes(previewUrl.port);
-  const enabled = requested === "1" || (requested === null && localPreviewServer);
+  const enabled = requested === "1";
   if (!["localhost", "127.0.0.1", "[::1]"].includes(previewUrl.hostname) || !enabled) return null;
   // Visual samples on the local review servers only; previewHealth=0 restores real data.
   const samples = [
@@ -1629,6 +1635,10 @@ function dashboardSummary() {
     totalRecords,
     openActions: openSwotPlans + activeRisks + activeGoals + activeChanges + openNcs + pendingDocs + plannedAudits,
     modules: {
+      "mudancas-climaticas": {
+        value: `${state.climate?.issues?.length || 0} registros`,
+        caption: `${(state.climate?.issues || []).filter(item => item.status === "Concluída").length} questões concluídas`,
+      },
       contexto: {
         value: `${swot.length + partes.length + processos.length} registros`,
         caption: `${swot.length} SWOT · ${partes.length} partes · ${processos.length} processos · ${escopoStatus}`,
@@ -1662,7 +1672,7 @@ function dashboardSummary() {
 }
 
 function isClosedStatus(status) {
-  return ["Aprovado", "Atingido", "Concluído", "Concluída", "Fechado", "Fechada", "Resolvido", "Resolvida", "Encerrado", "Encerrada"].includes(status);
+  return ["Aprovado", "Atingido", "Concluído", "Concluída", "Fechado", "Fechada", "Resolvido", "Resolvida", "Encerrado", "Encerrada", "Tratado"].includes(status);
 }
 
 function shortText(value, maxLength) {
@@ -1874,6 +1884,7 @@ function moduleHeaderHtml(moduleId, options = {}) {
 }
 
 function renderModuleDetail(moduleId, options = {}) {
+  if (currentUser?.isAdmin) return render("gerenciamento");
   document.body.classList.remove("home-dashboard");
   document.body.classList.add("module-detail-view");
   activeView = "modulos";
@@ -2832,8 +2843,7 @@ function activeLeadershipRoles() {
 function updateNotificationBadge() {
   const badge = document.querySelector("[data-notification-badge]");
   if (!badge) return;
-  const previewCount = Number(badge.dataset.notificationPreview);
-  const count = previewCount || (Array.isArray(state.notifications) ? state.notifications.length : 0);
+  const count = Array.isArray(state.notifications) ? state.notifications.length : 0;
   badge.textContent = count > 10 ? "+10" : String(count);
   badge.hidden = count === 0;
 }
@@ -7821,7 +7831,7 @@ async function renderConfiguracoes() {
       ${currentUser?.isAdmin ? `<label><span>Status do sistema</span><select name="operationalStatus"><option value="updated" ${state.settings.operationalStatus === "updated" ? "selected" : ""}>Sistema atualizado</option><option value="maintenance" ${state.settings.operationalStatus === "maintenance" ? "selected" : ""}>Sistema em manutenção</option><option value="offline" ${state.settings.operationalStatus === "offline" ? "selected" : ""}>Sistema offline</option></select></label>` : ""}
       <button type="submit">Salvar configurações</button>
     </form>
-    ${canManageCompany() ? `<section id="billingSettings" class="billing-settings"><div class="qp-card admin-loading">Carregando assinatura...</div></section>` : ""}
+    ${canManageCompany() && currentUser?.companyId ? `<section id="billingSettings" class="billing-settings"><div class="qp-card admin-loading">Carregando assinatura...</div></section>` : ""}
   `;
   document.querySelector("#settingsForm").addEventListener("submit", (event) => {
     event.preventDefault();
@@ -7838,7 +7848,7 @@ async function renderConfiguracoes() {
     updateOperationalStatus();
     toast("Configurações salvas.");
   });
-  if (canManageCompany()) await loadBillingSettings();
+  if (canManageCompany() && currentUser?.companyId) await loadBillingSettings();
 }
 
 function updateOperationalStatus() {

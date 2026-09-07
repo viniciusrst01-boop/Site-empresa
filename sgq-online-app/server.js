@@ -124,6 +124,7 @@ const publicAppUrl = String(
 const { createSupplierRnc } = require("./supplier-rnc");
 const supplierRnc = createSupplierRnc({ secret: sessionSecret, appUrl: publicAppUrl });
 const sgqModuleIds = [
+  "mudancas-climaticas",
   "contexto",
   "lideranca",
   "riscos",
@@ -271,7 +272,7 @@ async function validateSession(session) {
     validateUserSession(session.sessionId, session.userId, session.companyId),
     getCompany(session.companyId),
   ]);
-  if (!user || !activeSession || !company || !billingAllowsAccess(company, session)) return null;
+  if (!user || !activeSession || (!company && !isAdminSession(user)) || !billingAllowsAccess(company, user)) return null;
   return {
     ...session,
     mustChangePassword: Boolean(user.mustChangePassword),
@@ -413,6 +414,11 @@ async function isCompanyOwnerSession(session) {
 
 async function isCompanyOwnerUser(companyId, userId, role = "") {
   const users = await listCompanyUsers(companyId);
+  const settings = (await getCompanyData(companyId, "userSettings")) || {};
+  if (settings._companyOwnerId) {
+    return Number(settings._companyOwnerId) === Number(userId) && users.some((user) =>
+      Number(user.id) === Number(userId) && user.role.toLowerCase().includes("administrador"));
+  }
   const firstUser = users.sort((a, b) => Number(a.id) - Number(b.id))[0];
   return Boolean(
     firstUser &&
@@ -561,6 +567,7 @@ function filterStateForPermissions(savedState, permissions) {
   if (!savedState || typeof savedState !== "object") return savedState;
   const nextState = { ...savedState };
   const stateFields = {
+    "mudancas-climaticas": "climate",
     documentos: "documents",
     auditorias: "audits",
     "nao-conformidades": "ncs",
@@ -609,7 +616,7 @@ async function buildCompanyReport(companyId) {
   };
 }
 
-function serveFile(res, filePath) {
+function serveFile(res, filePath, headers = {}) {
   const normalized = path.normalize(filePath);
   if (!normalized.startsWith(publicDir)) {
     send(res, 403, "Forbidden", { "Content-Type": "text/plain; charset=utf-8" });
@@ -628,6 +635,7 @@ function serveFile(res, filePath) {
     send(res, 200, data, {
       "Content-Type": contentTypes[ext] || "application/octet-stream",
       "Cache-Control": "no-store",
+      ...headers,
     });
   });
 }
@@ -1675,7 +1683,10 @@ async function handleRequest(req, res) {
       send(res, 302, "", { Location: "/login", "Set-Cookie": sessionCookie(req, "", 0) });
       return;
     }
-    serveFile(res, path.join(publicDir, "nc-tv.html"));
+    serveFile(res, path.join(publicDir, "nc-tv.html"), {
+      "X-Frame-Options": "SAMEORIGIN",
+      "Content-Security-Policy": "frame-ancestors 'self'",
+    });
     return;
   }
 
@@ -1715,6 +1726,13 @@ async function handleApiRequest(req, res, url, session) {
   }
 
   const companyId = session.companyId;
+
+  if (companyId == null && !url.pathname.startsWith("/api/admin/") &&
+      !url.pathname.startsWith("/api/security") &&
+      !["/api/bootstrap", "/api/monitor/client-error"].includes(url.pathname)) {
+    sendJson(res, 403, { error: "operational_company_required" });
+    return;
+  }
 
   if (url.pathname === "/api/security" && req.method === "GET") {
     const [security, sessions] = await Promise.all([
@@ -2125,7 +2143,7 @@ async function handleApiRequest(req, res, url, session) {
       },
       csrfToken: csrfTokenForSession(session),
       company,
-      needsOnboarding: !savedState && canManageCompany && !(
+      needsOnboarding: Boolean(companyId) && !savedState && canManageCompany && !(
         company?.scope || company?.cnpj || company?.certification
       ),
       state: filterStateForPermissions(savedState, permissions),
@@ -2903,6 +2921,7 @@ async function handleApiRequest(req, res, url, session) {
 
     if (body.key === "state" && !ownsCompany) {
       const stateFields = {
+        "mudancas-climaticas": ["climate"],
         documentos: ["documents"],
         auditorias: ["audits"],
         "nao-conformidades": ["ncs", "ncCatalogs", "supplierStateVersion"],
@@ -2928,7 +2947,7 @@ async function handleApiRequest(req, res, url, session) {
       try {
         await mutateSupplierData(companyId, (data) => {
           const value = !ownsCompany ? { ...(data.state || {}), ...Object.fromEntries(({
-            documentos: ["documents"], auditorias: ["audits"], "nao-conformidades": ["ncs", "ncCatalogs", "supplierStateVersion"], equipamentos: ["equipment"],
+            documentos: ["documents"], auditorias: ["audits"], "nao-conformidades": ["ncs", "ncCatalogs", "supplierStateVersion"], equipamentos: ["equipment"], "mudancas-climaticas": ["climate"],
           }[requestedModule] || []).filter((key) => Object.hasOwn(body.value, key)).map((key) => [key, body.value[key]])) } : body.value;
           supplierRnc.prepareState(data, value, requestedModule === "nao-conformidades");
           savedNcs = data.state.ncs;
