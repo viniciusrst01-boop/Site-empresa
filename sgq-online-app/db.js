@@ -1008,7 +1008,19 @@ async function listAdminOverview() {
         c.*,
         COUNT(u.id)::int AS access_count,
         COUNT(u.id) FILTER (WHERE u.status = 'Ativo')::int AS active_access_count,
-        MAX(u.last_login_at) AS last_activity_at
+        MAX(u.last_login_at) AS last_activity_at,
+        (
+          SELECT data_json
+          FROM company_data
+          WHERE company_id = c.id AND data_key = 'state'
+          LIMIT 1
+        ) AS profile_state,
+        (
+          SELECT data_json
+          FROM company_data
+          WHERE company_id = c.id AND data_key = 'leadership'
+          LIMIT 1
+        ) AS leadership_state
       FROM companies c
       LEFT JOIN users u ON u.company_id = c.id
       GROUP BY c.id
@@ -1051,6 +1063,8 @@ async function listAdminOverview() {
       access_count: row.access_count,
       active_access_count: row.active_access_count,
       last_activity_at: row.last_activity_at,
+      profileState: row.profile_state || null,
+      leadershipState: row.leadership_state || null,
     }));
     const users = usersResult.rows.map((row) => ({
       id: row.id,
@@ -1098,6 +1112,12 @@ async function listAdminOverview() {
         active_access_count: users.filter((user) => user.status === "Ativo").length,
         last_activity_at:
           users.map((user) => user.last_login_at).filter(Boolean).sort().at(-1) || null,
+        profileState: database.companyData.find(
+          (row) => row.company_id === Number(company.id) && row.data_key === "state",
+        )?.data_json || null,
+        leadershipState: database.companyData.find(
+          (row) => row.company_id === Number(company.id) && row.data_key === "leadership",
+        )?.data_json || null,
       };
     })
     .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)) || b.id - a.id);

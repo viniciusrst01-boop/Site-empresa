@@ -2468,11 +2468,6 @@ async function handleApiRequest(req, res, url, session) {
       return;
     }
 
-    if (targetUserId === Number(session.userId) && body.status === "Bloqueado") {
-      sendJson(res, 400, { error: "cannot_block_self" });
-      return;
-    }
-
     try {
       const user = await updateCompanyUser(companyId, targetUserId, body);
       if (!user) {
@@ -2698,8 +2693,23 @@ async function handleApiRequest(req, res, url, session) {
       return;
     }
 
-    if (targetUserId === Number(session.userId) && body.status === "Bloqueado") {
+    const existingUser = await getUser(targetUserId);
+    if (!existingUser || Number(existingUser.companyId) !== Number(body.companyId)) {
+      sendJson(res, 404, { error: "user_not_found" });
+      return;
+    }
+    const isBlockAccess = body.action === "block-access";
+    const isUnblockAccess = body.action === "unblock-access";
+    if ((isBlockAccess || isUnblockAccess) && targetUserId === Number(session.userId)) {
       sendJson(res, 400, { error: "cannot_block_self" });
+      return;
+    }
+    if (isBlockAccess && existingUser.status !== "Ativo") {
+      sendJson(res, 409, { error: "user_not_active" });
+      return;
+    }
+    if (isUnblockAccess && existingUser.status !== "Bloqueado") {
+      sendJson(res, 409, { error: "user_not_blocked" });
       return;
     }
 
@@ -2709,12 +2719,15 @@ async function handleApiRequest(req, res, url, session) {
     }
 
     try {
-      const user = await updateAdminUser(targetUserId, body);
+      const user = await updateAdminUser(targetUserId, {
+        ...body,
+        status: isBlockAccess ? "Bloqueado" : isUnblockAccess ? "Ativo" : existingUser.status,
+      });
       if (!user) {
         sendJson(res, 404, { error: "user_not_found" });
         return;
       }
-      await auditRequest(req, session, "admin_user_updated", "success", {
+      await auditRequest(req, session, isBlockAccess ? "admin_user_access_blocked" : isUnblockAccess ? "admin_user_access_unblocked" : "admin_user_updated", "success", {
         targetUserId: user.id,
         targetUsername: user.username,
         targetCompanyId: user.companyId,
@@ -2726,6 +2739,45 @@ async function handleApiRequest(req, res, url, session) {
         error: isUniqueError(error) ? "user_exists" : "user_update_failed",
       });
     }
+    return;
+  }
+
+  if (url.pathname === "/api/admin/user" && req.method === "DELETE") {
+    if (!isAdminSession(session)) {
+      sendJson(res, 403, { error: "forbidden" });
+      return;
+    }
+
+    const body = await readJsonBody(req);
+    if (!(await requireCurrentPassword(res, session, body))) return;
+    const targetUserId = Number(body?.userId);
+    if (!targetUserId) {
+      sendJson(res, 400, { error: "invalid_user" });
+      return;
+    }
+    if (targetUserId === Number(session.userId)) {
+      sendJson(res, 400, { error: "cannot_delete_self" });
+      return;
+    }
+
+    const target = await getUser(targetUserId);
+    if (!target) {
+      sendJson(res, 404, { error: "user_not_found" });
+      return;
+    }
+
+    const user = await deleteCompanyUser(target.companyId, targetUserId);
+    if (!user) {
+      sendJson(res, 404, { error: "user_not_found" });
+      return;
+    }
+    await removeCompanyUserSettings(target.companyId, targetUserId);
+    await auditRequest(req, session, "admin_user_deleted", "success", {
+      targetUserId,
+      targetUsername: user.username,
+      targetCompanyId: target.companyId,
+    });
+    sendJson(res, 200, { ok: true, user });
     return;
   }
 

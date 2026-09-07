@@ -6970,26 +6970,484 @@ async function renderAdminLegacySection(view) {
     "admin-logs": ["Logs e auditoria", "Histórico técnico e administrativo completo."],
   };
   const [title, subtitle] = titles[view] || titles["admin-empresas"];
+  const hideHeader = view === "admin-usuarios";
   setTopbar(title, subtitle);
   pageContent.classList.remove("admin-overview-page");
   pageContent.innerHTML = `
-    ${viewHeader(title, subtitle)}
+    ${hideHeader ? "" : viewHeader(title, subtitle)}
     <div class="admin-loading qp-card">Carregando dados de gerenciamento...</div>
   `;
 
   try {
     const data = await loadAdminDashboardData();
-    pageContent.innerHTML = adminManagementHtml(data, title, subtitle);
-    bindAdminActions();
+    if (view === "admin-empresas") {
+      pageContent.innerHTML = adminCompaniesHtml(data);
+      bindAdminCompaniesActions();
+    } else {
+      pageContent.innerHTML = adminManagementHtml(data, title, subtitle, hideHeader);
+      bindAdminActions();
+    }
   } catch (error) {
     console.warn(error);
     pageContent.innerHTML = `
-      ${viewHeader(title, subtitle)}
+      ${hideHeader ? "" : viewHeader(title, subtitle)}
       <article class="qp-card">
         <h3>Não foi possível carregar</h3>
         <p class="qp-muted">Verifique se o servidor local está rodando e tente novamente.</p>
       </article>
     `;
+  }
+}
+
+let adminCompaniesDetailData = null;
+
+function adminCompaniesHtml(data) {
+  adminCompaniesDetailData = data;
+  const summary = data.summary || {};
+  const companies = data.companies || [];
+  const plans = [...new Set(companies.map((company) => String(company.plan || "").trim()).filter(Boolean))];
+  const statuses = [...new Set(companies
+    .map((company) => String(company.billingStatus || "").trim())
+    .filter((status) => status && !isTestBillingStatus(status)))];
+  const totalUsers = Number(summary.accesses || 0);
+  const activeUsers = Number(summary.activeAccesses || 0);
+  const activePercent = totalUsers ? Math.round(activeUsers / totalUsers * 100) : 0;
+
+  return `
+    <main class="admin-companies" aria-label="Empresas da plataforma">
+      <section class="admin-company-metrics" aria-label="Resumo de empresas">
+        ${adminCompanyMetric("Empresas cadastradas", Number(summary.companies || 0), "Total na plataforma", "building", "blue")}
+        ${adminCompanyMetric("Usuários totais", totalUsers, "Acessos cadastrados", "users", "cyan")}
+        ${adminCompanyMetric("Usuários ativos", activeUsers, totalUsers ? `${activePercent}% dos usuários` : "Nenhum usuário cadastrado", "contexto", "green")}
+        ${adminCompanyMetric("Planos ativos", Number(summary.payingCompanies || 0), "Empresas com plano ativo", "plano", "purple")}
+      </section>
+
+      <section class="admin-companies-panel">
+        <div class="admin-companies-heading">
+          <div><h2>Empresas da plataforma</h2><p>Visualize e gerencie as empresas cadastradas no sistema.</p></div>
+          <button class="admin-company-primary" type="button" data-admin-company-new>${moduleIcon("plus")} Nova empresa</button>
+        </div>
+        <div class="admin-companies-filters">
+          <label class="admin-company-search"><span class="sr-only">Buscar empresas</span>${moduleIcon("search")}<input type="search" data-admin-company-search placeholder="Buscar por empresa, CNPJ ou plano..." /></label>
+          <label><span class="sr-only">Filtrar por plano</span><select data-admin-company-plan><option value="">Todos os planos</option>${plans.map((plan) => `<option value="${escapeHtml(plan)}">${escapeHtml(plan)}</option>`).join("")}</select></label>
+          <label><span class="sr-only">Filtrar por status</span><select data-admin-company-status><option value="">Todos os status</option>${statuses.map((status) => `<option value="${escapeHtml(status)}">${escapeHtml(status)}</option>`).join("")}</select></label>
+        </div>
+        <div class="admin-companies-table-wrap">
+          <table class="admin-companies-table">
+            <thead><tr><th>Empresa</th><th>CNPJ</th><th>Plano</th><th>Usuários</th><th>Status</th><th>Última atividade</th><th><span class="sr-only">Ações</span></th></tr></thead>
+            <tbody>
+              ${companies.length ? companies.map(adminCompanyRow).join("") : `<tr><td colspan="7"><div class="admin-empty-state">Nenhuma empresa cadastrada.</div></td></tr>`}
+            </tbody>
+          </table>
+        </div>
+        <footer class="admin-companies-footer"><span data-admin-company-count>${companies.length === 1 ? "1 empresa cadastrada" : `${companies.length} empresas cadastradas`}</span></footer>
+      </section>
+      ${adminCompanyDetailModalHtml()}
+      ${adminCompanyEditorModalHtml()}
+      ${adminCompanyUserEditorModalHtml()}
+    </main>
+  `;
+}
+
+function adminCompanyMetric(label, value, caption, icon, tone) {
+  return `<article class="admin-company-metric tone-${tone}">
+    <span class="admin-metric-icon">${moduleIcon(icon)}</span>
+    <span><small>${escapeHtml(label)}</small><strong>${escapeHtml(value)}</strong><em>${escapeHtml(caption)}</em></span>
+  </article>`;
+}
+
+function adminCompanyRow(company) {
+  const initials = String(company.name || "Empresa").split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase();
+  const status = company.billingStatus || "Sem status";
+  const visibleStatus = displayBillingStatus(status);
+  const normalizedStatus = status.toLowerCase();
+  const statusClass = normalizedStatus === "ativo" ? "is-active" : normalizedStatus === "pendente" || normalizedStatus === "teste" ? "is-pending" : "is-inactive";
+  const search = `${company.name || ""} ${company.cnpj || ""} ${company.plan || ""} ${status}`.toLowerCase();
+  return `<tr data-admin-company-row data-admin-company-search="${escapeHtml(search)}" data-admin-company-plan="${escapeHtml(company.plan || "")}" data-admin-company-status="${escapeHtml(status)}">
+    <td><button class="admin-company-name" type="button" data-admin-company-details data-company-id="${Number(company.id) || ""}"><span class="admin-company-avatar">${escapeHtml(initials || "E")}</span><span><strong>${escapeHtml(company.name || "Empresa")}</strong><small>${escapeHtml(company.certification || "Sem certificação informada")}</small></span></button></td>
+    <td>${escapeHtml(company.cnpj || "Não informado")}</td>
+    <td>${planBadge(company.plan)}</td>
+    <td>${Number(company.active_access_count || 0)} ativos / ${Number(company.access_count || 0)}</td>
+    <td>${visibleStatus ? `<span class="admin-company-status ${statusClass}"><i></i>${escapeHtml(visibleStatus)}</span>` : ""}</td>
+    <td>${escapeHtml(formatDateTime(company.last_activity_at))}</td>
+    <td><button class="admin-company-action" type="button" data-admin-company-details data-company-id="${Number(company.id) || ""}" title="Ver detalhes da empresa" aria-label="Ver detalhes de ${escapeHtml(company.name || "empresa")}">${moduleIcon("external")}</button></td>
+  </tr>`;
+}
+
+function adminCompanyDetailModalHtml() {
+  return `<div class="admin-company-detail-modal" data-admin-company-detail-modal hidden>
+    <div class="admin-company-modal-backdrop" data-admin-company-detail-close></div>
+    <section class="admin-company-detail-card" role="dialog" aria-modal="true" aria-labelledby="adminCompanyDetailTitle">
+      <button class="admin-company-detail-close" type="button" data-admin-company-detail-close aria-label="Fechar">${moduleIcon("close")}</button>
+      <div data-admin-company-detail-content></div>
+    </section>
+  </div>`;
+}
+
+function adminCompanyEditorModalHtml() {
+  return `<div class="admin-company-modal" data-admin-company-editor-modal hidden>
+    <div class="admin-company-modal-backdrop" data-admin-company-editor-close></div>
+    <section class="admin-company-modal-card" role="dialog" aria-modal="true" aria-labelledby="adminCompanyModalTitle">
+      <header><div><h2 id="adminCompanyModalTitle">Nova empresa</h2><p id="adminCompanyModalSubtitle">Preencha os dados da empresa.</p></div><button type="button" data-admin-company-editor-close aria-label="Fechar">${moduleIcon("close")}</button></header>
+      ${adminCompanyFormHtml()}
+    </section>
+  </div>`;
+}
+
+function adminCompanyUserEditorModalHtml() {
+  return `<div class="admin-company-user-modal" data-admin-company-user-editor hidden>
+    <div class="admin-company-modal-backdrop" data-admin-company-user-editor-close></div>
+    <section class="admin-company-user-editor-card" role="dialog" aria-modal="true" aria-labelledby="adminCompanyUserEditorTitle">
+      <header><div><h2 id="adminCompanyUserEditorTitle">Adicionar usuário</h2><p id="adminCompanyUserEditorSubtitle">O convite será enviado para o e-mail informado.</p></div><button type="button" data-admin-company-user-editor-close aria-label="Fechar">${moduleIcon("close")}</button></header>
+      <form id="adminCompanyUserEditorForm" class="admin-company-user-form">
+        <input type="hidden" name="companyId"><input type="hidden" name="userId">
+        <label><span>Nome</span><input name="displayName" required placeholder="Nome do usuário"></label>
+        <label><span>E-mail de acesso</span><input name="username" type="email" required autocomplete="email" placeholder="usuario@empresa.com.br"></label>
+        <label><span>Cargo</span><select name="role" required data-admin-company-user-role></select></label>
+        <p class="admin-company-user-editor-note" data-admin-company-user-editor-note>Novos usuários recebem um convite para criar a própria senha.</p>
+        <footer><button class="btn-ghost" type="button" data-admin-company-user-editor-close>Cancelar</button><button class="btn-primary" type="submit">Salvar usuário</button></footer>
+      </form>
+    </section>
+  </div>`;
+}
+
+function adminCompanyDetailContent(company, users, logs) {
+  const profile = company.profileState?.company || {};
+  const settings = company.profileState?.settings || {};
+  const initials = String(company.name || "Empresa").split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase();
+  const status = company.billingStatus || "Sem status";
+  const visibleStatus = displayBillingStatus(status);
+  const showStatus = Boolean(visibleStatus);
+  const activeUsers = Number(company.active_access_count || 0);
+  const totalUsers = Number(company.access_count || 0);
+  const lastActivity = logs[0]?.createdAt || company.updatedAt || company.createdAt;
+  const administrator = users.find((user) => String(user.role || "").toLowerCase().includes("administrador")) || null;
+  const registeredModules = Object.entries(settings.moduleAccess || {}).filter(([, access]) => access && access !== "none");
+  const disabledModules = modules.filter((module) => !registeredModules.some(([moduleId]) => moduleId === module.id));
+  const tabs = [
+    ["overview", "Visão geral", "building"],
+    ["company", "Dados da empresa", "clipboard"],
+    ["users", `Usuários (${totalUsers})`, "users"],
+    ["plan", "Planos e pagamentos", "plano"],
+    ["modules", "Módulos e acessos", "modulos"],
+    ["security", "Segurança", "shield"],
+    ["history", "Histórico", "calendar-clock"],
+    ["settings", "Configurações", "configuracoes"],
+  ];
+  const detailRows = (rows) => rows.map(([label, value]) => `<div class="admin-company-detail-row"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value || "Não informado")}</strong></div>`).join("");
+
+  return `<header class="admin-company-detail-header">
+      <span class="admin-company-detail-avatar">${escapeHtml(initials || "E")}</span>
+      <div><div class="admin-company-detail-title"><h2 id="adminCompanyDetailTitle">${escapeHtml(company.name || "Empresa")}</h2>${showStatus ? `<span class="admin-company-status ${String(status).toLowerCase() === "ativo" ? "is-active" : "is-inactive"}"><i></i>${escapeHtml(status)}</span>` : ""}</div><p>${escapeHtml(profile.tradeName || company.name || "")}</p><small>CNPJ: ${escapeHtml(company.cnpj || "Não informado")}</small></div>
+      <div class="admin-company-detail-actions"><details class="admin-company-more-actions"><summary>${moduleIcon("configuracoes")} Mais ações</summary><a href="/api/admin/backup?companyId=${Number(company.id)}">${moduleIcon("download")} Backup da empresa</a></details></div>
+    </header>
+    <nav class="admin-company-detail-tabs" aria-label="Seções da empresa">${tabs.map(([key, label, icon], index) => `<button type="button" class="${index === 0 ? "is-active" : ""}" data-admin-company-detail-tab="${key}">${moduleIcon(icon)}<span>${escapeHtml(label)}</span></button>`).join("")}</nav>
+    <div class="admin-company-detail-body">
+      <section data-admin-company-detail-panel="overview">
+        <div class="admin-company-detail-grid">
+          <article class="admin-company-detail-section"><h3>Informações da empresa</h3>${detailRows([["Nome fantasia", profile.tradeName || company.name], ["Razão social", company.name], ["CNPJ", company.cnpj], ["Segmento", profile.segment], ["Porte", profile.size], ["Responsável legal", [profile.legalResponsibleName, profile.legalResponsibleRole].filter(Boolean).join(" · ")]])}</article>
+          <article class="admin-company-detail-section"><h3>Contato e endereço</h3>${detailRows([["Telefone", profile.phone], ["E-mail", profile.email], ["Site", profile.site], ["Endereço", profile.address], ["Bairro", profile.district], ["Cidade / UF", profile.cityUf], ["CEP", profile.cep]])}</article>
+          <aside class="admin-company-detail-side"><article class="admin-company-summary"><h3>Resumo rápido</h3><div><span><strong>${totalUsers}</strong>Usuários</span><span><strong>${activeUsers}</strong>Ativos</span><span><strong>${Number(company.accessLimit || 0)}</strong>Limite</span></div></article><article class="admin-company-admin"><h3>Administrador da empresa</h3>${administrator ? `<strong>${escapeHtml(administrator.displayName)}</strong><span>${escapeHtml(administrator.username)}</span><span>${escapeHtml(administrator.role || "Administrador")}</span>` : `<span>Nenhum administrador cadastrado.</span>`}</article><article class="admin-company-account-status"><h3>Situação da conta</h3>${detailRows([...(showStatus ? [["Status", visibleStatus]] : []), ["Plano atual", company.plan], ["Acessos", `${activeUsers} / ${Number(company.accessLimit || 0)}`], ["Última atividade", lastActivity ? formatDateTime(lastActivity) : "Não registrada"]])}</article></aside>
+        </div>
+      </section>
+      <section data-admin-company-detail-panel="company" hidden><article class="admin-company-detail-section admin-company-detail-wide"><h3>Dados cadastrais</h3>${profile.logo ? `<img class="admin-company-logo-preview" src="${escapeHtml(profile.logo)}" alt="Logo da empresa">` : ""}${detailRows([["Razão social", company.name], ["Nome fantasia", profile.tradeName], ["CNPJ", company.cnpj], ["Segmento", profile.segment], ["Porte", profile.size], ["Telefone", profile.phone], ["E-mail corporativo", profile.email], ["Site", profile.site], ["CEP", profile.cep], ["Logradouro", profile.address], ["Número", profile.number], ["Bairro", profile.district], ["Cidade / UF", profile.cityUf], ["Responsável legal", profile.legalResponsibleName], ["Cargo", profile.legalResponsibleRole], ["Certificação", company.certification || profile.certification], ["Escopo", company.scope || profile.scope], ["Data de cadastro", formatDateTime(company.createdAt || company.created_at)]])}</article></section>
+      <section data-admin-company-detail-panel="users" hidden>${adminCompanyDetailUsers(company, users)}</section>
+      <section data-admin-company-detail-panel="plan" hidden><article class="admin-company-detail-section admin-company-detail-wide"><h3>Plano e pagamentos</h3>${detailRows([["Plano atual", company.plan], ...(showStatus ? [["Situação do plano", visibleStatus], ["Cobrança", visibleStatus]] : []), ["Limite de acessos", String(company.accessLimit || 0)], ["Quantidade utilizada", `${activeUsers} de ${Number(company.accessLimit || 0)}`]])}</article></section>
+      <section data-admin-company-detail-panel="modules" hidden><article class="admin-company-detail-section admin-company-detail-wide"><h3>Módulos e acessos</h3><div class="admin-company-module-groups"><div><h4>Habilitados</h4>${registeredModules.length ? `<div class="admin-company-access-list">${registeredModules.map(([moduleId, access]) => `<span><strong>${escapeHtml(adminCompanyModuleLabel(moduleId))}</strong><em>${escapeHtml(access === "edit" ? "Edição" : "Visualização")}</em></span>`).join("")}</div>` : `<p class="admin-company-no-data">Nenhum módulo habilitado registrado.</p>`}</div><div><h4>Desabilitados</h4>${disabledModules.length ? `<div class="admin-company-access-list">${disabledModules.map((module) => `<span><strong>${escapeHtml(module.title)}</strong><em>Sem acesso</em></span>`).join("")}</div>` : `<p class="admin-company-no-data">Nenhum módulo desabilitado registrado.</p>`}</div></div></article></section>
+      <section data-admin-company-detail-panel="security" hidden><article class="admin-company-detail-section admin-company-detail-wide"><h3>Segurança</h3>${detailRows([["Usuários bloqueados", String(users.filter((user) => String(user.status).toLowerCase() === "bloqueado").length)], ["Último acesso", users.some((user) => user.lastLoginAt) ? formatDateTime(users.filter((user) => user.lastLoginAt).sort((a, b) => new Date(b.lastLoginAt) - new Date(a.lastLoginAt))[0]?.lastLoginAt) : "Não registrado"]])}${adminCompanyDetailLogs(logs.filter((log) => /login|mfa|password|csrf|session|security/i.test(log.eventType)), "Nenhum evento de segurança registrado.")}</article></section>
+      <section data-admin-company-detail-panel="history" hidden><article class="admin-company-detail-section admin-company-detail-wide"><h3>Histórico</h3>${adminCompanyHistoryTable(logs)}</article></section>
+      <section data-admin-company-detail-panel="settings" hidden><article class="admin-company-detail-section admin-company-detail-wide"><h3>Configurações administrativas</h3>${detailRows([...(showStatus ? [["Status da empresa", visibleStatus]] : []), ["Plano configurado", settings.companyAccess || company.plan], ["Tema", settings.theme]])}<a class="admin-company-inline-action" href="/api/admin/backup?companyId=${Number(company.id)}">${moduleIcon("download")} Backup da empresa</a></article></section>
+    </div>`;
+}
+
+function adminCompanyDetailUsers(company, users) {
+  return `<article class="admin-company-detail-section admin-company-detail-wide"><div class="admin-company-users-heading"><h3>Usuários vinculados</h3><button type="button" data-admin-company-user-add="${Number(company.id)}">${moduleIcon("plus")} Adicionar usuário</button></div>${users.length ? `<div class="admin-company-users-list">${users.map((user) => { const isActive = String(user.status).toLowerCase() === "ativo"; const isBlocked = String(user.status).toLowerCase() === "bloqueado"; const statusClass = isActive ? "is-active" : isBlocked ? "is-blocked" : "is-inactive"; const accessAction = isActive ? `<button type="button" data-admin-company-user-action="block" data-user='${adminPayload(user)}' title="Bloquear acesso">${moduleIcon("shield")}<span>Bloquear acesso</span></button>` : isBlocked ? `<button type="button" data-admin-company-user-action="unblock" data-user='${adminPayload(user)}' title="Desbloquear acesso">${moduleIcon("shield")}<span>Desbloquear acesso</span></button>` : ""; return `<div><span>${escapeHtml(initials(user.displayName || user.username || "U"))}</span><p><strong>${escapeHtml(user.displayName || user.username)}</strong><small>${escapeHtml(user.username)} · ${escapeHtml(user.role || "Sem cargo")} · ${escapeHtml(user.lastLoginAt ? `Último acesso: ${formatDateTime(user.lastLoginAt)}` : "Nunca acessou")}</small></p><em class="${statusClass}">${escapeHtml(user.status || "Sem status")}</em><div class="admin-company-user-actions"><button type="button" data-admin-company-user-action="role" data-user='${adminPayload(user)}' title="Gerenciar cargo">${moduleIcon("users")}<span>Cargo</span></button>${accessAction}<button type="button" data-admin-company-user-action="reset" data-user='${adminPayload(user)}' title="Resetar senha de acesso">${moduleIcon("key")}<span>Senha</span></button><button class="danger" type="button" data-admin-company-user-action="delete" data-user='${adminPayload(user)}' title="Excluir usuário">${moduleIcon("trash")}<span>Excluir</span></button></div></div>`; }).join("")}</div>` : `<p class="admin-company-no-data">Nenhum usuário cadastrado para esta empresa.</p>`}</article>`;
+}
+
+function adminCompanyDetailLogs(logs, emptyMessage) {
+  if (!logs.length) return `<p class="admin-company-no-data">${escapeHtml(emptyMessage)}</p>`;
+  return `<div class="admin-company-history-list">${logs.slice(0, 8).map((log) => `<div><span>${auditOutcomeBadge(log.outcome)}</span><p><strong>${escapeHtml(adminEventLabel(log.eventType))}</strong><small>${escapeHtml(formatDateTime(log.createdAt))} · ${escapeHtml(log.username || "Sistema")}</small></p></div>`).join("")}</div>`;
+}
+
+function adminCompanyHistoryTable(logs) {
+  if (!logs.length) return `<p class="admin-company-no-data">Nenhum evento registrado para esta empresa.</p>`;
+  return `<div class="admin-company-history-table-wrap"><table class="admin-company-history-table"><thead><tr><th>Data e hora</th><th>Evento</th><th>Usuário</th><th>Descrição</th><th>Resultado</th></tr></thead><tbody>${logs.slice(0, 12).map((log) => `<tr><td>${escapeHtml(formatDateTime(log.createdAt))}</td><td>${escapeHtml(adminEventLabel(log.eventType))}</td><td>${escapeHtml(log.username || "Sistema")}</td><td>${escapeHtml(adminEventLabel(log.eventType))}</td><td>${auditOutcomeBadge(log.outcome)}</td></tr>`).join("")}</tbody></table></div>`;
+}
+
+function adminCompanyModuleLabel(moduleId) {
+  return modules.find((module) => module.id === moduleId)?.title || String(moduleId || "Módulo").replace(/-/g, " ");
+}
+
+function bindAdminCompaniesActions() {
+  const search = pageContent.querySelector("[data-admin-company-search]");
+  const plan = pageContent.querySelector("[data-admin-company-plan]");
+  const status = pageContent.querySelector("[data-admin-company-status]");
+  const applyFilters = () => filterAdminCompanies(search?.value, plan?.value, status?.value);
+  search?.addEventListener("input", applyFilters);
+  plan?.addEventListener("change", applyFilters);
+  status?.addEventListener("change", applyFilters);
+  pageContent.querySelector("[data-admin-company-new]")?.addEventListener("click", openAdminCompanyEditor);
+  pageContent.querySelectorAll("[data-admin-company-details]").forEach((button) => button.addEventListener("click", () => openAdminCompanyDetails(Number(button.dataset.companyId))));
+  pageContent.querySelectorAll("[data-admin-company-detail-close]").forEach((button) => button.addEventListener("click", closeAdminCompanyDetails));
+  pageContent.querySelectorAll("[data-admin-company-editor-close]").forEach((button) => button.addEventListener("click", closeAdminCompanyEditor));
+  pageContent.querySelectorAll("[data-admin-company-user-editor-close]").forEach((button) => button.addEventListener("click", closeAdminCompanyUserEditor));
+  pageContent.querySelector("#adminCompanyForm")?.addEventListener("submit", saveAdminCompany);
+  pageContent.querySelector("#adminCompanyUserEditorForm")?.addEventListener("submit", saveAdminCompanyDetailUser);
+  pageContent.querySelector("[data-admin-action='clear-company-form']")?.addEventListener("click", openAdminCompanyEditor);
+}
+
+function filterAdminCompanies(query = "", plan = "", status = "") {
+  const normalizedQuery = String(query).trim().toLowerCase();
+  let visibleCount = 0;
+  pageContent.querySelectorAll("[data-admin-company-row]").forEach((row) => {
+    const visible = (!normalizedQuery || String(row.dataset.adminCompanySearch || "").includes(normalizedQuery))
+      && (!plan || row.dataset.adminCompanyPlan === plan)
+      && (!status || row.dataset.adminCompanyStatus === status);
+    row.hidden = !visible;
+    if (visible) visibleCount += 1;
+  });
+  const count = pageContent.querySelector("[data-admin-company-count]");
+  if (count) count.textContent = visibleCount === 1 ? "1 empresa encontrada" : `${visibleCount} empresas encontradas`;
+}
+
+function openAdminCompanyDetails(companyId) {
+  const data = adminCompaniesDetailData || {};
+  const company = (data.companies || []).find((item) => Number(item.id) === Number(companyId));
+  const modal = pageContent.querySelector("[data-admin-company-detail-modal]");
+  if (!company || !modal) return;
+  const users = (data.users || []).filter((user) => Number(user.companyId) === Number(company.id));
+  const logs = (data.logs || []).filter((log) => Number(log.companyId) === Number(company.id));
+  const content = modal.querySelector("[data-admin-company-detail-content]");
+  content.innerHTML = adminCompanyDetailContent(company, users, logs);
+  bindAdminCompanyDetailActions(modal);
+  modal.hidden = false;
+  requestAnimationFrame(() => modal.classList.add("is-open"));
+}
+
+function bindAdminCompanyDetailActions(modal) {
+  modal.querySelectorAll("[data-admin-company-detail-tab]").forEach((button) => button.addEventListener("click", () => selectAdminCompanyDetailTab(button.dataset.adminCompanyDetailTab)));
+  modal.querySelectorAll("[data-admin-company-user-add]").forEach((button) => button.addEventListener("click", () => openAdminCompanyUserEditor(Number(button.dataset.adminCompanyUserAdd))));
+  modal.querySelectorAll("[data-admin-company-user-action]").forEach((button) => button.addEventListener("click", () => handleAdminCompanyUserAction(button.dataset.adminCompanyUserAction, readAdminPayload(button, "user"))));
+}
+
+function selectAdminCompanyDetailTab(tab) {
+  const modal = pageContent.querySelector("[data-admin-company-detail-modal]");
+  if (!modal) return;
+  const panels = [...modal.querySelectorAll("[data-admin-company-detail-panel]")];
+  const currentPanel = panels.find((panel) => !panel.hidden);
+  const nextPanel = panels.find((panel) => panel.dataset.adminCompanyDetailPanel === tab);
+  if (!nextPanel || currentPanel === nextPanel) return;
+  modal.querySelectorAll("[data-admin-company-detail-tab]").forEach((button) => button.classList.toggle("is-active", button.dataset.adminCompanyDetailTab === tab));
+  panels.forEach((panel) => panel.classList.remove("is-tab-entering", "is-tab-leaving"));
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    panels.forEach((panel) => { panel.hidden = panel !== nextPanel; });
+    return;
+  }
+  const transitionId = String(Date.now());
+  modal.dataset.detailTabTransition = transitionId;
+  panels.forEach((panel) => { panel.hidden = panel !== currentPanel; });
+  currentPanel?.classList.add("is-tab-leaving");
+  window.setTimeout(() => {
+    if (modal.dataset.detailTabTransition !== transitionId) return;
+    panels.forEach((panel) => { panel.hidden = panel !== nextPanel; });
+    currentPanel?.classList.remove("is-tab-leaving");
+    nextPanel.classList.add("is-tab-entering");
+    window.setTimeout(() => {
+      if (modal.dataset.detailTabTransition !== transitionId) return;
+      nextPanel.classList.remove("is-tab-entering");
+    }, 150);
+  }, 90);
+}
+
+function closeAdminCompanyDetails() {
+  const modal = pageContent.querySelector("[data-admin-company-detail-modal]");
+  if (!modal) return;
+  modal.classList.remove("is-open");
+  window.setTimeout(() => { modal.hidden = true; }, 220);
+}
+
+function openAdminCompanyEditor() {
+  const modal = pageContent.querySelector("[data-admin-company-editor-modal]");
+  const form = pageContent.querySelector("#adminCompanyForm");
+  if (!modal || !form) return;
+  clearAdminCompanyForm();
+  pageContent.querySelector("#adminCompanyModalTitle").textContent = "Nova empresa";
+  pageContent.querySelector("#adminCompanyModalSubtitle").textContent = "Cadastre uma empresa na plataforma.";
+  modal.hidden = false;
+  requestAnimationFrame(() => modal.classList.add("is-open"));
+  form.elements.name?.focus();
+}
+
+function closeAdminCompanyEditor() {
+  const modal = pageContent.querySelector("[data-admin-company-editor-modal]");
+  if (!modal) return;
+  modal.classList.remove("is-open");
+  window.setTimeout(() => { modal.hidden = true; }, 160);
+}
+
+function openAdminCompanyUserEditor(companyId, user = null) {
+  const modal = pageContent.querySelector("[data-admin-company-user-editor]");
+  const form = modal?.querySelector("#adminCompanyUserEditorForm");
+  if (!modal || !form || !companyId) return;
+  form.reset();
+  form.companyId.value = companyId;
+  form.userId.value = user?.id || "";
+  form.displayName.value = user?.displayName || "";
+  form.username.value = user?.username || "";
+  const role = form.elements.role;
+  if (role) {
+    const options = adminCompanyRoleOptions(companyId, user?.role);
+    role.innerHTML = options.html;
+    role.disabled = options.empty;
+  }
+  form.querySelector("[data-admin-company-user-editor-note]").hidden = Boolean(user);
+  pageContent.querySelector("#adminCompanyUserEditorTitle").textContent = user ? "Gerenciar cargo e acesso" : "Adicionar usuário";
+  pageContent.querySelector("#adminCompanyUserEditorSubtitle").textContent = user ? "Atualize os dados e o cargo do usuário." : "O convite será enviado para o e-mail informado.";
+  modal.hidden = false;
+  requestAnimationFrame(() => modal.classList.add("is-open"));
+  form.elements.displayName.focus();
+}
+
+function adminCompanyRoleOptions(companyId, currentRole = "") {
+  const company = (adminCompaniesDetailData?.companies || []).find((item) => Number(item.id) === Number(companyId));
+  const configuredRoles = (company?.leadershipState?.cargos || [])
+    .filter((item) => String(item?.status || "Ativo").toLowerCase() === "ativo")
+    .map((item) => String(item?.cargo || "").trim())
+    .filter(Boolean);
+  const roles = [...new Set(configuredRoles)];
+  const current = String(currentRole || "").trim();
+  if (current && !roles.includes(current)) roles.unshift(current);
+  if (!roles.length) {
+    return { empty: true, html: `<option value="">Nenhum cargo ativo cadastrado</option>` };
+  }
+  return {
+    empty: false,
+    html: `<option value="" ${current ? "" : "selected"} disabled>Selecione um cargo</option>${roles.map((item) => `<option value="${escapeHtml(item)}" ${item === current ? "selected" : ""}>${escapeHtml(item)}</option>`).join("")}`,
+  };
+}
+
+function closeAdminCompanyUserEditor() {
+  const modal = pageContent.querySelector("[data-admin-company-user-editor]");
+  if (!modal) return;
+  modal.classList.remove("is-open");
+  window.setTimeout(() => { modal.hidden = true; }, 160);
+}
+
+async function handleAdminCompanyUserAction(action, user) {
+  if (!user?.id) return;
+  if (action === "role") {
+    openAdminCompanyUserEditor(user.companyId, user);
+    return;
+  }
+  if (action === "reset") {
+    await resetAdminCompanyUserPassword(user);
+    return;
+  }
+  if (action === "block") {
+    await setAdminCompanyUserAccess(user, "block");
+    return;
+  }
+  if (action === "unblock") {
+    await setAdminCompanyUserAccess(user, "unblock");
+    return;
+  }
+  if (action === "delete") await deleteAdminCompanyUser(user);
+}
+
+async function setAdminCompanyUserAccess(user, action) {
+  const isUnblock = action === "unblock";
+  const label = isUnblock ? "Desbloquear" : "Bloquear";
+  if (!window.confirm(`${label} o acesso de ${user.displayName || user.username}?`)) return;
+  const currentPassword = await confirmSensitiveAction(`${label} acesso do usuário`);
+  if (!currentPassword) return;
+  const response = await fetch("/api/admin/user", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId: user.id, companyId: user.companyId, displayName: user.displayName, username: user.username, role: user.role, action: `${action}-access`, currentPassword }),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    toast(result.error === "user_not_active" ? "Somente usuários ativos podem ser bloqueados." : result.error === "user_not_blocked" ? "Somente usuários bloqueados podem ser desbloqueados." : `Não foi possível ${label.toLowerCase()} o acesso.`);
+    return;
+  }
+  toast(isUnblock ? "Acesso desbloqueado." : "Acesso bloqueado.");
+  updateAdminCompanyDetailUser(result.user, "users");
+}
+
+function updateAdminCompanyDetailUser(updatedUser, tab = "users") {
+  if (!updatedUser?.id || !adminCompaniesDetailData) return;
+  const index = (adminCompaniesDetailData.users || []).findIndex((item) => Number(item.id) === Number(updatedUser.id));
+  if (index < 0) return;
+  adminCompaniesDetailData.users[index] = { ...adminCompaniesDetailData.users[index], ...updatedUser };
+  openAdminCompanyDetails(Number(updatedUser.companyId));
+  selectAdminCompanyDetailTab(tab);
+}
+
+async function saveAdminCompanyDetailUser(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const data = Object.fromEntries(new FormData(form).entries());
+  const editing = Boolean(data.userId);
+  const currentPassword = await confirmSensitiveAction(editing ? "Atualizar cargo e acesso" : "Adicionar usuário");
+  if (!currentPassword) return;
+  const response = await fetch("/api/admin/user", {
+    method: editing ? "PATCH" : "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId: data.userId ? Number(data.userId) : undefined, companyId: Number(data.companyId), displayName: data.displayName, username: data.username, role: data.role, currentPassword }),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    toast(result.error === "access_limit_reached" ? "O limite de acessos desta empresa foi atingido." : "Não foi possível salvar o usuário.");
+    return;
+  }
+  closeAdminCompanyUserEditor();
+  toast(editing ? "Cargo e acesso atualizados." : result.invitation?.delivery === "sent" ? "Convite enviado." : "Usuário criado. Configure o e-mail para entregar o convite.");
+  await refreshAdminCompanyDetails(Number(data.companyId), "users");
+}
+
+async function resetAdminCompanyUserPassword(user) {
+  if (!window.confirm(`Resetar a senha de ${user.displayName || user.username}?`)) return;
+  const currentPassword = await confirmSensitiveAction("Resetar senha de acesso");
+  if (!currentPassword) return;
+  const response = await fetch("/api/admin/reset-password", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId: user.id, currentPassword }),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    toast("Não foi possível resetar a senha.");
+    return;
+  }
+  toast(`Senha temporária gerada para ${result.user?.displayName || user.displayName || user.username}: ${result.temporaryPassword || ""}`);
+}
+
+async function deleteAdminCompanyUser(user) {
+  if (!window.confirm(`Excluir ${user.displayName || user.username}? Esta ação não pode ser desfeita.`)) return;
+  const currentPassword = await confirmSensitiveAction("Excluir usuário");
+  if (!currentPassword) return;
+  const response = await fetch("/api/admin/user", {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId: user.id, currentPassword }),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    toast(result.error === "cannot_delete_self" ? "Você não pode excluir sua própria conta." : "Não foi possível excluir o usuário.");
+    return;
+  }
+  toast("Usuário excluído.");
+  await refreshAdminCompanyDetails(Number(user.companyId), "users");
+}
+
+async function refreshAdminCompanyDetails(companyId, tab = "overview") {
+  try {
+    adminCompaniesDetailData = await loadAdminDashboardData();
+    openAdminCompanyDetails(companyId);
+    selectAdminCompanyDetailTab(tab);
+  } catch (error) {
+    console.warn(error);
+    toast("Não foi possível atualizar os dados da empresa.");
   }
 }
 
@@ -7131,10 +7589,11 @@ function adminActivityType(eventType) {
 function adminFeaturedCompany(company) {
   const initials = String(company.name || "Empresa").split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase();
   const active = String(company.billingStatus || "").toLowerCase() === "ativo";
+  const status = displayBillingStatus(company.billingStatus);
   return `<button class="admin-featured-company" type="button" data-admin-view="admin-empresas" data-company-id="${Number(company.id) || ""}">
     <span class="admin-company-avatar">${escapeHtml(initials || "E")}</span>
     <span class="admin-company-copy"><strong>${escapeHtml(company.name || "Empresa")}</strong><span>${escapeHtml(company.plan || "Sem plano")} · ${Number(company.access_count || 0)} ${Number(company.access_count || 0) === 1 ? "usuário" : "usuários"}</span></span>
-    <em class="${active ? "is-active" : "is-inactive"}"><i></i>${escapeHtml(company.billingStatus || "Sem status")}</em>
+    ${status ? `<em class="${active ? "is-active" : "is-inactive"}"><i></i>${escapeHtml(status)}</em>` : ""}
     <span class="admin-card-arrow">${moduleIcon("arrow")}</span>
   </button>`;
 }
@@ -7151,7 +7610,7 @@ async function refreshCurrentAdminView() {
   await renderGerenciamento();
 }
 
-function adminManagementHtml(data, title = "Gerenciamento", subtitle = "Clientes, planos e acessos do SGQ Online.") {
+function adminManagementHtml(data, title = "Gerenciamento", subtitle = "Clientes, planos e acessos do SGQ Online.", hideHeader = false) {
   const summary = data.summary || {};
   const companies = data.companies || [];
   const users = data.users || [];
@@ -7159,7 +7618,7 @@ function adminManagementHtml(data, title = "Gerenciamento", subtitle = "Clientes
   const operations = data.operations || null;
 
   return `
-    ${viewHeader(title, subtitle)}
+    ${hideHeader ? "" : viewHeader(title, subtitle)}
 
     <div class="admin-kpi-row">
       ${adminMetric("Clientes", summary.companies || 0, "empresas cadastradas")}
@@ -7371,7 +7830,7 @@ function adminCompanyFormHtml() {
       <label><span>CNPJ</span><input name="cnpj" placeholder="00.000.000/0001-00" /></label>
       <label><span>Certificação</span><input name="certification" placeholder="ISO 9001:2015" /></label>
       <label><span>Plano</span><input name="plan" placeholder="Plano Profissional" /></label>
-      <label><span>Situação do pagamento</span><select name="billingStatus"><option>Ativo</option><option>Pendente</option><option>Inadimplente</option><option>Teste</option><option>Cancelado</option></select></label>
+      <label><span>Situação do pagamento</span><select name="billingStatus"><option>Ativo</option><option>Pendente</option><option>Inadimplente</option><option>Cancelado</option></select></label>
       <label><span>Limite de acessos</span><input name="accessLimit" type="number" min="1" max="10000" value="5" required /></label>
       <label class="full"><span>Escopo</span><textarea name="scope" placeholder="Escopo do sistema de gestão"></textarea></label>
       <div class="admin-form-actions full">
@@ -7439,6 +7898,7 @@ function planBadge(plan) {
 }
 
 function billingBadge(status) {
+  if (isTestBillingStatus(status)) return "";
   const value = status || "Ativo";
   const normalized = value.toLowerCase();
   const className = normalized === "ativo" ? "paid" : normalized === "teste" || normalized === "pendente" ? "trial" : "overdue";
@@ -7466,6 +7926,7 @@ function adminEventLabel(eventType) {
     admin_company_updated: "Cliente atualizado pelo administrador",
     admin_user_created: "Usuário criado pelo administrador",
     admin_user_updated: "Usuário atualizado pelo administrador",
+    admin_user_deleted: "Usuário excluído pelo administrador",
     admin_password_reset: "Senha resetada pelo administrador",
     password_reset_requested: "Recuperação de senha solicitada",
     password_reset_rate_limited: "Recuperação temporariamente bloqueada",
@@ -7781,7 +8242,7 @@ async function toggleAdminUser(button) {
   await refreshCurrentAdminView();
 }
 
-function fillAdminCompanyForm(company) {
+function fillAdminCompanyForm(company, shouldScroll = true) {
   const form = document.querySelector("#adminCompanyForm");
   if (!form) return;
   form.companyId.value = company.id || "";
@@ -7789,10 +8250,18 @@ function fillAdminCompanyForm(company) {
   form.cnpj.value = company.cnpj || "";
   form.certification.value = company.certification || "";
   form.plan.value = company.plan || "";
-  form.billingStatus.value = company.billingStatus || "Ativo";
+  form.billingStatus.value = isTestBillingStatus(company.billingStatus) ? "Ativo" : (company.billingStatus || "Ativo");
   form.accessLimit.value = company.accessLimit || 5;
   form.scope.value = company.scope || "";
-  form.scrollIntoView({ behavior: "smooth", block: "center" });
+  if (shouldScroll) form.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+function isTestBillingStatus(status) {
+  return String(status || "").trim().toLowerCase() === "teste";
+}
+
+function displayBillingStatus(status) {
+  return isTestBillingStatus(status) ? "" : String(status || "").trim();
 }
 
 function fillAdminUserForm(user) {
@@ -8171,7 +8640,7 @@ function billingSettingsHtml(billing) {
   return `
     <article class="qp-card billing-summary-card">
       <div class="dcc-head">
-        <div><div class="dcc-title">Assinatura</div><div class="dcc-sub">Plano, período de teste, renovação e faturas da empresa.</div></div>
+        <div><div class="dcc-title">Assinatura</div><div class="dcc-sub">Plano, renovação e faturas da empresa.</div></div>
         ${billingBadge(company.billingStatus || "Pendente")}
       </div>
       ${billing.configured ? "" : `<div class="billing-warning">A cobrança ainda não foi configurada pelo administrador do SGQ Online.</div>`}
