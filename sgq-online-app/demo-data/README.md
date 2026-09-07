@@ -1,7 +1,7 @@
 # Cenario local de demonstracao
 
-Seed explicito para o banco JSON local do SGQ Online. Nao roda durante o startup,
-build ou deploy. Nao altera PostgreSQL nem ambientes de producao. Todos os registros
+Seed explicito para os bancos local e PostgreSQL online do SGQ Online. Nao roda durante o startup,
+build ou deploy. Todos os registros
 operacionais gerados sao ficticios. Nao cria usuarios, envia emails, simula pagamentos
 ou altera senhas. As credenciais nunca ficam neste diretorio.
 
@@ -33,6 +33,26 @@ A restauracao recupera empresas e dados anteriores, mas preserva as credenciais,
 status e tokens atuais dos usuarios. Recusa restauracao se o conjunto de IDs mudou.
 As sessoes sao invalidadas: entre novamente com as mesmas credenciais.
 
+## Executar no ambiente online
+
+Os comandos abaixo usam as variaveis do projeto Vercel vinculado. A primeira chamada
+e somente leitura; a segunda exige confirmacao explicita, executa em uma transacao e
+invalida as sessoes para que todos entrem novamente com as mesmas credenciais.
+
+```powershell
+npx vercel env run -- npm run seed:demo:online -- --date 2026-09-07
+npx vercel env run -- npm run seed:demo:online -- --date 2026-09-07 --apply --production-confirmed
+```
+
+Antes da escrita, e criado um backup AES-256-GCM em
+`data/online-demo-backup-*.json.enc`, ignorado pelo Git. O arquivo nao armazena hashes
+de senha, MFA ou tokens; a restauracao altera apenas empresas, associacoes/perfis dos
+usuarios e `company_data`, preservando as credenciais existentes.
+
+```powershell
+npx vercel env run -- npm run seed:demo:online -- --restore data/online-demo-backup-ARQUIVO.json.enc --production-confirmed
+```
+
 ## Fonte dos dados e disponibilidade
 
 Nao foram criadas telas, endpoints ou tabelas para completar modulos pendentes.
@@ -60,7 +80,7 @@ Os modulos usam JSON persistido em `company_data` (PostgreSQL) ou `companyData`
 | Portal externo RNC fornecedor, convites e anexos | Dependem de fluxo externo/upload | Nao enviados; nenhum token, arquivo inexistente ou comprovante inventado |
 | Relatorios | Exportacao existente | Consomem os mesmos dados; nao foi criado outro conjunto de fixtures |
 
-## Estrutura e quantidades previstas (06/09/2026)
+## Estrutura e quantidades previstas no banco local (06/09/2026)
 
 - Empresa operacional unica: ID 3, nome fantasia Quality Pro Solutions.
 - Razao social: Quality Pro Solutions Gestao da Qualidade Ltda. (acentuada no banco).
@@ -90,6 +110,11 @@ Os modulos usam JSON persistido em `company_data` (PostgreSQL) ou `companyData`
   MFA e tokens de autenticacao preservados. Backup completo anterior disponivel.
 - CNPJ e CEP zero foram aceitos pelos controles existentes; nenhum dado de terceiros
   foi pesquisado. Emails e sites do cenario usam dominio reservado `.example`.
+
+No ambiente online, os IDs e a quantidade de usuarios sao descobertos diretamente
+do PostgreSQL. Todos os usuarios existentes sao preservados; apenas o administrador
+global fica sem empresa. A empresa de Hugo e reutilizada como empresa operacional
+unica, portanto os numeros locais acima nao devem ser usados como expectativa online.
 
 ## Ajustes pequenos de integracao
 
@@ -130,6 +155,7 @@ npm run test:demo
 $env:SGQ_DEMO_BROWSER = '1'
 npm run test:demo
 node --env-file=.env demo-data/verify-local.js http://127.0.0.1:4180
+npx vercel env run -- node demo-data/verify-local.js https://sgq-online-app.vercel.app --online-confirmed
 ```
 
 Os testes usam banco temporario, credenciais aleatorias, servidor isolado e limpeza
@@ -142,7 +168,7 @@ Capturas em `test-results/demo-*.png`, ignoradas pelo Git.
 O verificador local usa somente credenciais ja configuradas no ambiente, nao as
 imprime e nao edita registros operacionais. Logins e logout geram auditoria real.
 
-Pontos para teste manual/adicional: PostgreSQL nao executado; recuperacao de senha,
+Pontos para teste manual/adicional: recuperacao de senha,
 MFA e convites de usuarios reais nao disparados; emails, Stripe e uploads nao exercitados
 pelo seed. O grafico climatico de situacao ainda converte status para 100/60/35/10,
 sem medicao percentual real; isso foi registrado, nao mascarado com outro dado.

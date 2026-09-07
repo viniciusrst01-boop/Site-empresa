@@ -7,6 +7,7 @@ const crypto = require('node:crypto');
 const { spawn, spawnSync } = require('node:child_process');
 const { once } = require('node:events');
 const { prepareStore } = require('../demo-data/seed');
+const postgresSeed = require('../demo-data/seed-postgres');
 const { getSGQHealthHistory } = require('../sgq-health');
 const root = path.join(__dirname, '..');
 const password = crypto.randomBytes(20).toString('hex');
@@ -15,6 +16,26 @@ function fixture() {
   const password_hash = `scrypt:${salt}:${crypto.scryptSync(password, salt, 64).toString('hex')}`;
   return { nextCompanyId: 4, nextUserId: 7, companies: [1, 2, 3].map(id => ({ id, name: `Old ${id}`, created_at: '2025-01-01T00:00:00Z' })), users: ['Viniciusrst', 'other@example.test', 'hugo.melo', 'pending@example.test', 'blocked@example.test', 'reader@example.test'].map((username, n) => ({ id: n + 1, company_id: n < 3 ? n + 1 : 2, username, display_name: ['Viniciusrst', 'Equipe Qualidade', 'Hugo Melo', 'Pendente', 'Bloqueado', 'Leitor'][n], password_hash, role: n < 3 ? 'Administrador' : 'Colaborador', status: n === 3 ? 'Pendente' : n === 4 ? 'Bloqueado' : 'Ativo', session_version: 1, mfa_enabled: false, mfa_secret: '', mfa_recovery_codes: [], must_change_password: false, created_at: '2025-01-01T00:00:00Z' })), companyData: [], auditLogs: [], userSessions: [], passwordResetTokens: [], invitationTokens: [], billingEvents: [], backupSnapshots: [], systemEvents: [] };
 }
+
+test('online seed encrypts backups and preserves existing user settings', () => {
+  const previousKey = process.env.BACKUP_ENCRYPTION_KEY;
+  process.env.BACKUP_ENCRYPTION_KEY = 'test-only-random-backup-key';
+  try {
+    const value = { companies: [{ id: 3 }], users: [{ id: 1 }] };
+    assert.deepEqual(postgresSeed.decrypt(postgresSeed.encrypt(value)), value);
+  } finally {
+    if (previousKey === undefined) delete process.env.BACKUP_ENCRYPTION_KEY;
+    else process.env.BACKUP_ENCRYPTION_KEY = previousKey;
+  }
+  const source = fixture();
+  source.companyData.push({ company_id: 2, data_key: 'userSettings', data_json: { 2: { permissions: { contexto: 'view' } } } });
+  const scenario = require('../demo-data/scenario').buildScenario(source.users, '2026-09-06');
+  const rows = postgresSeed.scenarioRows(scenario, 3, source);
+  assert.equal(new Set(rows.map(row => row.key)).size, rows.length);
+  const settings = rows.find(row => row.key === 'userSettings').value;
+  assert.equal(settings._companyOwnerId, 3);
+  assert.deepEqual(settings[2], { permissions: { contexto: 'view' } });
+});
 
 test('seed is deterministic, preserves credentials/status, and has coherent references', () => {
   const original = fixture();

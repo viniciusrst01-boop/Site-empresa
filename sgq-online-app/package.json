@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "seed:demo": "node demo-data/seed.js",
+    "seed:demo:online": "node demo-data/seed-postgres.js",
     "test:demo": "node --test test/demo-data.test.js",
     "dev": "node server.js",
     "start": "node server.js",

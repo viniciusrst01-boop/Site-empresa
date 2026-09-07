@@ -4,7 +4,9 @@ const crypto = require('node:crypto');
 
 async function verify() {
   const base = new URL(process.argv[2] || 'http://127.0.0.1:4180');
-  if (!['127.0.0.1', 'localhost', '[::1]'].includes(base.hostname)) throw new Error('Somente servidor local');
+  const local = ['127.0.0.1', 'localhost', '[::1]'].includes(base.hostname);
+  const confirmedOnline = process.argv.includes('--online-confirmed') && base.hostname === 'sgq-online-app.vercel.app' && base.protocol === 'https:';
+  if (!local && !confirmedOnline) throw new Error('Servidor externo exige o dominio oficial e --online-confirmed');
   const logins = [{ user: process.env.SGQ_LOGIN_USER, password: process.env.SGQ_USER_PASSWORD }, ...String(process.env.SGQ_EXTRA_LOGINS || '').split(',').map(entry => { const [user, password] = entry.trim().split(':'); return { user, password }; })].filter(x => x.user && x.password);
   const wanted = new Set(['viniciusrst', 'hugo.melo', 'admin@qualitypro.com.br']);
   const report = [];
