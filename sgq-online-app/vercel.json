@@ -42,8 +42,16 @@
       "dest": "/public/modules-dashboard.css"
     },
     {
+      "src": "/documents-module.css",
+      "dest": "/public/documents-module.css"
+    },
+    {
       "src": "/app.js",
       "dest": "/public/app.js"
+    },
+    {
+      "src": "/documents-module.js",
+      "dest": "/public/documents-module.js"
     },
     {
       "src": "/sgq-health-data.js",

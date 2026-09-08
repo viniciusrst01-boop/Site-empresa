@@ -1944,6 +1944,11 @@ function renderModuleDetail(moduleId, options = {}) {
     return;
   }
 
+  if (moduleId === "documentos") {
+    renderDocumentsModule();
+    return;
+  }
+
   if (moduleId === "mudancas-climaticas") {
     renderClimateModule();
     return;
