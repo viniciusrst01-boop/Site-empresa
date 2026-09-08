@@ -209,6 +209,36 @@ test("admin, exportações, backup e revogação de sessão funcionam", async (t
   });
   assert.equal(ownerNcSave.status, 200);
 
+  const largeNcState = {
+    ...ncState,
+    ncs: [{
+      ...ncState.ncs[0],
+      acoes: [{
+        id: "AC-0001",
+        desc: "Concluir ação corretiva",
+        prazo: "2026-09-07",
+        responsavel: "Administrador",
+        status: "Concluída",
+        concluidaEm: "2026-09-07",
+        evidencias: [],
+      }],
+    }],
+    testPadding: "x".repeat(750_000),
+  };
+  const largeNcSave = await api(baseUrl, "/api/data", adminCookie, {
+    method: "POST",
+    body: JSON.stringify({ key: "state", moduleId: "nao-conformidades", value: largeNcState }),
+  });
+  assert.equal(largeNcSave.status, 200);
+  const largeNcBootstrap = await api(baseUrl, "/api/bootstrap", adminCookie);
+  assert.equal((await largeNcBootstrap.json()).state.ncs[0].acoes[0].status, "Concluída");
+
+  const restoredNcSave = await api(baseUrl, "/api/data", adminCookie, {
+    method: "POST",
+    body: JSON.stringify({ key: "state", moduleId: "nao-conformidades", value: ncState }),
+  });
+  assert.equal(restoredNcSave.status, 200);
+
   const userResponse = await api(baseUrl, "/api/company/users", adminCookie, {
     method: "POST",
     body: JSON.stringify({

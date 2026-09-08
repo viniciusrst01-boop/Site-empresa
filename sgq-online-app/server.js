@@ -674,6 +674,7 @@ async function readJsonBody(req, maxBytes = 100000) {
 
 const COMPANY_LOGO_MAX_BYTES = 3 * 1024 * 1024;
 const COMPANY_PROFILE_MAX_BYTES = 4_400_000;
+const MODULE_DATA_MAX_BYTES = 4_000_000;
 
 function validateCompanyLogo(value) {
   if (!value) return true;
@@ -2957,7 +2958,7 @@ async function handleApiRequest(req, res, url, session) {
   }
 
   if (url.pathname === "/api/data" && req.method === "POST") {
-    const body = await readJsonBody(req);
+    const body = await readJsonBody(req, MODULE_DATA_MAX_BYTES);
     const attachmentRows = body?.key === "leadership"
       ? [...(body.value?.acoes || []), ...(body.value?.comunicacao || [])]
       : body?.key === "state" ? (body.value?.ncs || []).flatMap((nc) => nc.acoes || []) : [];
