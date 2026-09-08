@@ -124,6 +124,7 @@ const publicAppUrl = String(
 const { createSupplierRnc } = require("./supplier-rnc");
 const supplierRnc = createSupplierRnc({ secret: sessionSecret, appUrl: publicAppUrl });
 const sgqModuleIds = [
+  "mudancas-climaticas",
   "contexto",
   "lideranca",
   "riscos",
@@ -271,7 +272,7 @@ async function validateSession(session) {
     validateUserSession(session.sessionId, session.userId, session.companyId),
     getCompany(session.companyId),
   ]);
-  if (!user || !activeSession || !company || !billingAllowsAccess(company, session)) return null;
+  if (!user || !activeSession || (!company && !isAdminSession(user)) || !billingAllowsAccess(company, user)) return null;
   return {
     ...session,
     mustChangePassword: Boolean(user.mustChangePassword),
@@ -413,6 +414,11 @@ async function isCompanyOwnerSession(session) {
 
 async function isCompanyOwnerUser(companyId, userId, role = "") {
   const users = await listCompanyUsers(companyId);
+  const settings = (await getCompanyData(companyId, "userSettings")) || {};
+  if (settings._companyOwnerId) {
+    return Number(settings._companyOwnerId) === Number(userId) && users.some((user) =>
+      Number(user.id) === Number(userId) && user.role.toLowerCase().includes("administrador"));
+  }
   const firstUser = users.sort((a, b) => Number(a.id) - Number(b.id))[0];
   return Boolean(
     firstUser &&
@@ -561,6 +567,7 @@ function filterStateForPermissions(savedState, permissions) {
   if (!savedState || typeof savedState !== "object") return savedState;
   const nextState = { ...savedState };
   const stateFields = {
+    "mudancas-climaticas": "climate",
     documentos: "documents",
     auditorias: "audits",
     "nao-conformidades": "ncs",
@@ -609,7 +616,7 @@ async function buildCompanyReport(companyId) {
   };
 }
 
-function serveFile(res, filePath) {
+function serveFile(res, filePath, headers = {}) {
   const normalized = path.normalize(filePath);
   if (!normalized.startsWith(publicDir)) {
     send(res, 403, "Forbidden", { "Content-Type": "text/plain; charset=utf-8" });
@@ -628,6 +635,7 @@ function serveFile(res, filePath) {
     send(res, 200, data, {
       "Content-Type": contentTypes[ext] || "application/octet-stream",
       "Cache-Control": "no-store",
+      ...headers,
     });
   });
 }
@@ -662,6 +670,18 @@ async function readJsonBody(req, maxBytes = 100000) {
   } catch {
     return null;
   }
+}
+
+const COMPANY_LOGO_MAX_BYTES = 3 * 1024 * 1024;
+const COMPANY_PROFILE_MAX_BYTES = 4_400_000;
+const MODULE_DATA_MAX_BYTES = 4_000_000;
+
+function validateCompanyLogo(value) {
+  if (!value) return true;
+  const match = String(value).match(/^data:image\/(png|jpeg);base64,([A-Za-z0-9+/]*={0,2})$/);
+  if (!match) return false;
+  const padding = match[2].endsWith("==") ? 2 : match[2].endsWith("=") ? 1 : 0;
+  return Math.floor((match[2].length * 3) / 4) - padding <= COMPANY_LOGO_MAX_BYTES;
 }
 
 function loginPage(error = "") {
@@ -1675,7 +1695,10 @@ async function handleRequest(req, res) {
       send(res, 302, "", { Location: "/login", "Set-Cookie": sessionCookie(req, "", 0) });
       return;
     }
-    serveFile(res, path.join(publicDir, "nc-tv.html"));
+    serveFile(res, path.join(publicDir, "nc-tv.html"), {
+      "X-Frame-Options": "SAMEORIGIN",
+      "Content-Security-Policy": "frame-ancestors 'self'",
+    });
     return;
   }
 
@@ -1715,6 +1738,13 @@ async function handleApiRequest(req, res, url, session) {
   }
 
   const companyId = session.companyId;
+
+  if (companyId == null && !url.pathname.startsWith("/api/admin/") &&
+      !url.pathname.startsWith("/api/security") &&
+      !["/api/bootstrap", "/api/monitor/client-error"].includes(url.pathname)) {
+    sendJson(res, 403, { error: "operational_company_required" });
+    return;
+  }
 
   if (url.pathname === "/api/security" && req.method === "GET") {
     const [security, sessions] = await Promise.all([
@@ -2125,7 +2155,7 @@ async function handleApiRequest(req, res, url, session) {
       },
       csrfToken: csrfTokenForSession(session),
       company,
-      needsOnboarding: !savedState && canManageCompany && !(
+      needsOnboarding: Boolean(companyId) && !savedState && canManageCompany && !(
         company?.scope || company?.cnpj || company?.certification
       ),
       state: filterStateForPermissions(savedState, permissions),
@@ -2177,9 +2207,13 @@ async function handleApiRequest(req, res, url, session) {
       return;
     }
 
-    const body = await readJsonBody(req);
+    const body = await readJsonBody(req, COMPANY_PROFILE_MAX_BYTES);
     if (!body || typeof body !== "object" || !body.name) {
       sendJson(res, 400, { error: "invalid_company" });
+      return;
+    }
+    if (!validateCompanyLogo(body.logo)) {
+      sendJson(res, 413, { error: "invalid_company_logo" });
       return;
     }
 
@@ -2435,11 +2469,6 @@ async function handleApiRequest(req, res, url, session) {
       return;
     }
 
-    if (targetUserId === Number(session.userId) && body.status === "Bloqueado") {
-      sendJson(res, 400, { error: "cannot_block_self" });
-      return;
-    }
-
     try {
       const user = await updateCompanyUser(companyId, targetUserId, body);
       if (!user) {
@@ -2665,8 +2694,23 @@ async function handleApiRequest(req, res, url, session) {
       return;
     }
 
-    if (targetUserId === Number(session.userId) && body.status === "Bloqueado") {
+    const existingUser = await getUser(targetUserId);
+    if (!existingUser || Number(existingUser.companyId) !== Number(body.companyId)) {
+      sendJson(res, 404, { error: "user_not_found" });
+      return;
+    }
+    const isBlockAccess = body.action === "block-access";
+    const isUnblockAccess = body.action === "unblock-access";
+    if ((isBlockAccess || isUnblockAccess) && targetUserId === Number(session.userId)) {
       sendJson(res, 400, { error: "cannot_block_self" });
+      return;
+    }
+    if (isBlockAccess && existingUser.status !== "Ativo") {
+      sendJson(res, 409, { error: "user_not_active" });
+      return;
+    }
+    if (isUnblockAccess && existingUser.status !== "Bloqueado") {
+      sendJson(res, 409, { error: "user_not_blocked" });
       return;
     }
 
@@ -2676,12 +2720,15 @@ async function handleApiRequest(req, res, url, session) {
     }
 
     try {
-      const user = await updateAdminUser(targetUserId, body);
+      const user = await updateAdminUser(targetUserId, {
+        ...body,
+        status: isBlockAccess ? "Bloqueado" : isUnblockAccess ? "Ativo" : existingUser.status,
+      });
       if (!user) {
         sendJson(res, 404, { error: "user_not_found" });
         return;
       }
-      await auditRequest(req, session, "admin_user_updated", "success", {
+      await auditRequest(req, session, isBlockAccess ? "admin_user_access_blocked" : isUnblockAccess ? "admin_user_access_unblocked" : "admin_user_updated", "success", {
         targetUserId: user.id,
         targetUsername: user.username,
         targetCompanyId: user.companyId,
@@ -2693,6 +2740,45 @@ async function handleApiRequest(req, res, url, session) {
         error: isUniqueError(error) ? "user_exists" : "user_update_failed",
       });
     }
+    return;
+  }
+
+  if (url.pathname === "/api/admin/user" && req.method === "DELETE") {
+    if (!isAdminSession(session)) {
+      sendJson(res, 403, { error: "forbidden" });
+      return;
+    }
+
+    const body = await readJsonBody(req);
+    if (!(await requireCurrentPassword(res, session, body))) return;
+    const targetUserId = Number(body?.userId);
+    if (!targetUserId) {
+      sendJson(res, 400, { error: "invalid_user" });
+      return;
+    }
+    if (targetUserId === Number(session.userId)) {
+      sendJson(res, 400, { error: "cannot_delete_self" });
+      return;
+    }
+
+    const target = await getUser(targetUserId);
+    if (!target) {
+      sendJson(res, 404, { error: "user_not_found" });
+      return;
+    }
+
+    const user = await deleteCompanyUser(target.companyId, targetUserId);
+    if (!user) {
+      sendJson(res, 404, { error: "user_not_found" });
+      return;
+    }
+    await removeCompanyUserSettings(target.companyId, targetUserId);
+    await auditRequest(req, session, "admin_user_deleted", "success", {
+      targetUserId,
+      targetUsername: user.username,
+      targetCompanyId: target.companyId,
+    });
+    sendJson(res, 200, { ok: true, user });
     return;
   }
 
@@ -2872,7 +2958,7 @@ async function handleApiRequest(req, res, url, session) {
   }
 
   if (url.pathname === "/api/data" && req.method === "POST") {
-    const body = await readJsonBody(req);
+    const body = await readJsonBody(req, MODULE_DATA_MAX_BYTES);
     const attachmentRows = body?.key === "leadership"
       ? [...(body.value?.acoes || []), ...(body.value?.comunicacao || [])]
       : body?.key === "state" ? (body.value?.ncs || []).flatMap((nc) => nc.acoes || []) : [];
@@ -2903,6 +2989,7 @@ async function handleApiRequest(req, res, url, session) {
 
     if (body.key === "state" && !ownsCompany) {
       const stateFields = {
+        "mudancas-climaticas": ["climate"],
         documentos: ["documents"],
         auditorias: ["audits"],
         "nao-conformidades": ["ncs", "ncCatalogs", "supplierStateVersion"],
@@ -2928,7 +3015,7 @@ async function handleApiRequest(req, res, url, session) {
       try {
         await mutateSupplierData(companyId, (data) => {
           const value = !ownsCompany ? { ...(data.state || {}), ...Object.fromEntries(({
-            documentos: ["documents"], auditorias: ["audits"], "nao-conformidades": ["ncs", "ncCatalogs", "supplierStateVersion"], equipamentos: ["equipment"],
+            documentos: ["documents"], auditorias: ["audits"], "nao-conformidades": ["ncs", "ncCatalogs", "supplierStateVersion"], equipamentos: ["equipment"], "mudancas-climaticas": ["climate"],
           }[requestedModule] || []).filter((key) => Object.hasOwn(body.value, key)).map((key) => [key, body.value[key]])) } : body.value;
           supplierRnc.prepareState(data, value, requestedModule === "nao-conformidades");
           savedNcs = data.state.ncs;

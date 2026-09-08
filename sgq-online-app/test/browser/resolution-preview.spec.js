@@ -136,4 +136,12 @@ test('dashboard fits every resolution', async ({ page }) => {
       }
     }
   }
+
+  for (const [width, height] of [[1350, 750], [1420, 820], [1510, 820]]) {
+    await page.setViewportSize({ width, height });
+    await page.goto('/app?previewHealth=1');
+    await page.locator('[data-view="inicio"]').first().click();
+    await expect.poll(() => page.locator('.home-v2').evaluate((dashboard) => Boolean(dashboard.style.zoom))).toBe(true);
+    await expect(page.locator('.sidebar')).toHaveCSS('width', '180px');
+  }
 });

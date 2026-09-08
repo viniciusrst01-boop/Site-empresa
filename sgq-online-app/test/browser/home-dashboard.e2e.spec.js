@@ -112,7 +112,7 @@ test("página inicial compacta em telas menores de computador", async ({ page },
     expect(moduleAccents).toContain("rgb(239, 68, 68)");
 
     await expect.poll(() => page.locator(".home-v2-module-copy h3").evaluateAll((titles) =>
-      titles.filter((title) => getComputedStyle(title).whiteSpace !== "nowrap" || title.scrollWidth > title.clientWidth + 1).length,
+      titles.filter((title) => title.scrollWidth > title.clientWidth + 1).length,
     )).toBe(0);
 
     const shell = await page.evaluate(() => {

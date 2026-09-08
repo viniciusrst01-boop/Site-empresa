@@ -78,7 +78,10 @@ function validateSnapshot(snapshot) {
     throw new Error("backup_snapshot_invalid");
   }
   const companyIds = new Set(snapshot.companies.map((company) => Number(company.id)));
-  if (snapshot.users.some((user) => !companyIds.has(Number(user.company_id)))) {
+  const admin = String(process.env.SGQ_ADMIN_USER || "viniciusrst").toLowerCase();
+  if (snapshot.users.some((user) => user.company_id == null
+    ? String(user.username).toLowerCase() !== admin
+    : !companyIds.has(Number(user.company_id)))) {
     throw new Error("backup_user_company_invalid");
   }
   if (snapshot.companyData.some((row) => !companyIds.has(Number(row.company_id)))) {

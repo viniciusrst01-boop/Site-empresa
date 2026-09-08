@@ -4,6 +4,7 @@ const MODULE_TABS_STORAGE_KEY = "qualitypro-module-tabs-v1";
 const RISK_TAB_STORAGE_KEY = "qualitypro-risk-tab-v1";
 
 const modules = [
+  { id: "mudancas-climaticas", title: "Mudanças Climáticas", accent: "#34D399", desc: "Determinação de relevância, questões climáticas e indicadores da Emenda 2024." },
   {
     id: "contexto",
     title: "Contexto da Organização",
@@ -60,18 +61,17 @@ const modules = [
     desc: "Homologação, avaliação e acompanhamento de fornecedores críticos.",
     future: true,
   },
-  { id: "mudancas-climaticas", title: "Mudanças Climáticas", accent: "#34D399", desc: "Determinação de relevância, questões climáticas e indicadores da Emenda 2024." },
 ];
 
 const moduleHeaderMeta = {
+  "mudancas-climaticas": { category: "ISO 9001:2015 · EMENDA 2024", description: "Determinação de relevância, controle das questões e ações climáticas e indicadores de acompanhamento." },
   contexto: { category: "", description: "Contexto organizacional, partes interessadas, escopo do SGQ e gestão de processos." },
-  lideranca: { category: "DIREÇÃO", description: "Comprometimento da Alta Direção, política da qualidade e papéis, responsabilidades e autoridades do SGQ." },
+  lideranca: { category: "", description: "Liderança, compromisso e responsabilidades da Alta Direção na gestão da qualidade.", topbarSubtitle: "Direcionamento da Alta Direção para assegurar a efetividade do SGQ." },
   riscos: { category: "", description: "Planejamento e acompanhamento de riscos, oportunidades, objetivos da qualidade e mudanças." },
   documentos: { category: "DOCUMENTAÇÃO" },
   auditorias: { category: "AVALIAÇÃO" },
-  "nao-conformidades": { category: "MELHORIA CONTÍNUA", description: "Registro, análise de causa, ações corretivas, avaliação de eficácia e rastreabilidade de RNCs." },
+  "nao-conformidades": { category: "", description: "Registre, acompanhe e avalie cada ação de melhoria.", topbarSubtitle: "Acompanhe melhorias, ações corretivas e a evolução dos processos." },
   equipamentos: { category: "RECURSOS" },
-  "mudancas-climaticas": { category: "ISO 9001:2015 · EMENDA 2024", description: "Determinação de relevância, controle das questões e ações climáticas para o SGQ." },
 };
 
 const seedState = {
@@ -399,6 +399,10 @@ function loadState() {
 
 function saveState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  if (currentUser?.isAdmin && currentUser.companyId == null) {
+    localStorage.setItem(`qualitypro-platform-settings-${currentUser.id}`, JSON.stringify(state.settings));
+    return;
+  }
   saveRemoteData("state", state);
 }
 
@@ -448,7 +452,7 @@ async function loadRemoteData() {
       localCompany.name !== seedState.company.name &&
       localCompany.name !== payload.company?.name;
 
-    if (!payload.state && hasLocalCompany) {
+    if (payload.company && !payload.state && hasLocalCompany) {
       const syncResponse = await fetch("/api/company", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -470,6 +474,10 @@ async function loadRemoteData() {
     }
 
     currentUser = payload.user || null;
+    if (currentUser?.isAdmin && currentUser.companyId == null) {
+      const settings = JSON.parse(localStorage.getItem(`qualitypro-platform-settings-${currentUser.id}`) || "{}");
+      payload.state = { company: {}, users: [], documents: [], audits: [], ncs: [], equipment: [], notifications: [], settings };
+    }
     state = normalizeState(payload.state, payload.company, payload.user);
     if (!canViewModule("documentos")) state.documents = [];
     if (!canViewModule("auditorias")) state.audits = [];
@@ -557,6 +565,7 @@ function applyUserProfile() {
   if (userName) userName.textContent = name;
   if (userRole) userRole.textContent = role;
   document.body.classList.toggle("readonly-company-user", !canManageCompany());
+  document.body.classList.toggle("admin-mode", Boolean(currentUser?.isAdmin));
   const logoutForm = document.querySelector('form[action="/logout"]');
   if (logoutForm) {
     let field = logoutForm.querySelector('input[name="csrfToken"]');
@@ -588,35 +597,19 @@ function updateAdminNav() {
   }
 
   const nav = document.querySelector(".sb-nav");
-  const label = document.querySelector(".sb-section-label");
-  if (!nav || nav.dataset.adminNavigationReady === "true") return;
-
-  nav.innerHTML = "";
-  nav.dataset.adminNavigationReady = "true";
-  if (label) label.textContent = "ADMINISTRAÇÃO";
-
-  const items = [
-    { label: "Visão geral", icon: "plano", view: "gerenciamento" },
-    { label: "Empresas", icon: "empresa" },
-    { label: "Usuários", icon: "users" },
-    { label: "Planos e pagamentos", icon: "plano" },
-    { label: "Segurança", icon: "shield" },
-    { label: "Backups", icon: "download" },
-    { label: "Logs e auditoria", icon: "clipboard" },
-    { label: "Configurações", icon: "configuracoes", view: "configuracoes" },
-  ];
-
-  items.forEach((entry) => {
-    const item = document.createElement("div");
-    item.className = `nav-item${entry.view === "gerenciamento" ? " active" : ""}${entry.view ? "" : " admin-nav-planned"}`;
-    if (entry.view) item.dataset.view = entry.view;
-    item.innerHTML = `${moduleIcon(entry.icon)} ${entry.label}`;
-    item.addEventListener("click", () => {
-      if (entry.view) render(entry.view);
-      else toast(`${entry.label} será disponibilizado em uma área própria.`);
-    });
-    nav.appendChild(item);
-  });
+  if (!nav) return;
+  document.querySelector(".sb-section-label").textContent = "ADMINISTRAÇÃO";
+  nav.innerHTML = [
+    ["gerenciamento", "modulos", "Visão geral"],
+    ["admin-empresas", "building", "Empresas"],
+    ["admin-usuarios", "users", "Usuários"],
+    ["admin-planos", "credit-card", "Planos e pagamentos"],
+    ["admin-seguranca", "shield", "Segurança"],
+    ["admin-backups", "database", "Backups"],
+    ["admin-logs", "scroll-text", "Logs e auditoria"],
+    ["configuracoes", "configuracoes", "Configurações"],
+  ].map(([view, icon, label]) => `<div class="nav-item" data-view="${view}">${moduleIcon(icon)} ${label}</div>`).join("");
+  nav.querySelectorAll(".nav-item").forEach((item) => item.addEventListener("click", () => render(item.dataset.view)));
 }
 
 function renderOnboarding() {
@@ -1007,7 +1000,7 @@ function setActiveNav(view) {
 }
 
 function render(view = "inicio") {
-  const adminAllowedViews = ["gerenciamento", "configuracoes", "perfil"];
+  const adminAllowedViews = ["gerenciamento", "admin-empresas", "admin-usuarios", "admin-planos", "admin-seguranca", "admin-backups", "admin-logs", "configuracoes", "perfil"];
   if (currentUser?.isAdmin && !adminAllowedViews.includes(view)) {
     view = "gerenciamento";
   }
@@ -1031,8 +1024,8 @@ function render(view = "inicio") {
   }
 
   document.body.classList.toggle("home-dashboard", view === "inicio");
-  document.body.classList.toggle("admin-platform-view", view === "gerenciamento");
   document.body.classList.remove("module-detail-view");
+  pageContent.classList.remove("admin-overview-page");
   setActiveNav(view);
   pageContent.classList.remove("risk-page-content");
   pageContent.classList.remove("context-page-content");
@@ -1053,6 +1046,12 @@ function render(view = "inicio") {
     notificacoes: renderNotificacoes,
     relatorios: renderRelatorios,
     gerenciamento: renderGerenciamento,
+    "admin-empresas": () => renderAdminLegacySection("admin-empresas"),
+    "admin-usuarios": () => renderAdminLegacySection("admin-usuarios"),
+    "admin-planos": () => renderAdminLegacySection("admin-planos"),
+    "admin-seguranca": () => renderAdminLegacySection("admin-seguranca"),
+    "admin-backups": () => renderAdminLegacySection("admin-backups"),
+    "admin-logs": () => renderAdminLegacySection("admin-logs"),
     configuracoes: renderConfiguracoes,
     ajuda: renderAjuda,
   };
@@ -1069,16 +1068,22 @@ function scrollPageToTop() {
 }
 
 let disposeDashboardFit = () => {};
+function usesCompactNotebookLayout(width = window.innerWidth, height = window.innerHeight) {
+  const isWideLandscape = width / height >= 1.6;
+  const is1366Workspace = width >= 1300 && width <= 1400 && height <= 768;
+  const is1440Workspace = width >= 1401 && width <= 1499 && height <= 900;
+  const is1536Workspace = width >= 1500 && width <= 1600 && height <= 864;
+  const isScaled1280Workspace = width >= 1000 && width <= 1300 && height <= 720;
+
+  return isWideLandscape && (is1366Workspace || is1440Workspace || is1536Workspace || isScaled1280Workspace);
+}
+
 function fitDashboardToViewport() {
   disposeDashboardFit();
   const dashboard = pageContent.querySelector('.home-v2');
   if (!dashboard) return;
   const fit = () => {
-    const isTargetResolution = (window.innerWidth === 1366 && window.innerHeight <= 768)
-      || (window.innerWidth === 1536 && window.innerHeight <= 864)
-      || (window.innerWidth === 1440 && window.innerHeight <= 900)
-      || (window.innerWidth === 1280 && window.innerHeight <= 720)
-      || (window.innerWidth >= 1000 && window.innerWidth <= 1300 && window.innerHeight <= 720 && window.innerWidth / window.innerHeight >= 1.6);
+    const isTargetResolution = usesCompactNotebookLayout();
     if (!isTargetResolution) {
       pageContent.style.height = '';
       dashboard.style.zoom = '';
@@ -1137,8 +1142,7 @@ function renderDashboardHtml() {
   const pendingDocs = docs.filter((item) => item.status !== "Aprovado");
   const certification = state.company.certification || "Não informada";
   // Temporary task preview for the local visual review server.
-  const localTaskPreview = ["localhost", "127.0.0.1"].includes(location.hostname) && location.port === "4180";
-  const previewTaskCount = Number(new URLSearchParams(location.search).get("previewTasks") ?? (localTaskPreview ? "10" : "0"));
+  const previewTaskCount = Number(new URLSearchParams(location.search).get("previewTasks") ?? "0");
   const previewTasks = ["localhost", "127.0.0.1"].includes(location.hostname)
     && [7, 10].includes(previewTaskCount);
   const taskGroups = previewTasks ? [
@@ -1300,8 +1304,7 @@ function sgqHealthHtml() {
 function sgqHealthPreview(months, url = location.href) {
   const previewUrl = new URL(url);
   const requested = previewUrl.searchParams.get("previewHealth");
-  const localPreviewServer = ["4180", "4198"].includes(previewUrl.port);
-  const enabled = requested === "1" || (requested === null && localPreviewServer);
+  const enabled = requested === "1";
   if (!["localhost", "127.0.0.1", "[::1]"].includes(previewUrl.hostname) || !enabled) return null;
   // Visual samples on the local review servers only; previewHealth=0 restores real data.
   const samples = [
@@ -1641,6 +1644,10 @@ function dashboardSummary() {
     totalRecords,
     openActions: openSwotPlans + activeRisks + activeGoals + activeChanges + openNcs + pendingDocs + plannedAudits,
     modules: {
+      "mudancas-climaticas": {
+        value: `${state.climate?.issues?.length || 0} registros`,
+        caption: `${(state.climate?.issues || []).filter(item => item.status === "Concluída").length} questões concluídas`,
+      },
       contexto: {
         value: `${swot.length + partes.length + processos.length} registros`,
         caption: `${swot.length} SWOT · ${partes.length} partes · ${processos.length} processos · ${escopoStatus}`,
@@ -1674,7 +1681,7 @@ function dashboardSummary() {
 }
 
 function isClosedStatus(status) {
-  return ["Aprovado", "Atingido", "Concluído", "Concluída", "Fechado", "Fechada", "Resolvido", "Resolvida", "Encerrado", "Encerrada"].includes(status);
+  return ["Aprovado", "Atingido", "Concluído", "Concluída", "Fechado", "Fechada", "Resolvido", "Resolvida", "Encerrado", "Encerrada", "Tratado"].includes(status);
 }
 
 function shortText(value, maxLength) {
@@ -1689,7 +1696,7 @@ function firstName(name) {
 function renderModulos() {
   setTopbar("Meus módulos", "Módulos do QualityPro Cloud contratados pela sua empresa");
   pageContent.classList.add("modules-page-content");
-  const moduleOrder = ["contexto", "lideranca", "riscos", "documentos", "auditorias", "nao-conformidades", "equipamentos"];
+  const moduleOrder = ["contexto", "lideranca", "riscos", "documentos", "auditorias", "nao-conformidades", "equipamentos", "mudancas-climaticas"];
   const futureModuleOrder = ["satisfacao-clientes", "fornecedores"];
   const activeModules = moduleOrder
     .map((id) => modules.find((module) => module.id === id))
@@ -1797,8 +1804,11 @@ function renderModulos() {
 function moduleIcon(name) {
   const icons = {
     modulos: '<svg class="icon" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>',
-    empresa: '<svg class="icon" viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="1"/><line x1="9" y1="8" x2="9" y2="8"/><line x1="15" y1="8" x2="15" y2="8"/><line x1="9" y1="12" x2="9" y2="12"/><line x1="15" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="15" y2="16"/></svg>',
     plano: '<svg class="icon" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="3" y1="12" x2="21" y2="12"/></svg>',
+    building: '<svg class="icon" viewBox="0 0 24 24"><path d="M4 21V5l8-3v19M12 9h8v12M2 21h20"/><path d="M7 7h2M7 11h2M7 15h2M15 13h2M15 17h2"/></svg>',
+    "credit-card": '<svg class="icon" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/></svg>',
+    database: '<svg class="icon" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v6c0 1.7 4 3 9 3s9-1.3 9-3V5M3 11v6c0 1.7 4 3 9 3s9-1.3 9-3v-6"/></svg>',
+    "scroll-text": '<svg class="icon" viewBox="0 0 24 24"><path d="M6 3h12v16a2 2 0 0 1-2 2H7a3 3 0 0 1-3-3V5a2 2 0 0 1 2-2z"/><path d="M4 17h10v2a2 2 0 0 0 2 2M9 8h6M9 12h6"/></svg>',
     calendar: '<svg class="icon" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
     home: '<svg class="icon" viewBox="0 0 24 24"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M9 20v-6h6v6"/></svg>',
     contexto: '<svg class="icon" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/><circle cx="10" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
@@ -1814,6 +1824,8 @@ function moduleIcon(name) {
     arrow: '<svg class="icon" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>',
     "arrow-left": '<svg class="icon" viewBox="0 0 24 24"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 5 5 12 12 19"/></svg>',
     "arrow-right": '<svg class="icon" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>',
+    undo: '<svg class="icon" viewBox="0 0 24 24"><path d="M9 7 4 12l5 5"/><path d="M4 12h9a7 7 0 0 1 7 7"/></svg>',
+    redo: '<svg class="icon" viewBox="0 0 24 24"><path d="m15 7 5 5-5 5"/><path d="M20 12h-9a7 7 0 0 0-7 7"/></svg>',
     plus: '<svg class="icon" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>',
     minus: '<svg class="icon" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 12h8"/></svg>',
     "check-circle": '<svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 12l2 2 4-4"/></svg>',
@@ -1822,6 +1834,7 @@ function moduleIcon(name) {
     gear: '<svg class="icon" viewBox="0 0 24 24"><g stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.64 5.64l2.12 2.12M16.24 16.24l2.12 2.12M18.36 5.64l-2.12 2.12M7.76 16.24l-2.12 2.12"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></g></svg>',
     eye: '<svg class="icon" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>',
     trash: '<svg class="icon" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>',
+    save: '<svg class="icon" viewBox="0 0 24 24"><path d="M5 3h12l3 3v15H5z"/><path d="M8 3v6h8V3"/><rect x="8" y="14" width="8" height="6" rx="1"/></svg>',
     shield: '<svg class="icon" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>',
     key: '<svg class="icon" viewBox="0 0 24 24"><circle cx="7.5" cy="14.5" r="3.5"/><path d="M10 12l9-9"/><path d="M15 4l5 5"/><path d="M14 8l2 2"/></svg>',
     mail: '<svg class="icon" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><polyline points="3 7 12 13 21 7"/></svg>',
@@ -1839,6 +1852,8 @@ function moduleIcon(name) {
     "calendar-clock": '<svg class="icon icon-calendar-clock" viewBox="0 0 30 24"><rect x="2" y="4" width="19" height="17" rx="2"/><path d="M6 2v5M17 2v5M2 10h19"/><circle cx="22" cy="16" r="5"/><path d="M22 13.5v2.8l2 1.2"/></svg>',
     "org-chart": '<svg class="icon" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="5" rx="1"/><rect x="2" y="16" width="6" height="5" rx="1"/><rect x="16" y="16" width="6" height="5" rx="1"/><path d="M12 8v4M5 12h14M5 12v4M19 12v4"/></svg>',
     "process-flow": '<svg class="icon" viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="5" rx="1"/><rect x="3" y="17" width="6" height="5" rx="1"/><rect x="15" y="17" width="6" height="5" rx="1"/><path d="M12 7v5M6 12h12M6 12v5M18 12v5"/></svg>',
+    mission: '<svg class="icon" viewBox="0 0 24 24"><path d="M5 21 12 9l7 12H5Z"/><path d="m9 16 3-3 3 3M12 9V3M12 3h6l-2 2 2 2h-6"/></svg>',
+    diamond: '<svg class="icon" viewBox="0 0 24 24"><path d="m3 8 4-5h10l4 5-9 13L3 8Z"/><path d="m7 3 2 5 3-5 3 5 2-5M3 8h18M9 8l3 13 3-13"/></svg>',
   };
   return icons[name] || icons.modulos;
 }
@@ -1861,11 +1876,12 @@ function moduleHeaderHtml(moduleId, options = {}) {
   const category = options.category !== undefined
     ? options.category
     : (meta.category ?? "GESTÃO DA QUALIDADE");
-  const description = options.description || meta.description || module.desc;
+  const description = options.description !== undefined ? options.description : (meta.description ?? module.desc);
+  const topbarSubtitle = options.topbarSubtitle !== undefined ? options.topbarSubtitle : (meta.topbarSubtitle ?? module.desc);
   const toolbarClass = options.toolbarClass ? ` ${options.toolbarClass}` : "";
   const defaultActions = canEditModule(module.id) ? `<div class="toolbar-actions">${moduleHistoryControlsHtml(module.id)}</div>` : "";
   const actions = options.actions === false ? "" : options.actions || defaultActions;
-  setTopbar(module.title, module.desc);
+  setTopbar(module.title, topbarSubtitle);
   return `
     <div class="breadcrumb module-breadcrumb">
       <button type="button" data-view-target="modulos">Meus módulos</button>
@@ -1883,6 +1899,7 @@ function moduleHeaderHtml(moduleId, options = {}) {
 }
 
 function renderModuleDetail(moduleId, options = {}) {
+  if (currentUser?.isAdmin) return render("gerenciamento");
   document.body.classList.remove("home-dashboard");
   document.body.classList.add("module-detail-view");
   activeView = "modulos";
@@ -1964,8 +1981,8 @@ function renderModuleDetail(moduleId, options = {}) {
 function moduleHistoryControlsHtml(moduleId) {
   const history = moduleHistoryState(moduleId);
   return `
-    <button class="module-history-btn" data-module-history-action="undo" data-module-id="${moduleId}" type="button" title="Voltar ação" aria-label="Voltar ação" ${history.undo.length ? "" : "disabled"}>${moduleIcon("arrow-left")}</button>
-    <button class="module-history-btn" data-module-history-action="redo" data-module-id="${moduleId}" type="button" title="Avançar ação" aria-label="Avançar ação" ${history.redo.length ? "" : "disabled"}>${moduleIcon("arrow-right")}</button>`;
+    <button class="module-history-btn" data-module-history-action="undo" data-module-id="${moduleId}" type="button" title="Voltar ação" aria-label="Voltar ação" ${history.undo.length ? "" : "disabled"}>${moduleIcon("undo")}</button>
+    <button class="module-history-btn" data-module-history-action="redo" data-module-id="${moduleId}" type="button" title="Avançar ação" aria-label="Avançar ação" ${history.redo.length ? "" : "disabled"}>${moduleIcon("redo")}</button>`;
 }
 
 function moduleHistoryState(moduleId) {
@@ -2288,21 +2305,21 @@ function renderLeadershipKpis() {
   const target = document.querySelector("#leadershipKpis");
   if (!target) return;
   target.innerHTML = `
-    ${leadershipKpi("Comprometimento da direção", data.acoes.length, `${completeActions} concluídas`, "#F2B705", "lideranca")}
-    ${leadershipKpi("Política da qualidade", `Rev. ${data.politica.revisao || "-"}`, data.politica.status || "-", "#46D9F5", "documentos")}
-    ${leadershipKpi("Comunicações da política", data.comunicacao.length, `${reachedPeople} pessoas alcançadas`, "#34D399", "contexto")}
-    ${leadershipKpi("Cargos mapeados", data.cargos.length, `${activeRoles} ativos`, "#A78BFA", "modulos")}
+    ${leadershipKpi("Comprometimento da direção", data.acoes.length, `${completeActions} concluídas`, "#F2B705", "lideranca", "calendar")}
+    ${leadershipKpi("Política da qualidade", `Rev. ${data.politica.revisao || "-"}`, data.politica.status || "-", "#46D9F5", "documentos", "check-circle")}
+    ${leadershipKpi("Comunicações da política", data.comunicacao.length, `${reachedPeople} pessoas alcançadas`, "#34D399", "contexto", "users")}
+    ${leadershipKpi("Cargos mapeados", data.cargos.length, `${activeRoles} ativos`, "#A78BFA", "modulos", "org-chart")}
   `;
 }
 
-function leadershipKpi(label, value, caption, color, icon) {
+function leadershipKpi(label, value, caption, color, icon, detailIcon = "bar-chart") {
   return `
     <article class="kpi-card" style="--accent-line:${color};">
       <div class="kpi-top">
         <div class="kpi-icon" style="border-color:${hexToRgba(color, 0.4)}; color:${color};">${moduleIcon(icon)}</div>
         <div><div class="kpi-label">${escapeHtml(label)}</div><div class="kpi-value big">${escapeHtml(value)}</div></div>
       </div>
-      <div class="kpi-caption">${escapeHtml(caption)}</div>
+      <div class="module-kpi-detail">${moduleIcon(detailIcon)}<div class="kpi-caption">${escapeHtml(caption)}</div>${moduleIcon("arrow-right")}</div>
     </article>`;
 }
 
@@ -2323,6 +2340,7 @@ function renderLeadershipTabContent() {
     calendario: leadershipCalendarHtml,
   };
   target.innerHTML = (renderers[currentLeadershipSubTab] || leadershipActionsHtml)();
+  if (currentLeadershipSubTab === "posicionamento") bindLeadershipPositionControls();
   if (currentLeadershipSubTab === "indicadores") requestAnimationFrame(renderLeadershipIndicatorCharts);
   if (currentLeadershipSubTab === "indicadoresPapeis") requestAnimationFrame(renderLeadershipRoleIndicatorCharts);
 }
@@ -2354,7 +2372,7 @@ function leadershipActionsHtml() {
 
 function leadershipCalendarHtml() {
   const scheduledActions = leadershipGet("acoes")
-    .filter((action) => /reunião/i.test(String(action.tipo || "")) && /^\d{4}-\d{2}-\d{2}$/.test(String(action.data || "")))
+    .filter((action) => /^\d{4}-\d{2}-\d{2}$/.test(String(action.data || "")))
     .sort((first, second) => String(first.data).localeCompare(String(second.data)));
   if (!leadershipCalendarMonth) {
     const today = new Date();
@@ -2395,7 +2413,7 @@ function leadershipCalendarHtml() {
   return `
     <section class="leadership-calendar-panel">
       <div class="leadership-calendar-head">
-        <div><div class="dcc-title">Calendário da alta direção</div><div class="dcc-sub">Reuniões estratégicas cadastradas em Comprometimento da Direção.</div></div>
+        <div><div class="dcc-title">Calendário da alta direção</div><div class="dcc-sub">Todos os compromissos cadastrados em Comprometimento da Direção.</div></div>
         <div class="leadership-calendar-nav">
           <button class="module-history-btn" data-lc-action="calendar-prev" type="button" title="Mês anterior" aria-label="Mês anterior">${moduleIcon("arrow-left")}</button>
           <strong>${escapeHtml(monthLabel)}</strong>
@@ -2406,7 +2424,7 @@ function leadershipCalendarHtml() {
       <div class="leadership-calendar-grid">${cells.join("")}</div>
       <div class="leadership-calendar-summary">${meetingsInMonth.length
         ? meetingsInMonth.map(({ date, meeting }) => `<div><strong>${formatDate(date)}</strong><span>${escapeHtml(meeting.descricao || meeting.tipo)}</span><em class="leadership-calendar-event-status ${leadershipMeetingStatusClass(meeting.status)}">${escapeHtml(meeting.status || "Programada")}</em></div>`).join("")
-        : '<span>Nenhuma reunião estratégica agendada neste mês.</span>'}</div>
+        : '<span>Nenhum compromisso agendado neste mês.</span>'}</div>
     </section>`;
 }
 
@@ -2430,18 +2448,84 @@ function leadershipActionTypeChip(type) {
 
 function leadershipPositionHtml() {
   const item = leadershipGet("posicionamento");
-  const readonly = canEditModule("lideranca") ? "" : " readonly";
+  const editable = canEditModule("lideranca");
+  const readonly = editable ? "" : " readonly";
+  const values = [...new Set((item.valores || []).map((value) => String(value).trim()).filter(Boolean))];
+  const suggestions = ["Inovação", "Sustentabilidade", "Excelência", "Colaboração"];
   return `
-    <section class="doc-card">
-      <div class="dcc-hd plain-head">
-        <div><div class="dcc-title">Posicionamento Estratégico</div><div class="dcc-sub">Missão, visão e valores da organização · 5.1</div></div>
-        ${canEditModule("lideranca") ? `<button class="btn-grad" data-lc-action="save-position" type="button">${moduleIcon("check-circle")}Salvar alterações</button>` : ""}
+    <section class="doc-card leadership-position-card">
+      <header class="leadership-position-head">
+        <div class="leadership-position-heading">
+          <span class="leadership-position-icon is-heading">${moduleIcon("riscos")}</span>
+          <div><div class="dcc-title">Posicionamento Estratégico</div><div class="dcc-sub">Missão, visão e valores da organização · 5.1</div></div>
+        </div>
+        ${editable ? `<button class="btn-grad leadership-position-save" data-lc-action="save-position" type="button">${moduleIcon("save")}<span>Salvar alterações</span></button>` : ""}
+      </header>
+      <div class="leadership-position-body">
+        ${leadershipPositionTextRow("mission", "Missão", "Qual é o propósito da sua organização?", "lcPosMissao", item.missao, "Descreva aqui a missão da sua organização...", readonly)}
+        ${leadershipPositionTextRow("eye", "Visão", "Onde sua organização deseja chegar?", "lcPosVisao", item.visao, "Descreva aqui a visão da sua organização...", readonly)}
+        <div class="leadership-position-row leadership-values-row">
+          <span class="leadership-position-icon">${moduleIcon("diamond")}</span>
+          <div class="leadership-position-label"><strong>Valores</strong><span>Quais princípios orientam as decisões e atitudes?</span></div>
+          <div class="leadership-values-editor">
+            ${editable ? `<div class="leadership-value-entry"><input class="input-basic" id="lcPosValueInput" maxlength="60" placeholder="Digite um valor e pressione Enter..." autocomplete="off"><button class="btn-grad leadership-value-add" data-lc-action="add-position-value" type="button" aria-label="Adicionar valor">${moduleIcon("plus")}<span>Adicionar</span></button></div>` : ""}
+            <div class="leadership-value-chips" id="lcPosValueChips" aria-label="Valores da organização">${values.map((value) => leadershipPositionValueChip(value, editable)).join("")}</div>
+            ${editable ? `<div class="leadership-value-suggestions"><span>Sugestões:</span><div id="lcPosValueSuggestions">${suggestions.filter((suggestion) => !values.some((value) => normalizeLeadershipPositionValue(value) === normalizeLeadershipPositionValue(suggestion))).map(leadershipPositionSuggestion).join("")}</div></div>` : ""}
+          </div>
+        </div>
       </div>
-      <div class="field"><label>Missão</label><textarea class="input-basic" id="lcPosMissao"${readonly}>${escapeHtml(item.missao)}</textarea></div>
-      <div class="field"><label>Visão</label><textarea class="input-basic" id="lcPosVisao"${readonly}>${escapeHtml(item.visao)}</textarea></div>
-      <div class="field"><label>Valores, um por linha</label><textarea class="input-basic" id="lcPosValores"${readonly}>${escapeHtml((item.valores || []).join("\n"))}</textarea></div>
-      <div class="valores-chips">${(item.valores || []).map((value) => chip(value, "mchip-gold")).join("")}</div>
     </section>`;
+}
+
+function leadershipPositionTextRow(icon, label, help, id, value, placeholder, readonly) {
+  const text = String(value || "").slice(0, 500);
+  return `<div class="leadership-position-row">
+    <span class="leadership-position-icon">${moduleIcon(icon)}</span>
+    <label class="leadership-position-label" for="${id}"><strong>${escapeHtml(label)}</strong><span>${escapeHtml(help)}</span></label>
+    <div class="leadership-position-text"><textarea class="input-basic" id="${id}" maxlength="500" placeholder="${escapeHtml(placeholder)}"${readonly}>${escapeHtml(text)}</textarea><output for="${id}" data-position-counter="${id}">${text.length}/500</output></div>
+  </div>`;
+}
+
+function leadershipPositionValueChip(value, removable) {
+  return `<span class="leadership-value-chip" data-position-value="${escapeHtml(value)}"><span>${escapeHtml(value)}</span>${removable ? `<button type="button" data-lc-action="remove-position-value" data-id="${escapeHtml(value)}" aria-label="Remover ${escapeHtml(value)}">${moduleIcon("close")}</button>` : ""}</span>`;
+}
+
+function leadershipPositionSuggestion(value) {
+  return `<button type="button" data-lc-action="suggest-position-value" data-position-suggestion="${escapeHtml(value)}" data-id="${escapeHtml(value)}">${moduleIcon("plus")}<span>${escapeHtml(value)}</span></button>`;
+}
+
+function normalizeLeadershipPositionValue(value) {
+  return String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+}
+
+function bindLeadershipPositionControls() {
+  document.querySelectorAll("[data-position-counter]").forEach((counter) => {
+    const field = document.querySelector(`#${counter.dataset.positionCounter}`);
+    field?.addEventListener("input", () => { counter.textContent = `${field.value.length}/500`; });
+  });
+  document.querySelector("#lcPosValueInput")?.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" || event.isComposing) return;
+    event.preventDefault();
+    addLeadershipPositionValue(event.currentTarget.value);
+  });
+}
+
+function addLeadershipPositionValue(rawValue) {
+  const input = document.querySelector("#lcPosValueInput");
+  const list = document.querySelector("#lcPosValueChips");
+  const value = String(rawValue || input?.value || "").trim();
+  if (!value || !list) return;
+  const exists = [...list.querySelectorAll("[data-position-value]")].some((chipElement) => normalizeLeadershipPositionValue(chipElement.dataset.positionValue) === normalizeLeadershipPositionValue(value));
+  if (!exists) list.insertAdjacentHTML("beforeend", leadershipPositionValueChip(value.slice(0, 60), true));
+  [...document.querySelectorAll("[data-position-suggestion]")].find((button) => normalizeLeadershipPositionValue(button.dataset.positionSuggestion) === normalizeLeadershipPositionValue(value))?.remove();
+  if (input) { input.value = ""; input.focus(); }
+}
+
+function returnLeadershipPositionValueToSuggestions(value) {
+  const suggestions = document.querySelector("#lcPosValueSuggestions");
+  if (!value || !suggestions) return;
+  const exists = [...suggestions.querySelectorAll("[data-position-suggestion]")].some((button) => normalizeLeadershipPositionValue(button.dataset.positionSuggestion) === normalizeLeadershipPositionValue(value));
+  if (!exists) suggestions.insertAdjacentHTML("beforeend", leadershipPositionSuggestion(value));
 }
 
 function leadershipPlanHtml() {
@@ -2771,11 +2855,20 @@ function handleLeadershipAction(action, id) {
     leadershipSet("posicionamento", {
       missao: inputValue("lcPosMissao"),
       visao: inputValue("lcPosVisao"),
-      valores: linesToArray(inputValue("lcPosValores")),
+      valores: [...document.querySelectorAll("[data-position-value]")].map((element) => element.dataset.positionValue),
       dataAtualizacao: new Date().toISOString().slice(0, 10),
       aprovadoPor: currentUser?.name || "Hugo Melo",
     });
     refreshLeadershipScreen("Posicionamento salvo.");
+    return;
+  }
+  if (action === "add-position-value" || action === "suggest-position-value") {
+    addLeadershipPositionValue(action === "suggest-position-value" ? id : "");
+    return;
+  }
+  if (action === "remove-position-value") {
+    [...document.querySelectorAll("[data-position-value]")].find((element) => element.dataset.positionValue === id)?.remove();
+    returnLeadershipPositionValueToSuggestions(id);
     return;
   }
   if (action.startsWith("new-")) void openLeadershipForm(action.replace("new-", ""));
@@ -2867,8 +2960,7 @@ function activeLeadershipRoles() {
 function updateNotificationBadge() {
   const badge = document.querySelector("[data-notification-badge]");
   if (!badge) return;
-  const previewCount = Number(badge.dataset.notificationPreview);
-  const count = previewCount || (Array.isArray(state.notifications) ? state.notifications.length : 0);
+  const count = Array.isArray(state.notifications) ? state.notifications.length : 0;
   badge.textContent = count > 10 ? "+10" : String(count);
   badge.hidden = count === 0;
 }
@@ -3210,7 +3302,7 @@ function viewLeadershipRecord(type, id) {
 }
 
 function viewLeadershipDay(date) {
-  const meetings = leadershipGet("acoes").filter((item) => item.data === date && /reunião/i.test(String(item.tipo || "")));
+  const meetings = leadershipGet("acoes").filter((item) => item.data === date);
   document.querySelector("#leadershipModalMount").innerHTML = `<div class="modal-overlay show" id="leadershipRecordModal"><div class="modal-box wide leadership-day-modal"><div class="modal-hd"><div><h3>Reuniões do dia</h3><p>${formatDate(date)}</p></div><button class="modal-close" data-lc-action="close-modal" type="button">${moduleIcon("close")}</button></div><div class="leadership-day-meetings">${meetings.map((meeting) => `<div class="leadership-day-meeting"><div><strong>${escapeHtml(meeting.descricao || meeting.tipo)}</strong><span>${escapeHtml(meeting.horaInicio || "Horário não informado")} ${meeting.horaFim ? ` às ${escapeHtml(meeting.horaFim)}` : ""}</span><em class="leadership-calendar-event-status ${leadershipMeetingStatusClass(meeting.status)}">${escapeHtml(meeting.status || "Programada")}</em></div><button class="module-history-btn" data-lc-action="view-meeting" data-id="${escapeHtml(meeting.id)}" type="button" title="Ver detalhes" aria-label="Ver detalhes">${moduleIcon("external")}</button></div>`).join("") || '<div class="empty-state">Nenhuma reunião encontrada.</div>'}</div></div></div>`;
 }
 
@@ -3279,28 +3371,28 @@ function renderRiskOpportunityModule() {
           <div class="kpi-icon" style="border-color:rgba(248,113,113,0.4); color:#F87171;">${moduleIcon("nao-conformidades")}</div>
           <div><div class="kpi-label">Riscos e oportunidades</div><div class="kpi-value big" id="riskKpiTotal">-</div></div>
         </div>
-        <div class="risk-kpi-detail">${moduleIcon("documentos")}<div class="kpi-caption" id="riskKpiTotalCaption">carregando...</div>${moduleIcon("arrow-right")}</div>
+        <div class="module-kpi-detail">${moduleIcon("documentos")}<div class="kpi-caption" id="riskKpiTotalCaption">carregando...</div>${moduleIcon("arrow-right")}</div>
       </article>
       <article class="kpi-card" style="--accent-line:#fb923c;">
         <div class="kpi-top">
           <div class="kpi-icon" style="border-color:rgba(251,146,60,0.4); color:#fb923c;">${moduleIcon("minus")}</div>
           <div><div class="kpi-label">Críticos/Altos</div><div class="kpi-value big" id="riskKpiHigh">-</div></div>
         </div>
-        <div class="risk-kpi-detail">${moduleIcon("bar-chart")}<div class="kpi-caption">Ações de alta prioridade<br>em andamento</div>${moduleIcon("arrow-right")}</div>
+        <div class="module-kpi-detail">${moduleIcon("bar-chart")}<div class="kpi-caption">Ações de alta prioridade<br>em andamento</div>${moduleIcon("arrow-right")}</div>
       </article>
       <article class="kpi-card" style="--accent-line:#34D399;">
         <div class="kpi-top">
           <div class="kpi-icon" style="border-color:rgba(52,211,153,0.4); color:#34D399;">${moduleIcon("check-circle")}</div>
           <div><div class="kpi-label">Objetivos da qualidade</div><div class="kpi-value big" id="riskKpiGoals">-</div></div>
         </div>
-        <div class="risk-kpi-detail">${moduleIcon("gear")}<div class="kpi-caption">Riscos mitigados ou<br>sob controle</div>${moduleIcon("arrow-right")}</div>
+        <div class="module-kpi-detail">${moduleIcon("gear")}<div class="kpi-caption">Riscos mitigados ou<br>sob controle</div>${moduleIcon("arrow-right")}</div>
       </article>
       <article class="kpi-card" style="--accent-line:#4fa3ff;">
         <div class="kpi-top">
           <div class="kpi-icon" style="border-color:rgba(47,143,240,0.4); color:#4fa3ff;">${moduleIcon("edit")}</div>
           <div><div class="kpi-label">Mudanças em execução</div><div class="kpi-value big" id="riskKpiChanges">-</div></div>
         </div>
-        <div class="risk-kpi-detail">${moduleIcon("users")}<div class="kpi-caption">Planos de ação em execução<br>com acompanhamento</div>${moduleIcon("arrow-right")}</div>
+        <div class="module-kpi-detail">${moduleIcon("users")}<div class="kpi-caption">Planos de ação em execução<br>com acompanhamento</div>${moduleIcon("arrow-right")}</div>
       </article>
     </div>
 
@@ -3526,28 +3618,28 @@ function renderContextModule() {
           <div class="kpi-icon context-reference-icon">${moduleIcon("modulos")}</div>
           <div><div class="kpi-label">Itens SWOT</div><div class="kpi-value big" id="ctxKpiSwot">-</div></div>
         </div>
-        <div class="kpi-detail-row">${moduleIcon("clipboard")}<div class="kpi-caption" id="ctxKpiSwotCaption">carregando...</div>${moduleIcon("arrow-right")}</div>
+        <div class="module-kpi-detail">${moduleIcon("clipboard")}<div class="kpi-caption" id="ctxKpiSwotCaption">carregando...</div>${moduleIcon("arrow-right")}</div>
       </article>
       <article class="kpi-card" style="--accent-line:#4fa3ff;">
         <div class="kpi-top">
           <div class="kpi-icon context-reference-icon">${moduleIcon("contexto")}</div>
           <div><div class="kpi-label">Partes interessadas</div><div class="kpi-value big" id="ctxKpiPartes">-</div></div>
         </div>
-        <div class="kpi-detail-row">${moduleIcon("eye-bars")}<div class="kpi-caption" id="ctxKpiPartesCaption">mapeadas e monitoradas</div>${moduleIcon("arrow-right")}</div>
+        <div class="module-kpi-detail">${moduleIcon("eye-bars")}<div class="kpi-caption" id="ctxKpiPartesCaption">mapeadas e monitoradas</div>${moduleIcon("arrow-right")}</div>
       </article>
       <article class="kpi-card" style="--accent-line:#34D399;">
         <div class="kpi-top">
           <div class="kpi-icon context-reference-icon">${moduleIcon("shield")}</div>
           <div><div class="kpi-label">Escopo do SGQ</div><div class="kpi-value" id="ctxKpiEscopo">-</div></div>
         </div>
-        <div class="kpi-detail-row">${moduleIcon("calendar-clock")}<div class="kpi-caption" id="ctxKpiEscopoCaption">-</div>${moduleIcon("arrow-right")}</div>
+        <div class="module-kpi-detail">${moduleIcon("calendar-clock")}<div class="kpi-caption" id="ctxKpiEscopoCaption">-</div>${moduleIcon("arrow-right")}</div>
       </article>
       <article class="kpi-card" style="--accent-line:#F2B705;">
         <div class="kpi-top">
           <div class="kpi-icon context-reference-icon">${moduleIcon("process-flow")}</div>
           <div><div class="kpi-label">Processos mapeados</div><div class="kpi-value big" id="ctxKpiProcessos">-</div></div>
         </div>
-        <div class="kpi-detail-row">${moduleIcon("org-chart")}<div class="kpi-caption" id="ctxKpiProcessosCaption">estratégicos, operacionais e de suporte</div>${moduleIcon("arrow-right")}</div>
+        <div class="module-kpi-detail">${moduleIcon("org-chart")}<div class="kpi-caption" id="ctxKpiProcessosCaption">estratégicos, operacionais e de suporte</div>${moduleIcon("arrow-right")}</div>
       </article>
     </div>
 
@@ -4481,7 +4573,6 @@ function riskModalsHtml() {
           </div>
           <div class="field"><label>Motivação e propósito</label><textarea class="input-basic" id="changeProposito" placeholder="Descreva o resultado pretendido e a razão para a mudança."></textarea></div>
         </section>
-
         <section class="change-plan-section">
           <div class="change-plan-section-title"><span>2</span> Planejamento da mudança <small>Cláusula 6.3</small></div>
           <div class="change-plan-stages">
@@ -4493,7 +4584,6 @@ function riskModalsHtml() {
             <article class="change-stage stage-effectiveness"><div class="change-stage-head"><span>${moduleIcon("shield")}</span><div><h4>Eficácia</h4><p>Critérios para confirmar o resultado</p></div></div><textarea class="input-basic" id="changeEficacia" placeholder="Defina como a eficácia será avaliada."></textarea><div class="stage-date"><label>Data da avaliação</label><input class="input-basic" type="date" id="changeEficaciaData"></div></article>
           </div>
         </section>
-
         <section class="change-plan-section change-plan-resources">
           <div class="change-plan-section-title"><span>3</span> Recursos e observações</div>
           <div class="change-plan-resource-grid">
@@ -4828,6 +4918,22 @@ let ncFilters = { origem: "", referencia: "", processo: "", setor: "", gravidade
 let ncDashYear = "todos";
 let ncDashDimension = "processo";
 
+function ncCompanyRecords(key) {
+  return getCompanyProfile().registry[key] || [];
+}
+
+function ncCompanyOptions(key, selected = "") {
+  return ncCompanyRecords(key)
+    .map((row) => `<option value="${escapeHtml(row.nome)}"${row.nome === selected ? " selected" : ""}>${escapeHtml(row.nome)}</option>`)
+    .join("");
+}
+
+function ncProcessOptions(selected = "") {
+  return contextGet("processos")
+    .map((row) => `<option value="${escapeHtml(row.nome)}"${row.nome === selected ? " selected" : ""}>${escapeHtml(row.nome)}</option>`)
+    .join("");
+}
+
 const ncCatalogConfig = {
   clientes: { title: "Clientes", prefix: "CLI", hasCode: true },
   fornecedores: { title: "Fornecedores", prefix: "FOR", hasCode: true },
@@ -4959,6 +5065,7 @@ function replaceNcTvButtonWithLink(button) {
 function renderNonConformityModule() {
   ncEvidenceCleanup?.();
   ensureNcData();
+  if (ncMainTab === "cadastros") ncMainTab = "registrar";
   currentDetailModule = "nao-conformidades";
   bindModuleHistoryActions();
   pageContent.classList.remove("risk-page-content", "context-page-content", "leadership-page-content");
@@ -4969,10 +5076,10 @@ function renderNonConformityModule() {
     })}
     <div id="ncKpis"></div>
     <div class="ctx-tabs" id="ncMainTabs">
-      ${[["registrar", "Registrar NC"], ["controle", "Controle"], ["cadastros", "Cadastros"], ["dashboards", "Dashboards"]].map(([id, label]) => `<button class="ctx-tab ${ncMainTab === id ? "active" : ""}" data-nc-tab="${id}" type="button">${label}</button>`).join("")}
+      ${[["registrar", "Registrar NC"], ["controle", "Controle"], ["dashboards", "Dashboards"]].map(([id, label]) => `<button class="ctx-tab ${ncMainTab === id ? "active" : ""}" data-nc-tab="${id}" type="button">${label}</button>`).join("")}
       <div class="module-tabs-actions toolbar-actions">${moduleHistoryControlsHtml("nao-conformidades")}</div>
     </div>
-    <div class="subtab-row" id="ncSubTabs"></div><div id="ncTabContent"></div><div id="ncModalMount"></div>`;
+    <div id="ncTabContent"></div><div id="ncModalMount"></div>`;
   pageContent.querySelectorAll("[data-nc-tab]").forEach((button) => button.addEventListener("click", () => {
     ncMainTab = button.dataset.ncTab;
     pageContent.querySelectorAll("[data-nc-tab]").forEach((item) => item.classList.toggle("active", item.dataset.ncTab === ncMainTab));
@@ -4992,28 +5099,20 @@ function renderNcKpis() {
   const late = actions.filter((row) => row.status !== "Concluída" && row.prazo && row.prazo < ncToday()).length;
   const closed = state.ncs.filter((row) => row.status === "Encerrado").length;
   pageContent.querySelector("#ncKpis").innerHTML = `<div class="kpi-row">
-    ${ncKpi("RNCs em aberto", open, `${awaiting} aguardando análise`, "#F87171", "nao-conformidades")}
-    ${ncKpi("Ações em andamento", running, "ações corretivas não concluídas", "#FBBF24", "plano")}
-    ${ncKpi("Ações atrasadas", late, "prazo vencido", "#fb923c", "notificacoes")}
-    ${ncKpi("Encerradas", closed, "eficácia comprovada", "#34D399", "auditorias")}
+    ${ncKpi("RNCs em aberto", open, `${awaiting} aguardando análise`, "#F87171", "nao-conformidades", "documentos")}
+    ${ncKpi("Ações em andamento", running, "ações corretivas não concluídas", "#FBBF24", "plano", "bar-chart")}
+    ${ncKpi("Ações atrasadas", late, "prazo vencido", "#fb923c", "notificacoes", "calendar-clock")}
+    ${ncKpi("Encerradas", closed, "eficácia comprovada", "#34D399", "auditorias", "check-circle")}
   </div>`;
 }
 
-function ncKpi(label, value, caption, color, icon) {
-  return `<article class="kpi-card" style="--accent-line:${color}"><div class="kpi-top"><div class="kpi-icon" style="border-color:${hexToRgba(color, .4)};color:${color}">${moduleIcon(icon)}</div><div><div class="kpi-label">${label}</div><div class="kpi-value big">${value}</div></div></div><div class="kpi-caption">${caption}</div></article>`;
+function ncKpi(label, value, caption, color, icon, detailIcon) {
+  return `<article class="kpi-card" style="--accent-line:${color}"><div class="kpi-top"><div class="kpi-icon" style="border-color:${hexToRgba(color, .4)};color:${color}">${moduleIcon(icon)}</div><div><div class="kpi-label">${label}</div><div class="kpi-value big">${value}</div></div></div><div class="module-kpi-detail">${moduleIcon(detailIcon)}<div class="kpi-caption">${caption}</div>${moduleIcon("arrow-right")}</div></article>`;
 }
 
 function renderNcTab() {
   saveModuleTabs("nao-conformidades");
-  const sub = pageContent.querySelector("#ncSubTabs");
-  sub.innerHTML = ncMainTab === "cadastros" ? Object.entries(ncCatalogConfig).map(([id, cfg]) => `<button class="subtab-pill ${ncSubTab === id ? "active" : ""}" data-nc-subtab="${id}" type="button">${cfg.title}</button>`).join("") : "";
-  sub.hidden = ncMainTab !== "cadastros";
-  sub.querySelectorAll("[data-nc-subtab]").forEach((button) => button.addEventListener("click", () => {
-    ncSubTab = button.dataset.ncSubtab;
-    animateTabChange(content, renderNcTab);
-  }));
   const content = pageContent.querySelector("#ncTabContent");
-  if (ncMainTab === "cadastros") content.innerHTML = ncCatalogHtml();
   if (ncMainTab === "registrar") content.innerHTML = ncRegisterHtml();
   if (ncMainTab === "controle") content.innerHTML = ncControlHtml();
   if (ncMainTab === "dashboards") content.innerHTML = ncDashboardHtml();
@@ -5027,7 +5126,6 @@ function ncCatalogHtml() {
 }
 
 function ncRegisterHtml() {
-  const options = (key) => state.ncCatalogs[key].map((row) => `<option value="${escapeHtml(row.nome)}">${escapeHtml(row.nome)}</option>`).join("");
   const disabled = canEditModule("nao-conformidades") ? "" : "disabled";
   return `<section class="form-card nc-register-form">
     <div class="nc-register-head"><h2 class="dcc-title">Registrar Não Conformidade</h2><p class="dcc-sub nc-form-intro">O número é gerado automaticamente · próximo: <strong class="mono">${ncNextNumber()}</strong></p></div>
@@ -5036,10 +5134,11 @@ function ncRegisterHtml() {
         <div class="field-row2"><label class="field">Data de origem<input class="input-basic" id="ncData" type="date" value="${ncToday()}" ${disabled}></label><label class="field">Código do item<input class="input-basic" id="ncItem" placeholder="Ex.: PRD-4471" ${disabled}></label></div>
         <div class="field-row2"><label class="field">Origem<select class="input-basic" id="ncOrigin" ${disabled}><option value="">Selecione...</option><option>Interno</option><option>Fornecedor</option><option>Cliente</option></select></label><label class="field" id="ncReferenceWrap" hidden>Referência<select class="input-basic" id="ncReference" ${disabled}></select></label></div>
         <label class="field" id="ncSupplierEmailWrap" hidden>E-mail do fornecedor<input class="input-basic" id="ncSupplierEmail" type="email" maxlength="254" autocomplete="email" ${disabled}></label>
-        <label class="field">Setor<select class="input-basic" id="ncSector" ${disabled}><option value="">Selecione...</option>${options("setores")}</select></label>
+        <div class="field-row2"><label class="field">Cliente<select class="input-basic" id="ncClient" ${disabled}><option value="">Selecione...</option>${ncCompanyOptions("clientes")}</select></label><label class="field">Fornecedor<select class="input-basic" id="ncSupplier" ${disabled}><option value="">Selecione...</option>${ncCompanyOptions("fornecedores")}</select></label></div>
+        <label class="field">Setor<select class="input-basic" id="ncSector" ${disabled}><option value="">Selecione...</option>${ncCompanyOptions("setores")}</select></label>
       </div>
       <div class="nc-register-column nc-register-column-right">
-        <div class="field-row2"><label class="field">Gravidade<select class="input-basic" id="ncSeverity" ${disabled}><option>Menor</option><option selected>Média</option><option>Maior</option></select></label><label class="field">Processo envolvido<select class="input-basic" id="ncProcess" ${disabled}><option value="">Selecione...</option>${options("processos")}</select></label></div>
+        <div class="field-row2"><label class="field">Gravidade<select class="input-basic" id="ncSeverity" ${disabled}><option>Menor</option><option selected>Média</option><option>Maior</option></select></label><label class="field">Processo envolvido<select class="input-basic" id="ncProcess" ${disabled}><option value="">Selecione...</option>${ncProcessOptions()}</select></label></div>
         <label class="field nc-description-field">Descrição da não conformidade<textarea class="input-basic" id="ncDescription" ${disabled}></textarea></label>
         <div class="field nc-client-pdf-field" id="ncClientPdfWrap" hidden><label for="ncClientPdf">RNCs enviadas pelo cliente</label><input class="input-basic" id="ncClientPdf" type="file" accept="application/pdf,.pdf" multiple ${disabled}><div id="ncClientPdfList"></div></div>
         <div class="field"><label for="ncEvidence">Evidências da não conformidade</label><input class="input-basic" id="ncEvidence" type="file" multiple ${disabled}><div id="ncEvidenceList"></div></div>
@@ -5053,11 +5152,11 @@ function ncRegisterHtml() {
 }
 
 function ncControlHtml() {
-  const values = (key) => state.ncCatalogs[key].map((row) => row.nome);
+  const values = (key) => key === "processos" ? contextGet("processos").map((row) => row.nome) : ncCompanyRecords(key).map((row) => row.nome);
   const option = (items, selected) => `<option value="">Todos</option>${items.map((item) => `<option ${selected === item ? "selected" : ""}>${escapeHtml(item)}</option>`).join("")}`;
   const filtered = state.ncs.filter((row) => {
-    const haystack = `${row.id} ${row.codigoItem} ${row.descricao} ${row.origemRef} ${row.setor} ${row.processo}`.toLowerCase();
-    return (!ncFilters.origem || row.origem === ncFilters.origem) && (!ncFilters.referencia || row.origemRef === ncFilters.referencia) && (!ncFilters.processo || row.processo === ncFilters.processo) && (!ncFilters.setor || row.setor === ncFilters.setor) && (!ncFilters.gravidade || row.gravidade === ncFilters.gravidade) && (!ncFilters.status || row.status === ncFilters.status) && (!ncFilters.busca || haystack.includes(ncFilters.busca.toLowerCase()));
+    const haystack = `${row.id} ${row.codigoItem} ${row.descricao} ${row.origemRef} ${row.cliente} ${row.fornecedor} ${row.setor} ${row.processo}`.toLowerCase();
+    return (!ncFilters.origem || row.origem === ncFilters.origem) && (!ncFilters.referencia || [row.origemRef, row.cliente, row.fornecedor].includes(ncFilters.referencia)) && (!ncFilters.processo || row.processo === ncFilters.processo) && (!ncFilters.setor || row.setor === ncFilters.setor) && (!ncFilters.gravidade || row.gravidade === ncFilters.gravidade) && (!ncFilters.status || row.status === ncFilters.status) && (!ncFilters.busca || haystack.includes(ncFilters.busca.toLowerCase()));
   }).sort((a, b) => String(b.id).localeCompare(String(a.id)));
   return `<div class="filter-bar">
     ${ncFilterSelect("origem", "Origem", ["Interno", "Fornecedor", "Cliente"])}
@@ -5179,7 +5278,7 @@ function updateNcReference() {
   const supplierEmailWrap = pageContent.querySelector("#ncSupplierEmailWrap");
   if (supplierEmailWrap) supplierEmailWrap.hidden = origin !== "Fornecedor";
   const key = origin === "Cliente" ? "clientes" : "fornecedores";
-  select.innerHTML = `<option value="">Selecione...</option>${state.ncCatalogs[key].map((row) => `<option>${escapeHtml(row.nome)}</option>`).join("")}`;
+  select.innerHTML = `<option value="">Selecione...</option>${ncCompanyOptions(key)}`;
 }
 
 async function saveNewNc() {
@@ -5200,7 +5299,7 @@ async function saveNewNc() {
   catch (error) { toast(error.message); return; }
   const evidence = { name: attachments.map((file) => file.name).join(", ") };
   const clientPdf = { name: clientAttachments.map((file) => file.name).join(", ") };
-  const rnc = { id: ncNextNumber(), dataOrigem: value("#ncData") || ncToday(), codigoItem: value("#ncItem"), origem: origin, origemRef: origin === "Interno" ? "" : reference, setor: value("#ncSector"), processo: value("#ncProcess"), gravidade: value("#ncSeverity"), reincidente: pageContent.querySelector("#ncRepeat")?.checked || false, descricao: value("#ncDescription"), evidencia: evidence?.name || "", rncClientePdf: origin === "Cliente" ? clientPdf?.name || "" : "", status: "Aguardando análise", ishikawa: { metodo: "", maquina: "", maoObra: "", material: "", medicao: "", meioAmbiente: "", causaRaiz: "" }, acoes: [], eficaciaIniciadaEm: "", encerradoEm: "", historico: [] };
+  const rnc = { id: ncNextNumber(), dataOrigem: value("#ncData") || ncToday(), codigoItem: value("#ncItem"), origem: origin, origemRef: origin === "Interno" ? "" : reference, cliente: value("#ncClient"), fornecedor: value("#ncSupplier"), setor: value("#ncSector"), processo: value("#ncProcess"), gravidade: value("#ncSeverity"), reincidente: pageContent.querySelector("#ncRepeat")?.checked || false, descricao: value("#ncDescription"), evidencia: evidence?.name || "", rncClientePdf: origin === "Cliente" ? clientPdf?.name || "" : "", status: "Aguardando análise", ishikawa: { metodo: "", maquina: "", maoObra: "", material: "", medicao: "", meioAmbiente: "", causaRaiz: "" }, acoes: [], eficaciaIniciadaEm: "", encerradoEm: "", historico: [] };
   ncAddHistory(rnc, `RNC aberta por ${currentUser?.name || "Usuário"}.`);
   rnc.evidencias = attachments;
   rnc.rncClienteArquivos = clientAttachments;
@@ -5220,12 +5319,12 @@ function openNcEdit(id) {
   const row = state.ncs.find((item) => item.id === id);
   if (!row || !canEditModule("nao-conformidades")) return;
   const selected = (value, current) => value === current ? "selected" : "";
-  const options = (key, current) => state.ncCatalogs[key].map((item) => `<option value="${escapeHtml(item.nome)}" ${selected(item.nome, current)}>${escapeHtml(item.nome)}</option>`).join("");
   const referenceKey = row.origem === "Cliente" ? "clientes" : "fornecedores";
   mountNcModal(`<div class="modal-box wide"><div class="modal-hd"><div><h3>Editar ${escapeHtml(row.id)}</h3><p>Atualize os dados principais da não conformidade.</p></div><button class="modal-close" data-nc-close>${moduleIcon("close")}</button></div>
     <div class="field-row2"><label class="field">Data de origem<input class="input-basic" id="ncEditData" type="date" value="${escapeHtml(row.dataOrigem || ncToday())}"></label><label class="field">Código do item<input class="input-basic" id="ncEditItem" value="${escapeHtml(row.codigoItem || "")}"></label></div>
-    <div class="field-row2"><label class="field">Origem<select class="input-basic" id="ncEditOrigin"><option ${selected("Interno", row.origem)}>Interno</option><option ${selected("Fornecedor", row.origem)}>Fornecedor</option><option ${selected("Cliente", row.origem)}>Cliente</option></select></label><label class="field" id="ncEditReferenceWrap" ${row.origem === "Interno" ? "hidden" : ""}>Referência<select class="input-basic" id="ncEditReference"><option value="">Selecione...</option>${options(referenceKey, row.origemRef)}</select></label></div>
-    <div class="field-row2"><label class="field">Setor<select class="input-basic" id="ncEditSector"><option value="">Selecione...</option>${options("setores", row.setor)}</select></label><label class="field">Processo envolvido<select class="input-basic" id="ncEditProcess"><option value="">Selecione...</option>${options("processos", row.processo)}</select></label></div>
+    <div class="field-row2"><label class="field">Origem<select class="input-basic" id="ncEditOrigin"><option ${selected("Interno", row.origem)}>Interno</option><option ${selected("Fornecedor", row.origem)}>Fornecedor</option><option ${selected("Cliente", row.origem)}>Cliente</option></select></label><label class="field" id="ncEditReferenceWrap" ${row.origem === "Interno" ? "hidden" : ""}>Referência<select class="input-basic" id="ncEditReference"><option value="">Selecione...</option>${ncCompanyOptions(referenceKey, row.origemRef)}</select></label></div>
+    <div class="field-row2"><label class="field">Cliente<select class="input-basic" id="ncEditClient"><option value="">Selecione...</option>${ncCompanyOptions("clientes", row.cliente || "")}</select></label><label class="field">Fornecedor<select class="input-basic" id="ncEditSupplier"><option value="">Selecione...</option>${ncCompanyOptions("fornecedores", row.fornecedor || "")}</select></label></div>
+    <div class="field-row2"><label class="field">Setor<select class="input-basic" id="ncEditSector"><option value="">Selecione...</option>${ncCompanyOptions("setores", row.setor)}</select></label><label class="field">Processo envolvido<select class="input-basic" id="ncEditProcess"><option value="">Selecione...</option>${ncProcessOptions(row.processo)}</select></label></div>
     <div class="field-row2"><label class="field">Gravidade<select class="input-basic" id="ncEditSeverity"><option ${selected("Menor", row.gravidade)}>Menor</option><option ${selected("Média", row.gravidade)}>Média</option><option ${selected("Maior", row.gravidade)}>Maior</option></select></label><label class="check-row nc-edit-repeat"><input type="checkbox" id="ncEditRepeat" ${row.reincidente ? "checked" : ""}> Esta não conformidade é reincidente</label></div>
     <label class="field" id="ncEditSupplierEmailWrap" ${row.origem === "Fornecedor" ? "" : "hidden"}>E-mail do fornecedor<input class="input-basic" id="ncEditSupplierEmail" type="email" maxlength="254" value="${escapeHtml(row.fornecedorEmail || "")}"></label>
     <label class="field">Descrição da não conformidade<textarea class="input-basic" id="ncEditDescription">${escapeHtml(row.descricao || "")}</textarea></label>
@@ -5260,7 +5359,7 @@ function updateNcEditReference() {
   if (!wrap || !select) return;
   wrap.hidden = origin === "Interno";
   const key = origin === "Cliente" ? "clientes" : "fornecedores";
-  select.innerHTML = `<option value="">Selecione...</option>${state.ncCatalogs[key].map((item) => `<option value="${escapeHtml(item.nome)}">${escapeHtml(item.nome)}</option>`).join("")}`;
+  select.innerHTML = `<option value="">Selecione...</option>${ncCompanyOptions(key)}`;
 }
 
 async function saveNcEdit(id) {
@@ -5296,6 +5395,8 @@ async function saveNcEdit(id) {
     codigoItem: value("#ncEditItem"),
     origem: origin,
     origemRef: origin === "Interno" ? "" : reference,
+    cliente: value("#ncEditClient"),
+    fornecedor: value("#ncEditSupplier"),
     fornecedorEmail: origin === "Fornecedor" ? supplierEmail : "",
     setor: value("#ncEditSector"),
     processo: value("#ncEditProcess"),
@@ -5378,7 +5479,7 @@ function openNcDetail(id) {
   const actionRows = (rnc.acoes || []).map((action) => `<div class="acao-item" data-nc-action-id="${escapeHtml(action.id)}"><div class="acao-item-hd"><div><div class="acao-item-desc">${escapeHtml(action.desc)}</div><div class="acao-item-meta"><span>Prazo: <b>${ncDate(action.prazo)}</b></span><span>Responsável: <b>${escapeHtml(action.responsavel)}</b></span>${action.evidencia ? `<span>Arquivo: <b>${escapeHtml(action.evidencia)}</b></span>` : ""}</div></div>${ncStatusHtml(ncActionEffectiveStatus(action))}</div></div>`).join("");
   const days = rnc.eficaciaIniciadaEm ? Math.floor((Date.now() - new Date(`${rnc.eficaciaIniciadaEm}T00:00:00`).getTime()) / 86400000) : 0;
   mountNcModal(`<div class="modal-box xwide nc-rnc-modal"><div class="modal-hd"><div><h3>${escapeHtml(rnc.id)}</h3><p>Registro de Não Conformidade · ${escapeHtml(rnc.status)}</p></div><div class="nc-modal-tools"><button class="btn-sm" id="ncPrint" type="button">${moduleIcon("download")} Imprimir PDF</button><button class="modal-close" data-nc-close type="button" title="Fechar" aria-label="Fechar">${moduleIcon("close")}</button></div></div>
-    <div class="rnc-detail-grid">${[["Data de origem", ncDate(rnc.dataOrigem)], ["Código do item", rnc.codigoItem || "-"], ["Origem", rnc.origem === "Interno" ? "Interno" : `${rnc.origem} · ${rnc.origemRef}`], ["Setor", rnc.setor], ["Processo", rnc.processo], ["Gravidade", rnc.gravidade], ["Status", rnc.status], ["Reincidente", rnc.reincidente ? "Sim" : "Não"], ["RNC do cliente", rnc.rncClientePdf || "-"], ["Evidências", `${attachments.length} arquivo(s)`], ["Ações", `${count.done}/${count.total}`]].map(([label, value]) => `<div class="detail-item"><div class="l">${label}</div><div class="v">${escapeHtml(value)}</div></div>`).join("")}</div>
+    <div class="rnc-detail-grid">${[["Data de origem", ncDate(rnc.dataOrigem)], ["Código do item", rnc.codigoItem || "-"], ["Origem", rnc.origem === "Interno" ? "Interno" : `${rnc.origem} · ${rnc.origemRef}`], ["Cliente", rnc.cliente || "-"], ["Fornecedor", rnc.fornecedor || "-"], ["Setor", rnc.setor], ["Processo", rnc.processo], ["Gravidade", rnc.gravidade], ["Status", rnc.status], ["Reincidente", rnc.reincidente ? "Sim" : "Não"], ["RNC do cliente", rnc.rncClientePdf || "-"], ["Evidências", `${attachments.length} arquivo(s)`], ["Ações", `${count.done}/${count.total}`]].map(([label, value]) => `<div class="detail-item"><div class="l">${label}</div><div class="v">${escapeHtml(value)}</div></div>`).join("")}</div>
     <section class="rnc-section"><div class="rnc-section-hd"><h4>Descrição da não conformidade</h4></div><p>${escapeHtml(rnc.descricao)}</p></section>
     <section class="rnc-section"><div class="rnc-section-hd"><h4>Análise de causa · Ishikawa <span class="num">6M</span></h4>${canEditModule("nao-conformidades") ? `<button class="btn-sm" id="ncEditIsh">${moduleIcon("edit")} Editar análise</button>` : ""}</div>${ishFilled ? `<div class="ishikawa-grid">${[["Método", ish.metodo], ["Máquina", ish.maquina], ["Mão de obra", ish.maoObra], ["Material", ish.material], ["Medição", ish.medicao], ["Meio ambiente", ish.meioAmbiente]].map(([label, value]) => `<div class="ishikawa-cell"><div class="m-label">${label}</div><div class="m-text">${escapeHtml(value || "-")}</div></div>`).join("")}</div>${ish.causaRaiz ? `<div class="causa-raiz-box"><div class="crlabel">Conclusão / Causa raiz</div><div class="crtext">${escapeHtml(ish.causaRaiz)}</div></div>` : ""}` : `<div class="empty-state">Análise de causa ainda não preenchida.</div>`}</section>
     <section class="rnc-section"><div class="rnc-section-hd"><h4>Ações corretivas <span class="num">${count.done}/${count.total}</span></h4>${canEditModule("nao-conformidades") ? `<button class="btn-sm" id="ncManageActions">${moduleIcon("edit")} Gerenciar ações</button>` : ""}</div>${actionRows || `<div class="empty-state">Nenhuma ação cadastrada.</div>`}</section>
@@ -6854,28 +6955,20 @@ function reportExportCard(title, format, description, queryFormat, icon) {
 }
 
 async function renderGerenciamento() {
-  setTopbar("Gerenciamento", "Painel de controle do sistema");
+  setTopbar("Gerenciamento", "Painel de controle do sistema. Acompanhe métricas, atividades e a saúde da plataforma.");
   pageContent.classList.remove("risk-page-content");
   pageContent.classList.remove("context-page-content");
+  pageContent.classList.add("admin-overview-page");
+  const globalSearch = document.querySelector("#dashboardGlobalSearch");
+  if (globalSearch) globalSearch.placeholder = "Buscar empresas, usuários, módulos, registros...";
   pageContent.innerHTML = `
-    <div class="admin-loading qp-card">Carregando dados de gerenciamento...</div>
+    <div class="admin-overview-loading admin-loading qp-card">Carregando visão geral...</div>
   `;
 
   try {
-    const [response, operationsResponse] = await Promise.all([
-      fetch("/api/admin/overview", { headers: { Accept: "application/json" }, cache: "no-store" }),
-      fetch("/api/admin/operations", { headers: { Accept: "application/json" }, cache: "no-store" }),
-    ]);
-    if (response.status === 403) {
-      pageContent.innerHTML = `${viewHeader("Acesso restrito", "Esta área está disponível somente para o administrador.")}`;
-      return;
-    }
-    if (!response.ok) throw new Error("Falha ao carregar gerenciamento.");
-
-    const data = await response.json();
-    data.operations = operationsResponse.ok ? await operationsResponse.json() : null;
+    const data = await loadAdminDashboardData();
     pageContent.innerHTML = adminOverviewHtml(data);
-    bindAdminActions();
+    bindAdminOverviewActions();
   } catch (error) {
     console.warn(error);
     pageContent.innerHTML = `
@@ -6888,6 +6981,509 @@ async function renderGerenciamento() {
   }
 }
 
+async function loadAdminDashboardData() {
+  const [response, operationsResponse] = await Promise.all([
+    fetch("/api/admin/overview", { headers: { Accept: "application/json" }, cache: "no-store" }),
+    fetch("/api/admin/operations", { headers: { Accept: "application/json" }, cache: "no-store" }),
+  ]);
+  if (response.status === 403) throw new Error("Acesso restrito.");
+  if (!response.ok) throw new Error("Falha ao carregar gerenciamento.");
+  const data = await response.json();
+  data.operations = operationsResponse.ok ? await operationsResponse.json() : null;
+  return data;
+}
+
+async function renderAdminLegacySection(view) {
+  const titles = {
+    "admin-empresas": ["Empresas", "Cadastros, planos e informações das empresas."],
+    "admin-usuarios": ["Usuários", "Usuários e acessos cadastrados na plataforma."],
+    "admin-planos": ["Planos e pagamentos", "Planos, cobrança e ocupação de acessos."],
+    "admin-seguranca": ["Segurança", "Acessos e eventos de segurança da plataforma."],
+    "admin-backups": ["Backups", "Execução, verificação e histórico dos backups."],
+    "admin-logs": ["Logs e auditoria", "Histórico técnico e administrativo completo."],
+  };
+  const [title, subtitle] = titles[view] || titles["admin-empresas"];
+  const hideHeader = view === "admin-usuarios";
+  setTopbar(title, subtitle);
+  pageContent.classList.remove("admin-overview-page");
+  pageContent.innerHTML = `
+    ${hideHeader ? "" : viewHeader(title, subtitle)}
+    <div class="admin-loading qp-card">Carregando dados de gerenciamento...</div>
+  `;
+
+  try {
+    const data = await loadAdminDashboardData();
+    if (view === "admin-empresas") {
+      pageContent.innerHTML = adminCompaniesHtml(data);
+      bindAdminCompaniesActions();
+    } else {
+      pageContent.innerHTML = adminManagementHtml(data, title, subtitle, hideHeader);
+      bindAdminActions();
+    }
+  } catch (error) {
+    console.warn(error);
+    pageContent.innerHTML = `
+      ${hideHeader ? "" : viewHeader(title, subtitle)}
+      <article class="qp-card">
+        <h3>Não foi possível carregar</h3>
+        <p class="qp-muted">Verifique se o servidor local está rodando e tente novamente.</p>
+      </article>
+    `;
+  }
+}
+
+let adminCompaniesDetailData = null;
+
+function adminCompaniesHtml(data) {
+  adminCompaniesDetailData = data;
+  const summary = data.summary || {};
+  const companies = data.companies || [];
+  const plans = [...new Set(companies.map((company) => String(company.plan || "").trim()).filter(Boolean))];
+  const statuses = [...new Set(companies
+    .map((company) => String(company.billingStatus || "").trim())
+    .filter((status) => status && !isTestBillingStatus(status)))];
+  const totalUsers = Number(summary.accesses || 0);
+  const activeUsers = Number(summary.activeAccesses || 0);
+  const activePercent = totalUsers ? Math.round(activeUsers / totalUsers * 100) : 0;
+
+  return `
+    <main class="admin-companies" aria-label="Empresas da plataforma">
+      <section class="admin-company-metrics" aria-label="Resumo de empresas">
+        ${adminCompanyMetric("Empresas cadastradas", Number(summary.companies || 0), "Total na plataforma", "building", "blue")}
+        ${adminCompanyMetric("Usuários totais", totalUsers, "Acessos cadastrados", "users", "cyan")}
+        ${adminCompanyMetric("Usuários ativos", activeUsers, totalUsers ? `${activePercent}% dos usuários` : "Nenhum usuário cadastrado", "contexto", "green")}
+        ${adminCompanyMetric("Planos ativos", Number(summary.payingCompanies || 0), "Empresas com plano ativo", "plano", "purple")}
+      </section>
+
+      <section class="admin-companies-panel">
+        <div class="admin-companies-heading">
+          <div><h2>Empresas da plataforma</h2><p>Visualize e gerencie as empresas cadastradas no sistema.</p></div>
+          <button class="admin-company-primary" type="button" data-admin-company-new>${moduleIcon("plus")} Nova empresa</button>
+        </div>
+        <div class="admin-companies-filters">
+          <label class="admin-company-search"><span class="sr-only">Buscar empresas</span>${moduleIcon("search")}<input type="search" data-admin-company-search placeholder="Buscar por empresa, CNPJ ou plano..." /></label>
+          <label><span class="sr-only">Filtrar por plano</span><select data-admin-company-plan><option value="">Todos os planos</option>${plans.map((plan) => `<option value="${escapeHtml(plan)}">${escapeHtml(plan)}</option>`).join("")}</select></label>
+          <label><span class="sr-only">Filtrar por status</span><select data-admin-company-status><option value="">Todos os status</option>${statuses.map((status) => `<option value="${escapeHtml(status)}">${escapeHtml(status)}</option>`).join("")}</select></label>
+        </div>
+        <div class="admin-companies-table-wrap">
+          <table class="admin-companies-table">
+            <thead><tr><th>Empresa</th><th>CNPJ</th><th>Plano</th><th>Usuários</th><th>Status</th><th>Última atividade</th><th><span class="sr-only">Ações</span></th></tr></thead>
+            <tbody>
+              ${companies.length ? companies.map(adminCompanyRow).join("") : `<tr><td colspan="7"><div class="admin-empty-state">Nenhuma empresa cadastrada.</div></td></tr>`}
+            </tbody>
+          </table>
+        </div>
+        <footer class="admin-companies-footer"><span data-admin-company-count>${companies.length === 1 ? "1 empresa cadastrada" : `${companies.length} empresas cadastradas`}</span></footer>
+      </section>
+      ${adminCompanyDetailModalHtml()}
+      ${adminCompanyEditorModalHtml()}
+      ${adminCompanyUserEditorModalHtml()}
+    </main>
+  `;
+}
+
+function adminCompanyMetric(label, value, caption, icon, tone) {
+  return `<article class="admin-company-metric tone-${tone}">
+    <span class="admin-metric-icon">${moduleIcon(icon)}</span>
+    <span><small>${escapeHtml(label)}</small><strong>${escapeHtml(value)}</strong><em>${escapeHtml(caption)}</em></span>
+  </article>`;
+}
+
+function adminCompanyRow(company) {
+  const initials = String(company.name || "Empresa").split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase();
+  const status = company.billingStatus || "Sem status";
+  const visibleStatus = displayBillingStatus(status);
+  const normalizedStatus = status.toLowerCase();
+  const statusClass = normalizedStatus === "ativo" ? "is-active" : normalizedStatus === "pendente" || normalizedStatus === "teste" ? "is-pending" : "is-inactive";
+  const search = `${company.name || ""} ${company.cnpj || ""} ${company.plan || ""} ${status}`.toLowerCase();
+  return `<tr data-admin-company-row data-admin-company-search="${escapeHtml(search)}" data-admin-company-plan="${escapeHtml(company.plan || "")}" data-admin-company-status="${escapeHtml(status)}">
+    <td><button class="admin-company-name" type="button" data-admin-company-details data-company-id="${Number(company.id) || ""}"><span class="admin-company-avatar">${escapeHtml(initials || "E")}</span><span><strong>${escapeHtml(company.name || "Empresa")}</strong><small>${escapeHtml(company.certification || "Sem certificação informada")}</small></span></button></td>
+    <td>${escapeHtml(company.cnpj || "Não informado")}</td>
+    <td>${planBadge(company.plan)}</td>
+    <td>${Number(company.active_access_count || 0)} ativos / ${Number(company.access_count || 0)}</td>
+    <td>${visibleStatus ? `<span class="admin-company-status ${statusClass}"><i></i>${escapeHtml(visibleStatus)}</span>` : ""}</td>
+    <td>${escapeHtml(formatDateTime(company.last_activity_at))}</td>
+    <td><button class="admin-company-action" type="button" data-admin-company-details data-company-id="${Number(company.id) || ""}" title="Ver detalhes da empresa" aria-label="Ver detalhes de ${escapeHtml(company.name || "empresa")}">${moduleIcon("external")}</button></td>
+  </tr>`;
+}
+
+function adminCompanyDetailModalHtml() {
+  return `<div class="admin-company-detail-modal" data-admin-company-detail-modal hidden>
+    <div class="admin-company-modal-backdrop" data-admin-company-detail-close></div>
+    <section class="admin-company-detail-card" role="dialog" aria-modal="true" aria-labelledby="adminCompanyDetailTitle">
+      <button class="admin-company-detail-close" type="button" data-admin-company-detail-close aria-label="Fechar">${moduleIcon("close")}</button>
+      <div data-admin-company-detail-content></div>
+    </section>
+  </div>`;
+}
+
+function adminCompanyEditorModalHtml() {
+  return `<div class="admin-company-modal" data-admin-company-editor-modal hidden>
+    <div class="admin-company-modal-backdrop" data-admin-company-editor-close></div>
+    <section class="admin-company-modal-card" role="dialog" aria-modal="true" aria-labelledby="adminCompanyModalTitle">
+      <header><div><h2 id="adminCompanyModalTitle">Nova empresa</h2><p id="adminCompanyModalSubtitle">Preencha os dados da empresa.</p></div><button type="button" data-admin-company-editor-close aria-label="Fechar">${moduleIcon("close")}</button></header>
+      ${adminCompanyFormHtml()}
+    </section>
+  </div>`;
+}
+
+function adminCompanyUserEditorModalHtml() {
+  return `<div class="admin-company-user-modal" data-admin-company-user-editor hidden>
+    <div class="admin-company-modal-backdrop" data-admin-company-user-editor-close></div>
+    <section class="admin-company-user-editor-card" role="dialog" aria-modal="true" aria-labelledby="adminCompanyUserEditorTitle">
+      <header><div><h2 id="adminCompanyUserEditorTitle">Adicionar usuário</h2><p id="adminCompanyUserEditorSubtitle">O convite será enviado para o e-mail informado.</p></div><button type="button" data-admin-company-user-editor-close aria-label="Fechar">${moduleIcon("close")}</button></header>
+      <form id="adminCompanyUserEditorForm" class="admin-company-user-form">
+        <input type="hidden" name="companyId"><input type="hidden" name="userId">
+        <label><span>Nome</span><input name="displayName" required placeholder="Nome do usuário"></label>
+        <label><span>E-mail de acesso</span><input name="username" type="email" required autocomplete="email" placeholder="usuario@empresa.com.br"></label>
+        <label><span>Cargo</span><select name="role" required data-admin-company-user-role></select></label>
+        <p class="admin-company-user-editor-note" data-admin-company-user-editor-note>Novos usuários recebem um convite para criar a própria senha.</p>
+        <footer><button class="btn-ghost" type="button" data-admin-company-user-editor-close>Cancelar</button><button class="btn-primary" type="submit">Salvar usuário</button></footer>
+      </form>
+    </section>
+  </div>`;
+}
+
+function adminCompanyDetailContent(company, users, logs) {
+  const profile = company.profileState?.company || {};
+  const settings = company.profileState?.settings || {};
+  const initials = String(company.name || "Empresa").split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase();
+  const status = company.billingStatus || "Sem status";
+  const visibleStatus = displayBillingStatus(status);
+  const showStatus = Boolean(visibleStatus);
+  const activeUsers = Number(company.active_access_count || 0);
+  const totalUsers = Number(company.access_count || 0);
+  const lastActivity = logs[0]?.createdAt || company.updatedAt || company.createdAt;
+  const administrator = users.find((user) => String(user.role || "").toLowerCase().includes("administrador")) || null;
+  const registeredModules = Object.entries(settings.moduleAccess || {}).filter(([, access]) => access && access !== "none");
+  const disabledModules = modules.filter((module) => !registeredModules.some(([moduleId]) => moduleId === module.id));
+  const tabs = [
+    ["overview", "Visão geral", "building"],
+    ["company", "Dados da empresa", "clipboard"],
+    ["users", `Usuários (${totalUsers})`, "users"],
+    ["plan", "Planos e pagamentos", "plano"],
+    ["modules", "Módulos e acessos", "modulos"],
+    ["security", "Segurança", "shield"],
+    ["history", "Histórico", "calendar-clock"],
+    ["settings", "Configurações", "configuracoes"],
+  ];
+  const detailRows = (rows) => rows.map(([label, value]) => `<div class="admin-company-detail-row"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value || "Não informado")}</strong></div>`).join("");
+
+  return `<header class="admin-company-detail-header">
+      <span class="admin-company-detail-avatar">${escapeHtml(initials || "E")}</span>
+      <div><div class="admin-company-detail-title"><h2 id="adminCompanyDetailTitle">${escapeHtml(company.name || "Empresa")}</h2>${showStatus ? `<span class="admin-company-status ${String(status).toLowerCase() === "ativo" ? "is-active" : "is-inactive"}"><i></i>${escapeHtml(status)}</span>` : ""}</div><p>${escapeHtml(profile.tradeName || company.name || "")}</p><small>CNPJ: ${escapeHtml(company.cnpj || "Não informado")}</small></div>
+      <div class="admin-company-detail-actions"><details class="admin-company-more-actions"><summary>${moduleIcon("configuracoes")} Mais ações</summary><a href="/api/admin/backup?companyId=${Number(company.id)}">${moduleIcon("download")} Backup da empresa</a></details></div>
+    </header>
+    <nav class="admin-company-detail-tabs" aria-label="Seções da empresa">${tabs.map(([key, label, icon], index) => `<button type="button" class="${index === 0 ? "is-active" : ""}" data-admin-company-detail-tab="${key}">${moduleIcon(icon)}<span>${escapeHtml(label)}</span></button>`).join("")}</nav>
+    <div class="admin-company-detail-body">
+      <section data-admin-company-detail-panel="overview">
+        <div class="admin-company-detail-grid">
+          <article class="admin-company-detail-section"><h3>Informações da empresa</h3>${detailRows([["Nome fantasia", profile.tradeName || company.name], ["Razão social", company.name], ["CNPJ", company.cnpj], ["Segmento", profile.segment], ["Porte", profile.size], ["Responsável legal", [profile.legalResponsibleName, profile.legalResponsibleRole].filter(Boolean).join(" · ")]])}</article>
+          <article class="admin-company-detail-section"><h3>Contato e endereço</h3>${detailRows([["Telefone", profile.phone], ["E-mail", profile.email], ["Site", profile.site], ["Endereço", profile.address], ["Bairro", profile.district], ["Cidade / UF", profile.cityUf], ["CEP", profile.cep]])}</article>
+          <aside class="admin-company-detail-side"><article class="admin-company-summary"><h3>Resumo rápido</h3><div><span><strong>${totalUsers}</strong>Usuários</span><span><strong>${activeUsers}</strong>Ativos</span><span><strong>${Number(company.accessLimit || 0)}</strong>Limite</span></div></article><article class="admin-company-admin"><h3>Administrador da empresa</h3>${administrator ? `<strong>${escapeHtml(administrator.displayName)}</strong><span>${escapeHtml(administrator.username)}</span><span>${escapeHtml(administrator.role || "Administrador")}</span>` : `<span>Nenhum administrador cadastrado.</span>`}</article><article class="admin-company-account-status"><h3>Situação da conta</h3>${detailRows([...(showStatus ? [["Status", visibleStatus]] : []), ["Plano atual", company.plan], ["Acessos", `${activeUsers} / ${Number(company.accessLimit || 0)}`], ["Última atividade", lastActivity ? formatDateTime(lastActivity) : "Não registrada"]])}</article></aside>
+        </div>
+      </section>
+      <section data-admin-company-detail-panel="company" hidden><article class="admin-company-detail-section admin-company-detail-wide"><h3>Dados cadastrais</h3>${profile.logo ? `<img class="admin-company-logo-preview" src="${escapeHtml(profile.logo)}" alt="Logo da empresa">` : ""}${detailRows([["Razão social", company.name], ["Nome fantasia", profile.tradeName], ["CNPJ", company.cnpj], ["Segmento", profile.segment], ["Porte", profile.size], ["Telefone", profile.phone], ["E-mail corporativo", profile.email], ["Site", profile.site], ["CEP", profile.cep], ["Logradouro", profile.address], ["Número", profile.number], ["Bairro", profile.district], ["Cidade / UF", profile.cityUf], ["Responsável legal", profile.legalResponsibleName], ["Cargo", profile.legalResponsibleRole], ["Certificação", company.certification || profile.certification], ["Escopo", company.scope || profile.scope], ["Data de cadastro", formatDateTime(company.createdAt || company.created_at)]])}</article></section>
+      <section data-admin-company-detail-panel="users" hidden>${adminCompanyDetailUsers(company, users)}</section>
+      <section data-admin-company-detail-panel="plan" hidden><article class="admin-company-detail-section admin-company-detail-wide"><h3>Plano e pagamentos</h3>${detailRows([["Plano atual", company.plan], ...(showStatus ? [["Situação do plano", visibleStatus], ["Cobrança", visibleStatus]] : []), ["Limite de acessos", String(company.accessLimit || 0)], ["Quantidade utilizada", `${activeUsers} de ${Number(company.accessLimit || 0)}`]])}</article></section>
+      <section data-admin-company-detail-panel="modules" hidden><article class="admin-company-detail-section admin-company-detail-wide"><h3>Módulos e acessos</h3><div class="admin-company-module-groups"><div><h4>Habilitados</h4>${registeredModules.length ? `<div class="admin-company-access-list">${registeredModules.map(([moduleId, access]) => `<span><strong>${escapeHtml(adminCompanyModuleLabel(moduleId))}</strong><em>${escapeHtml(access === "edit" ? "Edição" : "Visualização")}</em></span>`).join("")}</div>` : `<p class="admin-company-no-data">Nenhum módulo habilitado registrado.</p>`}</div><div><h4>Desabilitados</h4>${disabledModules.length ? `<div class="admin-company-access-list">${disabledModules.map((module) => `<span><strong>${escapeHtml(module.title)}</strong><em>Sem acesso</em></span>`).join("")}</div>` : `<p class="admin-company-no-data">Nenhum módulo desabilitado registrado.</p>`}</div></div></article></section>
+      <section data-admin-company-detail-panel="security" hidden><article class="admin-company-detail-section admin-company-detail-wide"><h3>Segurança</h3>${detailRows([["Usuários bloqueados", String(users.filter((user) => String(user.status).toLowerCase() === "bloqueado").length)], ["Último acesso", users.some((user) => user.lastLoginAt) ? formatDateTime(users.filter((user) => user.lastLoginAt).sort((a, b) => new Date(b.lastLoginAt) - new Date(a.lastLoginAt))[0]?.lastLoginAt) : "Não registrado"]])}${adminCompanyDetailLogs(logs.filter((log) => /login|mfa|password|csrf|session|security/i.test(log.eventType)), "Nenhum evento de segurança registrado.")}</article></section>
+      <section data-admin-company-detail-panel="history" hidden><article class="admin-company-detail-section admin-company-detail-wide"><h3>Histórico</h3>${adminCompanyHistoryTable(logs)}</article></section>
+      <section data-admin-company-detail-panel="settings" hidden><article class="admin-company-detail-section admin-company-detail-wide"><h3>Configurações administrativas</h3>${detailRows([...(showStatus ? [["Status da empresa", visibleStatus]] : []), ["Plano configurado", settings.companyAccess || company.plan], ["Tema", settings.theme]])}<a class="admin-company-inline-action" href="/api/admin/backup?companyId=${Number(company.id)}">${moduleIcon("download")} Backup da empresa</a></article></section>
+    </div>`;
+}
+
+function adminCompanyDetailUsers(company, users) {
+  return `<article class="admin-company-detail-section admin-company-detail-wide"><div class="admin-company-users-heading"><h3>Usuários vinculados</h3><button type="button" data-admin-company-user-add="${Number(company.id)}">${moduleIcon("plus")} Adicionar usuário</button></div>${users.length ? `<div class="admin-company-users-list">${users.map((user) => { const isActive = String(user.status).toLowerCase() === "ativo"; const isBlocked = String(user.status).toLowerCase() === "bloqueado"; const statusClass = isActive ? "is-active" : isBlocked ? "is-blocked" : "is-inactive"; const accessAction = isActive ? `<button type="button" data-admin-company-user-action="block" data-user='${adminPayload(user)}' title="Bloquear acesso">${moduleIcon("shield")}<span>Bloquear acesso</span></button>` : isBlocked ? `<button type="button" data-admin-company-user-action="unblock" data-user='${adminPayload(user)}' title="Desbloquear acesso">${moduleIcon("shield")}<span>Desbloquear acesso</span></button>` : ""; return `<div><span>${escapeHtml(initials(user.displayName || user.username || "U"))}</span><p><strong>${escapeHtml(user.displayName || user.username)}</strong><small>${escapeHtml(user.username)} · ${escapeHtml(user.role || "Sem cargo")} · ${escapeHtml(user.lastLoginAt ? `Último acesso: ${formatDateTime(user.lastLoginAt)}` : "Nunca acessou")}</small></p><em class="${statusClass}">${escapeHtml(user.status || "Sem status")}</em><div class="admin-company-user-actions"><button type="button" data-admin-company-user-action="role" data-user='${adminPayload(user)}' title="Gerenciar cargo">${moduleIcon("users")}<span>Cargo</span></button>${accessAction}<button type="button" data-admin-company-user-action="reset" data-user='${adminPayload(user)}' title="Resetar senha de acesso">${moduleIcon("key")}<span>Senha</span></button><button class="danger" type="button" data-admin-company-user-action="delete" data-user='${adminPayload(user)}' title="Excluir usuário">${moduleIcon("trash")}<span>Excluir</span></button></div></div>`; }).join("")}</div>` : `<p class="admin-company-no-data">Nenhum usuário cadastrado para esta empresa.</p>`}</article>`;
+}
+
+function adminCompanyDetailLogs(logs, emptyMessage) {
+  if (!logs.length) return `<p class="admin-company-no-data">${escapeHtml(emptyMessage)}</p>`;
+  return `<div class="admin-company-history-list">${logs.slice(0, 8).map((log) => `<div><span>${auditOutcomeBadge(log.outcome)}</span><p><strong>${escapeHtml(adminEventLabel(log.eventType))}</strong><small>${escapeHtml(formatDateTime(log.createdAt))} · ${escapeHtml(log.username || "Sistema")}</small></p></div>`).join("")}</div>`;
+}
+
+function adminCompanyHistoryTable(logs) {
+  if (!logs.length) return `<p class="admin-company-no-data">Nenhum evento registrado para esta empresa.</p>`;
+  return `<div class="admin-company-history-table-wrap"><table class="admin-company-history-table"><thead><tr><th>Data e hora</th><th>Evento</th><th>Usuário</th><th>Descrição</th><th>Resultado</th></tr></thead><tbody>${logs.slice(0, 12).map((log) => `<tr><td>${escapeHtml(formatDateTime(log.createdAt))}</td><td>${escapeHtml(adminEventLabel(log.eventType))}</td><td>${escapeHtml(log.username || "Sistema")}</td><td>${escapeHtml(adminEventLabel(log.eventType))}</td><td>${auditOutcomeBadge(log.outcome)}</td></tr>`).join("")}</tbody></table></div>`;
+}
+
+function adminCompanyModuleLabel(moduleId) {
+  return modules.find((module) => module.id === moduleId)?.title || String(moduleId || "Módulo").replace(/-/g, " ");
+}
+
+function bindAdminCompaniesActions() {
+  const search = pageContent.querySelector("[data-admin-company-search]");
+  const plan = pageContent.querySelector("[data-admin-company-plan]");
+  const status = pageContent.querySelector("[data-admin-company-status]");
+  const applyFilters = () => filterAdminCompanies(search?.value, plan?.value, status?.value);
+  search?.addEventListener("input", applyFilters);
+  plan?.addEventListener("change", applyFilters);
+  status?.addEventListener("change", applyFilters);
+  pageContent.querySelector("[data-admin-company-new]")?.addEventListener("click", openAdminCompanyEditor);
+  pageContent.querySelectorAll("[data-admin-company-details]").forEach((button) => button.addEventListener("click", () => openAdminCompanyDetails(Number(button.dataset.companyId))));
+  pageContent.querySelectorAll("[data-admin-company-detail-close]").forEach((button) => button.addEventListener("click", closeAdminCompanyDetails));
+  pageContent.querySelectorAll("[data-admin-company-editor-close]").forEach((button) => button.addEventListener("click", closeAdminCompanyEditor));
+  pageContent.querySelectorAll("[data-admin-company-user-editor-close]").forEach((button) => button.addEventListener("click", closeAdminCompanyUserEditor));
+  pageContent.querySelector("#adminCompanyForm")?.addEventListener("submit", saveAdminCompany);
+  pageContent.querySelector("#adminCompanyUserEditorForm")?.addEventListener("submit", saveAdminCompanyDetailUser);
+  pageContent.querySelector("[data-admin-action='clear-company-form']")?.addEventListener("click", openAdminCompanyEditor);
+}
+
+function filterAdminCompanies(query = "", plan = "", status = "") {
+  const normalizedQuery = String(query).trim().toLowerCase();
+  let visibleCount = 0;
+  pageContent.querySelectorAll("[data-admin-company-row]").forEach((row) => {
+    const visible = (!normalizedQuery || String(row.dataset.adminCompanySearch || "").includes(normalizedQuery))
+      && (!plan || row.dataset.adminCompanyPlan === plan)
+      && (!status || row.dataset.adminCompanyStatus === status);
+    row.hidden = !visible;
+    if (visible) visibleCount += 1;
+  });
+  const count = pageContent.querySelector("[data-admin-company-count]");
+  if (count) count.textContent = visibleCount === 1 ? "1 empresa encontrada" : `${visibleCount} empresas encontradas`;
+}
+
+function openAdminCompanyDetails(companyId) {
+  const data = adminCompaniesDetailData || {};
+  const company = (data.companies || []).find((item) => Number(item.id) === Number(companyId));
+  const modal = pageContent.querySelector("[data-admin-company-detail-modal]");
+  if (!company || !modal) return;
+  const users = (data.users || []).filter((user) => Number(user.companyId) === Number(company.id));
+  const logs = (data.logs || []).filter((log) => Number(log.companyId) === Number(company.id));
+  const content = modal.querySelector("[data-admin-company-detail-content]");
+  content.innerHTML = adminCompanyDetailContent(company, users, logs);
+  bindAdminCompanyDetailActions(modal);
+  modal.hidden = false;
+  requestAnimationFrame(() => modal.classList.add("is-open"));
+}
+
+function bindAdminCompanyDetailActions(modal) {
+  modal.querySelectorAll("[data-admin-company-detail-tab]").forEach((button) => button.addEventListener("click", () => selectAdminCompanyDetailTab(button.dataset.adminCompanyDetailTab)));
+  modal.querySelectorAll("[data-admin-company-user-add]").forEach((button) => button.addEventListener("click", () => openAdminCompanyUserEditor(Number(button.dataset.adminCompanyUserAdd))));
+  modal.querySelectorAll("[data-admin-company-user-action]").forEach((button) => button.addEventListener("click", () => handleAdminCompanyUserAction(button.dataset.adminCompanyUserAction, readAdminPayload(button, "user"))));
+}
+
+function selectAdminCompanyDetailTab(tab) {
+  const modal = pageContent.querySelector("[data-admin-company-detail-modal]");
+  if (!modal) return;
+  const panels = [...modal.querySelectorAll("[data-admin-company-detail-panel]")];
+  const currentPanel = panels.find((panel) => !panel.hidden);
+  const nextPanel = panels.find((panel) => panel.dataset.adminCompanyDetailPanel === tab);
+  if (!nextPanel || currentPanel === nextPanel) return;
+  modal.querySelectorAll("[data-admin-company-detail-tab]").forEach((button) => button.classList.toggle("is-active", button.dataset.adminCompanyDetailTab === tab));
+  panels.forEach((panel) => panel.classList.remove("is-tab-entering", "is-tab-leaving"));
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    panels.forEach((panel) => { panel.hidden = panel !== nextPanel; });
+    return;
+  }
+  const transitionId = String(Date.now());
+  modal.dataset.detailTabTransition = transitionId;
+  panels.forEach((panel) => { panel.hidden = panel !== currentPanel; });
+  currentPanel?.classList.add("is-tab-leaving");
+  window.setTimeout(() => {
+    if (modal.dataset.detailTabTransition !== transitionId) return;
+    panels.forEach((panel) => { panel.hidden = panel !== nextPanel; });
+    currentPanel?.classList.remove("is-tab-leaving");
+    nextPanel.classList.add("is-tab-entering");
+    window.setTimeout(() => {
+      if (modal.dataset.detailTabTransition !== transitionId) return;
+      nextPanel.classList.remove("is-tab-entering");
+    }, 150);
+  }, 90);
+}
+
+function closeAdminCompanyDetails() {
+  const modal = pageContent.querySelector("[data-admin-company-detail-modal]");
+  if (!modal) return;
+  modal.classList.remove("is-open");
+  window.setTimeout(() => { modal.hidden = true; }, 220);
+}
+
+function openAdminCompanyEditor() {
+  const modal = pageContent.querySelector("[data-admin-company-editor-modal]");
+  const form = pageContent.querySelector("#adminCompanyForm");
+  if (!modal || !form) return;
+  clearAdminCompanyForm();
+  pageContent.querySelector("#adminCompanyModalTitle").textContent = "Nova empresa";
+  pageContent.querySelector("#adminCompanyModalSubtitle").textContent = "Cadastre uma empresa na plataforma.";
+  modal.hidden = false;
+  requestAnimationFrame(() => modal.classList.add("is-open"));
+  form.elements.name?.focus();
+}
+
+function closeAdminCompanyEditor() {
+  const modal = pageContent.querySelector("[data-admin-company-editor-modal]");
+  if (!modal) return;
+  modal.classList.remove("is-open");
+  window.setTimeout(() => { modal.hidden = true; }, 160);
+}
+
+function openAdminCompanyUserEditor(companyId, user = null) {
+  const modal = pageContent.querySelector("[data-admin-company-user-editor]");
+  const form = modal?.querySelector("#adminCompanyUserEditorForm");
+  if (!modal || !form || !companyId) return;
+  form.reset();
+  form.companyId.value = companyId;
+  form.userId.value = user?.id || "";
+  form.displayName.value = user?.displayName || "";
+  form.username.value = user?.username || "";
+  const role = form.elements.role;
+  if (role) {
+    const options = adminCompanyRoleOptions(companyId, user?.role);
+    role.innerHTML = options.html;
+    role.disabled = options.empty;
+  }
+  form.querySelector("[data-admin-company-user-editor-note]").hidden = Boolean(user);
+  pageContent.querySelector("#adminCompanyUserEditorTitle").textContent = user ? "Gerenciar cargo e acesso" : "Adicionar usuário";
+  pageContent.querySelector("#adminCompanyUserEditorSubtitle").textContent = user ? "Atualize os dados e o cargo do usuário." : "O convite será enviado para o e-mail informado.";
+  modal.hidden = false;
+  requestAnimationFrame(() => modal.classList.add("is-open"));
+  form.elements.displayName.focus();
+}
+
+function adminCompanyRoleOptions(companyId, currentRole = "") {
+  const company = (adminCompaniesDetailData?.companies || []).find((item) => Number(item.id) === Number(companyId));
+  const configuredRoles = (company?.leadershipState?.cargos || [])
+    .filter((item) => String(item?.status || "Ativo").toLowerCase() === "ativo")
+    .map((item) => String(item?.cargo || "").trim())
+    .filter(Boolean);
+  const roles = [...new Set(configuredRoles)];
+  const current = String(currentRole || "").trim();
+  if (current && !roles.includes(current)) roles.unshift(current);
+  if (!roles.length) {
+    return { empty: true, html: `<option value="">Nenhum cargo ativo cadastrado</option>` };
+  }
+  return {
+    empty: false,
+    html: `<option value="" ${current ? "" : "selected"} disabled>Selecione um cargo</option>${roles.map((item) => `<option value="${escapeHtml(item)}" ${item === current ? "selected" : ""}>${escapeHtml(item)}</option>`).join("")}`,
+  };
+}
+
+function closeAdminCompanyUserEditor() {
+  const modal = pageContent.querySelector("[data-admin-company-user-editor]");
+  if (!modal) return;
+  modal.classList.remove("is-open");
+  window.setTimeout(() => { modal.hidden = true; }, 160);
+}
+
+async function handleAdminCompanyUserAction(action, user) {
+  if (!user?.id) return;
+  if (action === "role") {
+    openAdminCompanyUserEditor(user.companyId, user);
+    return;
+  }
+  if (action === "reset") {
+    await resetAdminCompanyUserPassword(user);
+    return;
+  }
+  if (action === "block") {
+    await setAdminCompanyUserAccess(user, "block");
+    return;
+  }
+  if (action === "unblock") {
+    await setAdminCompanyUserAccess(user, "unblock");
+    return;
+  }
+  if (action === "delete") await deleteAdminCompanyUser(user);
+}
+
+async function setAdminCompanyUserAccess(user, action) {
+  const isUnblock = action === "unblock";
+  const label = isUnblock ? "Desbloquear" : "Bloquear";
+  if (!window.confirm(`${label} o acesso de ${user.displayName || user.username}?`)) return;
+  const currentPassword = await confirmSensitiveAction(`${label} acesso do usuário`);
+  if (!currentPassword) return;
+  const response = await fetch("/api/admin/user", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId: user.id, companyId: user.companyId, displayName: user.displayName, username: user.username, role: user.role, action: `${action}-access`, currentPassword }),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    toast(result.error === "user_not_active" ? "Somente usuários ativos podem ser bloqueados." : result.error === "user_not_blocked" ? "Somente usuários bloqueados podem ser desbloqueados." : `Não foi possível ${label.toLowerCase()} o acesso.`);
+    return;
+  }
+  toast(isUnblock ? "Acesso desbloqueado." : "Acesso bloqueado.");
+  updateAdminCompanyDetailUser(result.user, "users");
+}
+
+function updateAdminCompanyDetailUser(updatedUser, tab = "users") {
+  if (!updatedUser?.id || !adminCompaniesDetailData) return;
+  const index = (adminCompaniesDetailData.users || []).findIndex((item) => Number(item.id) === Number(updatedUser.id));
+  if (index < 0) return;
+  adminCompaniesDetailData.users[index] = { ...adminCompaniesDetailData.users[index], ...updatedUser };
+  openAdminCompanyDetails(Number(updatedUser.companyId));
+  selectAdminCompanyDetailTab(tab);
+}
+
+async function saveAdminCompanyDetailUser(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const data = Object.fromEntries(new FormData(form).entries());
+  const editing = Boolean(data.userId);
+  const currentPassword = await confirmSensitiveAction(editing ? "Atualizar cargo e acesso" : "Adicionar usuário");
+  if (!currentPassword) return;
+  const response = await fetch("/api/admin/user", {
+    method: editing ? "PATCH" : "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId: data.userId ? Number(data.userId) : undefined, companyId: Number(data.companyId), displayName: data.displayName, username: data.username, role: data.role, currentPassword }),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    toast(result.error === "access_limit_reached" ? "O limite de acessos desta empresa foi atingido." : "Não foi possível salvar o usuário.");
+    return;
+  }
+  closeAdminCompanyUserEditor();
+  toast(editing ? "Cargo e acesso atualizados." : result.invitation?.delivery === "sent" ? "Convite enviado." : "Usuário criado. Configure o e-mail para entregar o convite.");
+  await refreshAdminCompanyDetails(Number(data.companyId), "users");
+}
+
+async function resetAdminCompanyUserPassword(user) {
+  if (!window.confirm(`Resetar a senha de ${user.displayName || user.username}?`)) return;
+  const currentPassword = await confirmSensitiveAction("Resetar senha de acesso");
+  if (!currentPassword) return;
+  const response = await fetch("/api/admin/reset-password", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId: user.id, currentPassword }),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    toast("Não foi possível resetar a senha.");
+    return;
+  }
+  toast(`Senha temporária gerada para ${result.user?.displayName || user.displayName || user.username}: ${result.temporaryPassword || ""}`);
+}
+
+async function deleteAdminCompanyUser(user) {
+  if (!window.confirm(`Excluir ${user.displayName || user.username}? Esta ação não pode ser desfeita.`)) return;
+  const currentPassword = await confirmSensitiveAction("Excluir usuário");
+  if (!currentPassword) return;
+  const response = await fetch("/api/admin/user", {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId: user.id, currentPassword }),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    toast(result.error === "cannot_delete_self" ? "Você não pode excluir sua própria conta." : "Não foi possível excluir o usuário.");
+    return;
+  }
+  toast("Usuário excluído.");
+  await refreshAdminCompanyDetails(Number(user.companyId), "users");
+}
+
+async function refreshAdminCompanyDetails(companyId, tab = "overview") {
+  try {
+    adminCompaniesDetailData = await loadAdminDashboardData();
+    openAdminCompanyDetails(companyId);
+    selectAdminCompanyDetailTab(tab);
+  } catch (error) {
+    console.warn(error);
+    toast("Não foi possível atualizar os dados da empresa.");
+  }
+}
+
 function adminOverviewHtml(data) {
   const summary = data.summary || {};
   const companies = data.companies || [];
@@ -6897,119 +7493,281 @@ function adminOverviewHtml(data) {
   const health = operations.health || {};
   const services = health.services || {};
   const incidents = operations.incidents || [];
-  const latestBackup = services.backup?.latest || operations.backups?.[0] || null;
-  const currentSession = users.find((user) => Number(user.id) === Number(currentUser?.id));
-  const activePercent = summary.accesses ? Math.round((Number(summary.activeAccesses || 0) / Number(summary.accesses)) * 100) : null;
-  const featuredCompanies = [...companies]
-    .sort((left, right) => String(right.last_activity_at || right.createdAt || "").localeCompare(String(left.last_activity_at || left.createdAt || "")))
-    .slice(0, 4);
+  const backups = operations.backups || [];
+  const activeUsers = Number(summary.activeAccesses || 0);
+  const totalUsers = Number(summary.accesses || 0);
+  const activePlans = Number(summary.payingCompanies || 0);
+  const totalCompanies = Number(summary.companies || 0);
+  const activePercent = totalUsers ? Math.round(activeUsers / totalUsers * 100) : 0;
+  const planPercent = totalCompanies ? Math.round(activePlans / totalCompanies * 100) : 0;
+  const serviceStates = [services.database, services.billing, services.backup, services.email].filter(Boolean);
+  const servicesWithIssues = serviceStates.filter((service) => !service.ok).length;
+  const systemOk = serviceStates.length > 0 && servicesWithIssues === 0;
+  const latestBackup = backups[0] || services.backup?.latest || null;
+  const securityEvents = incidents.filter((incident) => incident.component === "security");
+  const featuredCompanies = companies.slice(0, 4);
 
   return `
-    <section class="admin-overview" aria-label="Visão geral administrativa">
-      <header class="admin-overview-header">
-        <div>
-          <div class="welcome-eyebrow">ADMINISTRAÇÃO</div>
-          <h1>Gerenciamento</h1>
-          <p>Painel de controle do sistema. Acompanhe métricas, atividades e a saúde da plataforma.</p>
-        </div>
-        <div class="admin-overview-access"><div>${moduleIcon("calendar")} <span>${adminOverviewDate()}</span></div>${currentSession?.lastLoginAt ? `<small>Último acesso: ${formatDateTime(currentSession.lastLoginAt)}</small>` : ""}</div>
-      </header>
+    <main class="admin-overview" aria-label="Visão geral administrativa">
+      <section class="admin-metrics-grid" aria-label="Métricas principais">
+        ${adminOverviewMetric("Empresas cadastradas", totalCompanies, "Total na plataforma", "building", "blue", "admin-empresas")}
+        ${adminOverviewMetric("Usuários totais", totalUsers, "Acessos cadastrados", "users", "cyan", "admin-usuarios")}
+        ${adminOverviewMetric("Usuários ativos", activeUsers, totalUsers ? `${activePercent}% dos usuários` : "Nenhum usuário cadastrado", "contexto", "green", "admin-usuarios", activePercent)}
+        ${adminOverviewMetric("Planos ativos", activePlans, services.billing?.ok ? (totalCompanies ? `${planPercent}% das empresas` : "Nenhuma empresa cadastrada") : "Cobrança não configurada", "plano", "purple", "admin-planos", planPercent)}
+        <article class="admin-system-state ${systemOk ? "is-ok" : "has-warning"}">
+          <span class="admin-state-icon">${moduleIcon(systemOk ? "bar-chart" : "nao-conformidades")}</span>
+          <div><small>Status geral</small><strong>${systemOk ? "Sistema operacional" : "Sistema com atenção"}</strong><p>${systemOk ? "Todos os serviços disponíveis." : `${servicesWithIssues} ${servicesWithIssues === 1 ? "serviço requer" : "serviços requerem"} atenção.`}</p></div>
+        </article>
+      </section>
 
-      <div class="admin-overview-metrics">
-        ${adminOverviewMetric("modulos", "Empresas cadastradas", summary.companies || 0, "empresas na plataforma", "blue")}
-        ${adminOverviewMetric("users", "Usuários totais", summary.accesses || 0, "acessos cadastrados", "cyan")}
-        ${adminOverviewMetric("check-circle", "Usuários ativos", summary.activeAccesses || 0, activePercent === null ? "sem acessos cadastrados" : `${activePercent}% dos usuários`, "green")}
-        ${adminOverviewMetric("plano", "Planos ativos", summary.payingCompanies || 0, "empresas com plano pago", "violet")}
-      </div>
-
-      <div class="admin-overview-upper-grid">
-        <section class="admin-overview-card admin-system-summary">
-          <div class="admin-overview-card-head"><div><h2>Resumo do sistema</h2><p>Status dos principais serviços e recursos da plataforma.</p></div></div>
-          <div class="admin-system-services">
-            ${adminSystemService("documentos", "Banco de dados", services.database?.ok, services.database?.ok ? `${services.database.latencyMs ?? "-"} ms de latência` : "Indisponível")}
-            ${adminSystemService("download", "Backups", services.backup?.ok, latestBackup ? `Último: ${formatDateTime(latestBackup.createdAt)}` : "Nenhum backup registrado")}
-            ${adminSystemService("shield", "Segurança", !incidents.some((incident) => ["critical", "error"].includes(String(incident.severity).toLowerCase())), incidents.length ? `${incidents.length} incidente(s) recente(s)` : "Sem incidentes recentes")}
-            ${adminSystemService("mail", "E-mail e alertas", services.email?.ok && services.email?.operationalAlertsConfigured, !services.email?.ok ? "Envio não configurado" : services.email?.operationalAlertsConfigured ? "Envio configurado" : "Destinatário não configurado")}
+      <section class="admin-overview-middle">
+        <article class="admin-overview-panel admin-system-overview">
+          ${adminPanelHeading("Resumo do sistema", "Status dos principais serviços e recursos da plataforma.", "admin-seguranca", "Ver detalhes")}
+          <div class="admin-services-grid">
+            ${adminServiceCard("Banco de dados", services.database?.ok, services.database?.ok ? "Online" : "Offline", services.database?.latencyMs != null ? `Latência: ${services.database.latencyMs} ms` : "Latência indisponível", "database")}
+            ${adminServiceCard("Backups", services.backup?.ok, services.backup?.ok ? "Em dia" : "Requer atenção", latestBackup ? `Último: ${formatDateTime(latestBackup.createdAt)}` : "Nenhum backup registrado", "download", "admin-backups")}
+            ${adminServiceCard("Segurança", securityEvents.length === 0, securityEvents.length === 0 ? "Sem alertas" : "Atenção", securityEvents.length ? `${securityEvents.length} ${securityEvents.length === 1 ? "evento recente" : "eventos recentes"}` : "Nenhum incidente recente", "shield", "admin-seguranca")}
+            ${adminServiceCard("E-mail e alertas", services.email?.ok && services.email?.operationalAlertsConfigured, services.email?.ok ? (services.email?.operationalAlertsConfigured ? "Operacional" : "Parcial") : "Não configurado", services.email?.operationalAlertsConfigured ? "Envio e destinatário configurados" : "Configuração incompleta", "mail", "admin-seguranca")}
           </div>
-        </section>
-        <div class="admin-overview-side">
-          <aside class="admin-overview-card admin-operational-status ${health.ok ? "is-ok" : "is-attention"}">
-            <div class="admin-operational-icon">${health.ok ? moduleIcon("check-circle") : moduleIcon("nao-conformidades")}</div>
-            <div><span>Sistema ${health.ok ? "operacional" : "com atenção"}</span><strong>${health.ok ? "Todos os serviços online" : "Verifique os serviços"}</strong><p>${health.ok ? "Plataforma funcionando normalmente." : adminOperationalAttention(services)}</p></div>
-          </aside>
-          <section class="admin-overview-card admin-recent-incidents"><div class="admin-overview-card-head"><div><h2>Incidentes recentes</h2><p>Ocorrências que exigem acompanhamento.</p></div></div><div class="admin-incidents-list">${incidents.length ? incidents.slice(0, 3).map((incident) => adminRecentIncident(incident)).join("") : `<div class="admin-no-incidents">${moduleIcon("check-circle")} Nenhum incidente recente.</div>`}</div></section>
-        </div>
-      </div>
+        </article>
 
-      <div class="admin-overview-lower-grid">
-        <section class="admin-overview-card admin-recent-activity">
-          <div class="admin-overview-card-head"><div><h2>Atividade recente</h2><p>Últimos eventos ocorridos no sistema.</p></div></div>
-          <div class="admin-activity-table-wrap"><table class="admin-activity-table"><thead><tr><th>Data e hora</th><th>Tipo</th><th>Descrição</th><th>Usuário</th><th>Status</th></tr></thead><tbody>${logs.length ? logs.slice(0, 5).map((log) => `<tr><td>${formatDateTime(log.createdAt)}</td><td>${escapeHtml(adminEventType(log.eventType))}</td><td>${escapeHtml(adminEventLabel(log.eventType))}</td><td>${escapeHtml(log.username || "Sistema")}</td><td>${adminActivityStatus(log.outcome)}</td></tr>`).join("") : `<tr><td colspan="5"><div class="empty-state">Ainda não há atividade registrada.</div></td></tr>`}</tbody></table></div>
-        </section>
-        <section class="admin-overview-card admin-featured-companies">
-          <div class="admin-overview-card-head"><div><h2>Empresas em destaque</h2><p>Empresas com atividade mais recente.</p></div></div>
-          <div class="admin-featured-list">${featuredCompanies.length ? featuredCompanies.map((company) => adminFeaturedCompany(company)).join("") : `<div class="empty-state">Nenhuma empresa cadastrada.</div>`}</div>
-        </section>
-      </div>
-    </section>
+        <article class="admin-overview-panel admin-incidents-panel">
+          ${adminPanelHeading("Incidentes recentes", "", "admin-logs", "Ver todos")}
+          <div class="admin-incidents-list">
+            ${incidents.length ? incidents.slice(0, 5).map(adminIncidentItem).join("") : `<div class="admin-empty-state">Nenhum incidente registrado.</div>`}
+          </div>
+        </article>
+      </section>
+
+      <section class="admin-overview-bottom">
+        <article class="admin-overview-panel admin-activity-panel">
+          ${adminPanelHeading("Atividade recente", "Últimos eventos ocorridos no sistema.", "admin-logs", "Ver todos")}
+          <div class="admin-activity-wrap">
+            <table class="admin-activity-table">
+              <thead><tr><th>Data e hora</th><th>Tipo</th><th>Descrição</th><th>Usuário</th><th>Status</th></tr></thead>
+              <tbody>${logs.length ? logs.slice(0, 5).map(adminActivityRow).join("") : `<tr><td colspan="5"><div class="admin-empty-state">Nenhuma atividade registrada.</div></td></tr>`}</tbody>
+            </table>
+          </div>
+        </article>
+
+        <article class="admin-overview-panel admin-companies-panel">
+          ${adminPanelHeading("Empresas em destaque", "Empresas adicionadas mais recentemente.", "admin-empresas", "Ver todas")}
+          <div class="admin-featured-companies">
+            ${featuredCompanies.length ? featuredCompanies.map(adminFeaturedCompany).join("") : `<div class="admin-empty-state">Nenhuma empresa cadastrada.</div>`}
+          </div>
+        </article>
+      </section>
+    </main>
   `;
 }
 
-function adminOverviewMetric(icon, label, value, detail, accent) {
-  return `<article class="admin-metric-card ${accent}"><span class="admin-metric-icon">${moduleIcon(icon)}</span><div><p>${escapeHtml(label)}</p><strong>${escapeHtml(value)}</strong><small>${escapeHtml(detail)}</small></div></article>`;
+function adminOverviewMetric(label, value, caption, icon, tone, view, percent = null) {
+  return `<button class="admin-metric-card tone-${tone}" type="button" data-admin-view="${view}">
+    <span class="admin-metric-icon">${moduleIcon(icon)}</span>
+    <span class="admin-metric-copy"><small>${escapeHtml(label)}</small><strong>${escapeHtml(value)}</strong><span>${escapeHtml(caption)}</span></span>
+    ${percent == null ? "" : `<span class="admin-metric-percent">${percent}%</span>`}
+    <span class="admin-card-arrow">${moduleIcon("arrow")}</span>
+  </button>`;
 }
 
-function adminSystemService(icon, label, ok, detail) {
-  return `<article class="admin-system-service ${ok ? "is-ok" : "is-attention"}"><span>${moduleIcon(icon)}</span><div><strong>${escapeHtml(label)}</strong><small>${escapeHtml(detail)}</small></div><i title="${ok ? "Online" : "Requer atenção"}"></i></article>`;
+function adminPanelHeading(title, subtitle, view, actionLabel) {
+  return `<div class="admin-panel-heading"><div><h2>${escapeHtml(title)}</h2>${subtitle ? `<p>${escapeHtml(subtitle)}</p>` : ""}</div><button type="button" data-admin-view="${view}">${escapeHtml(actionLabel)} ${moduleIcon("arrow")}</button></div>`;
 }
 
-function adminOperationalAttention(services) {
-  const affected = Object.values(services).filter((service) => service?.ok === false).length;
-  return affected ? `${affected} serviço${affected > 1 ? "s requerem" : " requer"} atenção.` : "Acompanhe o estado dos serviços.";
+function adminServiceCard(title, ok, status, detail, icon, view = "admin-seguranca") {
+  return `<button class="admin-service-card ${ok ? "is-ok" : "has-warning"}" type="button" data-admin-view="${view}">
+    <span class="admin-service-icon">${moduleIcon(icon)}</span>
+    <span class="admin-service-copy"><strong>${escapeHtml(title)}</strong><span class="admin-service-status"><i></i>${escapeHtml(status)}</span><small>${escapeHtml(detail)}</small></span>
+    <span class="admin-card-arrow">${moduleIcon("arrow")}</span>
+  </button>`;
 }
 
-function adminOverviewDate() {
-  return new Intl.DateTimeFormat("pt-BR", { weekday: "long", day: "2-digit", month: "long", year: "numeric" }).format(new Date());
+function adminIncidentItem(incident) {
+  const severity = String(incident.severity || "info").toLowerCase();
+  const tone = ["critical", "error"].includes(severity) ? "critical" : severity === "warning" ? "warning" : "info";
+  const status = tone === "critical" ? "Crítico" : tone === "warning" ? "Atenção" : "Informativo";
+  return `<div class="admin-incident-item ${tone}"><i></i><div><strong>${escapeHtml(adminIncidentLabel(incident))}</strong><span>${escapeHtml(formatDateTime(incident.createdAt))}</span></div><em>${status}</em></div>`;
 }
 
-function adminActivityStatus(outcome) {
-  const isSuccess = String(outcome || "success").toLowerCase() === "success";
-  return `<span class="admin-activity-status ${isSuccess ? "is-success" : "is-attention"}">${isSuccess ? "Concluído" : "Atenção"}</span>`;
+function adminIncidentLabel(incident) {
+  const labels = {
+    automatic_backup_failed: "Falha no backup automático",
+    backup_verification_failed: "Falha na verificação do backup",
+    billing_webhook_failed: "Falha no processamento da cobrança",
+    billing_checkout_failed: "Falha ao iniciar cobrança",
+    billing_portal_failed: "Falha ao abrir cobrança",
+    billing_plan_change_failed: "Falha ao alterar plano",
+    database_initialization_failed: "Banco de dados indisponível",
+    deadline_email_delivery_failed: "Falha no envio de alertas",
+    login_rate_limited: "Tentativas repetidas de acesso",
+    request_failed: "Falha ao processar uma solicitação",
+  };
+  return labels[incident.eventType] || adminEventLabel(incident.eventType || incident.component || "system_event");
 }
 
-function adminEventType(eventType) {
-  if (String(eventType).startsWith("login")) return "Acesso";
-  if (String(eventType).includes("company")) return "Empresa";
-  if (String(eventType).includes("backup")) return "Backup";
-  if (String(eventType).includes("invitation")) return "Usuário";
-  return "Sistema";
+function adminActivityRow(log) {
+  const type = adminActivityType(log.eventType);
+  return `<tr><td>${escapeHtml(formatDateTime(log.createdAt))}</td><td><span class="admin-event-type type-${type.key}">${escapeHtml(type.label)}</span></td><td>${escapeHtml(adminEventLabel(log.eventType))}</td><td>${escapeHtml(log.username || "Sistema")}</td><td>${auditOutcomeBadge(log.outcome)}</td></tr>`;
+}
+
+function adminActivityType(eventType) {
+  const value = String(eventType || "");
+  if (value.includes("login") || value.includes("session") || value.includes("mfa")) return { key: "access", label: "Acesso" };
+  if (value.includes("company")) return { key: "company", label: "Empresa" };
+  if (value.includes("backup") || value.includes("module") || value.includes("export")) return { key: "system", label: "Sistema" };
+  if (value.includes("password") || value.includes("csrf")) return { key: "security", label: "Segurança" };
+  return { key: "admin", label: "Administração" };
 }
 
 function adminFeaturedCompany(company) {
-  const initials = String(company.name || "E").split(/\s+/).filter(Boolean).slice(0, 2).map((word) => word[0]).join("").toUpperCase();
-  return `<article class="admin-featured-company"><span class="admin-featured-avatar">${escapeHtml(initials)}</span><div><strong>${escapeHtml(company.name)}</strong><small>${escapeHtml(company.plan || "Sem plano")} · ${Number(company.active_access_count || 0)} usuário(s) ativo(s)</small></div>${adminOverviewStatusBadge(company.billingStatus || "Ativo")}</article>`;
+  const initials = String(company.name || "Empresa").split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase();
+  const active = String(company.billingStatus || "").toLowerCase() === "ativo";
+  const status = displayBillingStatus(company.billingStatus);
+  return `<button class="admin-featured-company" type="button" data-admin-view="admin-empresas" data-company-id="${Number(company.id) || ""}">
+    <span class="admin-company-avatar">${escapeHtml(initials || "E")}</span>
+    <span class="admin-company-copy"><strong>${escapeHtml(company.name || "Empresa")}</strong><span>${escapeHtml(company.plan || "Sem plano")} · ${Number(company.access_count || 0)} ${Number(company.access_count || 0) === 1 ? "usuário" : "usuários"}</span></span>
+    ${status ? `<em class="${active ? "is-active" : "is-inactive"}"><i></i>${escapeHtml(status)}</em>` : ""}
+    <span class="admin-card-arrow">${moduleIcon("arrow")}</span>
+  </button>`;
 }
 
-function adminRecentIncident(incident) {
-  const severity = String(incident.severity || "info").toLowerCase();
-  const label = severity === "critical" ? "Crítico" : ["error", "warning"].includes(severity) ? "Atenção" : "Informativo";
-  return `<article class="admin-incident ${escapeHtml(severity)}"><i></i><div><strong>${escapeHtml(adminIncidentTitle(incident))}</strong><small>${formatDateTime(incident.createdAt)}</small></div><span>${label}</span></article>`;
+function bindAdminOverviewActions() {
+  pageContent.querySelectorAll("[data-admin-view]").forEach((button) => button.addEventListener("click", () => render(button.dataset.adminView)));
 }
 
-function adminIncidentTitle(incident) {
-  const event = String(incident.eventType || "").toLowerCase();
-  if (event.includes("backup")) return "Falha ou atenção no backup";
-  if (event.includes("database")) return "Indisponibilidade no banco de dados";
-  if (event.includes("billing")) return "Falha no processamento de cobrança";
-  if (event.includes("email") || event.includes("notification")) return "Falha no envio de alertas";
-  if (event.includes("login")) return "Ocorrência de autenticação";
-  return `Ocorrência em ${String(incident.component || "sistema")}`;
+async function refreshCurrentAdminView() {
+  if (String(activeView).startsWith("admin-")) {
+    await renderAdminLegacySection(activeView);
+    return;
+  }
+  await renderGerenciamento();
 }
 
-function adminOverviewStatusBadge(status) {
-  const normalized = String(status || "Ativo");
-  const className = normalized.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "-");
-  return `<span class="admin-overview-status ${escapeHtml(className)}"><i></i>${escapeHtml(normalized)}</span>`;
+function adminManagementHtml(data, title = "Gerenciamento", subtitle = "Clientes, planos e acessos do SGQ Online.", hideHeader = false) {
+  const summary = data.summary || {};
+  const companies = data.companies || [];
+  const users = data.users || [];
+  const logs = data.logs || [];
+  const operations = data.operations || null;
+
+  return `
+    ${hideHeader ? "" : viewHeader(title, subtitle)}
+
+    <div class="admin-kpi-row">
+      ${adminMetric("Clientes", summary.companies || 0, "empresas cadastradas")}
+      ${adminMetric("Pagantes", summary.payingCompanies || 0, "empresas com plano pago")}
+      ${adminMetric("Acessos", summary.accesses || 0, "usuários cadastrados")}
+      ${adminMetric("Ativos", summary.activeAccesses || 0, "acessos ativos")}
+      ${adminMetric("Bloqueados", summary.blockedAccesses || 0, "acessos bloqueados")}
+      ${adminMetric("Entradas 24h", summary.successfulLogins24h || 0, "logins realizados")}
+      ${adminMetric("Falhas 24h", summary.failedLogins24h || 0, "tentativas recusadas")}
+      ${adminMetric("Disponibilidade", "Online", "banco e autenticação ativos")}
+    </div>
+
+    ${operations ? operationsPanelHtml(operations) : ""}
+
+    <div class="admin-toolbar qp-card">
+      <label>
+        <span>Buscar no gerenciamento</span>
+        <input class="input-basic" type="search" data-admin-search placeholder="Empresa, usuário, login ou plano" />
+      </label>
+      <a class="btn-primary" href="/api/admin/backup">${moduleIcon("download")} Backup geral</a>
+    </div>
+
+    <div class="admin-form-grid">
+      ${adminCompanyFormHtml()}
+      ${adminUserFormHtml(companies)}
+    </div>
+
+    <section class="qp-card admin-card">
+      <div class="dcc-head">
+        <div>
+          <div class="dcc-title">Clientes e planos</div>
+          <div class="dcc-sub">Planos, pagamentos e ocupação dos acessos de cada empresa.</div>
+        </div>
+      </div>
+      <div class="admin-table-wrap">
+        <table class="data-table">
+          <thead><tr><th>Empresa</th><th>Plano</th><th>Pagamento</th><th>Acessos</th><th>Última atividade</th><th>Ações</th></tr></thead>
+          <tbody>
+            ${companies.length ? companies.map((company) => `
+              <tr data-admin-search-row="${escapeHtml(`${company.name} ${company.cnpj || ""} ${company.plan || ""} ${company.billingStatus || ""}`.toLowerCase())}">
+                <td><strong>${escapeHtml(company.name)}</strong></td>
+                <td>${planBadge(company.plan)}</td>
+                <td>${billingBadge(company.billingStatus)}</td>
+                <td>${Number(company.active_access_count || 0)} ativos / ${Number(company.access_count || 0)} de ${Number(company.accessLimit || 5)}</td>
+                <td>${formatDateTime(company.last_activity_at)}</td>
+                <td>
+                  <button class="abtn" data-admin-action="edit-company" data-company='${adminPayload(company)}' type="button" title="Editar cliente">${moduleIcon("edit")}</button>
+                  <a class="abtn" href="/api/admin/backup?companyId=${company.id}" title="Backup desta empresa">${moduleIcon("download")}</a>
+                </td>
+              </tr>
+            `).join("") : `<tr><td colspan="6"><div class="empty-state">Nenhum cliente cadastrado.</div></td></tr>`}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="qp-card admin-card">
+      <div class="dcc-head">
+        <div>
+          <div class="dcc-title">Usuários e acessos</div>
+          <div class="dcc-sub">Todo usuário cadastrado no banco aparece automaticamente aqui.</div>
+        </div>
+      </div>
+      <div class="admin-table-wrap">
+        <table class="data-table">
+          <thead><tr><th>Usuário</th><th>Login</th><th>Empresa</th><th>Perfil</th><th>Último acesso</th><th>Status</th><th>Ações</th></tr></thead>
+          <tbody>
+            ${users.length ? users.map((user) => `
+              <tr data-admin-search-row="${escapeHtml(`${user.displayName} ${user.username} ${user.companyName} ${user.role} ${user.status}`.toLowerCase())}">
+                <td><strong>${escapeHtml(user.displayName)}</strong></td>
+                <td>${escapeHtml(user.username)}</td>
+                <td>${escapeHtml(user.companyName)}</td>
+                <td>${escapeHtml(user.role)}</td>
+                <td>${formatDateTime(user.lastLoginAt)}</td>
+                <td><span class="status-pill ${statusClass(user.status)}"><span class="status-dot2"></span>${escapeHtml(user.status)}</span></td>
+                <td>
+                  <button class="abtn" data-admin-action="edit-user" data-user='${adminPayload(user)}' type="button" title="Editar usuário">${moduleIcon("edit")}</button>
+                  ${user.status === "Pendente"
+                    ? `<button class="abtn" data-admin-action="resend-invite" data-user-id="${user.id}" data-user-name="${escapeHtml(user.displayName)}" type="button" title="Reenviar convite">${moduleIcon("mail")}</button>`
+                    : `<button class="abtn" data-admin-action="toggle-user" data-user-id="${user.id}" data-user-status="${escapeHtml(user.status)}" data-user-name="${escapeHtml(user.displayName)}" type="button" title="${user.status === "Ativo" ? "Bloquear acesso" : "Liberar acesso"}">${moduleIcon("shield")}</button>`}
+                  <button class="abtn" data-admin-action="reset-password" data-user-id="${user.id}" data-user-name="${escapeHtml(user.displayName)}" type="button" title="Resetar senha">${moduleIcon("key")}</button>
+                </td>
+              </tr>
+            `).join("") : `<tr><td colspan="6"><div class="empty-state">Nenhum usuário cadastrado.</div></td></tr>`}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="qp-card admin-card">
+      <div class="dcc-head">
+        <div>
+          <div class="dcc-title">Atividade e segurança</div>
+          <div class="dcc-sub">Últimos acessos, tentativas recusadas e ações administrativas registradas no banco.</div>
+        </div>
+      </div>
+      <div class="admin-table-wrap">
+        <table class="data-table admin-log-table">
+          <thead><tr><th>Data</th><th>Evento</th><th>Usuário</th><th>Resultado</th><th>IP</th></tr></thead>
+          <tbody>
+            ${logs.length ? logs.map((log) => `
+              <tr data-admin-search-row="${escapeHtml(`${log.username || ""} ${adminEventLabel(log.eventType)} ${log.outcome || ""}`.toLowerCase())}">
+                <td>${formatDateTime(log.createdAt)}</td>
+                <td>${escapeHtml(adminEventLabel(log.eventType))}</td>
+                <td>${escapeHtml(log.username || "Sistema")}</td>
+                <td>${auditOutcomeBadge(log.outcome)}</td>
+                <td class="mono-cell">${escapeHtml(log.ipAddress || "-")}</td>
+              </tr>
+            `).join("") : `<tr><td colspan="5"><div class="empty-state">A atividade começará a aparecer após os próximos acessos.</div></td></tr>`}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <div class="admin-reset-result" id="adminResetResult" hidden></div>
+  `;
 }
 
 function operationsPanelHtml(operations) {
@@ -7105,7 +7863,7 @@ function adminCompanyFormHtml() {
       <label><span>CNPJ</span><input name="cnpj" placeholder="00.000.000/0001-00" /></label>
       <label><span>Certificação</span><input name="certification" placeholder="ISO 9001:2015" /></label>
       <label><span>Plano</span><input name="plan" placeholder="Plano Profissional" /></label>
-      <label><span>Situação do pagamento</span><select name="billingStatus"><option>Ativo</option><option>Pendente</option><option>Inadimplente</option><option>Teste</option><option>Cancelado</option></select></label>
+      <label><span>Situação do pagamento</span><select name="billingStatus"><option>Ativo</option><option>Pendente</option><option>Inadimplente</option><option>Cancelado</option></select></label>
       <label><span>Limite de acessos</span><input name="accessLimit" type="number" min="1" max="10000" value="5" required /></label>
       <label class="full"><span>Escopo</span><textarea name="scope" placeholder="Escopo do sistema de gestão"></textarea></label>
       <div class="admin-form-actions full">
@@ -7173,6 +7931,7 @@ function planBadge(plan) {
 }
 
 function billingBadge(status) {
+  if (isTestBillingStatus(status)) return "";
   const value = status || "Ativo";
   const normalized = value.toLowerCase();
   const className = normalized === "ativo" ? "paid" : normalized === "teste" || normalized === "pendente" ? "trial" : "overdue";
@@ -7200,6 +7959,7 @@ function adminEventLabel(eventType) {
     admin_company_updated: "Cliente atualizado pelo administrador",
     admin_user_created: "Usuário criado pelo administrador",
     admin_user_updated: "Usuário atualizado pelo administrador",
+    admin_user_deleted: "Usuário excluído pelo administrador",
     admin_password_reset: "Senha resetada pelo administrador",
     password_reset_requested: "Recuperação de senha solicitada",
     password_reset_rate_limited: "Recuperação temporariamente bloqueada",
@@ -7362,7 +8122,7 @@ async function runAdminBackup() {
     return;
   }
   toast("Backup criado e restauração isolada testada.");
-  await renderGerenciamento();
+  await refreshCurrentAdminView();
 }
 
 async function verifyAdminBackup(snapshotId) {
@@ -7381,7 +8141,7 @@ async function verifyAdminBackup(snapshotId) {
   }
   const counts = result.counts || {};
   toast(`Restauração isolada concluída: ${counts.companies || 0} empresa(s), ${counts.users || 0} usuário(s).`);
-  await renderGerenciamento();
+  await refreshCurrentAdminView();
 }
 
 async function resendAdminInvitation(button) {
@@ -7399,7 +8159,7 @@ async function resendAdminInvitation(button) {
     return;
   }
   toast(result.invitation?.delivery === "sent" ? "Convite reenviado." : "Convite renovado, mas o envio de e-mail não está configurado.");
-  await renderGerenciamento();
+  await refreshCurrentAdminView();
 }
 
 async function saveAdminCompany(event) {
@@ -7435,7 +8195,7 @@ async function saveAdminCompany(event) {
   }
 
   toast(isEditing ? "Cliente atualizado." : "Cliente cadastrado.");
-  await renderGerenciamento();
+  await refreshCurrentAdminView();
 }
 
 async function saveAdminUser(event) {
@@ -7480,7 +8240,7 @@ async function saveAdminUser(event) {
         ? "Convite enviado por e-mail."
         : "Usuário criado. Configure o e-mail para entregar o convite.",
   );
-  await renderGerenciamento();
+  await refreshCurrentAdminView();
 }
 
 async function toggleAdminUser(button) {
@@ -7512,10 +8272,10 @@ async function toggleAdminUser(button) {
   }
 
   toast(nextStatus === "Bloqueado" ? "Acesso bloqueado." : "Acesso liberado.");
-  await renderGerenciamento();
+  await refreshCurrentAdminView();
 }
 
-function fillAdminCompanyForm(company) {
+function fillAdminCompanyForm(company, shouldScroll = true) {
   const form = document.querySelector("#adminCompanyForm");
   if (!form) return;
   form.companyId.value = company.id || "";
@@ -7523,10 +8283,18 @@ function fillAdminCompanyForm(company) {
   form.cnpj.value = company.cnpj || "";
   form.certification.value = company.certification || "";
   form.plan.value = company.plan || "";
-  form.billingStatus.value = company.billingStatus || "Ativo";
+  form.billingStatus.value = isTestBillingStatus(company.billingStatus) ? "Ativo" : (company.billingStatus || "Ativo");
   form.accessLimit.value = company.accessLimit || 5;
   form.scope.value = company.scope || "";
-  form.scrollIntoView({ behavior: "smooth", block: "center" });
+  if (shouldScroll) form.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+function isTestBillingStatus(status) {
+  return String(status || "").trim().toLowerCase() === "teste";
+}
+
+function displayBillingStatus(status) {
+  return isTestBillingStatus(status) ? "" : String(status || "").trim();
 }
 
 function fillAdminUserForm(user) {
@@ -7850,7 +8618,7 @@ async function renderConfiguracoes() {
       ${currentUser?.isAdmin ? `<label><span>Status do sistema</span><select name="operationalStatus"><option value="updated" ${state.settings.operationalStatus === "updated" ? "selected" : ""}>Sistema atualizado</option><option value="maintenance" ${state.settings.operationalStatus === "maintenance" ? "selected" : ""}>Sistema em manutenção</option><option value="offline" ${state.settings.operationalStatus === "offline" ? "selected" : ""}>Sistema offline</option></select></label>` : ""}
       <button type="submit">Salvar configurações</button>
     </form>
-    ${canManageCompany() ? `<section id="billingSettings" class="billing-settings"><div class="qp-card admin-loading">Carregando assinatura...</div></section>` : ""}
+    ${canManageCompany() && currentUser?.companyId ? `<section id="billingSettings" class="billing-settings"><div class="qp-card admin-loading">Carregando assinatura...</div></section>` : ""}
   `;
   document.querySelector("#settingsForm").addEventListener("submit", (event) => {
     event.preventDefault();
@@ -7867,7 +8635,7 @@ async function renderConfiguracoes() {
     updateOperationalStatus();
     toast("Configurações salvas.");
   });
-  if (canManageCompany()) await loadBillingSettings();
+  if (canManageCompany() && currentUser?.companyId) await loadBillingSettings();
 }
 
 function updateOperationalStatus() {
@@ -7905,7 +8673,7 @@ function billingSettingsHtml(billing) {
   return `
     <article class="qp-card billing-summary-card">
       <div class="dcc-head">
-        <div><div class="dcc-title">Assinatura</div><div class="dcc-sub">Plano, período de teste, renovação e faturas da empresa.</div></div>
+        <div><div class="dcc-title">Assinatura</div><div class="dcc-sub">Plano, renovação e faturas da empresa.</div></div>
         ${billingBadge(company.billingStatus || "Pendente")}
       </div>
       ${billing.configured ? "" : `<div class="billing-warning">A cobrança ainda não foi configurada pelo administrador do SGQ Online.</div>`}
@@ -8322,6 +9090,30 @@ function bindViewTargetButtons() {
   });
 }
 
+function standardizeActionButtons(root = document) {
+  const buttons = root.matches?.("button") ? [root] : [...root.querySelectorAll?.("button") || []];
+  buttons.forEach((button) => {
+    if (button.dataset.standardAction) return;
+    const label = button.textContent.replace(/\s+/g, " ").trim();
+    const kind = /^salvar\b/i.test(label) ? "save" : /^limpar\b/i.test(label) ? "clear" : "";
+    if (!kind) return;
+    button.dataset.standardAction = kind;
+    button.classList.add(kind === "save" ? "btn-save" : "btn-clear");
+    const icon = button.querySelector(".icon");
+    if (icon) icon.outerHTML = moduleIcon(kind === "save" ? "save" : "trash");
+    else button.insertAdjacentHTML("afterbegin", moduleIcon(kind === "save" ? "save" : "trash"));
+  });
+}
+
+function observeStandardActionButtons() {
+  standardizeActionButtons();
+  new MutationObserver((mutations) => {
+    mutations.forEach((mutation) => mutation.addedNodes.forEach((node) => {
+      if (node.nodeType === Node.ELEMENT_NODE) standardizeActionButtons(node);
+    }));
+  }).observe(document.body, { childList: true, subtree: true });
+}
+
 function confirmSensitiveAction(title, description = "Confirme sua senha para continuar.") {
   return new Promise((resolve) => {
     const overlay = document.createElement("div");
@@ -8380,4 +9172,5 @@ document.querySelectorAll(".nav-item").forEach((item) => {
 });
 
 syncDashboardFooterDate();
+observeStandardActionButtons();
 initializeApp();

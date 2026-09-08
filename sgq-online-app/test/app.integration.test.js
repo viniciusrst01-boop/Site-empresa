@@ -209,6 +209,36 @@ test("admin, exportações, backup e revogação de sessão funcionam", async (t
   });
   assert.equal(ownerNcSave.status, 200);
 
+  const largeNcState = {
+    ...ncState,
+    ncs: [{
+      ...ncState.ncs[0],
+      acoes: [{
+        id: "AC-0001",
+        desc: "Concluir ação corretiva",
+        prazo: "2026-09-07",
+        responsavel: "Administrador",
+        status: "Concluída",
+        concluidaEm: "2026-09-07",
+        evidencias: [],
+      }],
+    }],
+    testPadding: "x".repeat(750_000),
+  };
+  const largeNcSave = await api(baseUrl, "/api/data", adminCookie, {
+    method: "POST",
+    body: JSON.stringify({ key: "state", moduleId: "nao-conformidades", value: largeNcState }),
+  });
+  assert.equal(largeNcSave.status, 200);
+  const largeNcBootstrap = await api(baseUrl, "/api/bootstrap", adminCookie);
+  assert.equal((await largeNcBootstrap.json()).state.ncs[0].acoes[0].status, "Concluída");
+
+  const restoredNcSave = await api(baseUrl, "/api/data", adminCookie, {
+    method: "POST",
+    body: JSON.stringify({ key: "state", moduleId: "nao-conformidades", value: ncState }),
+  });
+  assert.equal(restoredNcSave.status, 200);
+
   const userResponse = await api(baseUrl, "/api/company/users", adminCookie, {
     method: "POST",
     body: JSON.stringify({
@@ -367,6 +397,30 @@ test("admin, exportações, backup e revogação de sessão funcionam", async (t
   const usersAfterDelete = await api(baseUrl, "/api/company/users", delegatedCookie);
   assert.equal(usersAfterDelete.status, 200);
   assert.equal((await usersAfterDelete.json()).users.some((user) => user.id === delegatedCreatedUser.id), false);
+
+  const adminDisposableUser = await api(baseUrl, "/api/admin/user", adminCookie, {
+    method: "POST",
+    body: JSON.stringify({
+      companyId,
+      username: "descartavel.admin@example.com",
+      displayName: "Usuário Descartável",
+      role: "Colaborador",
+      currentPassword: "Admin-Teste-123",
+    }),
+  });
+  assert.equal(adminDisposableUser.status, 201);
+  const adminDisposablePayload = await adminDisposableUser.json();
+  const adminUserDelete = await api(baseUrl, "/api/admin/user", adminCookie, {
+    method: "DELETE",
+    body: JSON.stringify({ userId: adminDisposablePayload.user.id, currentPassword: "Admin-Teste-123" }),
+  });
+  assert.equal(adminUserDelete.status, 200);
+  const adminSelfDelete = await api(baseUrl, "/api/admin/user", adminCookie, {
+    method: "DELETE",
+    body: JSON.stringify({ userId: ownerBootstrap.user.id, currentPassword: "Admin-Teste-123" }),
+  });
+  assert.equal(adminSelfDelete.status, 400);
+  assert.equal((await adminSelfDelete.json()).error, "cannot_delete_self");
 
   const delegatedCompanyEdit = await api(baseUrl, "/api/company", delegatedCookie, {
     method: "PATCH",
@@ -592,19 +646,50 @@ test("admin, exportações, backup e revogação de sessão funcionam", async (t
   });
   assert.equal(oldPasswordLogin.status, 401);
 
-  const blockResponse = await api(baseUrl, "/api/admin/user", adminCookie, {
+  const roleUpdateResponse = await api(baseUrl, "/api/admin/user", adminCookie, {
     method: "PATCH",
     body: JSON.stringify({
       userId: createdUser.id,
       companyId,
       username: createdUser.username,
       displayName: createdUser.displayName,
-      role: createdUser.role,
+      role: "Qualidade",
       status: "Bloqueado",
       currentPassword: "Admin-Teste-123",
     }),
   });
-  assert.equal(blockResponse.status, 200);
+  assert.equal(roleUpdateResponse.status, 200);
+  assert.equal((await roleUpdateResponse.json()).user.status, "Ativo");
+
+  const blockAccessResponse = await api(baseUrl, "/api/admin/user", adminCookie, {
+    method: "PATCH",
+    body: JSON.stringify({
+      userId: createdUser.id,
+      companyId,
+      username: createdUser.username,
+      displayName: createdUser.displayName,
+      role: "Qualidade",
+      action: "block-access",
+      currentPassword: "Admin-Teste-123",
+    }),
+  });
+  assert.equal(blockAccessResponse.status, 200);
+  assert.equal((await blockAccessResponse.json()).user.status, "Bloqueado");
+
+  const unblockAccessResponse = await api(baseUrl, "/api/admin/user", adminCookie, {
+    method: "PATCH",
+    body: JSON.stringify({
+      userId: createdUser.id,
+      companyId,
+      username: createdUser.username,
+      displayName: createdUser.displayName,
+      role: "Qualidade",
+      action: "unblock-access",
+      currentPassword: "Admin-Teste-123",
+    }),
+  });
+  assert.equal(unblockAccessResponse.status, 200);
+  assert.equal((await unblockAccessResponse.json()).user.status, "Ativo");
 
   const revokedResponse = await api(baseUrl, "/api/bootstrap", collaboratorCookie);
   assert.equal(revokedResponse.status, 401, stderr);

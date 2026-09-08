@@ -30,6 +30,12 @@ button { font: inherit; cursor: pointer; border: 1px solid #aebdcc; border-radiu
 button:hover { box-shadow: 0 2px 6px #24374920; }
 button:disabled { opacity: .55; cursor: wait; }
 .primary { color: #fff; background: #0878c4; border-color: #0878c4; font-weight: 700; }
+.btn-save { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 38px; padding: 9px 16px; border: 1px solid transparent; border-radius: 9px; background: #1689f3; color: #fff; font-size: 13px; font-weight: 700; line-height: 1; white-space: nowrap; box-shadow: 0 1px 2px rgba(6, 77, 157, .24); transition: background-color .15s ease, box-shadow .15s ease, transform .15s ease; }
+.btn-save .action-button-icon { width: 17px; height: 17px; flex: 0 0 17px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.btn-save:hover { background: #0877dc; box-shadow: 0 2px 6px rgba(6, 77, 157, .24); }
+.btn-save:active { background: #0568c2; transform: translateY(1px); }
+.btn-save:focus-visible { outline: 2px solid rgba(22, 137, 243, .55); outline-offset: 2px; }
+.btn-save:disabled { opacity: .52; cursor: not-allowed; box-shadow: none; transform: none; }
 .section-heading, .action-heading, footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .section-heading h2 { margin: 0; }
 .action { margin-top: 16px; border: 1px solid #cad5dd; border-radius: 8px; padding: 16px; display: grid; gap: 14px; border-left: 3px solid #269387; }
