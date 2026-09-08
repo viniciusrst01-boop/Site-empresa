@@ -587,19 +587,36 @@ function updateAdminNav() {
     return;
   }
 
-  document.querySelectorAll(".sb-nav .nav-item").forEach((item) => {
-    if (item.dataset.view !== "gerenciamento") item.remove();
-  });
-
-  if (document.querySelector('[data-view="gerenciamento"]')) return;
-
   const nav = document.querySelector(".sb-nav");
-  const item = document.createElement("div");
-  item.className = "nav-item";
-  item.dataset.view = "gerenciamento";
-  item.innerHTML = `${moduleIcon("plano")} Gerenciamento`;
-  item.addEventListener("click", () => render("gerenciamento"));
-  nav?.appendChild(item);
+  const label = document.querySelector(".sb-section-label");
+  if (!nav || nav.dataset.adminNavigationReady === "true") return;
+
+  nav.innerHTML = "";
+  nav.dataset.adminNavigationReady = "true";
+  if (label) label.textContent = "ADMINISTRAÇÃO";
+
+  const items = [
+    { label: "Visão geral", icon: "plano", view: "gerenciamento" },
+    { label: "Empresas", icon: "empresa" },
+    { label: "Usuários", icon: "users" },
+    { label: "Planos e pagamentos", icon: "plano" },
+    { label: "Segurança", icon: "shield" },
+    { label: "Backups", icon: "download" },
+    { label: "Logs e auditoria", icon: "clipboard" },
+    { label: "Configurações", icon: "configuracoes", view: "configuracoes" },
+  ];
+
+  items.forEach((entry) => {
+    const item = document.createElement("div");
+    item.className = `nav-item${entry.view === "gerenciamento" ? " active" : ""}${entry.view ? "" : " admin-nav-planned"}`;
+    if (entry.view) item.dataset.view = entry.view;
+    item.innerHTML = `${moduleIcon(entry.icon)} ${entry.label}`;
+    item.addEventListener("click", () => {
+      if (entry.view) render(entry.view);
+      else toast(`${entry.label} será disponibilizado em uma área própria.`);
+    });
+    nav.appendChild(item);
+  });
 }
 
 function renderOnboarding() {
@@ -1014,6 +1031,7 @@ function render(view = "inicio") {
   }
 
   document.body.classList.toggle("home-dashboard", view === "inicio");
+  document.body.classList.toggle("admin-platform-view", view === "gerenciamento");
   document.body.classList.remove("module-detail-view");
   setActiveNav(view);
   pageContent.classList.remove("risk-page-content");
@@ -1779,6 +1797,7 @@ function renderModulos() {
 function moduleIcon(name) {
   const icons = {
     modulos: '<svg class="icon" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>',
+    empresa: '<svg class="icon" viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="1"/><line x1="9" y1="8" x2="9" y2="8"/><line x1="15" y1="8" x2="15" y2="8"/><line x1="9" y1="12" x2="9" y2="12"/><line x1="15" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="15" y2="16"/></svg>',
     plano: '<svg class="icon" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="3" y1="12" x2="21" y2="12"/></svg>',
     calendar: '<svg class="icon" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
     home: '<svg class="icon" viewBox="0 0 24 24"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M9 20v-6h6v6"/></svg>',
@@ -2134,6 +2153,32 @@ function loadLocalLeadershipData() {
   }
 }
 
+function animateTabChange(target, renderContent) {
+  if (typeof renderContent !== "function") return;
+  if (!target || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    renderContent();
+    return;
+  }
+
+  const transitionId = `${Date.now()}-${Math.random()}`;
+  target.dataset.appTabTransition = transitionId;
+  target.classList.remove("app-tab-entering", "app-tab-leaving");
+  void target.offsetWidth;
+  target.classList.add("app-tab-leaving");
+
+  window.setTimeout(() => {
+    if (target.dataset.appTabTransition !== transitionId) return;
+    target.classList.remove("app-tab-leaving");
+    renderContent();
+    target.classList.remove("app-tab-entering");
+    void target.offsetWidth;
+    target.classList.add("app-tab-entering");
+    window.setTimeout(() => {
+      if (target.dataset.appTabTransition === transitionId) target.classList.remove("app-tab-entering");
+    }, 150);
+  }, 90);
+}
+
 function renderLeadershipModule() {
   ensureLeadershipData();
   currentDetailModule = "lideranca";
@@ -2169,7 +2214,7 @@ function bindLeadershipStaticActions() {
       currentLeadershipMainTab = button.dataset.leadershipMain;
       currentLeadershipSubTab = leadershipTabs[currentLeadershipMainTab][0][0];
       saveModuleTabs("lideranca");
-      renderLeadershipTabs();
+      animateTabChange(document.querySelector("#leadershipTabContent"), renderLeadershipTabs);
     });
   });
 
@@ -2705,7 +2750,7 @@ function handleLeadershipAction(action, id) {
   if (action === "switch-tab") {
     currentLeadershipSubTab = id;
     saveModuleTabs("lideranca");
-    renderLeadershipTabs();
+    animateTabChange(document.querySelector("#leadershipTabContent"), renderLeadershipTabs);
     return;
   }
   if (action === "calendar-prev" || action === "calendar-next") {
@@ -3320,7 +3365,7 @@ function bindRiskTabs() {
       document.querySelectorAll("[data-risk-tab]").forEach((item) => {
         item.classList.toggle("active", item.dataset.riskTab === currentRiskTab);
       });
-      renderRiskTab();
+      animateTabChange(document.querySelector("#riskTabContent"), renderRiskTab);
     });
   });
 }
@@ -3567,7 +3612,7 @@ function bindContextTabs() {
       currentContextTab = tab.dataset.contextTab;
       saveModuleTabs("contexto");
       document.querySelectorAll("[data-context-tab]").forEach((item) => item.classList.toggle("active", item.dataset.contextTab === currentContextTab));
-      renderContextTab();
+      animateTabChange(document.querySelector("#contextTabContent"), renderContextTab);
     });
   });
 }
@@ -4930,7 +4975,8 @@ function renderNonConformityModule() {
     <div class="subtab-row" id="ncSubTabs"></div><div id="ncTabContent"></div><div id="ncModalMount"></div>`;
   pageContent.querySelectorAll("[data-nc-tab]").forEach((button) => button.addEventListener("click", () => {
     ncMainTab = button.dataset.ncTab;
-    renderNonConformityModule();
+    pageContent.querySelectorAll("[data-nc-tab]").forEach((item) => item.classList.toggle("active", item.dataset.ncTab === ncMainTab));
+    animateTabChange(pageContent.querySelector("#ncTabContent"), renderNcTab);
   }));
   bindViewTargetButtons();
   renderNcKpis();
@@ -4962,7 +5008,10 @@ function renderNcTab() {
   const sub = pageContent.querySelector("#ncSubTabs");
   sub.innerHTML = ncMainTab === "cadastros" ? Object.entries(ncCatalogConfig).map(([id, cfg]) => `<button class="subtab-pill ${ncSubTab === id ? "active" : ""}" data-nc-subtab="${id}" type="button">${cfg.title}</button>`).join("") : "";
   sub.hidden = ncMainTab !== "cadastros";
-  sub.querySelectorAll("[data-nc-subtab]").forEach((button) => button.addEventListener("click", () => { ncSubTab = button.dataset.ncSubtab; renderNcTab(); }));
+  sub.querySelectorAll("[data-nc-subtab]").forEach((button) => button.addEventListener("click", () => {
+    ncSubTab = button.dataset.ncSubtab;
+    animateTabChange(content, renderNcTab);
+  }));
   const content = pageContent.querySelector("#ncTabContent");
   if (ncMainTab === "cadastros") content.innerHTML = ncCatalogHtml();
   if (ncMainTab === "registrar") content.innerHTML = ncRegisterHtml();
@@ -5833,7 +5882,13 @@ function bindCompanyScreen() {
   pageContent.querySelectorAll("[data-company-tab]").forEach((button) => {
     button.addEventListener("click", () => {
       currentCompanyTab = button.dataset.companyTab;
-      renderEmpresa();
+      saveModuleTabs("empresa");
+      pageContent.querySelectorAll("[data-company-tab]").forEach((item) => item.classList.toggle("active", item.dataset.companyTab === currentCompanyTab));
+      const title = pageContent.querySelector("#companyTabTitle");
+      const subtitle = pageContent.querySelector("#companyTabSub");
+      if (title) title.textContent = companyTabMeta[currentCompanyTab].title;
+      if (subtitle) subtitle.textContent = companyTabMeta[currentCompanyTab].sub;
+      animateTabChange(pageContent.querySelector("#companyPanel"), renderCompanyTab);
     });
   });
 
@@ -6799,11 +6854,10 @@ function reportExportCard(title, format, description, queryFormat, icon) {
 }
 
 async function renderGerenciamento() {
-  setTopbar("Gerenciamento", "Clientes, planos e acessos do SGQ Online");
+  setTopbar("Gerenciamento", "Painel de controle do sistema");
   pageContent.classList.remove("risk-page-content");
   pageContent.classList.remove("context-page-content");
   pageContent.innerHTML = `
-    ${viewHeader("Gerenciamento", "Acompanhe clientes pagantes, acessos ativos e usuários cadastrados automaticamente.")}
     <div class="admin-loading qp-card">Carregando dados de gerenciamento...</div>
   `;
 
@@ -6825,7 +6879,7 @@ async function renderGerenciamento() {
   } catch (error) {
     console.warn(error);
     pageContent.innerHTML = `
-      ${viewHeader("Gerenciamento", "Clientes, planos e acessos do SGQ Online.")}
+      ${viewHeader("Gerenciamento", "Painel de controle do sistema.")}
       <article class="qp-card">
         <h3>Não foi possível carregar</h3>
         <p class="qp-muted">Verifique se o servidor local está rodando e tente novamente.</p>
@@ -6839,126 +6893,123 @@ function adminOverviewHtml(data) {
   const companies = data.companies || [];
   const users = data.users || [];
   const logs = data.logs || [];
-  const operations = data.operations || null;
+  const operations = data.operations || {};
+  const health = operations.health || {};
+  const services = health.services || {};
+  const incidents = operations.incidents || [];
+  const latestBackup = services.backup?.latest || operations.backups?.[0] || null;
+  const currentSession = users.find((user) => Number(user.id) === Number(currentUser?.id));
+  const activePercent = summary.accesses ? Math.round((Number(summary.activeAccesses || 0) / Number(summary.accesses)) * 100) : null;
+  const featuredCompanies = [...companies]
+    .sort((left, right) => String(right.last_activity_at || right.createdAt || "").localeCompare(String(left.last_activity_at || left.createdAt || "")))
+    .slice(0, 4);
 
   return `
-    ${viewHeader("Gerenciamento", "Acompanhe clientes pagantes, acessos ativos e usuários cadastrados automaticamente.")}
-
-    <div class="admin-kpi-row">
-      ${adminMetric("Clientes", summary.companies || 0, "empresas cadastradas")}
-      ${adminMetric("Pagantes", summary.payingCompanies || 0, "empresas com plano pago")}
-      ${adminMetric("Acessos", summary.accesses || 0, "usuários cadastrados")}
-      ${adminMetric("Ativos", summary.activeAccesses || 0, "acessos ativos")}
-      ${adminMetric("Bloqueados", summary.blockedAccesses || 0, "acessos bloqueados")}
-      ${adminMetric("Entradas 24h", summary.successfulLogins24h || 0, "logins realizados")}
-      ${adminMetric("Falhas 24h", summary.failedLogins24h || 0, "tentativas recusadas")}
-      ${adminMetric("Disponibilidade", "Online", "banco e autenticação ativos")}
-    </div>
-
-    ${operations ? operationsPanelHtml(operations) : ""}
-
-    <div class="admin-toolbar qp-card">
-      <label>
-        <span>Buscar no gerenciamento</span>
-        <input class="input-basic" type="search" data-admin-search placeholder="Empresa, usuário, login ou plano" />
-      </label>
-      <a class="btn-primary" href="/api/admin/backup">${moduleIcon("download")} Backup geral</a>
-    </div>
-
-    <div class="admin-form-grid">
-      ${adminCompanyFormHtml()}
-      ${adminUserFormHtml(companies)}
-    </div>
-
-    <section class="qp-card admin-card">
-      <div class="dcc-head">
+    <section class="admin-overview" aria-label="Visão geral administrativa">
+      <header class="admin-overview-header">
         <div>
-          <div class="dcc-title">Clientes e planos</div>
-          <div class="dcc-sub">Planos, pagamentos e ocupação dos acessos de cada empresa.</div>
+          <div class="welcome-eyebrow">ADMINISTRAÇÃO</div>
+          <h1>Gerenciamento</h1>
+          <p>Painel de controle do sistema. Acompanhe métricas, atividades e a saúde da plataforma.</p>
+        </div>
+        <div class="admin-overview-access"><div>${moduleIcon("calendar")} <span>${adminOverviewDate()}</span></div>${currentSession?.lastLoginAt ? `<small>Último acesso: ${formatDateTime(currentSession.lastLoginAt)}</small>` : ""}</div>
+      </header>
+
+      <div class="admin-overview-metrics">
+        ${adminOverviewMetric("modulos", "Empresas cadastradas", summary.companies || 0, "empresas na plataforma", "blue")}
+        ${adminOverviewMetric("users", "Usuários totais", summary.accesses || 0, "acessos cadastrados", "cyan")}
+        ${adminOverviewMetric("check-circle", "Usuários ativos", summary.activeAccesses || 0, activePercent === null ? "sem acessos cadastrados" : `${activePercent}% dos usuários`, "green")}
+        ${adminOverviewMetric("plano", "Planos ativos", summary.payingCompanies || 0, "empresas com plano pago", "violet")}
+      </div>
+
+      <div class="admin-overview-upper-grid">
+        <section class="admin-overview-card admin-system-summary">
+          <div class="admin-overview-card-head"><div><h2>Resumo do sistema</h2><p>Status dos principais serviços e recursos da plataforma.</p></div></div>
+          <div class="admin-system-services">
+            ${adminSystemService("documentos", "Banco de dados", services.database?.ok, services.database?.ok ? `${services.database.latencyMs ?? "-"} ms de latência` : "Indisponível")}
+            ${adminSystemService("download", "Backups", services.backup?.ok, latestBackup ? `Último: ${formatDateTime(latestBackup.createdAt)}` : "Nenhum backup registrado")}
+            ${adminSystemService("shield", "Segurança", !incidents.some((incident) => ["critical", "error"].includes(String(incident.severity).toLowerCase())), incidents.length ? `${incidents.length} incidente(s) recente(s)` : "Sem incidentes recentes")}
+            ${adminSystemService("mail", "E-mail e alertas", services.email?.ok && services.email?.operationalAlertsConfigured, !services.email?.ok ? "Envio não configurado" : services.email?.operationalAlertsConfigured ? "Envio configurado" : "Destinatário não configurado")}
+          </div>
+        </section>
+        <div class="admin-overview-side">
+          <aside class="admin-overview-card admin-operational-status ${health.ok ? "is-ok" : "is-attention"}">
+            <div class="admin-operational-icon">${health.ok ? moduleIcon("check-circle") : moduleIcon("nao-conformidades")}</div>
+            <div><span>Sistema ${health.ok ? "operacional" : "com atenção"}</span><strong>${health.ok ? "Todos os serviços online" : "Verifique os serviços"}</strong><p>${health.ok ? "Plataforma funcionando normalmente." : adminOperationalAttention(services)}</p></div>
+          </aside>
+          <section class="admin-overview-card admin-recent-incidents"><div class="admin-overview-card-head"><div><h2>Incidentes recentes</h2><p>Ocorrências que exigem acompanhamento.</p></div></div><div class="admin-incidents-list">${incidents.length ? incidents.slice(0, 3).map((incident) => adminRecentIncident(incident)).join("") : `<div class="admin-no-incidents">${moduleIcon("check-circle")} Nenhum incidente recente.</div>`}</div></section>
         </div>
       </div>
-      <div class="admin-table-wrap">
-        <table class="data-table">
-          <thead><tr><th>Empresa</th><th>Plano</th><th>Pagamento</th><th>Acessos</th><th>Última atividade</th><th>Ações</th></tr></thead>
-          <tbody>
-            ${companies.length ? companies.map((company) => `
-              <tr data-admin-search-row="${escapeHtml(`${company.name} ${company.cnpj || ""} ${company.plan || ""} ${company.billingStatus || ""}`.toLowerCase())}">
-                <td><strong>${escapeHtml(company.name)}</strong></td>
-                <td>${planBadge(company.plan)}</td>
-                <td>${billingBadge(company.billingStatus)}</td>
-                <td>${Number(company.active_access_count || 0)} ativos / ${Number(company.access_count || 0)} de ${Number(company.accessLimit || 5)}</td>
-                <td>${formatDateTime(company.last_activity_at)}</td>
-                <td>
-                  <button class="abtn" data-admin-action="edit-company" data-company='${adminPayload(company)}' type="button" title="Editar cliente">${moduleIcon("edit")}</button>
-                  <a class="abtn" href="/api/admin/backup?companyId=${company.id}" title="Backup desta empresa">${moduleIcon("download")}</a>
-                </td>
-              </tr>
-            `).join("") : `<tr><td colspan="6"><div class="empty-state">Nenhum cliente cadastrado.</div></td></tr>`}
-          </tbody>
-        </table>
+
+      <div class="admin-overview-lower-grid">
+        <section class="admin-overview-card admin-recent-activity">
+          <div class="admin-overview-card-head"><div><h2>Atividade recente</h2><p>Últimos eventos ocorridos no sistema.</p></div></div>
+          <div class="admin-activity-table-wrap"><table class="admin-activity-table"><thead><tr><th>Data e hora</th><th>Tipo</th><th>Descrição</th><th>Usuário</th><th>Status</th></tr></thead><tbody>${logs.length ? logs.slice(0, 5).map((log) => `<tr><td>${formatDateTime(log.createdAt)}</td><td>${escapeHtml(adminEventType(log.eventType))}</td><td>${escapeHtml(adminEventLabel(log.eventType))}</td><td>${escapeHtml(log.username || "Sistema")}</td><td>${adminActivityStatus(log.outcome)}</td></tr>`).join("") : `<tr><td colspan="5"><div class="empty-state">Ainda não há atividade registrada.</div></td></tr>`}</tbody></table></div>
+        </section>
+        <section class="admin-overview-card admin-featured-companies">
+          <div class="admin-overview-card-head"><div><h2>Empresas em destaque</h2><p>Empresas com atividade mais recente.</p></div></div>
+          <div class="admin-featured-list">${featuredCompanies.length ? featuredCompanies.map((company) => adminFeaturedCompany(company)).join("") : `<div class="empty-state">Nenhuma empresa cadastrada.</div>`}</div>
+        </section>
       </div>
     </section>
-
-    <section class="qp-card admin-card">
-      <div class="dcc-head">
-        <div>
-          <div class="dcc-title">Usuários e acessos</div>
-          <div class="dcc-sub">Todo usuário cadastrado no banco aparece automaticamente aqui.</div>
-        </div>
-      </div>
-      <div class="admin-table-wrap">
-        <table class="data-table">
-          <thead><tr><th>Usuário</th><th>Login</th><th>Empresa</th><th>Perfil</th><th>Último acesso</th><th>Status</th><th>Ações</th></tr></thead>
-          <tbody>
-            ${users.length ? users.map((user) => `
-              <tr data-admin-search-row="${escapeHtml(`${user.displayName} ${user.username} ${user.companyName} ${user.role} ${user.status}`.toLowerCase())}">
-                <td><strong>${escapeHtml(user.displayName)}</strong></td>
-                <td>${escapeHtml(user.username)}</td>
-                <td>${escapeHtml(user.companyName)}</td>
-                <td>${escapeHtml(user.role)}</td>
-                <td>${formatDateTime(user.lastLoginAt)}</td>
-                <td><span class="status-pill ${statusClass(user.status)}"><span class="status-dot2"></span>${escapeHtml(user.status)}</span></td>
-                <td>
-                  <button class="abtn" data-admin-action="edit-user" data-user='${adminPayload(user)}' type="button" title="Editar usuário">${moduleIcon("edit")}</button>
-                  ${user.status === "Pendente"
-                    ? `<button class="abtn" data-admin-action="resend-invite" data-user-id="${user.id}" data-user-name="${escapeHtml(user.displayName)}" type="button" title="Reenviar convite">${moduleIcon("mail")}</button>`
-                    : `<button class="abtn" data-admin-action="toggle-user" data-user-id="${user.id}" data-user-status="${escapeHtml(user.status)}" data-user-name="${escapeHtml(user.displayName)}" type="button" title="${user.status === "Ativo" ? "Bloquear acesso" : "Liberar acesso"}">${moduleIcon("shield")}</button>`}
-                  <button class="abtn" data-admin-action="reset-password" data-user-id="${user.id}" data-user-name="${escapeHtml(user.displayName)}" type="button" title="Resetar senha">${moduleIcon("key")}</button>
-                </td>
-              </tr>
-            `).join("") : `<tr><td colspan="6"><div class="empty-state">Nenhum usuário cadastrado.</div></td></tr>`}
-          </tbody>
-        </table>
-      </div>
-    </section>
-
-    <section class="qp-card admin-card">
-      <div class="dcc-head">
-        <div>
-          <div class="dcc-title">Atividade e segurança</div>
-          <div class="dcc-sub">Últimos acessos, tentativas recusadas e ações administrativas registradas no banco.</div>
-        </div>
-      </div>
-      <div class="admin-table-wrap">
-        <table class="data-table admin-log-table">
-          <thead><tr><th>Data</th><th>Evento</th><th>Usuário</th><th>Resultado</th><th>IP</th></tr></thead>
-          <tbody>
-            ${logs.length ? logs.map((log) => `
-              <tr data-admin-search-row="${escapeHtml(`${log.username || ""} ${adminEventLabel(log.eventType)} ${log.outcome || ""}`.toLowerCase())}">
-                <td>${formatDateTime(log.createdAt)}</td>
-                <td>${escapeHtml(adminEventLabel(log.eventType))}</td>
-                <td>${escapeHtml(log.username || "Sistema")}</td>
-                <td>${auditOutcomeBadge(log.outcome)}</td>
-                <td class="mono-cell">${escapeHtml(log.ipAddress || "-")}</td>
-              </tr>
-            `).join("") : `<tr><td colspan="5"><div class="empty-state">A atividade começará a aparecer após os próximos acessos.</div></td></tr>`}
-          </tbody>
-        </table>
-      </div>
-    </section>
-
-    <div class="admin-reset-result" id="adminResetResult" hidden></div>
   `;
+}
+
+function adminOverviewMetric(icon, label, value, detail, accent) {
+  return `<article class="admin-metric-card ${accent}"><span class="admin-metric-icon">${moduleIcon(icon)}</span><div><p>${escapeHtml(label)}</p><strong>${escapeHtml(value)}</strong><small>${escapeHtml(detail)}</small></div></article>`;
+}
+
+function adminSystemService(icon, label, ok, detail) {
+  return `<article class="admin-system-service ${ok ? "is-ok" : "is-attention"}"><span>${moduleIcon(icon)}</span><div><strong>${escapeHtml(label)}</strong><small>${escapeHtml(detail)}</small></div><i title="${ok ? "Online" : "Requer atenção"}"></i></article>`;
+}
+
+function adminOperationalAttention(services) {
+  const affected = Object.values(services).filter((service) => service?.ok === false).length;
+  return affected ? `${affected} serviço${affected > 1 ? "s requerem" : " requer"} atenção.` : "Acompanhe o estado dos serviços.";
+}
+
+function adminOverviewDate() {
+  return new Intl.DateTimeFormat("pt-BR", { weekday: "long", day: "2-digit", month: "long", year: "numeric" }).format(new Date());
+}
+
+function adminActivityStatus(outcome) {
+  const isSuccess = String(outcome || "success").toLowerCase() === "success";
+  return `<span class="admin-activity-status ${isSuccess ? "is-success" : "is-attention"}">${isSuccess ? "Concluído" : "Atenção"}</span>`;
+}
+
+function adminEventType(eventType) {
+  if (String(eventType).startsWith("login")) return "Acesso";
+  if (String(eventType).includes("company")) return "Empresa";
+  if (String(eventType).includes("backup")) return "Backup";
+  if (String(eventType).includes("invitation")) return "Usuário";
+  return "Sistema";
+}
+
+function adminFeaturedCompany(company) {
+  const initials = String(company.name || "E").split(/\s+/).filter(Boolean).slice(0, 2).map((word) => word[0]).join("").toUpperCase();
+  return `<article class="admin-featured-company"><span class="admin-featured-avatar">${escapeHtml(initials)}</span><div><strong>${escapeHtml(company.name)}</strong><small>${escapeHtml(company.plan || "Sem plano")} · ${Number(company.active_access_count || 0)} usuário(s) ativo(s)</small></div>${adminOverviewStatusBadge(company.billingStatus || "Ativo")}</article>`;
+}
+
+function adminRecentIncident(incident) {
+  const severity = String(incident.severity || "info").toLowerCase();
+  const label = severity === "critical" ? "Crítico" : ["error", "warning"].includes(severity) ? "Atenção" : "Informativo";
+  return `<article class="admin-incident ${escapeHtml(severity)}"><i></i><div><strong>${escapeHtml(adminIncidentTitle(incident))}</strong><small>${formatDateTime(incident.createdAt)}</small></div><span>${label}</span></article>`;
+}
+
+function adminIncidentTitle(incident) {
+  const event = String(incident.eventType || "").toLowerCase();
+  if (event.includes("backup")) return "Falha ou atenção no backup";
+  if (event.includes("database")) return "Indisponibilidade no banco de dados";
+  if (event.includes("billing")) return "Falha no processamento de cobrança";
+  if (event.includes("email") || event.includes("notification")) return "Falha no envio de alertas";
+  if (event.includes("login")) return "Ocorrência de autenticação";
+  return `Ocorrência em ${String(incident.component || "sistema")}`;
+}
+
+function adminOverviewStatusBadge(status) {
+  const normalized = String(status || "Ativo");
+  const className = normalized.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "-");
+  return `<span class="admin-overview-status ${escapeHtml(className)}"><i></i>${escapeHtml(normalized)}</span>`;
 }
 
 function operationsPanelHtml(operations) {

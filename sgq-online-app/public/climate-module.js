@@ -49,7 +49,11 @@ function renderClimateModule() {
     </div>
     <div id="climateTabContent"></div>
     ${climateModalHtml()}`;
-  document.querySelectorAll("[data-climate-tab]").forEach((button) => button.addEventListener("click", () => { climateTab = button.dataset.climateTab; renderClimateModule(); }));
+  document.querySelectorAll("[data-climate-tab]").forEach((button) => button.addEventListener("click", () => {
+    climateTab = button.dataset.climateTab;
+    document.querySelectorAll("[data-climate-tab]").forEach((item) => item.classList.toggle("active", item.dataset.climateTab === climateTab));
+    animateTabChange(document.querySelector("#climateTabContent"), renderClimateTab);
+  }));
   document.querySelectorAll("[data-climate-close]").forEach((button) => button.addEventListener("click", () => climateCloseModal()));
   document.querySelector("#climateModal")?.addEventListener("click", (event) => { if (event.target.id === "climateModal") climateCloseModal(); });
   renderClimateTab();
