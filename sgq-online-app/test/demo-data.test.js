@@ -55,7 +55,11 @@ test('seed is deterministic, preserves credentials/status, and has coherent refe
   assert.ok(get('context').processos.every(row => enumValues('contextProcessoCategoria').includes(row.categoria)));
   assert.equal(state.company.registry.setores.reduce((sum, s) => sum + s.colaboradores, 0), 28);
   assert.equal(state.company.tradeName, 'Quality Pro Solutions');
-  assert.deepEqual(state.documents, []); assert.deepEqual(state.audits, []); assert.deepEqual(state.equipment, []);
+  assert.equal(state.documents.length, 14);
+  assert.equal(state.documents.filter(row => row.kind === 'internal').length, 9);
+  assert.equal(state.documents.filter(row => row.kind === 'external').length, 5);
+  assert.ok(state.documents.every(row => row.code && row.title && row.status));
+  assert.deepEqual(state.audits, []); assert.deepEqual(state.equipment, []);
   for (const nc of state.ncs) {
     assert.ok(get('context').processos.some(p => p.nome === nc.processo));
     assert.ok(state.company.registry.setores.some(s => s.nome === nc.setor));

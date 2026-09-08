@@ -72,7 +72,8 @@ Os modulos usam JSON persistido em `company_data` (PostgreSQL) ou `companyData`
 | Nao conformidades, causa, acoes, eficacia, historico | Pronto | `renderNonConformityModule` / `saveNcData` -> `/api/data` -> `state.ncs` |
 | Dashboard/TV de NCs | Pronto | `nc-tv.js`, `refreshFromServer`, `aggregate` -> `/api/bootstrap` -> `state.ncs` |
 | Saude do SGQ | Pronto; historico depende da fonte | `getSGQHealthHistory` -> `/api/dashboard/health-history` -> `sgqHealth:*`; calculo existente em `sgq-health-data.js` |
-| Documentos e Auditorias | Parcial, leitura de tabela sem formulario especifico utilizavel | Nao preenchidos; arrays vazios evitam fallback antigo |
+| Documentos | Pronto | Cadastro, Lista Mestra, documentos externos e indicadores usam `state.documents`; o seed inclui 9 internos e 5 externos com situacoes variadas |
+| Auditorias | Parcial | Nao preenchido; o modulo ainda nao possui um fluxo especifico utilizavel no seed |
 | Equipamentos | Placeholder | Nao preenchido |
 | Satisfacao do Cliente e modulo independente de Fornecedores | Em desenvolvimento (`future: true`) | Nao alterados; cadastro de fornecedores da empresa e distinto |
 | Financeiro operacional | Nao encontrado | Nao criado |
