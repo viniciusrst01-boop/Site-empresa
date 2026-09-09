@@ -2471,6 +2471,35 @@ async function appendSupportMessage(id, message) {
   return mapSystemEvent(row);
 }
 
+async function markSupportMessagesRead(id, readerType) {
+  await ensureInitialized();
+  const now = timestamp();
+  if (usePostgres) {
+    const result = await getPool().query(
+      `UPDATE system_events
+       SET metadata = jsonb_set(COALESCE(metadata, '{}'::jsonb), '{messages}', (
+         SELECT jsonb_agg(CASE
+           WHEN COALESCE(message->>'authorType', '') <> $2 AND NOT (message ? 'readAt')
+             THEN message || jsonb_build_object('readAt', $3::text)
+           ELSE message END)
+         FROM jsonb_array_elements(COALESCE(metadata->'messages', '[]'::jsonb)) AS message
+       ), true)
+       WHERE id = $1 AND event_type = 'support_request'
+       RETURNING *`,
+      [Number(id), readerType, now],
+    );
+    return mapSystemEvent(result.rows[0]);
+  }
+  const database = getStore();
+  const row = database.systemEvents.find((item) => Number(item.id) === Number(id) && item.event_type === "support_request");
+  if (!row) return null;
+  row.metadata = { ...(row.metadata || {}), messages: (row.metadata?.messages || []).map((message) =>
+    message.authorType !== readerType && !message.readAt ? { ...message, readAt: now } : message,
+  ) };
+  saveStore();
+  return mapSystemEvent(row);
+}
+
 async function checkDatabaseHealth() {
   const startedAt = Date.now();
   await ensureInitialized();
@@ -2758,6 +2787,7 @@ module.exports = {
   listSystemEvents,
   updateSupportRequest,
   appendSupportMessage,
+  markSupportMessagesRead,
   recordBillingEvent,
   recordSystemEvent,
   recordAuditLog,

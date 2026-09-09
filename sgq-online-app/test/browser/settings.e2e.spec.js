@@ -33,4 +33,9 @@ test("support button opens and submits a request", async ({ page }) => {
   await page.locator("#supportDescription").fill("O painel não atualiza os dados depois de salvar o formulário.");
   await page.getByRole("button", { name: "Enviar solicitação" }).click();
   await expect(page.getByText("Solicitação enviada ao suporte.")).toBeVisible();
+  await page.locator(".btn-support").click();
+  await page.locator(".support-open-ticket").first().waitFor();
+  await page.locator(".support-open-ticket").first().click();
+  await expect(page.getByRole("dialog", { name: "Chamado de suporte" })).toBeVisible();
+  await expect(page.locator(".support-chat-composer")).toBeVisible();
 });

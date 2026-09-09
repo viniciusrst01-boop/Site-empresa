@@ -61,6 +61,7 @@ const {
   updateAdminUser,
   updateSupportRequest,
   appendSupportMessage,
+  markSupportMessagesRead,
   updateCompanyUser,
   updateCompany,
   updateUserProfile,
@@ -2095,6 +2096,19 @@ async function handleApiRequest(req, res, url, session) {
     }
     await auditRequest(req, session, "support_message_created", "success", { supportRequestId: ticket.id, authorType: message.authorType });
     sendJson(res, 201, { ok: true, request });
+    return;
+  }
+
+  if (url.pathname === "/api/support/messages/read" && req.method === "POST") {
+    const body = await readJsonBody(req);
+    const ticket = (await listSystemEvents(200)).find((event) => event.eventType === "support_request" && Number(event.id) === Number(body?.id));
+    const isRequester = Number(ticket?.metadata?.requesterId) === Number(session.userId);
+    if (!ticket || (!isAdminSession(session) && !isRequester)) {
+      sendJson(res, 403, { error: "support_message_forbidden" });
+      return;
+    }
+    const request = await markSupportMessagesRead(ticket.id, isAdminSession(session) ? "admin" : "user");
+    sendJson(res, 200, { ok: true, request });
     return;
   }
 

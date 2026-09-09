@@ -8961,33 +8961,60 @@ function formatCurrencyMinor(value, currency = "BRL") {
 }
 
 function openSupportChat(request, onClose = null) {
-  const metadata = request.metadata || {};
-  const messages = Array.isArray(metadata.messages) && metadata.messages.length
-    ? metadata.messages
-    : [{ authorType: "user", authorName: metadata.requesterName || "Usuário", text: metadata.description || request.message, createdAt: request.createdAt }];
+  let currentRequest = request;
   const overlay = document.createElement("div");
   overlay.className = "modal-overlay show support-overlay";
   overlay.innerHTML = `
     <form class="modal-box support-chat-modal" aria-modal="true" role="dialog" aria-labelledby="supportChatTitle">
-      <div class="modal-hd"><div><h3 id="supportChatTitle">Chamado de suporte</h3><p>${escapeHtml(metadata.companyName || "Suporte QualityPro Cloud")} · ${escapeHtml(supportStatusLabel[metadata.status || "open"] || "Aberto")}</p></div><button class="modal-close" type="button" data-support-chat-close>${moduleIcon("close")}</button></div>
-      <div class="support-chat-messages">${messages.map((message) => `<article class="support-chat-message ${message.authorType === "admin" ? "admin" : "user"}"><strong>${escapeHtml(message.authorName || (message.authorType === "admin" ? "Suporte" : "Usuário"))}</strong><p>${escapeHtml(message.text)}</p><small>${escapeHtml(formatDateTime(message.createdAt))}</small></article>`).join("")}</div>
-      <div class="field"><label for="supportReply">Responder</label><textarea class="input-basic" id="supportReply" rows="3" maxlength="2000" placeholder="Escreva uma mensagem para esta solicitação." required></textarea></div>
-      <div class="modal-actions"><button class="btn-ghost" type="button" data-support-chat-close>Fechar</button><button class="btn-grad" type="submit">Enviar mensagem</button></div>
+      <div class="support-chat-header"><div><span class="support-chat-kicker">CHAMADO ATIVO</span><h3 id="supportChatTitle">Chamado de suporte</h3><p data-support-chat-meta></p></div><button class="modal-close" type="button" data-support-chat-close>${moduleIcon("close")}</button></div>
+      <div class="support-chat-messages" data-support-chat-messages aria-live="polite"></div>
+      <div class="support-chat-composer"><textarea id="supportReply" maxlength="2000" rows="1" placeholder="Digite uma mensagem" required></textarea><button type="submit" aria-label="Enviar mensagem" title="Enviar mensagem">${moduleIcon("arrow")}</button></div>
     </form>`;
   const close = () => { overlay.remove(); onClose?.(); };
+  const messageList = overlay.querySelector("[data-support-chat-messages]");
+  const renderMessages = () => {
+    const metadata = currentRequest.metadata || {};
+    const messages = Array.isArray(metadata.messages) && metadata.messages.length
+      ? metadata.messages
+      : [{ authorType: "user", authorName: metadata.requesterName || "Usuário", text: metadata.description || currentRequest.message, createdAt: currentRequest.createdAt }];
+    const ownType = currentUser?.isAdmin ? "admin" : "user";
+    overlay.querySelector("[data-support-chat-meta]").textContent = `${metadata.companyName || "Suporte QualityPro Cloud"} · ${supportStatusLabel[metadata.status || "open"] || "Aberto"}`;
+    messageList.innerHTML = messages.map((message) => {
+      const own = message.authorType === ownType;
+      const receipt = own ? `<small class="support-message-receipt ${message.readAt ? "read" : ""}" title="${message.readAt ? "Visualizado" : "Enviado"}" aria-label="${message.readAt ? "Visualizado" : "Enviado"}">${message.readAt ? "✓✓" : "✓"}</small>` : "";
+      return `<article class="support-chat-message ${own ? "own" : "other"}"><div class="support-message-author">${escapeHtml(message.authorName || (message.authorType === "admin" ? "Suporte" : "Usuário"))}</div><p>${escapeHtml(message.text)}</p><footer><time>${escapeHtml(formatDateTime(message.createdAt))}</time>${receipt}</footer></article>`;
+    }).join("");
+    messageList.scrollTop = messageList.scrollHeight;
+  };
   overlay.querySelectorAll("[data-support-chat-close]").forEach((button) => button.addEventListener("click", close));
   overlay.querySelector("form").addEventListener("submit", async (event) => {
     event.preventDefault();
     const field = overlay.querySelector("#supportReply");
-    const button = overlay.querySelector('button[type="submit"]');
+    const button = overlay.querySelector('.support-chat-composer button');
+    if (!field.value.trim()) return;
     button.disabled = true;
-    const response = await fetch("/api/support/messages", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: request.id, text: field.value.trim() }) });
+    const response = await fetch("/api/support/messages", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentRequest.id, text: field.value.trim() }) });
     if (!response.ok) { button.disabled = false; toast("Não foi possível enviar a mensagem."); return; }
     const result = await response.json();
-    overlay.remove();
-    openSupportChat(result.request, onClose);
+    currentRequest = result.request;
+    field.value = "";
+    field.style.height = "";
+    button.disabled = false;
+    renderMessages();
+  });
+  overlay.querySelector("#supportReply").addEventListener("input", (event) => {
+    event.target.style.height = "";
+    event.target.style.height = `${Math.min(event.target.scrollHeight, 120)}px`;
+  });
+  overlay.querySelector("#supportReply").addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); overlay.querySelector("form").requestSubmit(); }
   });
   document.body.appendChild(overlay);
+  renderMessages();
+  fetch("/api/support/messages/read", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentRequest.id }) })
+    .then((response) => response.ok ? response.json() : null)
+    .then((result) => { if (result?.request && overlay.isConnected) { currentRequest = result.request; renderMessages(); } })
+    .catch(() => {});
   overlay.querySelector("#supportReply").focus();
 }
 

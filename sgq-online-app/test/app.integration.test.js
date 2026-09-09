@@ -355,6 +355,18 @@ test("admin, exportações, backup e revogação de sessão funcionam", async (t
   });
   assert.equal(supportReply.status, 201);
   assert.equal((await supportReply.json()).request.metadata.messages.at(-1).authorType, "admin");
+  const supportRead = await api(baseUrl, "/api/support/messages/read", collaboratorCookie, {
+    method: "POST",
+    body: JSON.stringify({ id: supportTicket.id }),
+  });
+  assert.equal(supportRead.status, 200);
+  assert.ok((await supportRead.json()).request.metadata.messages.some((message) => message.authorType === "admin" && message.readAt));
+  const supportFeedback = await api(baseUrl, "/api/support/messages", collaboratorCookie, {
+    method: "POST",
+    body: JSON.stringify({ id: supportTicket.id, text: "Obrigado, vou acompanhar a análise pelo chamado." }),
+  });
+  assert.equal(supportFeedback.status, 201);
+  assert.equal((await supportFeedback.json()).request.metadata.messages.at(-1).authorType, "user");
   const supportThread = await api(baseUrl, "/api/support", collaboratorCookie);
   assert.ok((await supportThread.json()).requests.find((item) => item.id === supportTicket.id).metadata.messages.some((message) => message.authorType === "admin"));
   const collaboratorWithNotification = await api(baseUrl, "/api/bootstrap", collaboratorCookie);
