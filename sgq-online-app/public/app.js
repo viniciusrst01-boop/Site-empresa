@@ -8982,7 +8982,7 @@ function openSupportChat(request, onClose = null) {
     messageList.innerHTML = messages.map((message) => {
       const own = message.authorType === ownType;
       const receipt = own ? `<small class="support-message-receipt ${message.readAt ? "read" : ""}" title="${message.readAt ? "Visualizado" : "Enviado"}" aria-label="${message.readAt ? "Visualizado" : "Enviado"}">${message.readAt ? "✓✓" : "✓"}</small>` : "";
-      return `<article class="support-chat-message ${own ? "own" : "other"}"><div class="support-message-author">${escapeHtml(message.authorName || (message.authorType === "admin" ? "Suporte" : "Usuário"))}</div><p>${escapeHtml(message.text)}</p><footer><time>${escapeHtml(formatDateTime(message.createdAt))}</time>${receipt}</footer></article>`;
+      return `<article class="support-chat-message ${message.authorType === "admin" ? "admin" : "user"}"><div class="support-message-author">${escapeHtml(message.authorName || (message.authorType === "admin" ? "Suporte" : "Usuário"))}</div><p>${escapeHtml(message.text)}</p><footer><time>${escapeHtml(formatDateTime(message.createdAt))}</time>${receipt}</footer></article>`;
     }).join("");
     messageList.scrollTop = messageList.scrollHeight;
   };
