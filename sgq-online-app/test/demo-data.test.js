@@ -75,6 +75,7 @@ test('seed is deterministic, preserves credentials/status, and has coherent refe
     assert.equal(history.points.length, months === 1 ? 30 : months);
     assert.ok(history.points.every(p => Number.isFinite(p.nonConformities)));
     assert.equal(history.current.nonConformities, state.ncs.filter(n => n.status !== 'Encerrado').length);
+    if (months > 1) assert.ok(history.points.slice(0, -1).some(point => point.actions > point.nonConformities));
   }
 });
 

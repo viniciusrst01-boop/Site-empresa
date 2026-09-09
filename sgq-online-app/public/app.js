@@ -401,9 +401,22 @@ function saveState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   if (currentUser?.isAdmin && currentUser.companyId == null) {
     localStorage.setItem(`qualitypro-platform-settings-${currentUser.id}`, JSON.stringify(state.settings));
-    return;
+    return Promise.resolve(true);
   }
-  saveRemoteData("state", state);
+  return saveRemoteData("state", state);
+}
+
+async function saveThemePreference(theme) {
+  if (currentUser?.isAdmin && currentUser.companyId == null) {
+    localStorage.setItem(`qualitypro-platform-settings-${currentUser.id}`, JSON.stringify(state.settings));
+    return true;
+  }
+  const response = await fetch("/api/preferences", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ theme }),
+  }).catch(() => null);
+  return Boolean(response?.ok);
 }
 
 async function initializeApp() {
@@ -479,6 +492,8 @@ async function loadRemoteData() {
       payload.state = { company: {}, users: [], documents: [], audits: [], ncs: [], equipment: [], notifications: [], settings };
     }
     state = normalizeState(payload.state, payload.company, payload.user);
+    if (["dark", "light", "white"].includes(payload.preferences?.theme)) state.settings.theme = payload.preferences.theme;
+    if (Array.isArray(payload.notifications)) state.notifications = payload.notifications;
     if (!canViewModule("documentos")) state.documents = [];
     if (!canViewModule("auditorias")) state.audits = [];
     if (!canViewModule("nao-conformidades")) state.ncs = [];
@@ -607,6 +622,7 @@ function updateAdminNav() {
     ["admin-seguranca", "shield", "Segurança"],
     ["admin-backups", "database", "Backups"],
     ["admin-logs", "scroll-text", "Logs e auditoria"],
+    ["admin-suporte", "info", "Suporte"],
     ["configuracoes", "configuracoes", "Configurações"],
   ].map(([view, icon, label]) => `<div class="nav-item" data-view="${view}">${moduleIcon(icon)} ${label}</div>`).join("");
   nav.querySelectorAll(".nav-item").forEach((item) => item.addEventListener("click", () => render(item.dataset.view)));
@@ -949,7 +965,6 @@ function saveRemoteData(key, value, moduleId = "") {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ key, value, moduleId }),
-    keepalive: true,
   }).then(async (response) => {
     const result = await response.json().catch(() => ({}));
     if (response.status === 409) lastSaveError = "Esta RNC recebeu uma atualização. Recarregue a página antes de salvar para preservar a resposta do fornecedor.";
@@ -1044,6 +1059,7 @@ function render(view = "inicio") {
     perfil: renderMeuPerfil,
     permissoes: renderMinhasPermissoes,
     notificacoes: renderNotificacoes,
+    acompanhamento: renderFollowUpItems,
     relatorios: renderRelatorios,
     gerenciamento: renderGerenciamento,
     "admin-empresas": () => renderAdminLegacySection("admin-empresas"),
@@ -1052,6 +1068,7 @@ function render(view = "inicio") {
     "admin-seguranca": () => renderAdminLegacySection("admin-seguranca"),
     "admin-backups": () => renderAdminLegacySection("admin-backups"),
     "admin-logs": () => renderAdminLegacySection("admin-logs"),
+    "admin-suporte": renderAdminSupport,
     configuracoes: renderConfiguracoes,
     ajuda: renderAjuda,
   };
@@ -1140,6 +1157,7 @@ function renderDashboardHtml() {
   const openNcs = ncs.filter((item) => !isClosedStatus(item.status));
   const plannedAudits = audits.filter((item) => !isClosedStatus(item.status));
   const pendingDocs = docs.filter((item) => item.status !== "Aprovado");
+  const followUps = getFollowUpItems();
   const certification = state.company.certification || "Não informada";
   // Temporary task preview for the local visual review server.
   const previewTaskCount = Number(new URLSearchParams(location.search).get("previewTasks") ?? "0");
@@ -1150,19 +1168,19 @@ function renderDashboardHtml() {
     [{ title: "Auditoria interna (prévia)", status: "Planejada" }, { title: "Auditoria de processos (prévia)", status: "Planejada" }],
     Array.from({ length: previewTaskCount - 5 }, (_, i) => ({ code: `PR-00${i + 1} (prévia)`, status: "Em revisão" })),
   ] : [openNcs, plannedAudits, pendingDocs];
-  const tasks = dashboardTaskItems(...taskGroups);
-  const hasMoreTasks = taskGroups.reduce((total, items) => total + items.length, 0) > 6;
-  const alerts = dashboardAlertItems(summary, openNcs, pendingDocs, certification);
+  const tasks = previewTasks ? dashboardTaskItems(...taskGroups) : dashboardTaskItems(followUps);
+  const hasMoreTasks = (previewTasks ? taskGroups.reduce((total, items) => total + items.length, 0) : followUps.length) > 6;
+  const alerts = dashboardAlertItems(followUps, openNcs, pendingDocs, certification);
 
   return `
     <div class="home-v2">
       <section class="home-v2-summary" aria-label="Resumo do SGQ">
         <div class="home-v2-kpis">
-          ${dashboardKpi("modulos", "Registros do SGQ", summary.totalRecords, `${summary.openActions} ações ou itens em acompanhamento`, "#43a7ff", Math.min(100, summary.totalRecords * 2))}
+          ${dashboardKpi("modulos", "Registros do SGQ", summary.totalRecords, `${followUps.length} ações ou itens em acompanhamento`, "#43a7ff", Math.min(100, summary.totalRecords * 2))}
           ${dashboardKpi("auditorias", "Auditorias", audits.length, `${plannedAudits.length} em andamento ou planejamento`, "#9a75ff", audits.length ? Math.max(24, 100 - plannedAudits.length * 18) : 0)}
           ${dashboardKpi("nao-conformidades", "Não conformidades", openNcs.length, `${openNcs.length} abertas ou em tratamento`, "#ffad32", ncs.length ? Math.round(((ncs.length - openNcs.length) / ncs.length) * 100) : 100)}
           ${dashboardKpi("check-circle", "Certificação", certification, state.company.scope ? "Escopo definido no sistema" : "Complete os dados da empresa", "#27d8be", state.company.scope ? 82 : 30)}
-          ${dashboardStatusKpi(openNcs.length, summary.openActions, pendingDocs.length)}
+          ${dashboardStatusKpi(followUps.length)}
         </div>
       </section>
 
@@ -1225,8 +1243,8 @@ function dashboardKpi(icon, label, value, caption, accent, progress) {
   </article>`;
 }
 
-function dashboardStatusKpi(openNcs, openActions, pendingDocs) {
-  const needsAttention = openNcs + openActions + pendingDocs > 0;
+function dashboardStatusKpi(openActions) {
+  const needsAttention = openActions > 0;
   const accent = needsAttention ? "#ff9738" : "#27c99f";
   const status = needsAttention ? "Atenção" : "Em dia";
   const caption = needsAttention ? "Existem pontos que requerem acompanhamento." : "Nenhuma pendência crítica identificada.";
@@ -1245,20 +1263,23 @@ function dashboardCompactModuleCard(module, info) {
   </article>`;
 }
 
-function dashboardTaskItems(openNcs, plannedAudits, pendingDocs) {
-  const items = [
-    ...openNcs.map((item) => ({ label: `Tratar ${item.id || item.code || "não conformidade"}`, meta: item.status || "Em aberto", color: "#ff646f", module: "nao-conformidades" })),
-    ...plannedAudits.map((item) => ({ label: item.title || "Auditoria planejada", meta: item.date ? formatDate(item.date) : item.status, color: "#ffad32", module: "auditorias" })),
-    ...pendingDocs.map((item) => ({ label: `Revisar ${item.code || item.title || "documento"}`, meta: item.status, color: "#43a7ff", module: "documentos" })),
-  ].slice(0, 6);
-  if (!items.length) return `<div class="home-v2-empty">Nenhuma tarefa pendente no momento.</div>`;
-  return items.map((item) => `<button type="button" data-module="${item.module}" style="--item-color:${item.color}"><small>${escapeHtml(item.meta || "Atenção")}</small><span>${escapeHtml(item.label)}</span>${moduleIcon("arrow")}</button>`).join("");
+function dashboardTaskItems(...groups) {
+  const items = groups.length === 1
+    ? groups[0].map((item) => ({ label: item.title, meta: item.dueDate ? formatDate(item.dueDate) : item.status, color: item.color, module: item.module }))
+    : [
+      ...groups[0].map((item) => ({ label: `Tratar ${item.id || item.code || "não conformidade"}`, meta: item.status || "Em aberto", color: "#ff646f", module: "nao-conformidades" })),
+      ...groups[1].map((item) => ({ label: item.title || "Auditoria planejada", meta: item.date ? formatDate(item.date) : item.status, color: "#ffad32", module: "auditorias" })),
+      ...groups[2].map((item) => ({ label: `Revisar ${item.code || item.title || "documento"}`, meta: item.status, color: "#43a7ff", module: "documentos" })),
+    ];
+  const visibleItems = items.slice(0, 6);
+  if (!visibleItems.length) return `<div class="home-v2-empty">Nenhuma tarefa pendente no momento.</div>`;
+  return visibleItems.map((item) => `<button type="button" data-module="${item.module}" style="--item-color:${item.color}"><small>${escapeHtml(item.meta || "Atenção")}</small><span>${escapeHtml(item.label)}</span>${moduleIcon("arrow")}</button>`).join("");
 }
 
-function dashboardAlertItems(summary, openNcs, pendingDocs, certification) {
+function dashboardAlertItems(followUps, openNcs, pendingDocs, certification) {
   const items = [
     { icon: "nao-conformidades", value: `${openNcs.length} não conformidades em aberto`, detail: "Acompanhe análise de causa, ações e eficácia.", color: "#ffad32", module: "nao-conformidades" },
-    { icon: "info", value: `${summary.openActions} itens em acompanhamento`, detail: "Existem registros que precisam da sua atenção.", color: "#43a7ff", view: "relatorios" },
+    { icon: "info", value: `${followUps.length} itens em acompanhamento`, detail: "Visão consolidada dos módulos que exigem atenção.", color: "#43a7ff", view: "acompanhamento" },
     { icon: "check-circle", value: certification, detail: pendingDocs.length ? `${pendingDocs.length} documento(s) ainda aguardam aprovação.` : "Documentação principal aprovada.", color: "#31d392", module: "documentos" },
   ];
   return items.map((item) => `<button type="button" ${item.module ? `data-module="${item.module}"` : `data-view-target="${item.view}"`} style="--item-color:${item.color}"><span>${moduleIcon(item.icon)}</span><div><strong>${escapeHtml(item.value)}</strong><p>${escapeHtml(item.detail)}</p></div></button>`).join("");
@@ -1266,7 +1287,7 @@ function dashboardAlertItems(summary, openNcs, pendingDocs, certification) {
 
 const sgqHealthMetrics = [
   { key: "nonConformities", title: "Não conformidades abertas", color: "#FF5364", icon: "nao-conformidades", module: "nao-conformidades", target: "controle" },
-  { key: "actions", title: "Ações em acompanhamento", color: "#20A4FF", icon: "check-circle" },
+  { key: "actions", title: "Ações em acompanhamento", color: "#20A4FF", icon: "check-circle", view: "acompanhamento" },
   { key: "audits", title: "Auditorias planejadas", color: "#8B5CF6", icon: "auditorias", module: "auditorias" },
   { key: "documents", title: "Documentos pendentes", color: "#18D69B", icon: "documentos", module: "documentos" },
 ];
@@ -1277,6 +1298,8 @@ function healthIndicatorCard(metric) {
   const allowed = metric.module ? canViewModule(metric.module) : currentUser?.permissions?.reports !== false;
   const target = allowed && metric.module
     ? `data-module="${metric.module}"${metric.target ? ` data-health-target="${metric.target}"` : ""}`
+    : allowed && metric.view
+      ? `data-view-target="${metric.view}"`
     : "disabled";
   return `<button type="button" class="sgq-health-indicator" ${target} style="--health-color:${metric.color}">
     <span class="sgq-health-icon">${moduleIcon(metric.icon)}</span>
@@ -1292,9 +1315,9 @@ function sgqHealthHtml() {
   </header>
   <div class="sgq-health-layout">
     <div class="sgq-health-plot" aria-busy="true">
-      <div class="sgq-health-canvas"><canvas role="img" aria-label="Histórico mensal da saúde do SGQ"></canvas></div>
+      <div class="sgq-health-canvas"><canvas role="img" aria-label="Histórico mensal da saúde do SGQ. Selecione uma série para abrir os registros correspondentes."></canvas></div>
       <div class="sgq-health-message" role="status"><span class="sgq-health-skeleton" aria-hidden="true"></span><span>Carregando histórico...</span></div>
-      <div class="sgq-health-legend">${sgqHealthMetrics.map((metric) => `<span><i style="background:${metric.color}"></i>${metric.title}</span>`).join("")}</div>
+      <div class="sgq-health-legend">${sgqHealthMetrics.map((metric) => `<button type="button" data-health-series="${metric.key}" title="Abrir ${escapeHtml(metric.title)}"><i style="background:${metric.color}"></i>${metric.title}</button>`).join("")}</div>
       <span class="sgq-health-history-note" hidden>Meses sem histórico registrado aparecem sem pontos.</span>
     </div>
     <div class="sgq-health-indicators">${sgqHealthMetrics.map(healthIndicatorCard).join("")}</div>
@@ -1383,6 +1406,14 @@ function mountSGQHealth() {
   let controller;
   let activeData;
   let transitionTimer;
+  const openMetric = (metricIndex) => {
+    const metric = sgqHealthMetrics[metricIndex];
+    if (!metric) return;
+    root.querySelector(`[data-health-value="${metric.key}"]`)?.closest("button")?.click();
+  };
+  root.querySelectorAll("[data-health-series]").forEach((button) => button.addEventListener("click", () => {
+    openMetric(sgqHealthMetrics.findIndex((metric) => metric.key === button.dataset.healthSeries));
+  }));
   const number = new Intl.NumberFormat("pt-BR");
   const reducedMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const chartAnimationDuration = 620;
@@ -1485,6 +1516,14 @@ function mountSGQHealth() {
       options: {
         responsive: true, maintainAspectRatio: false, animation: false,
         interaction: { mode: "index", intersect: false },
+        onClick: (event, elements, instance) => {
+          const nearest = instance.getElementsAtEventForMode(event, "nearest", { intersect: false }, true);
+          if (nearest.length) openMetric(nearest[0].datasetIndex);
+        },
+        onHover: (event, elements, instance) => {
+          const nearest = instance.getElementsAtEventForMode(event, "nearest", { intersect: false }, true);
+          event.native.target.style.cursor = nearest.length ? "pointer" : "default";
+        },
         layout: { padding: { top: 3, right: 7 } },
         plugins: {
           legend: { display: false }, datalabels: { display: false },
@@ -1530,6 +1569,7 @@ function mountSGQHealth() {
     try {
       const data = cache.get(months) || await getSGQHealthHistory({ months, signal: request.signal });
       if (request.signal.aborted || !root.isConnected) return;
+      syncFollowUpHealthMetric(data);
       cache.set(months, data);
       draw(data, animate);
     } catch (error) {
@@ -1642,7 +1682,7 @@ function dashboardSummary() {
 
   return {
     totalRecords,
-    openActions: openSwotPlans + activeRisks + activeGoals + activeChanges + openNcs + pendingDocs + plannedAudits,
+    openActions: getFollowUpItems().length,
     modules: {
       "mudancas-climaticas": {
         value: `${state.climate?.issues?.length || 0} registros`,
@@ -1682,6 +1722,71 @@ function dashboardSummary() {
 
 function isClosedStatus(status) {
   return ["Aprovado", "Atingido", "Concluído", "Concluída", "Fechado", "Fechada", "Resolvido", "Resolvida", "Encerrado", "Encerrada", "Tratado"].includes(status);
+}
+
+function followUpToday() {
+  return new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+}
+
+function followUpPriority(dueDate, priority = "Média") {
+  return dueDate && dueDate < followUpToday() ? "Alta" : priority;
+}
+
+function followUpDocumentDueDate(document) {
+  if (document.kind === "external") return document.nextVerification || "";
+  if (!document.revisionDate) return "";
+  const days = Number(String(document.revisionPeriod || "360").match(/\d+/)?.[0] || 360);
+  const date = new Date(`${document.revisionDate}T12:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+function getFollowUpItems() {
+  const items = [];
+  const add = (item) => items.push({ priority: "Média", dueDate: "", responsible: "Não informado", status: "Em acompanhamento", ...item });
+  const canRead = (moduleId) => canViewModule(moduleId);
+
+  if (canRead("nao-conformidades")) {
+    (state.ncs || []).forEach((nc) => (nc.acoes || []).filter((action) => !isClosedStatus(action.status)).forEach((action, index) => {
+      const dueDate = action.prazo || "";
+      add({ id: `nc:${nc.id || "registro"}:${action.id || index}`, module: "nao-conformidades", origin: "Não conformidades", title: action.desc || `Ação corretiva de ${nc.id || "RNC"}`, responsible: action.responsavel || nc.responsavel || "Não informado", dueDate, status: action.status || nc.status || "Em acompanhamento", priority: followUpPriority(dueDate, nc.gravidade === "Maior" ? "Alta" : nc.gravidade === "Média" ? "Média" : "Baixa"), color: "#ffad32" });
+    }));
+  }
+
+  if (canRead("riscos")) {
+    riskGet("riscos").filter((item) => !isClosedStatus(item.status)).forEach((item) => {
+      const score = riskLevel(item.probabilidade, item.impacto).value;
+      add({ id: `risk:${item.id}`, module: "riscos", origin: item.tipo === "Oportunidade" ? "Oportunidades" : "Riscos", title: item.texto || "Risco sem descrição", responsible: item.responsavel, dueDate: item.prazo || "", status: item.status, priority: followUpPriority(item.prazo, score >= 12 ? "Alta" : score >= 8 ? "Média" : "Baixa"), color: "#ff646f" });
+    });
+    riskGet("objetivos").filter((item) => !isClosedStatus(item.status)).forEach((item) => add({ id: `goal:${item.id}`, module: "riscos", origin: "Objetivos da qualidade", title: item.objetivo || "Objetivo sem descrição", responsible: item.responsavel, dueDate: item.prazoRevisao || "", status: item.status, priority: followUpPriority(item.prazoRevisao), color: "#43a7ff" }));
+    riskGet("mudancas").filter((item) => !isClosedStatus(item.status)).forEach((item) => add({ id: `change:${item.id}`, module: "riscos", origin: "Mudanças", title: item.mudanca || "Mudança sem descrição", responsible: item.responsavel, dueDate: item.dataPrevista || "", status: item.status, priority: followUpPriority(item.dataPrevista, item.prioridade || "Média"), color: "#a78bfa" }));
+  }
+
+  if (canRead("mudancas-climaticas")) {
+    (state.climate?.issues || []).filter((item) => !isClosedStatus(item.status)).forEach((item) => add({ id: `climate:${item.id}`, module: "mudancas-climaticas", origin: "Mudanças climáticas", title: item.description || "Questão climática", responsible: item.owner, dueDate: item.due || "", status: item.status, priority: followUpPriority(item.due), color: "#22d3ee" }));
+  }
+
+  if (canRead("documentos")) {
+    (state.documents || []).forEach((item) => {
+      const dueDate = followUpDocumentDueDate(item);
+      const reviewRequired = item.status === "Aguardando Aprovação" || item.status === "Em Revisão" || Boolean(dueDate && dueDate < followUpToday());
+      if (!reviewRequired) return;
+      add({ id: `document:${item.id || item.code}`, module: "documentos", origin: item.kind === "external" ? "Documentos externos" : "Documentos", title: item.title || item.code || "Documento sem título", responsible: item.owner || item.approver, dueDate, status: dueDate && dueDate < followUpToday() ? "Revisão vencida" : item.status, priority: followUpPriority(dueDate), color: "#34d399" });
+    });
+  }
+
+  if (canRead("auditorias")) {
+    (state.audits || []).filter((item) => !isClosedStatus(item.status)).forEach((item, index) => add({ id: `audit:${item.id || index}`, module: "auditorias", origin: "Auditorias", title: item.title || "Auditoria planejada", responsible: item.owner || item.responsavel, dueDate: item.date || item.data || "", status: item.status, priority: followUpPriority(item.date || item.data), color: "#a78bfa" }));
+  }
+
+  const priorityOrder = { Alta: 0, Média: 1, Baixa: 2 };
+  return items.sort((left, right) => priorityOrder[left.priority] - priorityOrder[right.priority] || String(left.dueDate || "9999-12-31").localeCompare(String(right.dueDate || "9999-12-31")) || left.title.localeCompare(right.title, "pt-BR"));
+}
+
+function syncFollowUpHealthMetric(data) {
+  const total = getFollowUpItems().length;
+  data.current.actions = total;
+  if (data.points?.length) data.points.at(-1).actions = total;
 }
 
 function shortText(value, maxLength) {
@@ -1841,6 +1946,7 @@ function moduleIcon(name) {
     download: '<svg class="icon" viewBox="0 0 24 24"><path d="M12 3v12"/><polyline points="7 10 12 15 17 10"/><path d="M5 21h14"/></svg>',
     external: '<svg class="icon" viewBox="0 0 24 24"><path d="M14 3h7v7"/><path d="M10 14L21 3"/><path d="M21 14v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h6"/></svg>',
     search: '<svg class="icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>',
+    filter: '<svg class="icon" viewBox="0 0 24 24"><path d="M3 5h18l-7 8v5l-4 2v-7L3 5z"/></svg>',
     notificacoes: '<svg class="icon" viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>',
     close: '<svg class="icon" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
     "trend-up": '<svg class="trend-icon" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="8 7 17 7 17 16"/></svg>',
@@ -6909,7 +7015,7 @@ function renderNotificacoes() {
     ${viewHeader("Notificações", "Acompanhe alertas importantes do sistema.")}
     <div class="qp-card">
       <ul class="qp-list strong">
-        ${state.notifications.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}
+        ${state.notifications.map((item) => `<li>${escapeHtml(typeof item === "string" ? item : item.message || "Notificação")}</li>`).join("")}
       </ul>
     </div>
   `;
@@ -6943,6 +7049,114 @@ function renderRelatorios() {
       <p class="qp-muted">Os arquivos são gerados no momento do download com os dados salvos no banco: empresa, usuários, contexto, riscos, objetivos, liderança, documentos, auditorias e não conformidades.</p>
     </article>
   `;
+}
+
+let followUpFilters = { origin: "", status: "", priority: "", responsible: "", search: "" };
+let followUpPage = 1;
+let followUpPageSize = 12;
+let followUpDueSort = "asc";
+
+function followUpStatusClass(status) {
+  const value = String(status || "").toLowerCase();
+  if (value.includes("atras") || value.includes("vencid")) return "is-late";
+  if (value.includes("tratamento")) return "is-treatment";
+  if (value.includes("monitor")) return "is-monitoring";
+  if (value.includes("execu")) return "is-running";
+  if (value.includes("planej")) return "is-planning";
+  return "is-pending";
+}
+
+function followUpPercent(count, total) {
+  if (!total) return "0%";
+  const value = Math.round((count / total) * 1000) / 10;
+  return `${value.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`;
+}
+
+function followUpOptionList(items, key, current, fallback) {
+  const values = [...new Set(items.map((item) => item[key] || fallback).filter(Boolean))].sort((a, b) => a.localeCompare(b, "pt-BR"));
+  return `<option value="">Todos</option>${values.map((value) => `<option value="${escapeHtml(value)}"${value === current ? " selected" : ""}>${escapeHtml(value)}</option>`).join("")}`;
+}
+
+function followUpSummaryCard(kind, value, label, caption, icon) {
+  return `<button class="follow-up-summary-card ${kind}" type="button" data-follow-up-summary="${kind}"><span class="follow-up-summary-icon">${moduleIcon(icon)}</span><span><strong>${value}</strong><b>${escapeHtml(label)}</b><small>${escapeHtml(caption)}</small></span>${moduleIcon("arrow")}</button>`;
+}
+
+function renderFollowUpItems() {
+  setTopbar("Ações em acompanhamento", "Visão consolidada das pendências do SGQ");
+  document.body.classList.add("module-detail-view");
+  const items = getFollowUpItems();
+  const today = followUpToday();
+  const delayed = items.filter((item) => (item.dueDate && item.dueDate < today) || /atras|vencid/i.test(item.status));
+  const treatment = items.filter((item) => /tratamento/i.test(item.status));
+  const monitoring = items.filter((item) => /monitor/i.test(item.status));
+  const highPriority = items.filter((item) => item.priority === "Alta");
+  const normalizedSearch = followUpFilters.search.trim().toLocaleLowerCase("pt-BR");
+  const filteredItems = items.filter((item) => {
+    if (followUpFilters.origin && item.origin !== followUpFilters.origin) return false;
+    if (followUpFilters.status === "__delayed" && !((item.dueDate && item.dueDate < today) || /atras|vencid/i.test(item.status))) return false;
+    if (followUpFilters.status === "__treatment" && !/tratamento/i.test(item.status)) return false;
+    if (followUpFilters.status === "__monitoring" && !/monitor/i.test(item.status)) return false;
+    if (followUpFilters.status && !followUpFilters.status.startsWith("__") && item.status !== followUpFilters.status) return false;
+    if (followUpFilters.priority && item.priority !== followUpFilters.priority) return false;
+    if (followUpFilters.responsible && (item.responsible || "Não informado") !== followUpFilters.responsible) return false;
+    if (normalizedSearch && !`${item.title} ${item.responsible || "Não informado"}`.toLocaleLowerCase("pt-BR").includes(normalizedSearch)) return false;
+    return true;
+  }).sort((left, right) => {
+    const leftDate = left.dueDate || "9999-12-31";
+    const rightDate = right.dueDate || "9999-12-31";
+    return followUpDueSort === "asc" ? leftDate.localeCompare(rightDate) : rightDate.localeCompare(leftDate);
+  });
+  const totalPages = Math.max(1, Math.ceil(filteredItems.length / followUpPageSize));
+  followUpPage = Math.min(followUpPage, totalPages);
+  const pageItems = filteredItems.slice((followUpPage - 1) * followUpPageSize, followUpPage * followUpPageSize);
+  pageContent.innerHTML = `
+    <section class="qp-card follow-up-panel">
+      <header class="follow-up-panel-head"><span class="follow-up-panel-icon">${moduleIcon("clipboard")}</span><div><h3>${items.length} item(ns) exigem acompanhamento</h3><p class="qp-muted">Os registros permanecem em seus módulos de origem.</p></div><button class="btn-secondary" type="button" data-view-target="inicio">${moduleIcon("arrow-left")} Voltar ao resumo</button></header>
+      <div class="follow-up-summary-grid">
+        ${followUpSummaryCard("delayed", delayed.length, "Atrasadas", `${followUpPercent(delayed.length, items.length)} do total`, "calendar-clock")}
+        ${followUpSummaryCard("treatment", treatment.length, "Em tratamento", `${followUpPercent(treatment.length, items.length)} do total`, "redo")}
+        ${followUpSummaryCard("monitoring", monitoring.length, "Monitorando", `${followUpPercent(monitoring.length, items.length)} do total`, "bar-chart")}
+        ${followUpSummaryCard("priority", highPriority.length, "Alta prioridade", `${followUpPercent(highPriority.length, items.length)} do total`, "nao-conformidades")}
+      </div>
+      <div class="follow-up-toolbar">
+        <label>Origem<select data-follow-up-filter="origin">${followUpOptionList(items, "origin", followUpFilters.origin, "")}</select></label>
+        <label>Status<select data-follow-up-filter="status">${followUpOptionList(items, "status", followUpFilters.status, "Em acompanhamento")}</select></label>
+        <label>Prioridade<select data-follow-up-filter="priority">${followUpOptionList(items, "priority", followUpFilters.priority, "Média")}</select></label>
+        <label>Responsável<select data-follow-up-filter="responsible">${followUpOptionList(items, "responsible", followUpFilters.responsible, "Não informado")}</select></label>
+        <label class="follow-up-search"><span aria-hidden="true">${moduleIcon("search")}</span><input type="search" value="${escapeHtml(followUpFilters.search)}" placeholder="Buscar por item, responsável..." data-follow-up-search></label>
+        <button class="btn-secondary follow-up-clear" type="button" data-follow-up-clear>${moduleIcon("filter")} Limpar filtros</button>
+      </div>
+      <div class="qp-table-wrap"><table class="qp-table follow-up-table"><thead><tr><th>Origem</th><th>Item</th><th>Responsável</th><th><button type="button" data-follow-up-sort>Prazo <span>${followUpDueSort === "asc" ? "↓" : "↑"}</span></button></th><th>Status</th><th>Prioridade</th><th>Ação</th></tr></thead><tbody>${pageItems.length ? pageItems.map((item) => `<tr><td><span class="follow-up-origin" style="--follow-up-color:${item.color}">${escapeHtml(item.origin)}</span></td><td>${escapeHtml(item.title)}</td><td><span class="follow-up-responsible"><i>${escapeHtml(initials(item.responsible || "NI"))}</i>${escapeHtml(item.responsible || "Não informado")}</span></td><td><span class="follow-up-date">${moduleIcon("calendar")}${escapeHtml(item.dueDate ? formatDate(item.dueDate) : "Sem prazo")}</span></td><td><span class="follow-up-status ${followUpStatusClass(item.status)}"><i></i>${escapeHtml(item.status || "Em acompanhamento")}</span></td><td><span class="follow-up-priority ${item.priority === "Alta" ? "high" : item.priority === "Baixa" ? "low" : "medium"}">${escapeHtml(item.priority)}</span></td><td><button class="icon-btn follow-up-open" type="button" data-follow-up-open="${escapeHtml(item.id)}" title="Abrir no módulo de origem">${moduleIcon("arrow")}</button></td></tr>`).join("") : `<tr><td colspan="7" class="follow-up-empty">Nenhum item encontrado com os filtros selecionados.</td></tr>`}</tbody></table></div>
+      <footer class="follow-up-footer"><span>Mostrando ${pageItems.length} de ${filteredItems.length} registros</span><nav aria-label="Paginação"><button type="button" data-follow-up-page="${followUpPage - 1}" ${followUpPage === 1 ? "disabled" : ""}>‹</button>${Array.from({ length: totalPages }, (_, index) => index + 1).map((page) => `<button type="button" data-follow-up-page="${page}" class="${page === followUpPage ? "active" : ""}">${page}</button>`).join("")}<button type="button" data-follow-up-page="${followUpPage + 1}" ${followUpPage === totalPages ? "disabled" : ""}>›</button></nav><label>Itens por página<select data-follow-up-page-size><option value="12"${followUpPageSize === 12 ? " selected" : ""}>12</option><option value="24"${followUpPageSize === 24 ? " selected" : ""}>24</option><option value="48"${followUpPageSize === 48 ? " selected" : ""}>48</option></select></label></footer>
+    </section>`;
+  bindViewTargetButtons();
+  pageContent.querySelectorAll("[data-follow-up-open]").forEach((button) => button.addEventListener("click", () => openFollowUpItem(button.dataset.followUpOpen)));
+  pageContent.querySelectorAll("[data-follow-up-filter]").forEach((select) => select.addEventListener("change", () => { followUpFilters[select.dataset.followUpFilter] = select.value; followUpPage = 1; renderFollowUpItems(); }));
+  pageContent.querySelector("[data-follow-up-search]")?.addEventListener("input", (event) => { followUpFilters.search = event.target.value; followUpPage = 1; renderFollowUpItems(); const search = pageContent.querySelector("[data-follow-up-search]"); search?.focus(); search?.setSelectionRange(search.value.length, search.value.length); });
+  pageContent.querySelector("[data-follow-up-clear]")?.addEventListener("click", () => { followUpFilters = { origin: "", status: "", priority: "", responsible: "", search: "" }; followUpPage = 1; renderFollowUpItems(); });
+  pageContent.querySelectorAll("[data-follow-up-page]").forEach((button) => button.addEventListener("click", () => { followUpPage = Number(button.dataset.followUpPage); renderFollowUpItems(); }));
+  pageContent.querySelector("[data-follow-up-page-size]")?.addEventListener("change", (event) => { followUpPageSize = Number(event.target.value); followUpPage = 1; renderFollowUpItems(); });
+  pageContent.querySelector("[data-follow-up-sort]")?.addEventListener("click", () => { followUpDueSort = followUpDueSort === "asc" ? "desc" : "asc"; renderFollowUpItems(); });
+  pageContent.querySelectorAll("[data-follow-up-summary]").forEach((button) => button.addEventListener("click", () => {
+    const kind = button.dataset.followUpSummary;
+    followUpFilters = { origin: "", status: "", priority: kind === "priority" ? "Alta" : "", responsible: "", search: "" };
+    if (kind === "delayed") followUpFilters.status = "__delayed";
+    if (kind === "treatment") followUpFilters.status = "__treatment";
+    if (kind === "monitoring") followUpFilters.status = "__monitoring";
+    followUpPage = 1;
+    renderFollowUpItems();
+  }));
+  scrollPageToTop();
+}
+
+function openFollowUpItem(id) {
+  const item = getFollowUpItems().find((row) => row.id === id);
+  if (!item) return;
+  if (item.module === "nao-conformidades") ncMainTab = "controle";
+  if (item.module === "riscos") currentRiskTab = "riscos";
+  if (item.module === "mudancas-climaticas") climateTab = "issues";
+  if (item.module === "documentos") documentsActiveTab = item.origin === "Documentos externos" ? "externos" : "lista-mestra";
+  renderModuleDetail(item.module, { restoreTabs: false });
 }
 
 function reportExportCard(title, format, description, queryFormat, icon) {
@@ -8625,7 +8839,7 @@ async function renderConfiguracoes() {
     </form>
     ${canManageCompany() && currentUser?.companyId ? `<section id="billingSettings" class="billing-settings"><div class="qp-card admin-loading">Carregando assinatura...</div></section>` : ""}
   `;
-  document.querySelector("#settingsForm").addEventListener("submit", (event) => {
+  document.querySelector("#settingsForm").addEventListener("submit", async (event) => {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
     state.settings = {
@@ -8635,10 +8849,11 @@ async function renderConfiguracoes() {
       theme: data.get("theme") || "dark",
       operationalStatus: currentUser?.isAdmin ? (data.get("operationalStatus") || "updated") : (state.settings.operationalStatus || "updated"),
     };
-    saveState();
+    const themeSaved = await saveThemePreference(state.settings.theme);
+    const saved = currentUser?.canManageCompany ? await saveState() : themeSaved;
     applyTheme();
     updateOperationalStatus();
-    toast("Configurações salvas.");
+    toast(saved && themeSaved ? "Configurações salvas." : "Não foi possível salvar as configurações.");
   });
   if (canManageCompany() && currentUser?.companyId) await loadBillingSettings();
 }
@@ -8743,6 +8958,107 @@ async function handleBillingAction(button) {
 
 function formatCurrencyMinor(value, currency = "BRL") {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: String(currency || "BRL").toUpperCase() }).format((Number(value) || 0) / 100);
+}
+
+function openSupportChat(request, onClose = null) {
+  const metadata = request.metadata || {};
+  const messages = Array.isArray(metadata.messages) && metadata.messages.length
+    ? metadata.messages
+    : [{ authorType: "user", authorName: metadata.requesterName || "Usuário", text: metadata.description || request.message, createdAt: request.createdAt }];
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay show support-overlay";
+  overlay.innerHTML = `
+    <form class="modal-box support-chat-modal" aria-modal="true" role="dialog" aria-labelledby="supportChatTitle">
+      <div class="modal-hd"><div><h3 id="supportChatTitle">Chamado de suporte</h3><p>${escapeHtml(metadata.companyName || "Suporte QualityPro Cloud")} · ${escapeHtml(supportStatusLabel[metadata.status || "open"] || "Aberto")}</p></div><button class="modal-close" type="button" data-support-chat-close>${moduleIcon("close")}</button></div>
+      <div class="support-chat-messages">${messages.map((message) => `<article class="support-chat-message ${message.authorType === "admin" ? "admin" : "user"}"><strong>${escapeHtml(message.authorName || (message.authorType === "admin" ? "Suporte" : "Usuário"))}</strong><p>${escapeHtml(message.text)}</p><small>${escapeHtml(formatDateTime(message.createdAt))}</small></article>`).join("")}</div>
+      <div class="field"><label for="supportReply">Responder</label><textarea class="input-basic" id="supportReply" rows="3" maxlength="2000" placeholder="Escreva uma mensagem para esta solicitação." required></textarea></div>
+      <div class="modal-actions"><button class="btn-ghost" type="button" data-support-chat-close>Fechar</button><button class="btn-grad" type="submit">Enviar mensagem</button></div>
+    </form>`;
+  const close = () => { overlay.remove(); onClose?.(); };
+  overlay.querySelectorAll("[data-support-chat-close]").forEach((button) => button.addEventListener("click", close));
+  overlay.querySelector("form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const field = overlay.querySelector("#supportReply");
+    const button = overlay.querySelector('button[type="submit"]');
+    button.disabled = true;
+    const response = await fetch("/api/support/messages", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: request.id, text: field.value.trim() }) });
+    if (!response.ok) { button.disabled = false; toast("Não foi possível enviar a mensagem."); return; }
+    const result = await response.json();
+    overlay.remove();
+    openSupportChat(result.request, onClose);
+  });
+  document.body.appendChild(overlay);
+  overlay.querySelector("#supportReply").focus();
+}
+
+function openSupportModal() {
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay show support-overlay";
+  overlay.innerHTML = `
+    <form class="modal-box support-modal" aria-modal="true" role="dialog" aria-labelledby="supportTitle">
+      <div class="modal-hd"><div><h3 id="supportTitle">Abrir chamado de suporte</h3><p>O administrador geral receberá a solicitação e poderá acompanhar o atendimento.</p></div><button class="modal-close" type="button" data-support-close>${moduleIcon("close")}</button></div>
+      <section class="support-open-list" data-support-open-list hidden></section>
+      <div class="field"><label for="supportCategory">Assunto</label><select class="input-basic" id="supportCategory" required><option value="access">Acesso e usuários</option><option value="technical">Erro técnico</option><option value="billing">Plano e cobrança</option><option value="guidance">Dúvida de uso</option><option value="other">Outro assunto</option></select></div>
+      <div class="field"><label for="supportDescription">Descreva o problema</label><textarea class="input-basic" id="supportDescription" rows="6" maxlength="2000" minlength="10" placeholder="Informe o que ocorreu, onde aconteceu e o resultado esperado." required></textarea><small class="support-counter">0/2000</small></div>
+      <div class="modal-actions"><button class="btn-ghost" type="button" data-support-close>Cancelar</button><button class="btn-grad" type="submit">${moduleIcon("external")} Enviar solicitação</button></div>
+    </form>`;
+  const close = () => overlay.remove();
+  overlay.querySelectorAll("[data-support-close]").forEach((button) => button.addEventListener("click", close));
+  const description = overlay.querySelector("#supportDescription");
+  const counter = overlay.querySelector(".support-counter");
+  description.addEventListener("input", () => { counter.textContent = `${description.value.length}/2000`; });
+  overlay.addEventListener("click", (event) => { if (event.target === overlay) close(); });
+  overlay.addEventListener("keydown", (event) => { if (event.key === "Escape") close(); });
+  overlay.querySelector("form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const button = overlay.querySelector('button[type="submit"]');
+    button.disabled = true;
+    const response = await fetch("/api/support", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ category: overlay.querySelector("#supportCategory").value, description: description.value.trim() }) });
+    if (!response.ok) { button.disabled = false; toast("Não foi possível enviar a solicitação de suporte."); return; }
+    close();
+    toast("Solicitação enviada ao suporte.");
+  });
+  document.body.appendChild(overlay);
+  description.focus();
+  fetch("/api/support", { headers: { Accept: "application/json" }, cache: "no-store" })
+    .then((response) => response.ok ? response.json() : { requests: [] })
+    .then(({ requests = [] }) => {
+      if (!overlay.isConnected || !requests.length) return;
+      const list = overlay.querySelector("[data-support-open-list]");
+      list.hidden = false;
+      list.innerHTML = `<h4>Chamados em andamento</h4>${requests.map((request) => `<button type="button" class="support-open-ticket" data-support-chat="${request.id}"><span class="support-status ${escapeHtml(request.metadata?.status || "open")}">${escapeHtml(supportStatusLabel[request.metadata?.status || "open"] || "Aberto")}</span><strong>${escapeHtml(request.metadata?.category || "Solicitação")}</strong><small>${escapeHtml(formatDateTime(request.createdAt))}</small></button>`).join("")}`;
+      list.querySelectorAll("[data-support-chat]").forEach((button) => button.addEventListener("click", () => {
+        const request = requests.find((item) => Number(item.id) === Number(button.dataset.supportChat));
+        if (!request) return;
+        overlay.remove();
+        openSupportChat(request, openSupportModal);
+      }));
+    }).catch(() => {});
+}
+
+const supportStatusLabel = { open: "Aberto", in_progress: "Em atendimento", closed: "Encerrado" };
+
+async function renderAdminSupport() {
+  setTopbar("Suporte", "Solicitações enviadas pelos usuários da plataforma");
+  pageContent.innerHTML = `${viewHeader("Suporte", "Acompanhe e trate os chamados recebidos pelas empresas.")}<article class="qp-card admin-loading">Carregando solicitações...</article>`;
+  const response = await fetch("/api/admin/support", { headers: { Accept: "application/json" }, cache: "no-store" });
+  if (!response.ok) { pageContent.innerHTML = `${viewHeader("Suporte", "Solicitações enviadas pelos usuários da plataforma.")}<article class="qp-card"><h3>Não foi possível carregar</h3></article>`; return; }
+  const requests = (await response.json()).requests || [];
+  pageContent.innerHTML = `${viewHeader("Suporte", "Solicitações enviadas pelos usuários da plataforma.")}<section class="support-admin-list">${requests.length ? requests.map((request) => {
+    const meta = request.metadata || {}; const status = meta.status || "open";
+    return `<article class="qp-card support-ticket"><div class="support-ticket-head"><div><span class="support-status ${escapeHtml(status)}">${escapeHtml(supportStatusLabel[status] || "Aberto")}</span><h3>${escapeHtml(meta.companyName || "Empresa não informada")}</h3><p>${escapeHtml(meta.requesterName || "Usuário")} · ${escapeHtml(meta.category || "outro")}</p></div><time>${escapeHtml(formatDateTime(request.createdAt))}</time></div><p class="support-ticket-description">${escapeHtml(meta.description || request.message)}</p><div class="support-ticket-actions"><button class="btn-secondary" type="button" data-support-admin-chat="${request.id}">Conversa</button><select class="input-basic" data-support-status="${request.id}">${Object.entries(supportStatusLabel).map(([value, label]) => `<option value="${value}" ${value === status ? "selected" : ""}>${label}</option>`).join("")}</select><button class="btn-secondary" type="button" data-support-update="${request.id}">Atualizar</button></div></article>`;
+  }).join("") : `<article class="qp-card"><h3>Nenhuma solicitação de suporte</h3><p class="qp-muted">Novos chamados aparecerão aqui.</p></article>`}</section>`;
+  pageContent.querySelectorAll("[data-support-admin-chat]").forEach((button) => button.addEventListener("click", () => {
+    const request = requests.find((item) => Number(item.id) === Number(button.dataset.supportAdminChat));
+    if (request) openSupportChat(request, renderAdminSupport);
+  }));
+  pageContent.querySelectorAll("[data-support-update]").forEach((button) => button.addEventListener("click", async () => {
+    const id = Number(button.dataset.supportUpdate); const status = pageContent.querySelector(`[data-support-status="${id}"]`).value;
+    button.disabled = true;
+    const result = await fetch("/api/admin/support", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, status }) });
+    if (!result.ok) { button.disabled = false; toast("Não foi possível atualizar o chamado."); return; }
+    toast("Chamado atualizado."); renderAdminSupport();
+  }));
 }
 
 function renderAjuda() {
@@ -9174,6 +9490,9 @@ function toast(message) {
 
 document.querySelectorAll(".nav-item").forEach((item) => {
   item.addEventListener("click", () => render(item.dataset.view));
+});
+document.addEventListener("click", (event) => {
+  if (event.target.closest(".btn-support")) openSupportModal();
 });
 
 syncDashboardFooterDate();

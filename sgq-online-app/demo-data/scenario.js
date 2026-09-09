@@ -91,13 +91,25 @@ function buildScenario(users, today) {
   ].map(([code, title, source, sourceDetail, version, sector, revisionOffset, revisionDay, verificationOffset, verificationDay, status], n) => ({ id: id('EXT', n), kind: 'external', code, title, source, sourceDetail, version, revisionDate: past(revisionOffset, revisionDay), lastVerification: past(verificationOffset - 1, verificationDay), nextVerification: past(verificationOffset, verificationDay), sector, storageLocation: 'QualityPro Cloud / Documentos externos', receivedAt: past(revisionOffset - 1, revisionDay), disposition: 'Digital', controlledCopy: 'Não', attachmentName: '', status })));
   const state = { company, users: operational.map(u => ({ name: u.display_name, email: u.username, role: u.id === hugo.id ? 'Administrador' : u.role, status: u.status })), settings: { emailAlerts: false, weeklyReport: false, companyAccess: 'Plano Professional', theme: 'dark', operationalStatus: 'updated' }, documents, audits: [], equipment: [], ncs, ncCatalogs: { clientes: [], fornecedores: [], setores: [], processos: [] }, notifications: [], supplierStateVersion: 0, climate };
   // Build historical observations with the application's calculator from each dated base state.
-  // No fabricated context/risk history: those records have no creation/closure timeline.
+  // The test scenario includes deterministic Context and Risk activity to demonstrate the consolidated actions trend.
   const observations = [];
   for (let day = date(-11, 1); day <= today; day = shift(day, 1)) {
     const historical = { documents: documents.filter(document => (document.kind === 'external' ? document.receivedAt : document.elaborationDate) <= day), audits: [], ncs: ncs.filter(nc => nc.dataOrigem <= day).map(nc => ({ status: nc.encerradoEm && nc.encerradoEm <= day ? 'Encerrado' : 'Aguardando análise' })) };
     observations.push(healthObservation('state', historical, `${day}T18:00:00Z`));
   }
-  for (const [key, value] of Object.entries({ context, risk })) observations.push(healthObservation(key, value, `${today}T18:00:00Z`));
+  for (let month = 0; month < 12; month += 1) {
+    const observedOn = past(-11 + month, 15);
+    const contextActions = 2 + Math.floor(month / 4);
+    const riskActions = 5 + Math.floor(month / 2);
+    observations.push(healthObservation('context', {
+      swot: Array.from({ length: contextActions }, (_, n) => ({ id: `HSWOT-${month}-${n}`, planoNecessario: 'Sim', status: 'Em andamento' })),
+    }, `${observedOn}T18:00:00Z`));
+    observations.push(healthObservation('risk', {
+      riscos: Array.from({ length: riskActions }, (_, n) => ({ id: `HRIS-${month}-${n}`, status: 'Em Tratamento' })),
+      objetivos: [],
+      mudancas: [],
+    }, `${observedOn}T18:00:00Z`));
+  }
   return { admin, hugo, operational, company, state, context, risk, leadership, observations, period: { from: date(-11, 1), to: today }, seed: SEED };
 }
 

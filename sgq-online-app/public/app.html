@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/styles.css?v=20260907-global-animations" />
+  <link rel="stylesheet" href="/styles.css?v=20260908-follow-up-history" />
   <link rel="stylesheet" href="/home-dashboard.css?v=20260906-workspace-tolerance" />
   <link rel="stylesheet" href="/modules-dashboard.css?v=20260906-compact-landscape" />
   <link rel="stylesheet" href="/admin-dashboard.css?v=20260907-admin-no-help" />
@@ -92,10 +92,10 @@
         <form action="/logout" method="post">
           <button class="tb-logout-btn" type="submit">Sair</button>
         </form>
-        <div class="tb-icon-btn">
+        <button class="tb-icon-btn" type="button" data-view-target="notificacoes" aria-label="Notificações">
           <svg class="icon" viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
           <span class="tb-badge" data-notification-badge data-notification-preview="11">+10</span>
-        </div>
+        </button>
         <div class="tb-icon-btn">
           <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 5 0c0 1.5-2.5 2-2.5 3.5"/><line x1="12" y1="17" x2="12" y2="17"/></svg>
         </div>
@@ -321,8 +321,8 @@
 
 </div>
 <script src="/vendor/chart.umd.js"></script>
-<script src="/sgq-health-data.js?v=20260905"></script>
-  <script src="/app.js?v=20260907-global-animations"></script>
+<script src="/sgq-health-data.js?v=20260908-follow-up-history"></script>
+  <script src="/app.js?v=20260908-support-click"></script>
 <script src="/climate-module.js?v=20260907-global-animations"></script>
 <script src="/documents-module.js?v=20260907-documents-module"></script>
 </body>

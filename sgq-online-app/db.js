@@ -2427,6 +2427,50 @@ async function listSystemEvents(limit = 50) {
   return getStore().systemEvents.sort(sortNewestFirst).slice(0, safeLimit).map(mapSystemEvent);
 }
 
+async function updateSupportRequest(id, status) {
+  await ensureInitialized();
+  const statuses = new Set(["open", "in_progress", "closed"]);
+  if (!statuses.has(status)) return null;
+  if (usePostgres) {
+    const result = await getPool().query(
+      `UPDATE system_events
+       SET metadata = jsonb_set(COALESCE(metadata, '{}'::jsonb), '{status}', to_jsonb($2::text), true),
+           resolved_at = CASE WHEN $2 = 'closed' THEN NOW() ELSE NULL END
+       WHERE id = $1 AND event_type = 'support_request'
+       RETURNING *`,
+      [Number(id), status],
+    );
+    return mapSystemEvent(result.rows[0]);
+  }
+  const database = getStore();
+  const row = database.systemEvents.find((item) => Number(item.id) === Number(id) && item.event_type === "support_request");
+  if (!row) return null;
+  row.metadata = { ...(row.metadata || {}), status };
+  row.resolved_at = status === "closed" ? timestamp() : null;
+  saveStore();
+  return mapSystemEvent(row);
+}
+
+async function appendSupportMessage(id, message) {
+  await ensureInitialized();
+  if (usePostgres) {
+    const result = await getPool().query(
+      `UPDATE system_events
+       SET metadata = jsonb_set(COALESCE(metadata, '{}'::jsonb), '{messages}', COALESCE(metadata->'messages', '[]'::jsonb) || $2::jsonb, true)
+       WHERE id = $1 AND event_type = 'support_request'
+       RETURNING *`,
+      [Number(id), JSON.stringify([message])],
+    );
+    return mapSystemEvent(result.rows[0]);
+  }
+  const database = getStore();
+  const row = database.systemEvents.find((item) => Number(item.id) === Number(id) && item.event_type === "support_request");
+  if (!row) return null;
+  row.metadata = { ...(row.metadata || {}), messages: [...(Array.isArray(row.metadata?.messages) ? row.metadata.messages : []), message] };
+  saveStore();
+  return mapSystemEvent(row);
+}
+
 async function checkDatabaseHealth() {
   const startedAt = Date.now();
   await ensureInitialized();
@@ -2712,6 +2756,8 @@ module.exports = {
   listAdminOverview,
   listUserSessions,
   listSystemEvents,
+  updateSupportRequest,
+  appendSupportMessage,
   recordBillingEvent,
   recordSystemEvent,
   recordAuditLog,

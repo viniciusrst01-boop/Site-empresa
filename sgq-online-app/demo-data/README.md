@@ -103,9 +103,9 @@ Os modulos usam JSON persistido em `company_data` (PostgreSQL) ou `companyData`
 - Clima: 1 determinacao, 6 questoes, responsaveis e prazos.
 - Periodo historico: 01/10/2025 a 06/09/2026. Prazos/revisoes futuras sao
   planejamentos, nao registros historicos futuros.
-- Historico de saude: 341 observacoes diarias de NCs calculadas a partir de abertura
-  e encerramento; 2 observacoes atuais de Contexto/Riscos. Meses antigos dessas duas
-  fontes ficam desconhecidos, pois os cadastros nao registram a cronologia necessaria.
+- Historico de saude: observacoes diarias de NCs calculadas a partir de abertura e
+  encerramento, com observacoes mensais ficticias de Contexto/Riscos para demonstrar
+  uma evolucao consolidada e distinta das acoes em acompanhamento.
 - Sessoes antigas invalidadas; eventos de cobranca antigos removidos. Logs de seguranca
   preservados, com referencias a empresas removidas desvinculadas. Usuarios, hashes,
   MFA e tokens de autenticacao preservados. Backup completo anterior disponivel.

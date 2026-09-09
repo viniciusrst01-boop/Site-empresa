@@ -61,7 +61,8 @@ function getSGQHealthHistory(dataRows, { months = 6, canView = () => true, now =
       values[metric] = observation?.[metric] ?? (current || (!Object.hasOwn(currentValues, source) && !observations[source].length) ? 0 : null);
     }
     const allowed = Object.keys(metricSource).filter((metric) => canView(metricSource[metric][1]));
-    const actions = !allowed.length || allowed.some((metric) => values[metric] === null) ? null : allowed.reduce((total, metric) => total + values[metric], 0);
+    const availableForActions = allowed.filter((metric) => values[metric] !== null);
+    const actions = availableForActions.length ? availableForActions.reduce((total, metric) => total + values[metric], 0) : null;
     return { nonConformities: values.nonConformities, actions, audits: values.audits, documents: values.documents };
   };
   const current = atKey(endMonth, true);

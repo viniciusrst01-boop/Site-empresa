@@ -325,6 +325,43 @@ test("admin, exportações, backup e revogação de sessão funcionam", async (t
   assert.equal(collaboratorPayload.state.ncs[0].id, "RNC-2026-0001");
   assert.equal(collaboratorPayload.state.ncCatalogs.clientes[0].nome, "Cliente Teste");
 
+  const savedTheme = await api(baseUrl, "/api/preferences", collaboratorCookie, {
+    method: "POST",
+    body: JSON.stringify({ theme: "light" }),
+  });
+  assert.equal(savedTheme.status, 200);
+  const collaboratorReload = await api(baseUrl, "/api/bootstrap", collaboratorCookie);
+  assert.equal((await collaboratorReload.json()).preferences.theme, "light");
+
+  const supportRequest = await api(baseUrl, "/api/support", collaboratorCookie, {
+    method: "POST",
+    body: JSON.stringify({ category: "technical", description: "O painel não carrega os registros após salvar uma alteração." }),
+  });
+  assert.equal(supportRequest.status, 201);
+  const supportTicket = (await supportRequest.json()).request;
+  const supportList = await api(baseUrl, "/api/admin/support", adminCookie);
+  assert.equal(supportList.status, 200);
+  assert.ok((await supportList.json()).requests.some((item) => item.id === supportTicket.id));
+  const supportUpdate = await api(baseUrl, "/api/admin/support", adminCookie, {
+    method: "POST",
+    body: JSON.stringify({ id: supportTicket.id, status: "in_progress" }),
+  });
+  assert.equal((await supportUpdate.json()).request.metadata.status, "in_progress");
+  const openSupportRequests = await api(baseUrl, "/api/support", collaboratorCookie);
+  assert.ok((await openSupportRequests.json()).requests.some((item) => item.id === supportTicket.id));
+  const supportReply = await api(baseUrl, "/api/support/messages", adminCookie, {
+    method: "POST",
+    body: JSON.stringify({ id: supportTicket.id, text: "Recebemos o relato e já estamos analisando o ocorrido." }),
+  });
+  assert.equal(supportReply.status, 201);
+  assert.equal((await supportReply.json()).request.metadata.messages.at(-1).authorType, "admin");
+  const supportThread = await api(baseUrl, "/api/support", collaboratorCookie);
+  assert.ok((await supportThread.json()).requests.find((item) => item.id === supportTicket.id).metadata.messages.some((message) => message.authorType === "admin"));
+  const collaboratorWithNotification = await api(baseUrl, "/api/bootstrap", collaboratorCookie);
+  const supportNotifications = (await collaboratorWithNotification.json()).notifications.map((item) => item.message);
+  assert.ok(supportNotifications.includes("Seu chamado de suporte está em atendimento."));
+  assert.ok(supportNotifications.includes("O suporte enviou uma nova mensagem no seu chamado."));
+
   const deniedNcSave = await api(baseUrl, "/api/data", collaboratorCookie, {
     method: "POST",
     body: JSON.stringify({

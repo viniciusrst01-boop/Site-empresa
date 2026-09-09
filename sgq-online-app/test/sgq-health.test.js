@@ -36,6 +36,13 @@ test("history carries actual observations forward without backfilling unknown mo
   assert.equal(result.points[5].actions, 6);
 });
 
+test("actions history remains visible when at least one permitted source has records", () => {
+  const saved = [healthObservation("state", { ncs: [{ status: "Aberta" }, { status: "Aberta" }] }, "2026-07-10T12:00:00Z")];
+  const result = getSGQHealthHistory([...currentRows, ...saved], { now });
+  assert.equal(result.points[3].nonConformities, 2);
+  assert.equal(result.points[3].actions, 2);
+});
+
 test("periods cross the year correctly and respect the Sao Paulo month boundary", () => {
   for (const months of [1, 3, 6, 12]) {
     const result = getSGQHealthHistory([], { months, now: new Date("2026-01-01T01:00:00Z") });

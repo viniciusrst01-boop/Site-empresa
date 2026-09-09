@@ -1178,7 +1178,8 @@ body.theme-white .home-v2-health .sgq-health-period option { color: var(--home-c
 .home-v2-health .sgq-health-plot.is-refreshing .sgq-health-canvas { opacity: .58; }
 .home-v2-health .sgq-health-canvas canvas { position: absolute; inset: 0; width: 100% !important; height: 100% !important; }
 .home-v2-health .sgq-health-legend { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 18px; padding-inline: 4px; color: var(--home-muted); font-size: 10px; line-height: 1.25; }
-.home-v2-health .sgq-health-legend > span { display: inline-flex; align-items: center; gap: 5px; }
+.home-v2-health .sgq-health-legend > button { display: inline-flex; align-items: center; gap: 5px; padding: 0; border: 0; color: inherit; background: transparent; font: inherit; cursor: pointer; }
+.home-v2-health .sgq-health-legend > button:hover { color: var(--home-copy); }
 .home-v2-health .sgq-health-legend i { width: 8px; height: 8px; flex: 0 0 8px; border-radius: 50%; }
 .home-v2-health .sgq-health-history-note { color: var(--home-muted); text-align: center; font-size: 10px; line-height: 1.2; }
 .home-v2-health .sgq-health-message { position: absolute; inset: 4px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; background: var(--home-surface); border-radius: 6px; color: var(--home-muted); font-size: 12px; text-align: center; }
@@ -1346,7 +1347,7 @@ body.theme-white .home-v2-health .sgq-health-period select {
   body.home-dashboard .sgq-health-title p { font-size: 12px; }
   body.home-dashboard .sgq-health-layout { grid-template-columns: minmax(0, 1fr) 250px; grid-template-rows: minmax(0, 1fr); }
   body.home-dashboard .sgq-health-legend { flex-wrap: nowrap; gap: 4px 12px; font-size: 9px; }
-  body.home-dashboard .sgq-health-legend > span { white-space: nowrap; }
+  body.home-dashboard .sgq-health-legend > button { white-space: nowrap; }
   body.home-dashboard .sgq-health-indicators { grid-template-columns: minmax(0, 1fr); grid-template-rows: repeat(4, minmax(0, 1fr)); gap: 8px; }
   body.home-dashboard .sgq-health-indicator { grid-template-columns: 30px minmax(0, 1fr) 14px; padding: 6px 8px; }
   body.home-dashboard .sgq-health-copy > span { font-size: 12px; }

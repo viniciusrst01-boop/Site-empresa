@@ -59,6 +59,8 @@ const {
   updateBackupSnapshot,
   updateCompanyBilling,
   updateAdminUser,
+  updateSupportRequest,
+  appendSupportMessage,
   updateCompanyUser,
   updateCompany,
   updateUserProfile,
@@ -2026,6 +2028,113 @@ async function handleApiRequest(req, res, url, session) {
     return;
   }
 
+  if (url.pathname === "/api/support" && req.method === "POST") {
+    const body = await readJsonBody(req);
+    const categories = new Set(["access", "technical", "billing", "guidance", "other"]);
+    const category = String(body?.category || "");
+    const description = String(body?.description || "").trim();
+    if (!categories.has(category) || description.length < 10 || description.length > 2000) {
+      sendJson(res, 400, { error: "invalid_support_request" });
+      return;
+    }
+    const company = companyId == null ? null : await getCompany(companyId);
+    const event = await recordSystemEvent({
+      severity: "info",
+      component: "support",
+      eventType: "support_request",
+      message: `Solicitação de suporte: ${category}`,
+      metadata: {
+        status: "open",
+        category,
+        description,
+        companyId,
+        companyName: company?.name || "Administração da plataforma",
+        requesterId: session.userId,
+        requesterName: session.displayName || session.username,
+        requesterUsername: session.username,
+        messages: [{ id: crypto.randomUUID(), authorType: "user", authorName: session.displayName || session.username, text: description, createdAt: new Date().toISOString() }],
+      },
+    });
+    await auditRequest(req, session, "support_request_created", "success", { supportRequestId: event.id, category });
+    sendJson(res, 201, { ok: true, request: event });
+    return;
+  }
+
+  if (url.pathname === "/api/support" && req.method === "GET") {
+    const requests = (await listSystemEvents(200)).filter((event) =>
+      event.eventType === "support_request"
+      && Number(event.metadata?.requesterId) === Number(session.userId)
+      && ["open", "in_progress"].includes(event.metadata?.status || "open"),
+    );
+    sendJson(res, 200, { requests });
+    return;
+  }
+
+  if (url.pathname === "/api/support/messages" && req.method === "POST") {
+    const body = await readJsonBody(req);
+    const ticket = (await listSystemEvents(200)).find((event) => event.eventType === "support_request" && Number(event.id) === Number(body?.id));
+    const isRequester = Number(ticket?.metadata?.requesterId) === Number(session.userId);
+    if (!ticket || (!isAdminSession(session) && !isRequester)) {
+      sendJson(res, 403, { error: "support_message_forbidden" });
+      return;
+    }
+    const text = String(body?.text || "").trim();
+    if (text.length < 1 || text.length > 2000) {
+      sendJson(res, 400, { error: "invalid_support_message" });
+      return;
+    }
+    const message = { id: crypto.randomUUID(), authorType: isAdminSession(session) ? "admin" : "user", authorName: session.displayName || session.username, text, createdAt: new Date().toISOString() };
+    const request = await appendSupportMessage(ticket.id, message);
+    if (message.authorType === "admin" && request?.metadata?.companyId && request.metadata?.requesterId) {
+      const companySettings = (await getCompanyData(request.metadata.companyId, "userSettings")) || {};
+      const requesterSettings = companySettings[request.metadata.requesterId] || {};
+      const notifications = Array.isArray(requesterSettings.notifications) ? requesterSettings.notifications : [];
+      notifications.unshift({ id: `support:${request.id}:${message.id}`, message: "O suporte enviou uma nova mensagem no seu chamado.", createdAt: message.createdAt });
+      companySettings[request.metadata.requesterId] = { ...requesterSettings, notifications: notifications.slice(0, 30) };
+      await setCompanyData(request.metadata.companyId, "userSettings", companySettings);
+    }
+    await auditRequest(req, session, "support_message_created", "success", { supportRequestId: ticket.id, authorType: message.authorType });
+    sendJson(res, 201, { ok: true, request });
+    return;
+  }
+
+  if (url.pathname === "/api/admin/support" && req.method === "GET") {
+    if (!isAdminSession(session)) {
+      sendJson(res, 403, { error: "forbidden" });
+      return;
+    }
+    const requests = (await listSystemEvents(200)).filter((event) => event.eventType === "support_request");
+    sendJson(res, 200, { requests });
+    return;
+  }
+
+  if (url.pathname === "/api/admin/support" && req.method === "POST") {
+    if (!isAdminSession(session)) {
+      sendJson(res, 403, { error: "forbidden" });
+      return;
+    }
+    const body = await readJsonBody(req);
+    const request = await updateSupportRequest(Number(body?.id), String(body?.status || ""));
+    if (!request) {
+      sendJson(res, 404, { error: "support_request_not_found" });
+      return;
+    }
+    if (request.metadata?.status === "in_progress" && request.metadata?.companyId && request.metadata?.requesterId) {
+      const companySettings = (await getCompanyData(request.metadata.companyId, "userSettings")) || {};
+      const requesterSettings = companySettings[request.metadata.requesterId] || {};
+      const notifications = Array.isArray(requesterSettings.notifications) ? requesterSettings.notifications : [];
+      const notificationId = `support:${request.id}:in_progress`;
+      if (!notifications.some((notification) => notification.id === notificationId)) {
+        notifications.unshift({ id: notificationId, message: "Seu chamado de suporte está em atendimento.", createdAt: new Date().toISOString() });
+        companySettings[request.metadata.requesterId] = { ...requesterSettings, notifications: notifications.slice(0, 30) };
+        await setCompanyData(request.metadata.companyId, "userSettings", companySettings);
+      }
+    }
+    await auditRequest(req, session, "support_request_updated", "success", { supportRequestId: request.id, status: request.metadata?.status });
+    sendJson(res, 200, { ok: true, request });
+    return;
+  }
+
   if (url.pathname === "/api/monitor/client-error" && req.method === "POST") {
     const body = await readJsonBody(req);
     await recordSystemEvent({
@@ -2127,6 +2236,8 @@ async function handleApiRequest(req, res, url, session) {
     const savedContext = await getCompanyData(companyId, "context");
     const savedRisk = await getCompanyData(companyId, "risk");
     const savedLeadership = await getCompanyData(companyId, "leadership");
+    const userSettings = companyId == null ? {} : (await getCompanyData(companyId, "userSettings")) || {};
+    const preferences = userSettings[session.userId]?.preferences || {};
     let company = await getCompany(companyId);
     const canManageCompany = await isCompanyOwnerSession(session);
     const permissions = await getSessionPermissions(session, canManageCompany);
@@ -2154,6 +2265,8 @@ async function handleApiRequest(req, res, url, session) {
         mfaEnabled: Boolean((await getUserSecurity(session.userId))?.enabled),
       },
       csrfToken: csrfTokenForSession(session),
+      preferences: { theme: ["dark", "light", "white"].includes(preferences.theme) ? preferences.theme : null },
+      notifications: Array.isArray(userSettings[session.userId]?.notifications) ? userSettings[session.userId].notifications : [],
       company,
       needsOnboarding: Boolean(companyId) && !savedState && canManageCompany && !(
         company?.scope || company?.cnpj || company?.certification
@@ -2954,6 +3067,30 @@ async function handleApiRequest(req, res, url, session) {
     const file = privateData?.entries?.find((entry) => entry.ncId === url.searchParams.get("nc"))?.files?.find((item) => item.id === url.searchParams.get("file"));
     if (!file) { sendJson(res, 404, { error: "evidence_not_found" }); return; }
     sendDownload(res, "application/octet-stream", file.name, Buffer.from(file.base64, "base64"));
+    return;
+  }
+
+  if (url.pathname === "/api/preferences" && req.method === "POST") {
+    if (companyId == null) {
+      sendJson(res, 403, { error: "company_required" });
+      return;
+    }
+    const body = await readJsonBody(req);
+    if (!body || !["dark", "light", "white"].includes(body.theme)) {
+      sendJson(res, 400, { error: "invalid_theme" });
+      return;
+    }
+    const settings = (await getCompanyData(companyId, "userSettings")) || {};
+    settings[session.userId] = {
+      ...(settings[session.userId] || {}),
+      preferences: {
+        ...(settings[session.userId]?.preferences || {}),
+        theme: body.theme,
+      },
+    };
+    await setCompanyData(companyId, "userSettings", settings);
+    await auditRequest(req, session, "theme_preference_updated", "success", { theme: body.theme });
+    sendJson(res, 200, { ok: true, preferences: { theme: body.theme } });
     return;
   }
 
