@@ -5821,37 +5821,57 @@ body .module-summary-toolbar .welcome-sub {
 
 /* Shared module KPI structure, based on the Riscos e Oportunidades cards. */
 .module-detail-view :is(.risk-kpi-row, .context-kpi-row, .kpi-row:not(.users-kpi-row)) .kpi-card {
-  min-height: 164px;
-  padding: 15px 16px 13px;
-  border-radius: 18px;
-  box-shadow: 0 14px 28px rgba(24, 54, 86, .08);
+  min-height: 122px;
+  padding: 10px 12px 9px;
+  border-radius: 12px;
+  box-shadow: 0 10px 22px rgba(24, 54, 86, .07);
 }
 
 .module-detail-view :is(.risk-kpi-row, .context-kpi-row, .kpi-row:not(.users-kpi-row)) .kpi-top {
   align-items: center;
-  gap: 16px;
+  gap: 10px;
 }
 
 .module-detail-view :is(.risk-kpi-row, .context-kpi-row, .kpi-row:not(.users-kpi-row)) .kpi-icon {
-  width: 50px;
-  height: 50px;
-  border-radius: 11px;
+  width: 38px;
+  height: 38px;
+  border-radius: 9px;
   background: color-mix(in srgb, currentColor 10%, transparent);
 }
 
 .module-detail-view :is(.risk-kpi-row, .context-kpi-row, .kpi-row:not(.users-kpi-row)) .kpi-icon .icon {
-  width: 24px;
-  height: 24px;
+  width: 18px;
+  height: 18px;
 }
 
 .module-detail-view :is(.risk-kpi-row, .context-kpi-row, .kpi-row:not(.users-kpi-row)) .kpi-label {
-  font-size: 12px;
-  letter-spacing: .6px;
+  font-size: 10px;
+  letter-spacing: .5px;
 }
 
 .module-detail-view :is(.risk-kpi-row, .context-kpi-row, .kpi-row:not(.users-kpi-row)) .kpi-value.big {
-  font-size: 35px;
+  font-size: 26px;
   line-height: 1;
+}
+
+.module-detail-view :is(.risk-kpi-row, .context-kpi-row, .kpi-row:not(.users-kpi-row)) .module-kpi-detail {
+  grid-template-columns: 24px minmax(0, 1fr) 15px;
+  gap: 6px;
+  padding-top: 7px;
+}
+
+.module-detail-view :is(.risk-kpi-row, .context-kpi-row, .kpi-row:not(.users-kpi-row)) .module-kpi-detail > .icon {
+  width: 21px;
+  height: 21px;
+}
+
+.module-detail-view :is(.risk-kpi-row, .context-kpi-row, .kpi-row:not(.users-kpi-row)) .module-kpi-detail > .icon:last-child {
+  width: 15px;
+  height: 15px;
+}
+
+.module-detail-view :is(.risk-kpi-row, .context-kpi-row, .kpi-row:not(.users-kpi-row)) .module-kpi-detail .kpi-caption {
+  font-size: 10px;
 }
 
 .module-kpi-detail {

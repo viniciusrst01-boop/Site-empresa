@@ -342,6 +342,11 @@ test("admin, exportações, backup e revogação de sessão funcionam", async (t
   const supportList = await api(baseUrl, "/api/admin/support", adminCookie);
   assert.equal(supportList.status, 200);
   assert.ok((await supportList.json()).requests.some((item) => item.id === supportTicket.id));
+  const adminSupportBootstrap = await api(baseUrl, "/api/bootstrap", adminCookie);
+  const adminSupportNotifications = (await adminSupportBootstrap.json()).notifications;
+  assert.ok(adminSupportNotifications.some((notification) => notification.supportRequestId === supportTicket.id));
+  const adminSupportOverview = await api(baseUrl, "/api/admin/overview", adminCookie);
+  assert.ok((await adminSupportOverview.json()).supportRequests.some((request) => request.id === supportTicket.id));
   const supportUpdate = await api(baseUrl, "/api/admin/support", adminCookie, {
     method: "POST",
     body: JSON.stringify({ id: supportTicket.id, status: "in_progress" }),

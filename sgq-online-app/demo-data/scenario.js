@@ -89,12 +89,32 @@ function buildScenario(users, today) {
     ['LGPD-13709', 'Lei Geral de Proteção de Dados Pessoais', 'Órgão Governamental', 'Lei nº 13.709/2018', '2018', 'Administrativo e Financeiro', -4, 13, -13, 13, 'Vigente'],
     ['EXT-FOR-001', 'Termos de continuidade e segurança do provedor de nuvem', 'Fornecedor', 'Nexa Cloud Sistemas', '02', 'Consultoria e Operações', -2, 18, -1, 18, 'Em Revisão'],
   ].map(([code, title, source, sourceDetail, version, sector, revisionOffset, revisionDay, verificationOffset, verificationDay, status], n) => ({ id: id('EXT', n), kind: 'external', code, title, source, sourceDetail, version, revisionDate: past(revisionOffset, revisionDay), lastVerification: past(verificationOffset - 1, verificationDay), nextVerification: past(verificationOffset, verificationDay), sector, storageLocation: 'QualityPro Cloud / Documentos externos', receivedAt: past(revisionOffset - 1, revisionDay), disposition: 'Digital', controlledCopy: 'Não', attachmentName: '', status })));
-  const state = { company, users: operational.map(u => ({ name: u.display_name, email: u.username, role: u.id === hugo.id ? 'Administrador' : u.role, status: u.status })), settings: { emailAlerts: false, weeklyReport: false, companyAccess: 'Plano Professional', theme: 'dark', operationalStatus: 'updated' }, documents, audits: [], equipment: [], ncs, ncCatalogs: { clientes: [], fornecedores: [], setores: [], processos: [] }, notifications: [], supplierStateVersion: 0, climate };
+  const auditStatuses = ['Concluída', 'Concluída', 'Concluída', 'Concluída', 'Concluída', 'Agendada', 'Agendada', 'Em andamento', 'Concluída', 'Agendada', 'Em andamento', 'Agendada'];
+  const audits = Array.from({ length: 12 }, (_, n) => {
+    const dataInicio = past(-11 + n, 12);
+    const tipo = ['Interna', 'Externa', 'Cliente', 'Fornecedor'][n % 4];
+    return {
+      id: `AUD-DEMO-${dataInicio.slice(0, 4)}-${String(n + 1).padStart(3, '0')}`,
+      descricao: `Auditoria ${tipo.toLowerCase()} ${n + 1} - ${sectors[n % sectors.length]}`,
+      tipo,
+      alvo: tipo === 'Cliente' ? clients[n % clients.length] : tipo === 'Fornecedor' ? suppliers[n % suppliers.length] : sectors[n % sectors.length],
+      dataInicio,
+      dataFim: shift(dataInicio, 1),
+      responsavel: owner(n),
+      equipe: active.filter((_, index) => index !== n % active.length).slice(0, 2).map(user => user.display_name),
+      status: auditStatuses[n],
+      evidencia: n < 5 ? `evidencia-auditoria-${n + 1}.pdf` : '',
+      plano: [],
+      relatorio: { blocos: [], consideracoes: '' },
+      planoAcoes: [],
+    };
+  });
+  const state = { company, users: operational.map(u => ({ name: u.display_name, email: u.username, role: u.id === hugo.id ? 'Administrador' : u.role, status: u.status })), settings: { emailAlerts: false, weeklyReport: false, companyAccess: 'Plano Professional', theme: 'dark', operationalStatus: 'updated' }, documents, audits, equipment: [], ncs, ncCatalogs: { clientes: [], fornecedores: [], setores: [], processos: [] }, notifications: [], supplierStateVersion: 0, climate };
   // Build historical observations with the application's calculator from each dated base state.
   // The test scenario includes deterministic Context and Risk activity to demonstrate the consolidated actions trend.
   const observations = [];
   for (let day = date(-11, 1); day <= today; day = shift(day, 1)) {
-    const historical = { documents: documents.filter(document => (document.kind === 'external' ? document.receivedAt : document.elaborationDate) <= day), audits: [], ncs: ncs.filter(nc => nc.dataOrigem <= day).map(nc => ({ status: nc.encerradoEm && nc.encerradoEm <= day ? 'Encerrado' : 'Aguardando análise' })) };
+    const historical = { documents: documents.filter(document => (document.kind === 'external' ? document.receivedAt : document.elaborationDate) <= day), audits: audits.filter(audit => audit.dataInicio <= day), ncs: ncs.filter(nc => nc.dataOrigem <= day).map(nc => ({ status: nc.encerradoEm && nc.encerradoEm <= day ? 'Encerrado' : 'Aguardando análise' })) };
     observations.push(healthObservation('state', historical, `${day}T18:00:00Z`));
   }
   for (let month = 0; month < 12; month += 1) {

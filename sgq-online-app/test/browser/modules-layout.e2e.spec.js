@@ -8,6 +8,72 @@ async function login(page) {
   await expect(page).toHaveURL(/\/app$/);
 }
 
+test("nova auditoria mantém todos os controles visíveis sem rolagem interna no desktop", async ({ page }) => {
+  await login(page);
+  for (const viewport of [{ width: 1920, height: 1080 }, { width: 1600, height: 900 }, { width: 1440, height: 900 }, { width: 1366, height: 768 }]) {
+    await page.setViewportSize(viewport);
+    await page.evaluate(() => renderModuleDetail("auditorias"));
+
+    const auditsFrame = page.frameLocator('iframe[title="Auditorias"]');
+    await auditsFrame.locator("#kpiRow").waitFor({ state: "visible" });
+    await auditsFrame.locator(".page-toolbar .btn-grad").click();
+    await expect(auditsFrame.locator("#modalReg")).toBeVisible();
+
+    const layout = await auditsFrame.locator("#modalReg .modal-box").evaluate((modal) => {
+      const viewportHeight = window.innerHeight;
+      const rect = modal.getBoundingClientRect();
+      const required = [
+        "#regTipo", "#regAlvo", "#regStatus", "#regDataInicio", "#regDataFim", "#regNorma", "#regDescricao",
+        "#regResponsavel", "#regEquipe", "#btnPlano", "#btnAtaAbertura", "#btnAtaFechamento", "#btnRelatorio",
+        ".upload-btn", ".modal-actions .btn-ghost", ".modal-actions .btn-primary",
+      ];
+      return {
+        overflowing: modal.scrollHeight > modal.clientHeight,
+        overflowY: getComputedStyle(modal).overflowY,
+        fitsViewport: rect.top >= 0 && rect.bottom <= viewportHeight,
+        allControlsVisible: required.every((selector) => {
+          const element = modal.querySelector(selector);
+          if (!element) return false;
+          const bounds = element.getBoundingClientRect();
+          return bounds.top >= rect.top && bounds.bottom <= rect.bottom && bounds.width > 0 && bounds.height > 0;
+        }),
+      };
+    });
+
+    expect(layout.overflowing).toBe(false);
+    expect(layout.overflowY).not.toBe("auto");
+    expect(layout.fitsViewport).toBe(true);
+    expect(layout.allControlsVisible).toBe(true);
+  }
+});
+
+test("auditorias acompanha os três temas do aplicativo", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await login(page);
+
+  for (const [theme, expectedClass, expectedPanel] of [
+    ["dark", "", "#0b1526"],
+    ["light", "theme-light", "#0c2a4e"],
+    ["white", "theme-white", "#ffffff"],
+  ]) {
+    await page.evaluate((selectedTheme) => {
+      state.settings.theme = selectedTheme;
+      applyTheme();
+      renderModuleDetail("auditorias");
+    }, theme);
+
+    const auditsFrame = page.frameLocator('iframe[title="Auditorias"]');
+    await auditsFrame.locator("#kpiRow").waitFor({ state: "visible" });
+    const appliedTheme = await auditsFrame.locator("body").evaluate((body) => ({
+      className: body.className,
+      panel: getComputedStyle(body).getPropertyValue("--bg-panel").trim(),
+    }));
+
+    expect(appliedTheme.className).toContain(expectedClass);
+    expect(appliedTheme.panel.toLowerCase()).toBe(expectedPanel);
+  }
+});
+
 test("módulo de mudanças climáticas registra questões e exibe indicadores", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await login(page);

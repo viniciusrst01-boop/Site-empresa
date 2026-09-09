@@ -1,0 +1,17 @@
+.audits-module-shell {
+  min-height: max(620px, calc(100vh - 142px));
+}
+
+.audits-module-frame {
+  display: block;
+  width: 100%;
+  min-height: max(620px, calc(100vh - 142px));
+  border: 0;
+  background: transparent;
+}
+
+@media (max-width: 900px) {
+  .audits-module-frame {
+    min-height: 0;
+  }
+}

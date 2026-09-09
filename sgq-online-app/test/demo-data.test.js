@@ -59,7 +59,8 @@ test('seed is deterministic, preserves credentials/status, and has coherent refe
   assert.equal(state.documents.filter(row => row.kind === 'internal').length, 9);
   assert.equal(state.documents.filter(row => row.kind === 'external').length, 5);
   assert.ok(state.documents.every(row => row.code && row.title && row.status));
-  assert.deepEqual(state.audits, []); assert.deepEqual(state.equipment, []);
+  assert.equal(state.audits.length, 12); assert.deepEqual(state.equipment, []);
+  assert.equal(new Set(state.audits.map(row => row.dataInicio.slice(0, 7))).size, 12);
   for (const nc of state.ncs) {
     assert.ok(get('context').processos.some(p => p.nome === nc.processo));
     assert.ok(state.company.registry.setores.some(s => s.nome === nc.setor));
@@ -75,6 +76,8 @@ test('seed is deterministic, preserves credentials/status, and has coherent refe
     assert.equal(history.points.length, months === 1 ? 30 : months);
     assert.ok(history.points.every(p => Number.isFinite(p.nonConformities)));
     assert.equal(history.current.nonConformities, state.ncs.filter(n => n.status !== 'Encerrado').length);
+    assert.equal(history.current.audits, state.audits.filter(audit => audit.status !== 'Concluída').length);
+    if (months > 1) assert.ok(history.points.some(point => point.audits > 0));
     if (months > 1) assert.ok(history.points.slice(0, -1).some(point => point.actions > point.nonConformities));
   }
 });
@@ -166,7 +169,30 @@ test('real endpoints: global admin without tenant and company owner Hugo', async
         await page.evaluate(id => renderModuleDetail(id), moduleId);
         assert.ok(await page.locator('.page-content').innerText());
       }
+      await page.evaluate(() => renderModuleDetail('auditorias'));
+      const auditsFrame = page.frameLocator('iframe[title="Auditorias"]');
+      await auditsFrame.locator('#kpiRow').waitFor({ state: 'visible', timeout: 5000 });
+      assert.equal(await auditsFrame.locator('#mainTabs .ctx-tab').count(), 4);
+      for (const tab of ['planejamento', 'controle', 'acoes', 'indicadores']) {
+        await auditsFrame.locator(`#mainTabs [data-tab=${tab}]`).click();
+      }
+      assert.equal(await auditsFrame.locator('#tabContent canvas').count(), 7);
+      await auditsFrame.locator('.page-toolbar .btn-grad').click();
+      await auditsFrame.locator('#regDescricao').fill('Auditoria de integração');
+      await auditsFrame.locator('#regDataInicio').fill('2026-09-15');
+      await auditsFrame.locator('#regResponsavel').selectOption({ index: 0 });
+      await auditsFrame.locator('#modalReg .btn-primary').click();
+      await page.waitForFunction(() => state.audits.some(audit => audit.descricao === 'Auditoria de integração'), null, { timeout: 5000 });
+      const savedAudits = await page.evaluate(async () => (await (await fetch('/api/bootstrap')).json()).state.audits);
+      assert.ok(savedAudits.some(audit => audit.descricao === 'Auditoria de integração'));
+      await page.evaluate(() => render('inicio'));
+      await page.waitForFunction(() => document.querySelector('.sgq-health-plot')?.getAttribute('aria-busy') === 'false');
+      assert.equal(await page.locator('[data-health-value="audits"]').innerText(), '1');
+      await page.locator('.sgq-health-indicator:has([data-health-value="audits"])').click();
+      await page.locator('iframe[title="Auditorias"]').waitFor({ state: 'visible' });
+      await page.evaluate(() => renderModuleDetail('mudancas-climaticas'));
       await page.locator('[data-climate-tab=indicators]').click();
+      await page.waitForFunction(() => Boolean(Chart.getChart('climateStatusChart')));
       assert.equal(await page.evaluate(() => Chart.getChart('climateStatusChart').data.datasets[0].data.reduce((a, b) => a + b, 0)), 6);
       await page.screenshot({ path: path.join(root, 'test-results', 'demo-climate.png'), fullPage: true });
       await page.evaluate(() => renderModuleDetail('contexto'));
@@ -242,9 +268,10 @@ test('real endpoints: global admin without tenant and company owner Hugo', async
       assert.ok((await page.locator('.page-content').innerText()).includes('Quality Pro Solutions'));
       await page.locator('[data-admin-company-details]').first().click();
       await page.waitForSelector('[data-admin-company-detail-modal].is-open');
-      assert.equal(await page.locator('[data-admin-company-detail-tab]').count(), 8);
-      await page.locator('[data-admin-company-detail-tab="users"]').click();
-      assert.equal(await page.locator('[data-admin-company-detail-panel="users"]').isVisible(), true);
+       assert.equal(await page.locator('[data-admin-company-detail-tab]').count(), 8);
+       await page.locator('[data-admin-company-detail-tab="users"]').click();
+       await page.locator('[data-admin-company-detail-panel="users"]').waitFor({ state: 'visible' });
+       assert.equal(await page.locator('[data-admin-company-detail-panel="users"]').isVisible(), true);
       await page.locator('[data-admin-company-user-add]').click();
       await page.waitForSelector('[data-admin-company-user-editor].is-open');
       assert.ok(await page.locator('[data-admin-company-user-role] option').count() > 1);

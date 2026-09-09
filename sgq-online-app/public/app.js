@@ -991,6 +991,16 @@ function applyTheme() {
   document.querySelectorAll(".app-theme-logo").forEach((logo) => {
     logo.src = "/assets/qualitypro-cloud-logo-app.png";
   });
+  syncAuditsFrameTheme();
+}
+
+function syncAuditsFrameTheme() {
+  const frame = pageContent?.querySelector(".audits-module-frame");
+  if (!frame?.contentWindow) return;
+  frame.contentWindow.postMessage({
+    type: "qualitypro:audits:theme",
+    theme: state.settings.theme || "dark",
+  }, window.location.origin);
 }
 
 function escapeHtml(value) {
@@ -1304,7 +1314,7 @@ function healthIndicatorCard(metric) {
   return `<button type="button" class="sgq-health-indicator" ${target} style="--health-color:${metric.color}">
     <span class="sgq-health-icon">${moduleIcon(metric.icon)}</span>
     <span class="sgq-health-copy"><span>${metric.title}</span><strong data-health-value="${metric.key}">—</strong></span>
-    ${allowed && metric.module ? moduleIcon("arrow") : ""}
+    ${allowed && (metric.module || metric.view) ? moduleIcon("arrow") : ""}
   </button>`;
 }
 
@@ -2055,6 +2065,11 @@ function renderModuleDetail(moduleId, options = {}) {
     return;
   }
 
+  if (moduleId === "auditorias") {
+    renderAuditsModule();
+    return;
+  }
+
   if (moduleId === "mudancas-climaticas") {
     renderClimateModule();
     return;
@@ -2087,6 +2102,82 @@ function renderModuleDetail(moduleId, options = {}) {
   `;
   bindViewTargetButtons();
   scrollPageToTop();
+}
+
+function auditRoster() {
+  const users = companyUsersData.length ? companyUsersData : (state.users || []);
+  const rows = users
+    .filter((user) => user.status !== "Bloqueado")
+    .map((user) => ({
+      nome: user.displayName || user.name || user.username || user.email,
+      email: user.username || user.email || "",
+      cargo: user.role || "Colaborador",
+    }))
+    .filter((user) => user.nome);
+  const currentName = currentUser?.name || currentUser?.username;
+  if (currentName && !rows.some((user) => user.nome === currentName)) {
+    rows.unshift({ nome: currentName, email: currentUser?.username || "", cargo: currentUser?.role || "Usuário" });
+  }
+  return rows;
+}
+
+function hydrateAuditsFrame(frame) {
+  if (!frame?.contentWindow) return;
+  frame.contentWindow.postMessage({
+    type: "qualitypro:audits:hydrate",
+    audits: Array.isArray(state.audits) ? state.audits : [],
+    roster: auditRoster(),
+    currentUser,
+    theme: state.settings.theme || "dark",
+  }, window.location.origin);
+}
+
+async function persistAuditsFromFrame(audits, frame) {
+  if (!Array.isArray(audits)) return;
+  const previousAudits = state.audits;
+  state.audits = audits;
+  const saved = await saveRemoteData("state", state, "auditorias");
+  if (saved) return;
+  state.audits = previousAudits;
+  hydrateAuditsFrame(frame);
+  toast("Não foi possível salvar as auditorias. Tente novamente.");
+}
+
+function renderAuditsModule() {
+  setTopbar("Auditorias", "Planejamento e acompanhamento de auditorias internas.");
+  pageContent.innerHTML = `
+    <section class="audits-module-shell" aria-label="Módulo de auditorias">
+      <iframe class="audits-module-frame" title="Auditorias" src="/audits-module-frame.html?v=20260909-audits-theme"></iframe>
+    </section>
+  `;
+  const frame = pageContent.querySelector(".audits-module-frame");
+  frame.addEventListener("load", () => hydrateAuditsFrame(frame));
+  if (!companyUsersData.length) {
+    fetch("/api/company/users", { headers: { Accept: "application/json" }, cache: "no-store" })
+      .then((response) => response.ok ? response.json() : Promise.reject(new Error("users_unavailable")))
+      .then((payload) => {
+        companyUsersData = (payload.users || []).map(normalizeCompanyUser);
+        syncStateUsersFromCompanyUsers();
+        hydrateAuditsFrame(frame);
+      })
+      .catch(() => {});
+  }
+  scrollPageToTop();
+}
+
+if (!window.__qualityProAuditsFrameBridge) {
+  window.__qualityProAuditsFrameBridge = true;
+  window.addEventListener("message", (event) => {
+    if (event.origin !== window.location.origin) return;
+    const frame = pageContent?.querySelector(".audits-module-frame");
+    if (!frame || event.source !== frame.contentWindow) return;
+    if (event.data?.type === "qualitypro:audits:ready") hydrateAuditsFrame(frame);
+    if (event.data?.type === "qualitypro:audits:persist") persistAuditsFromFrame(event.data.audits, frame);
+    if (event.data?.type === "qualitypro:audits:resize") {
+      const height = Number(event.data.height);
+      if (Number.isFinite(height) && height >= 680) frame.style.height = `${Math.ceil(height)}px`;
+    }
+  });
 }
 
 function moduleHistoryControlsHtml(moduleId) {
@@ -7252,6 +7343,7 @@ async function renderAdminLegacySection(view) {
 }
 
 let adminCompaniesDetailData = null;
+let adminOverviewSupportRequests = [];
 
 function adminCompaniesHtml(data) {
   adminCompaniesDetailData = data;
@@ -7713,6 +7805,7 @@ function adminOverviewHtml(data) {
   const services = health.services || {};
   const incidents = operations.incidents || [];
   const backups = operations.backups || [];
+  const supportRequests = data.supportRequests || [];
   const activeUsers = Number(summary.activeAccesses || 0);
   const totalUsers = Number(summary.accesses || 0);
   const activePlans = Number(summary.payingCompanies || 0);
@@ -7725,6 +7818,8 @@ function adminOverviewHtml(data) {
   const latestBackup = backups[0] || services.backup?.latest || null;
   const securityEvents = incidents.filter((incident) => incident.component === "security");
   const featuredCompanies = companies.slice(0, 4);
+  const activeSupportRequests = supportRequests.filter((request) => ["open", "in_progress"].includes(request.metadata?.status || "open"));
+  adminOverviewSupportRequests = supportRequests;
 
   return `
     <main class="admin-overview" aria-label="Visão geral administrativa">
@@ -7750,12 +7845,20 @@ function adminOverviewHtml(data) {
           </div>
         </article>
 
-        <article class="admin-overview-panel admin-incidents-panel">
-          ${adminPanelHeading("Incidentes recentes", "", "admin-logs", "Ver todos")}
-          <div class="admin-incidents-list">
-            ${incidents.length ? incidents.slice(0, 5).map(adminIncidentItem).join("") : `<div class="admin-empty-state">Nenhum incidente registrado.</div>`}
-          </div>
-        </article>
+        <aside class="admin-overview-side-stack">
+          <article class="admin-overview-panel admin-incidents-panel">
+            ${adminPanelHeading("Incidentes recentes", "", "admin-logs", "Ver todos")}
+            <div class="admin-incidents-list">
+              ${incidents.length ? incidents.slice(0, 5).map(adminIncidentItem).join("") : `<div class="admin-empty-state">Nenhum incidente registrado.</div>`}
+            </div>
+          </article>
+          <article class="admin-overview-panel admin-support-overview-panel">
+            ${adminPanelHeading("Chamados de atendimento", activeSupportRequests.length ? `${activeSupportRequests.length} ${activeSupportRequests.length === 1 ? "chamado requer" : "chamados requerem"} acompanhamento.` : "Nenhum chamado em aberto.", "admin-suporte", "Ver central")}
+            <div class="admin-support-overview-list">
+              ${activeSupportRequests.length ? activeSupportRequests.slice(0, 3).map(adminSupportOverviewItem).join("") : `<div class="admin-empty-state">Tudo em dia.</div>`}
+            </div>
+          </article>
+        </aside>
       </section>
 
       <section class="admin-overview-bottom">
@@ -7824,6 +7927,18 @@ function adminIncidentLabel(incident) {
   return labels[incident.eventType] || adminEventLabel(incident.eventType || incident.component || "system_event");
 }
 
+function adminSupportOverviewItem(request) {
+  const metadata = request.metadata || {};
+  const status = metadata.status || "open";
+  const messages = Array.isArray(metadata.messages) ? metadata.messages : [];
+  const latestMessage = messages.at(-1)?.text || metadata.description || request.message || "Sem mensagem";
+  return `<button class="admin-support-overview-item" type="button" data-admin-support-chat="${Number(request.id)}">
+    <span class="support-status ${escapeHtml(status)}">${escapeHtml(supportStatusLabel[status] || "Aberto")}</span>
+    <span class="admin-support-overview-copy"><strong>${escapeHtml(metadata.companyName || "Empresa não informada")}</strong><small>${escapeHtml(metadata.requesterName || "Usuário")} · ${escapeHtml(latestMessage)}</small></span>
+    <span class="admin-card-arrow">${moduleIcon("arrow")}</span>
+  </button>`;
+}
+
 function adminActivityRow(log) {
   const type = adminActivityType(log.eventType);
   return `<tr><td>${escapeHtml(formatDateTime(log.createdAt))}</td><td><span class="admin-event-type type-${type.key}">${escapeHtml(type.label)}</span></td><td>${escapeHtml(adminEventLabel(log.eventType))}</td><td>${escapeHtml(log.username || "Sistema")}</td><td>${auditOutcomeBadge(log.outcome)}</td></tr>`;
@@ -7852,6 +7967,10 @@ function adminFeaturedCompany(company) {
 
 function bindAdminOverviewActions() {
   pageContent.querySelectorAll("[data-admin-view]").forEach((button) => button.addEventListener("click", () => render(button.dataset.adminView)));
+  pageContent.querySelectorAll("[data-admin-support-chat]").forEach((button) => button.addEventListener("click", () => {
+    const request = adminOverviewSupportRequests.find((item) => Number(item.id) === Number(button.dataset.adminSupportChat));
+    if (request) openSupportChat(request, renderGerenciamento);
+  }));
 }
 
 async function refreshCurrentAdminView() {

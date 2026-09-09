@@ -1705,6 +1705,18 @@ async function handleRequest(req, res) {
     return;
   }
 
+  if (url.pathname === "/audits-module-frame.html") {
+    if (!session) {
+      send(res, 302, "", { Location: "/login", "Set-Cookie": sessionCookie(req, "", 0) });
+      return;
+    }
+    serveFile(res, path.join(publicDir, "audits-module-frame.html"), {
+      "X-Frame-Options": "SAMEORIGIN",
+      "Content-Security-Policy": "frame-ancestors 'self'",
+    });
+    return;
+  }
+
   if (url.pathname === "/login.css") {
     serveFile(res, path.join(publicDir, "login.css"));
     return;
@@ -2252,6 +2264,16 @@ async function handleApiRequest(req, res, url, session) {
     const savedLeadership = await getCompanyData(companyId, "leadership");
     const userSettings = companyId == null ? {} : (await getCompanyData(companyId, "userSettings")) || {};
     const preferences = userSettings[session.userId]?.preferences || {};
+    const supportNotifications = isAdminSession(session)
+      ? (await listSystemEvents(200))
+        .filter((event) => event.eventType === "support_request" && ["open", "in_progress"].includes(event.metadata?.status || "open"))
+        .map((event) => ({
+          id: `support:${event.id}`,
+          message: `Chamado ${event.metadata?.status === "in_progress" ? "em atendimento" : "aberto"}: ${event.metadata?.companyName || "Empresa não informada"}`,
+          createdAt: event.createdAt,
+          supportRequestId: event.id,
+        }))
+      : [];
     let company = await getCompany(companyId);
     const canManageCompany = await isCompanyOwnerSession(session);
     const permissions = await getSessionPermissions(session, canManageCompany);
@@ -2280,7 +2302,9 @@ async function handleApiRequest(req, res, url, session) {
       },
       csrfToken: csrfTokenForSession(session),
       preferences: { theme: ["dark", "light", "white"].includes(preferences.theme) ? preferences.theme : null },
-      notifications: Array.isArray(userSettings[session.userId]?.notifications) ? userSettings[session.userId].notifications : [],
+      notifications: isAdminSession(session)
+        ? supportNotifications
+        : (Array.isArray(userSettings[session.userId]?.notifications) ? userSettings[session.userId].notifications : []),
       company,
       needsOnboarding: Boolean(companyId) && !savedState && canManageCompany && !(
         company?.scope || company?.cnpj || company?.certification
@@ -2667,7 +2691,9 @@ async function handleApiRequest(req, res, url, session) {
       return;
     }
 
-    sendJson(res, 200, await listAdminOverview());
+    const [overview, events] = await Promise.all([listAdminOverview(), listSystemEvents(200)]);
+    const supportRequests = events.filter((event) => event.eventType === "support_request");
+    sendJson(res, 200, { ...overview, supportRequests });
     return;
   }
 
