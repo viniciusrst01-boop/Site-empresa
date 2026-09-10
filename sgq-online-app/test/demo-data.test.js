@@ -216,7 +216,7 @@ test('real endpoints: global admin without tenant and company owner Hugo', async
       await page.locator('[data-nc-filter=status]').selectOption('Encerrado');
       assert.equal(await page.locator('.nc-control-table tbody tr').count(), hugo.payload.state.ncs.filter(n => n.status === 'Encerrado').length);
       await page.locator('[data-nc-tab=dashboards]').click();
-      const iframe = page.frameLocator('iframe[title="Dashboard de Não conformidades"]');
+      const iframe = page.frameLocator('iframe[title="Indicadores de Não conformidades"]');
       await iframe.locator('#tvYear').waitFor({ state: 'attached', timeout: 5000 }).catch(async error => { t.diagnostic(JSON.stringify(await page.locator('iframe').evaluateAll(nodes => nodes.map(n => ({ title: n.title, src: n.src }))))); t.diagnostic(JSON.stringify(page.frames().map(f => f.url()))); throw error; });
       const frame = page.frames().find(f => f.url().includes('/nc-tv'));
       assert.ok(frame);

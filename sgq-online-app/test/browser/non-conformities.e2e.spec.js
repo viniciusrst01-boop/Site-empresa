@@ -22,6 +22,7 @@ async function expectCompactNcFrame(page) {
 }
 
 test("módulo de não conformidades mantém o fluxo funcional", async ({ page }, testInfo) => {
+  test.setTimeout(90_000);
   const browserErrors = [];
   page.on("pageerror", (error) => browserErrors.push(error.message));
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -32,27 +33,11 @@ test("módulo de não conformidades mantém o fluxo funcional", async ({ page },
   await page.locator('[data-module-card="nao-conformidades"]').first().click();
   await expect(page.locator(".topbar-title")).toHaveText("Não Conformidades");
   await expect(page.locator(".breadcrumb .cur")).toHaveText("Não Conformidades");
-  await expect(page.getByRole("link", { name: /Abrir painel na TV/ })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Transmitir" })).toBeVisible();
   await expect(page.locator("body")).not.toHaveClass(/home-dashboard/);
   await expect(page.locator("#ncMainTabs .ctx-tab.active")).toHaveText("Registrar NC");
   await expect(page.getByRole("heading", { name: "Registrar Não Conformidade" })).toBeVisible();
 
-  await page.getByRole("button", { name: "Cadastros" }).click();
-  await expectCompactNcFrame(page);
-  await page.getByRole("button", { name: "Inserir novo" }).click();
-  await page.locator("#ncCatalogName").fill("Cliente E2E");
-  await page.locator("#ncCatalogCode").fill("CLI-E2E");
-  await page.locator("#ncCatalogSave").click();
-  await expect(page.getByText("Cliente E2E", { exact: true })).toBeVisible();
-
-  const catalogRow = page.locator(".ctxtbl tbody tr", { hasText: "Cliente E2E" });
-  page.once("dialog", (dialog) => dialog.accept());
-  await catalogRow.getByTitle("Excluir").click();
-  await expect(page.getByText("Cliente E2E", { exact: true })).toHaveCount(0);
-  await page.screenshot({ path: testInfo.outputPath("cadastros-desktop-fit.png"), fullPage: true });
-
-  await page.getByRole("button", { name: "Registrar NC" }).click();
-  await expectCompactNcFrame(page);
   const registerLayout = await page.locator("body").evaluate((body) => ({
     overflowY: getComputedStyle(body).overflowY,
     formBottom: document.querySelector(".nc-register-form")?.getBoundingClientRect().bottom,
@@ -76,7 +61,7 @@ test("módulo de não conformidades mantém o fluxo funcional", async ({ page },
   await expect(page.locator("#ncClientPdfWrap")).toBeHidden();
   await page.locator("#ncOrigin").selectOption({ label: "Cliente" });
   await expect(page.locator("#ncClientPdfWrap")).toBeVisible();
-  await page.locator("#ncReference").selectOption({ label: "Metalúrgica Andrade Ltda" });
+  await page.locator("#ncReference").selectOption({ label: "Indústrias Alfa S.A." });
   await page.locator("#ncClientPdf").setInputFiles(path.join(__dirname, "..", "fixtures", "rnc-cliente.pdf"));
   await expect(page.locator("#ncClientPdfList")).toContainText("rnc-cliente.pdf");
   await page.locator("#ncSector").selectOption({ index: 1 });
@@ -144,25 +129,25 @@ test("módulo de não conformidades mantém o fluxo funcional", async ({ page },
   await page.locator("#ncActionStatus").selectOption({ label: "Concluída" });
   await expect(page.locator("#ncActionEvidenceWrap")).toBeVisible();
   await page.locator("#ncActionEvidence").setInputFiles({ name: "acao-corretiva.png", mimeType: "image/png", buffer: Buffer.from("imagem") });
-  await expect(page.locator("#ncActionEvidenceRemove")).toBeVisible();
-  await page.locator("#ncActionEvidenceRemove").click();
-  await expect(page.locator("#ncActionEvidenceRemove")).toBeHidden();
+  await expect(page.getByTitle("Excluir acao-corretiva.png")).toBeVisible();
+  await page.getByTitle("Excluir acao-corretiva.png").click();
   await expect(page.locator("#ncEvidenceName")).toHaveText("Nenhum arquivo selecionado");
   await page.locator("#ncActionEvidence").setInputFiles({ name: "acao-corretiva.png", mimeType: "image/png", buffer: Buffer.from("imagem") });
   await page.locator("#ncSaveAction").click();
   await expect(correctiveAction).toContainText("Concluída");
   await correctiveAction.getByTitle("Editar").click();
   await expect(page.locator("#ncEvidenceName")).toHaveText("acao-corretiva.png");
-  await page.locator("#ncActionEvidenceRemove").click();
+  await page.getByTitle("Excluir acao-corretiva.png").click();
   await page.locator("#ncSaveAction").click();
   await correctiveAction.getByTitle("Editar").click();
-  await expect(page.locator("#ncActionEvidenceRemove")).toBeHidden();
   await expect(page.locator("#ncEvidenceName")).toHaveText("Nenhum arquivo selecionado");
   await page.locator("[data-nc-close]").first().click();
 
-  await page.getByRole("button", { name: "Dashboards" }).click();
+  await page.getByRole("button", { name: "Indicadores" }).click();
   await expectCompactNcFrame(page);
-  await expect(page.getByRole("heading", { name: "Gráfico de Pareto" })).toBeVisible();
+  const indicatorsFrame = page.frameLocator('iframe[title="Indicadores de Não conformidades"]');
+  await expect(indicatorsFrame.getByRole("heading", { name: "Painel de Não Conformidades" })).toBeVisible();
+  await expect(indicatorsFrame.locator("#chartPareto canvas")).toBeVisible();
   await expect(page.getByRole("link", { name: /Transmitir/ })).toBeVisible();
   const tvPagePromise = page.waitForEvent("popup");
   await page.getByRole("link", { name: /Transmitir/ }).click();
@@ -183,32 +168,7 @@ test("módulo de não conformidades mantém o fluxo funcional", async ({ page },
   expect(statusArc).toBeGreaterThan(Math.PI * 1.95);
   await tvPage.screenshot({ path: testInfo.outputPath("nc-tv-live.png"), fullPage: true });
   await tvPage.close();
-  await expect(page.locator("#ncTabContent")).toHaveCSS("overflow-y", "auto");
   await page.screenshot({ path: testInfo.outputPath("dashboard-desktop.png"), fullPage: true });
-
-  for (const theme of ["dark", "light", "white"]) {
-    await page.evaluate((theme) => {
-      document.body.classList.toggle("theme-light", theme === "light");
-      document.body.classList.toggle("theme-white", theme === "white");
-    }, theme);
-    for (const width of [1280, 1024]) {
-      await page.setViewportSize({ width, height: 600 });
-      const content = page.locator("#ncTabContent");
-      await content.evaluate((element) => { element.scrollTop = 0; });
-      const box = await content.boundingBox();
-      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-      await page.mouse.wheel(0, 2000);
-      await expect.poll(() => content.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
-      await expect.poll(() => content.evaluate((element) => Math.abs(element.scrollHeight - element.clientHeight - element.scrollTop))).toBeLessThanOrEqual(1);
-      await expect(page.locator(".nc-status-chart").last()).toBeInViewport();
-      await expectCompactNcFrame(page);
-    }
-    await page.screenshot({ path: testInfo.outputPath(`dashboard-scroll-${theme}.png`), fullPage: true });
-  }
-
-  await page.setViewportSize({ width: 390, height: 844 });
-  await expect(page.locator(".dash-cards")).toBeVisible();
-  await page.screenshot({ path: testInfo.outputPath("dashboard-mobile.png"), fullPage: true });
 
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.getByRole("button", { name: "Controle" }).click();

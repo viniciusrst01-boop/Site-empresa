@@ -2789,7 +2789,7 @@ function leadershipRolesHtml() {
     <tr><td>${personCell(item.nome, item.cargo)}</td><td>${chip(item.departamento, "mchip-purple")}</td><td class="desc-cell">${escapeHtml(item.descricao)}</td><td>${escapeHtml(item.substituto || "-")}</td><td><span class="status-pill ${statusClass(item.status)}"><span class="status-dot2"></span>${escapeHtml(item.status)}</span></td><td>${leadershipActions("cargo", item.id, true)}</td></tr>
   `).join("") : `<tr><td colspan="6"><div class="empty-state">Nenhum cargo cadastrado.</div></td></tr>`;
   return leadershipCard("Cargos e Funções", "Papéis, responsabilidades e autoridades · 5.3", "Novo cargo", "new-cargo", `
-    <table class="ctxtbl"><colgroup><col style="width:18%"><col style="width:13%"><col style="width:31%"><col style="width:14%"><col style="width:12%"><col style="width:12%"></colgroup><thead><tr><th>Nome/Cargo</th><th>Departamento</th><th>Descrição</th><th>Substituto</th><th>Status</th><th>Ações</th></tr></thead><tbody>${body}</tbody></table>`);
+    <table class="ctxtbl"><colgroup><col style="width:18%"><col style="width:13%"><col style="width:31%"><col style="width:14%"><col style="width:12%"><col style="width:12%"></colgroup><thead><tr><th>Nome/Cargo</th><th>Setor</th><th>Descrição</th><th>Substituto</th><th>Status</th><th>Ações</th></tr></thead><tbody>${body}</tbody></table>`);
 }
 
 function leadershipRaciHtml() {
@@ -2904,7 +2904,7 @@ function leadershipRoleIndicatorsHtml() {
       <div class="dcc-sub">Visão consolidada de cargos, matriz RACI, delegações, aprovações e compromissos.</div>
       <div class="context-kpi-row">
         ${leadershipKpi("Cargos ativos", activeRoles, `${roles.length} cargos mapeados`, "#34D399", "contexto")}
-        ${leadershipKpi("Departamentos", departments.size, "com responsáveis definidos", "#A78BFA", "modulos")}
+        ${leadershipKpi("Setores", departments.size, "com responsáveis definidos", "#A78BFA", "modulos")}
         ${leadershipKpi("Delegações ativas/agendadas", activeDelegations, `${delegations.length} delegações cadastradas`, "#F2B705", "calendar")}
         ${leadershipKpi("Decisões formalizadas", approvals.length + completedCommitments, `${approvals.length} aprovações e ${completedCommitments} compromissos`, "#46D9F5", "check-circle")}
       </div>
@@ -3083,7 +3083,7 @@ const leadershipCollections = {
   acao: { key: "acoes", prefix: "AD", fields: [["data", "Data", "date"], ["horaInicio", "Horário de início", "time"], ["horaFim", "Horário de término", "time"], ["local", "Local da reunião"], ["tipo", "Tipo", "select", ["Reunião Estratégica", "Análise de Indicadores", "Decisão Estratégica", "Alocação de Recursos"]], ["responsavel", "Responsável", "people"], ["status", "Status", "select", ["Programada", "Concluída", "Não Realizada"]], ["descricao", "Descrição", "textarea"], ["participantIds", "Participantes", "participants"], ["evidencia", "Evidência", "file"]] },
   plano: { key: "plano", prefix: "P5W2H", fields: [["oQue", "O quê", "textarea"], ["porQue", "Por quê", "textarea"], ["onde", "Onde"], ["quando", "Quando", "date"], ["quem", "Quem", "people"], ["como", "Como", "textarea"], ["quanto", "Quanto", "number"], ["status", "Status", "select", ["Não Iniciado", "Em Andamento", "Atrasado", "Concluído"]]] },
   comunicacao: { key: "comunicacao", prefix: "COMPOL", fields: [["data", "Data", "date"], ["forma", "Forma", "select", ["Reunião de Equipe", "E-mail", "Treinamento", "Integração", "Mural/Comunicado Interno"]], ["setor", "Setor"], ["qtdPessoas", "Qtd. pessoas", "number"], ["evidencia", "Evidência", "file"]] },
-  cargo: { key: "cargos", prefix: "CARGO", fields: [["nome", "Nome"], ["cargo", "Cargo"], ["departamento", "Departamento"], ["substituto", "Substituto"], ["status", "Status", "select", ["Ativo", "Inativo"]], ["descricao", "Descrição", "textarea"], ["responsabilidades", "Responsabilidades, uma por linha", "lines"], ["autoridades", "Autoridades, uma por linha", "lines"]] },
+  cargo: { key: "cargos", prefix: "CARGO", fields: [["nome", "Nome"], ["cargo", "Cargo"], ["departamento", "Setor", "company-sector"], ["substituto", "Substituto"], ["status", "Status", "select", ["Ativo", "Inativo"]], ["descricao", "Descrição", "textarea"], ["responsabilidades", "Responsabilidades, uma por linha", "lines"], ["autoridades", "Autoridades, uma por linha", "lines"]] },
   raci: { key: "raci", prefix: "RACI", fields: [["atividade", "Atividade"], ["diretorGeral", "Diretor Geral", "select", ["R", "A", "C", "I"]], ["qualidade", "Qualidade", "select", ["R", "A", "C", "I"]], ["comercial", "Comercial", "select", ["R", "A", "C", "I"]], ["financeiro", "Financeiro", "select", ["R", "A", "C", "I"]]] },
   delegacao: { key: "delegacoes", prefix: "DEL", fields: [["titular", "Titular", "delegation-person"], ["substituto", "Substituto", "people"], ["cargo", "Cargo", "delegation-title"], ["periodoIni", "Início", "date"], ["periodoFim", "Fim", "date"], ["motivo", "Motivo"], ["status", "Status", "select", ["Agendada", "Ativa", "Encerrada"]]] },
   aprovacao: { key: "aprovacoes", prefix: "APR", fields: [["tipo", "Tipo"], ["aprovador", "Aprovador", "people"], ["substituto", "Substituto", "people"], ["revisao", "Revisão"]] },
@@ -3226,6 +3226,12 @@ function leadershipAttachmentLinks(record) {
 
 function leadershipFieldHtml(key, label, fieldType = "text", options = [], value = "", record = {}) {
   const displayValue = Array.isArray(value) ? value.join("\n") : value || "";
+  if (fieldType === "company-sector") {
+    const sectors = getCompanyProfile().registry.setores?.map((item) => String(item?.nome || "").trim()).filter(Boolean) || [];
+    const choices = [...new Set([...sectors, displayValue].filter(Boolean))];
+    const empty = sectors.length === 0;
+    return `<div class="field"><label for="lcCompanySector">${escapeHtml(label)}</label><select class="input-basic" id="lcCompanySector" data-lc-field="${key}" ${empty ? "disabled" : ""}><option value="">${empty ? "Nenhum setor cadastrado em Minha empresa" : "Selecione um setor"}</option>${choices.map((sector) => `<option value="${escapeHtml(sector)}" ${sector === displayValue ? "selected" : ""}>${escapeHtml(sector)}</option>`).join("")}</select></div>`;
+  }
   if (key === "cargo" && fieldType === "text") {
     const titles = [...new Set([...leadershipGet("cargos").map((role) => String(role.cargo || "").trim()), displayValue].filter(Boolean))].sort((a, b) => a.localeCompare(b, "pt-BR"));
     return `<div class="field"><label for="lcRoleTitleSelect">${escapeHtml(label)}</label><select class="input-basic" id="lcRoleTitleSelect" data-lc-field="${key}"><option value="">Selecione um cargo</option>${titles.map((title) => `<option value="${escapeHtml(title)}" ${title === displayValue ? "selected" : ""}>${escapeHtml(title)}</option>`).join("")}<option value="__new_role__">Cadastrar novo cargo</option></select><input class="input-basic" id="lcNewRoleTitle" aria-label="Novo cargo" placeholder="Nome do novo cargo" hidden></div>`;
@@ -5278,7 +5284,7 @@ function renderNonConformityModule() {
     })}
     <div id="ncKpis"></div>
     <div class="ctx-tabs" id="ncMainTabs">
-      ${[["registrar", "Registrar NC"], ["controle", "Controle"], ["dashboards", "Dashboards"]].map(([id, label]) => `<button class="ctx-tab ${ncMainTab === id ? "active" : ""}" data-nc-tab="${id}" type="button">${label}</button>`).join("")}
+      ${[["registrar", "Registrar NC"], ["controle", "Controle"], ["dashboards", "Indicadores"]].map(([id, label]) => `<button class="ctx-tab ${ncMainTab === id ? "active" : ""}" data-nc-tab="${id}" type="button">${label}</button>`).join("")}
       <div class="module-tabs-actions toolbar-actions">${moduleHistoryControlsHtml("nao-conformidades")}</div>
     </div>
     <div id="ncTabContent"></div><div id="ncModalMount"></div>`;
@@ -5935,7 +5941,7 @@ function ncAggregate() {
 function ncDashboardHtml() {
   const theme = state.settings?.theme || "dark";
   const query = new URLSearchParams({ ano: ncDashYear, dim: ncDashDimension, embedded: "1", theme }).toString();
-  return `<section class="nc-dashboard-embed"><iframe title="Dashboard de Não conformidades" src="${ncTvUrl()}&${query}"></iframe></section>`;
+  return `<section class="nc-dashboard-embed"><iframe title="Indicadores de Não conformidades" src="${ncTvUrl()}&${query}"></iframe></section>`;
 }
 
 function renderOperationalTable(moduleId) {
@@ -6607,7 +6613,7 @@ async function renderUsuarios() {
           <thead>
             <tr>
               <th>Usuário</th>
-              <th>Departamento</th>
+              <th>Setor</th>
               <th>Papel</th>
               <th>Status</th>
               <th>Último acesso</th>
@@ -6639,7 +6645,7 @@ async function renderUsuarios() {
         </div>
         <div class="field field-row2">
           <div>
-            <label for="userDepartmentField">Departamento</label>
+            <label for="userDepartmentField">Setor</label>
             <select class="input-basic" id="userDepartmentField">
               ${userDepartmentOptions()}
             </select>
@@ -9300,7 +9306,7 @@ function globalSearchEntries() {
     searchEntry("Registrar NC", "Não Conformidades · Novo registro", { moduleId: "nao-conformidades", tab: "registrar", icon: "nao-conformidades" }),
     searchEntry("Controle de RNCs", "Não Conformidades · Acompanhamento de registros", { moduleId: "nao-conformidades", tab: "controle", icon: "nao-conformidades" }),
     searchEntry("Cadastros de NC", "Não Conformidades · Clientes, fornecedores, processos e setores", { moduleId: "nao-conformidades", tab: "cadastros", icon: "nao-conformidades" }),
-    searchEntry("Dashboards de NC", "Não Conformidades · Indicadores e gráficos", { moduleId: "nao-conformidades", tab: "dashboards", icon: "nao-conformidades" }),
+    searchEntry("Indicadores de NC", "Não Conformidades · Indicadores e gráficos", { moduleId: "nao-conformidades", tab: "dashboards", icon: "nao-conformidades" }),
   ];
 
   if (canViewModule("lideranca")) {
