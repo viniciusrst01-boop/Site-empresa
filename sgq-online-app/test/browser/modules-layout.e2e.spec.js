@@ -90,6 +90,24 @@ test("busca livre da Lista Mestra mantém o foco durante a filtragem", async ({ 
   await expect(page.locator(".documents-table tbody")).toContainText(documentTitle);
 });
 
+test("status escolhido no documento externo substitui o alerta automático de revisão", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await login(page);
+  await page.route("**/api/data", async (route) => {
+    if (route.request().method() === "POST") await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true }) });
+    else await route.continue();
+  });
+  await page.evaluate(() => {
+    state.documents = [{ id: "EXT-STATUS", kind: "external", code: "ISO-9001-TEST", title: "Documento externo de teste", source: "ABNT", nextVerification: "2020-01-01", status: "Vigente" }];
+    renderModuleDetail("documentos");
+  });
+  await page.getByRole("button", { name: "Documentos Externos" }).click();
+  await page.locator('[data-doc-edit="EXT-STATUS"]').click();
+  await page.locator('.documents-modal-card select[name="status"]').selectOption("Em Revisão");
+  await page.locator('.documents-modal-card button[type="submit"]').click();
+  await expect(page.locator(".documents-table tbody")).toContainText("Em Revisão");
+});
+
 test("módulo de mudanças climáticas registra questões e exibe indicadores", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await login(page);
@@ -150,7 +168,7 @@ test("Meus módulos segue a grade compacta sem rolagem", async ({ page }, testIn
   await expect(page.getByRole("heading", { name: "Meus módulos", exact: true })).toBeVisible();
 
   const cards = page.locator(".mymods-grid .mymod-card");
-  await expect(cards).toHaveCount(9);
+  await expect(cards).toHaveCount(10);
   const layout = await page.evaluate(() => {
     const root = document.documentElement;
     const body = document.body;
@@ -179,7 +197,7 @@ test("Meus módulos segue a grade compacta sem rolagem", async ({ page }, testIn
   await expect(page.locator(".mymod-title", { hasText: "Satisfação do Cliente" })).toBeVisible();
   await expect(page.getByText("Treinamentos", { exact: true })).toHaveCount(0);
   await expect(page.locator(".mymod-title", { hasText: "Fornecedores" })).toBeVisible();
-  await expect(page.getByText("7 / 9", { exact: false })).toBeVisible();
+  await expect(page.getByText("8 / 10", { exact: false })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Módulos disponíveis para contratação" })).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath("modules-layout-desktop.png"), fullPage: true });
 
@@ -213,8 +231,8 @@ test("Meus módulos segue a grade compacta sem rolagem", async ({ page }, testIn
     render("modulos");
   });
   const premiumCards = page.locator(".mymods-grid .mymod-card");
-  await expect(premiumCards).toHaveCount(9);
-  await expect(page.getByText("7 / 9", { exact: false })).toBeVisible();
+  await expect(premiumCards).toHaveCount(10);
+  await expect(page.getByText("8 / 10", { exact: false })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Módulos disponíveis para contratação" })).toHaveCount(0);
   const premiumLayout = await page.evaluate(() => {
     const root = document.documentElement;
@@ -231,8 +249,8 @@ test("Meus módulos segue a grade compacta sem rolagem", async ({ page }, testIn
   });
   expect(premiumLayout.rootX).toBeLessThanOrEqual(0);
   expect(premiumLayout.rootY).toBeLessThanOrEqual(0);
-  expect(premiumLayout.columns).toBe(6);
-  expect(premiumLayout.rows).toBe(2);
+  expect(premiumLayout.columns).toBe(4);
+  expect(premiumLayout.rows).toBe(3);
   expect(Math.max(...premiumLayout.cardOverflows)).toBeLessThanOrEqual(2);
   expect(premiumLayout.compressedDescriptions).toBe(0);
   await page.screenshot({ path: testInfo.outputPath("modules-layout-seven-cards.png"), fullPage: true });
@@ -249,7 +267,7 @@ test("Meus módulos segue a grade compacta sem rolagem", async ({ page }, testIn
     });
     expect(responsive.contentX).toBeLessThanOrEqual(0);
     expect(responsive.columns).toBe(viewport.columns);
-    await expect(page.locator(".mymod-card")).toHaveCount(9);
+    await expect(page.locator(".mymod-card")).toHaveCount(10);
   }
 });
 
@@ -291,7 +309,7 @@ test("catálogo compacto acompanha os três temas", async ({ page }, testInfo) =
   expect(white.cardBackground).not.toBe(light.cardBackground);
   expect(white.titleColor).not.toBe(light.titleColor);
   expect(white.pageBackground).not.toBe(light.pageBackground);
-  await expect(page.locator(".mymod-card")).toHaveCount(9);
+  await expect(page.locator(".mymod-card")).toHaveCount(10);
   const accents = await page.locator(".mymod-card").evaluateAll((cards) => cards.map((card) => card.style.getPropertyValue("--accent-line")));
   expect(new Set(accents).size).toBe(9);
   expect(accents).toContain("#EF4444");

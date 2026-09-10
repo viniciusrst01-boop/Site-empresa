@@ -6801,12 +6801,12 @@ body.theme-white .nc-status-chart > div { background: rgba(248, 252, 255, .98); 
 }
 
 @media (min-width: 981px) and (max-height: 800px) {
-  .modules-page-content { padding-top: 8px; padding-bottom: 5px; }
+  .modules-page-content { padding-top: 8px; padding-bottom: 0; }
   .modules-page-content .mymods-toolbar { margin-bottom: 4px; }
   .modules-page-content .welcome-eyebrow { margin-bottom: 2px; }
   .modules-page-content .welcome-title { font-size: 21px; }
-  .modules-page-content .mymods-kpi-row { gap: 10px; margin-bottom: 8px; }
-  .modules-page-content .mymods-kpi-row .kpi-card { min-height: 80px; padding-top: 10px; padding-bottom: 8px; }
+  .modules-page-content .mymods-kpi-row { gap: 10px; margin-bottom: 5px; }
+  .modules-page-content .mymods-kpi-row .kpi-card { min-height: 72px; padding-top: 8px; padding-bottom: 6px; }
   .modules-page-content .section-hd { margin-bottom: 5px; }
   .modules-page-content .mymods-grid { gap: 7px 12px; }
   .modules-page-content .mymod-card { padding-top: 7px; padding-bottom: 5px; }
