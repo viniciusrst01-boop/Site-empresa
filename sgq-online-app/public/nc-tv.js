@@ -153,7 +153,8 @@ function doughnutChart(id, data, palette) {
   options.rotation = -90;
   options.circumference = 360;
   options.radius = "82%";
-  options.plugins.legend = { position: "bottom", labels: { boxWidth: 9, boxHeight: 9, usePointStyle: true, pointStyle: "circle", padding: 10, font: { size: 9, weight: "600" } } };
+  options.layout.padding.left = 12;
+  options.plugins.legend = { position: "right", align: "center", labels: { boxWidth: 9, boxHeight: 9, usePointStyle: true, pointStyle: "circle", padding: 10, font: { size: 9, weight: "600" } } };
   options.plugins.centerText = { display: true, value: total };
   options.plugins.datalabels = { display: (context) => total > 0 && context.dataset.data[context.dataIndex] > 0, color: "#f5f7fa", font: { size: 10, weight: "800" }, formatter: (value) => value };
   createChart(id, { type: "doughnut", data: { labels, datasets: [{ data: values, backgroundColor: data.length ? palette : ["rgba(255,255,255,.08)"], borderColor: "#0b1526", borderWidth: 2, spacing: 0, hoverOffset: 4 }] }, options });

@@ -2867,13 +2867,18 @@ function renderLeadershipIndicatorCharts() {
     red: css.getPropertyValue("--accent-red").trim() || "#F87171",
   };
   const options = (extra = {}) => ({ responsive: true, maintainAspectRatio: false, animation: { duration: 220 }, plugins: { legend: { labels: { color: colors.text, boxWidth: 10, boxHeight: 10, usePointStyle: true, pointStyle: "circle", padding: 14 } }, tooltip: { backgroundColor: css.getPropertyValue("--bg-panel").trim() || "#0b1526", titleColor: css.getPropertyValue("--text-primary").trim() || "#f5f7fa", bodyColor: colors.text, borderColor: colors.grid, borderWidth: 1 } }, ...extra });
+  const doughnutOptions = () => {
+    const config = options({ cutout: "68%", layout: { padding: { left: 12 } } });
+    config.plugins.legend = { position: "right", align: "center", labels: { color: colors.text, boxWidth: 10, boxHeight: 10, usePointStyle: true, pointStyle: "circle", padding: 14 } };
+    return config;
+  };
   const make = (id, config) => {
     const canvas = document.querySelector(`#${id}`);
     if (canvas) leadershipCharts[id] = new Chart(canvas, config);
   };
   const countStatuses = (rows, labels, field = "status") => labels.map((label) => rows.filter((row) => row[field] === label).length);
 
-  make("lcActionsStatusChart", { type: "doughnut", data: { labels: ["Concluídas", "Programadas", "Não realizadas"], datasets: [{ data: countStatuses(actions, ["Concluída", "Programada", "Não Realizada"]), backgroundColor: [colors.green, colors.gold, colors.red], borderColor: "transparent", borderWidth: 0, hoverOffset: 5 }] }, options: options({ cutout: "68%" }) });
+  make("lcActionsStatusChart", { type: "doughnut", data: { labels: ["Concluídas", "Programadas", "Não realizadas"], datasets: [{ data: countStatuses(actions, ["Concluída", "Programada", "Não Realizada"]), backgroundColor: [colors.green, colors.gold, colors.red], borderColor: "transparent", borderWidth: 0, hoverOffset: 5 }] }, options: doughnutOptions() });
   make("lcPlanStatusChart", { type: "bar", data: { labels: ["Concluído", "Em andamento", "Não iniciado", "Atrasado"], datasets: [{ label: "Itens", data: countStatuses(plan, ["Concluído", "Em Andamento", "Não Iniciado", "Atrasado"]), backgroundColor: [colors.green, colors.blue, colors.cyan, colors.red], borderRadius: 5, borderSkipped: false, maxBarThickness: 34 }] }, options: options({ scales: { x: { ticks: { color: colors.text, font: { size: 10 } }, grid: { display: false } }, y: { beginAtZero: true, ticks: { color: colors.text, precision: 0 }, grid: { color: colors.grid } } }, plugins: { legend: { display: false } } }) });
 
   const months = Array.from({ length: 6 }, (_, index) => {
@@ -2940,6 +2945,11 @@ function renderLeadershipRoleIndicatorCharts() {
     red: css.getPropertyValue("--accent-red").trim() || "#F87171",
   };
   const options = (extra = {}) => ({ responsive: true, maintainAspectRatio: false, animation: { duration: 220 }, plugins: { legend: { labels: { color: colors.text, boxWidth: 10, boxHeight: 10, usePointStyle: true, pointStyle: "circle", padding: 14 } }, tooltip: { backgroundColor: css.getPropertyValue("--bg-panel").trim() || "#0b1526", titleColor: css.getPropertyValue("--text-primary").trim() || "#f5f7fa", bodyColor: colors.text, borderColor: colors.grid, borderWidth: 1 } }, ...extra });
+  const doughnutOptions = () => {
+    const config = options({ cutout: "68%", layout: { padding: { left: 12 } } });
+    config.plugins.legend = { position: "right", align: "center", labels: { color: colors.text, boxWidth: 10, boxHeight: 10, usePointStyle: true, pointStyle: "circle", padding: 14 } };
+    return config;
+  };
   const make = (id, config) => {
     const canvas = document.querySelector(`#${id}`);
     if (canvas) leadershipCharts[id] = new Chart(canvas, config);
@@ -2947,7 +2957,7 @@ function renderLeadershipRoleIndicatorCharts() {
   const count = (rows, values) => values.map((value) => rows.filter((row) => row.status === value).length);
   const raciCounts = ["R", "A", "C", "I"].map((letter) => raci.reduce((total, row) => total + ["diretorGeral", "qualidade", "comercial", "financeiro"].filter((key) => row[key] === letter).length, 0));
 
-  make("lcRoleStatusChart", { type: "doughnut", data: { labels: ["Ativos", "Inativos"], datasets: [{ data: count(roles, ["Ativo", "Inativo"]), backgroundColor: [colors.green, colors.red], borderColor: "transparent", borderWidth: 0, hoverOffset: 5 }] }, options: options({ cutout: "68%" }) });
+  make("lcRoleStatusChart", { type: "doughnut", data: { labels: ["Ativos", "Inativos"], datasets: [{ data: count(roles, ["Ativo", "Inativo"]), backgroundColor: [colors.green, colors.red], borderColor: "transparent", borderWidth: 0, hoverOffset: 5 }] }, options: doughnutOptions() });
   make("lcRaciChart", { type: "bar", data: { labels: ["Responsável", "Aprovador", "Consultado", "Informado"], datasets: [{ label: "Designações", data: raciCounts, backgroundColor: [colors.blue, colors.gold, colors.cyan, colors.purple], borderRadius: 5, borderSkipped: false, maxBarThickness: 36 }] }, options: options({ scales: { x: { ticks: { color: colors.text, font: { size: 10 } }, grid: { display: false } }, y: { beginAtZero: true, ticks: { color: colors.text, precision: 0 }, grid: { color: colors.grid } } }, plugins: { legend: { display: false } } }) });
   const delegationLabels = ["Ativas", "Agendadas", "Encerradas"];
   make("lcDelegationCommitmentChart", { data: { labels: delegationLabels, datasets: [{ type: "bar", label: "Delegações", data: count(delegations, ["Ativa", "Agendada", "Encerrada"]), backgroundColor: [colors.green, colors.gold, colors.red], borderRadius: 5, borderSkipped: false, maxBarThickness: 46 }, { type: "line", label: "Compromissos", data: count(commitments, ["Concluído", "Em Andamento", "Pendente"]), borderColor: colors.cyan, backgroundColor: "rgba(70, 217, 245, .14)", fill: true, tension: .35, pointRadius: 3, pointHoverRadius: 5, borderWidth: 2.5 }] }, options: options({ scales: { x: { ticks: { color: colors.text }, grid: { display: false } }, y: { beginAtZero: true, ticks: { color: colors.text, precision: 0 }, grid: { color: colors.grid } } } }) });

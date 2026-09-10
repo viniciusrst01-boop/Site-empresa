@@ -560,11 +560,14 @@ test("indicadores de papéis e responsabilidades consolidam todas as seções", 
   await page.waitForFunction(() => Object.keys(leadershipCharts).length === 4);
   const charts = await page.evaluate(() => ({
     roles: leadershipCharts.lcRoleStatusChart.config.type,
+    roleLegendPosition: leadershipCharts.lcRoleStatusChart.config.options.plugins.legend.position,
+    roleLegendAlign: leadershipCharts.lcRoleStatusChart.config.options.plugins.legend.align,
+    rolePaddingLeft: leadershipCharts.lcRoleStatusChart.config.options.layout.padding.left,
     raci: leadershipCharts.lcRaciChart.config.type,
     delegationCommitments: leadershipCharts.lcDelegationCommitmentChart.data.datasets.map((dataset) => dataset.type),
     governance: leadershipCharts.lcRoleGovernanceChart.config.type,
   }));
-  expect(charts).toEqual({ roles: "doughnut", raci: "bar", delegationCommitments: ["bar", "line"], governance: "pie" });
+  expect(charts).toEqual({ roles: "doughnut", roleLegendPosition: "right", roleLegendAlign: "center", rolePaddingLeft: 12, raci: "bar", delegationCommitments: ["bar", "line"], governance: "pie" });
 });
 
 test("calendário da alta direção usa as reuniões cadastradas e abre o resumo", async ({ page }, testInfo) => {
