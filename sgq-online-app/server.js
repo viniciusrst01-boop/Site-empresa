@@ -694,6 +694,8 @@ function loginPage(error = "") {
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#050b16" />
+  <link rel="icon" type="image/png" sizes="512x512" href="/assets/qualitypro-cloud-favicon.png" />
+  <link rel="apple-touch-icon" href="/assets/qualitypro-cloud-favicon.png" />
   <title>Login - QualityPro Cloud</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -753,6 +755,8 @@ function passwordPage({ mode, token = "", message = "", error = "", theme = "dar
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#050b16" />
+  <link rel="icon" type="image/png" sizes="512x512" href="/assets/qualitypro-cloud-favicon.png" />
+  <link rel="apple-touch-icon" href="/assets/qualitypro-cloud-favicon.png" />
   <title>${escapeHtml(title)} - QualityPro Cloud</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -801,6 +805,8 @@ function invitationPage({ token = "", invitation = null, complete = false, error
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#050b16" />
+  <link rel="icon" type="image/png" sizes="512x512" href="/assets/qualitypro-cloud-favicon.png" />
+  <link rel="apple-touch-icon" href="/assets/qualitypro-cloud-favicon.png" />
   <title>${escapeHtml(title)} - QualityPro Cloud</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -838,6 +844,8 @@ function mfaPage(error = "") {
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#050b16" />
+  <link rel="icon" type="image/png" sizes="512x512" href="/assets/qualitypro-cloud-favicon.png" />
+  <link rel="apple-touch-icon" href="/assets/qualitypro-cloud-favicon.png" />
   <title>Verificação em duas etapas - QualityPro Cloud</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -1725,6 +1733,7 @@ async function handleRequest(req, res) {
   if (
     url.pathname === "/assets/qualitypro-cloud-logo.png" ||
     url.pathname === "/assets/qualitypro-cloud-logo-app.png" ||
+    url.pathname === "/assets/qualitypro-cloud-favicon.png" ||
     url.pathname === "/assets/qualitypro-cloud-logo-transparent.png" ||
     url.pathname === "/assets/qualitypro-cloud-logo-light.png"
   ) {
