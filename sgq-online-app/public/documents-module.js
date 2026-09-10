@@ -98,7 +98,7 @@ function documentsKpisHtml() {
   return `<section class="documents-kpis">${values.map(([label, value, caption, color, icon]) => `<article class="documents-kpi" style="--doc-kpi-color:${color}"><div class="documents-kpi-top"><span class="documents-kpi-icon">${moduleIcon(icon)}</span><div><div class="documents-kpi-label">${label}</div><div class="documents-kpi-value">${value}</div></div></div><div class="documents-kpi-caption">${caption}</div></article>`).join("")}</section>`;
 }
 
-function renderDocumentsTab() {
+function renderDocumentsTab(focus = null) {
   const content = pageContent.querySelector("[data-doc-content]");
   if (!content) return;
   if (documentsActiveTab === "cadastro") content.innerHTML = documentsRegistrationHtml();
@@ -107,6 +107,15 @@ function renderDocumentsTab() {
   if (documentsActiveTab === "indicadores") content.innerHTML = documentsIndicatorsHtml();
   bindDocumentsActions();
   if (documentsActiveTab === "indicadores") renderDocumentsCharts();
+  if (focus?.key) {
+    const field = content.querySelector(`[data-doc-filter="${focus.key}"]`);
+    if (field instanceof HTMLInputElement) {
+      field.focus({ preventScroll: true });
+      const start = Math.min(focus.start ?? field.value.length, field.value.length);
+      const end = Math.min(focus.end ?? start, field.value.length);
+      field.setSelectionRange(start, end);
+    }
+  }
 }
 
 function documentsRegistrationHtml() {
@@ -163,7 +172,10 @@ function renderDocumentsCharts() {
 function bindDocumentsActions() {
   pageContent.querySelectorAll("[data-doc-tab]").forEach((button) => button.addEventListener("click", () => { documentsActiveTab = button.dataset.docTab; renderDocumentsModule(); }));
   pageContent.querySelectorAll("[data-doc-tab-jump]").forEach((button) => button.addEventListener("click", () => { documentsActiveTab = button.dataset.docTabJump; renderDocumentsModule(); }));
-  pageContent.querySelectorAll("[data-doc-filter]").forEach((field) => field.addEventListener(field.tagName === "INPUT" ? "input" : "change", () => { documentsFilters[field.dataset.docFilter] = field.value; renderDocumentsTab(); }));
+  pageContent.querySelectorAll("[data-doc-filter]").forEach((field) => field.addEventListener(field.tagName === "INPUT" ? "input" : "change", () => {
+    documentsFilters[field.dataset.docFilter] = field.value;
+    renderDocumentsTab(field instanceof HTMLInputElement ? { key: field.dataset.docFilter, start: field.selectionStart, end: field.selectionEnd } : null);
+  }));
   pageContent.querySelector("[data-doc-clear-filters]")?.addEventListener("click", () => { documentsFilters = { type: "", sector: "", status: "", search: "" }; renderDocumentsTab(); });
   pageContent.querySelector("[data-doc-type]")?.addEventListener("change", (event) => { pageContent.querySelector("[data-doc-other-type]").hidden = event.target.value !== "Outro"; });
   pageContent.querySelector("[data-doc-copy]")?.addEventListener("change", (event) => { pageContent.querySelector("[data-doc-copy-fields]").hidden = event.target.value !== "Sim"; });

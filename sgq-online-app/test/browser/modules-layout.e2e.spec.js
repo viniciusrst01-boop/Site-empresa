@@ -74,6 +74,22 @@ test("auditorias acompanha os três temas do aplicativo", async ({ page }) => {
   }
 });
 
+test("busca livre da Lista Mestra mantém o foco durante a filtragem", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await login(page);
+  await page.evaluate(() => renderModuleDetail("documentos"));
+  await page.getByRole("button", { name: "Lista Mestra" }).click();
+
+  const search = page.locator('[data-doc-filter="search"]');
+  const documentTitle = await page.locator(".documents-description").first().textContent();
+  await search.click();
+  await page.keyboard.type(documentTitle);
+
+  await expect(search).toHaveValue(documentTitle);
+  await expect(search).toBeFocused();
+  await expect(page.locator(".documents-table tbody")).toContainText(documentTitle);
+});
+
 test("módulo de mudanças climáticas registra questões e exibe indicadores", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await login(page);
