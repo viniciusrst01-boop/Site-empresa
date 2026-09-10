@@ -122,6 +122,14 @@ test("Vercel publica os estilos específicos dos dashboards como arquivos estát
   assert.equal(routes.get("/sgq-health-data.js"), "/public/sgq-health-data.js");
 });
 
+test("relatório de auditoria identifica a evidência, as constatações e o status", () => {
+  const source = fs.readFileSync(path.join(__dirname, "..", "public", "audits-module-frame.html"), "utf8");
+  assert.match(source, /<label>Descrição da evidência<\/label>/);
+  assert.match(source, /<label>Constatações do auditor<\/label>/);
+  assert.match(source, /<label>Status<\/label><div class="const-row">/);
+  assert.match(source, /constatacoesAuditor/);
+});
+
 test("admin, exportações, backup e revogação de sessão funcionam", async (t) => {
   const port = await freePort();
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "sgq-online-test-"));

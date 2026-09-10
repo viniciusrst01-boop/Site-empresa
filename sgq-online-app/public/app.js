@@ -2147,7 +2147,7 @@ function renderAuditsModule() {
   setTopbar("Auditorias", "Planejamento e acompanhamento de auditorias internas.");
   pageContent.innerHTML = `
     <section class="audits-module-shell" aria-label="Módulo de auditorias">
-      <iframe class="audits-module-frame" title="Auditorias" src="/audits-module-frame.html?v=20260909-audits-theme"></iframe>
+      <iframe class="audits-module-frame" title="Auditorias" src="/audits-module-frame.html?v=20260910-audit-report-fields"></iframe>
     </section>
   `;
   const frame = pageContent.querySelector(".audits-module-frame");

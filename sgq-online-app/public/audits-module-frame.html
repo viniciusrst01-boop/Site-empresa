@@ -1476,7 +1476,7 @@ function relAddClausula(codigo){
   relBlocos.push(novoBloco(codigo));
   renderRelatorio();
 }
-function novoBloco(c){ return { clausula:c, auditadoNome:'', auditadoCargo:'', relato:'', evidencia:'', constatacao:'' }; }
+function novoBloco(c){ return { clausula:c, auditadoNome:'', auditadoCargo:'', relato:'', evidencia:'', constatacoesAuditor:'', constatacao:'' }; }
 function renderRelatorio(a){
   a = a || audAtual();
   document.getElementById('relTitle').textContent = `Relatório de Auditoria — ${a.id}`;
@@ -1497,7 +1497,7 @@ function renderRelatorio(a){
         <div class="rb-field"><label>Auditado (nome)</label><input type="text" value="${esc(b.auditadoNome)}" placeholder="Nome do auditado" onchange="relSet(${i},'auditadoNome',this.value)"></div>
         <div class="rb-field"><label>Cargo do auditado</label><input type="text" value="${esc(b.auditadoCargo)}" placeholder="Cargo" onchange="relSet(${i},'auditadoCargo',this.value)"></div>
       </div>
-      <div class="rb-field"><label>Relato da auditoria (como foi)</label><textarea onchange="relSet(${i},'relato',this.value)" placeholder="Descreva o que foi verificado, evidências observadas e o resultado da auditoria deste ponto">${esc(b.relato)}</textarea></div>
+      <div class="rb-field"><label>Descrição da evidência</label><textarea onchange="relSet(${i},'relato',this.value)" placeholder="Descreva o que foi verificado, evidências observadas e o resultado da auditoria deste ponto">${esc(b.relato)}</textarea></div>
       <div class="rb-field"><label>Evidências apresentadas</label>
         <div class="rb-evid">
           <label class="upload-btn"><svg class="icon" viewBox="0 0 24 24"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>Anexar evidência<input type="file" onchange="relEvid(${i},event)"></label>
@@ -1505,7 +1505,8 @@ function renderRelatorio(a){
           ${b.evidencia?`<span class="abtn danger" onclick="relSet(${i},'evidencia','');renderRelatorio()" title="Remover"><svg class="icon" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></span>`:''}
         </div>
       </div>
-      <div class="rb-field" style="margin-bottom:0;"><label>Constatação</label><div class="const-row">${consts}</div></div>
+      <div class="rb-field"><label>Constatações do auditor</label><textarea onchange="relSet(${i},'constatacoesAuditor',this.value)" placeholder="Registre as constatações identificadas pelo auditor neste ponto">${esc(b.constatacoesAuditor || '')}</textarea></div>
+      <div class="rb-field" style="margin-bottom:0;"><label>Status</label><div class="const-row">${consts}</div></div>
     </div>`;
   }).join('');
 
@@ -1567,9 +1568,10 @@ function imprimirRelatorio(){
       <div class="rb-i"><b>O que o ponto pede:</b> ${esc(kbResumo(b.clausula))}</div>
       <div class="rb-i"><b>Perguntas sugeridas:</b><ul>${perguntas}</ul></div>
       <div class="rb-i"><b>Auditado:</b> ${esc(b.auditadoNome)||'—'}${b.auditadoCargo?' ('+esc(b.auditadoCargo)+')':''}</div>
-      <div class="rb-i"><b>Relato:</b> ${esc(b.relato)||'—'}</div>
+      <div class="rb-i"><b>Descrição da evidência:</b> ${esc(b.relato)||'—'}</div>
       <div class="rb-i"><b>Evidências:</b> ${b.evidencia?esc(b.evidencia):'—'}</div>
-      <div class="rb-i"><b>Constatação:</b> <span style="color:${cor}; font-weight:800;">${esc(b.constatacao)||'—'}</span></div>
+      <div class="rb-i"><b>Constatações do auditor:</b> ${esc(b.constatacoesAuditor)||'—'}</div>
+      <div class="rb-i"><b>Status:</b> <span style="color:${cor}; font-weight:800;">${esc(b.constatacao)||'—'}</span></div>
     </div>`;
   }).join('');
   const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Relatório de Auditoria — ${esc(a.id)}</title>
