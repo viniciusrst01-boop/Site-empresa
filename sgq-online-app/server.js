@@ -1312,7 +1312,7 @@ async function handleRequest(req, res) {
     });
     if (!user) { redirect(res, "/login"); return; }
     await auditRequest(req, session, "first_access_password_changed", "success");
-    send(res, 302, "", { Location: "/app", "Set-Cookie": sessionCookie(
+    send(res, 302, "", { Location: "/app?entry=login", "Set-Cookie": sessionCookie(
       req, await createSession(user, req), Math.round(sessionTtlHours * 60 * 60),
     ) });
     return;
@@ -1611,7 +1611,7 @@ async function handleRequest(req, res) {
     await auditRequest(req, validLogin, "login_success", "success");
 
     send(res, 302, "", {
-      Location: validLogin.mustChangePassword ? "/change-password" : "/app",
+      Location: validLogin.mustChangePassword ? "/change-password" : "/app?entry=login",
       "Set-Cookie": sessionCookie(
         req,
         await createSession(validLogin, req),
@@ -1666,7 +1666,7 @@ async function handleRequest(req, res) {
     await auditRequest(req, loginUserData, "mfa_verified", "success");
     await auditRequest(req, loginUserData, "login_success", "success");
     send(res, 302, "", {
-      Location: loginUserData.mustChangePassword ? "/change-password" : "/app",
+      Location: loginUserData.mustChangePassword ? "/change-password" : "/app?entry=login",
       "Set-Cookie": [
         sessionCookie(req, await createSession(loginUserData, req), Math.round(sessionTtlHours * 60 * 60)),
         mfaChallengeCookie(req, "", 0),

@@ -43,7 +43,7 @@ async function login(baseUrl, username, password) {
     body: new URLSearchParams({ username, password }),
   });
   assert.equal(response.status, 302);
-  assert.equal(response.headers.get("location"), "/app");
+  assert.equal(response.headers.get("location"), "/app?entry=login");
   const cookie = response.headers.get("set-cookie").split(";")[0];
   const bootstrap = await fetch(`${baseUrl}/api/bootstrap`, { headers: { Cookie: cookie } });
   assert.equal(bootstrap.status, 200);
@@ -102,7 +102,7 @@ async function loginWithMfa(baseUrl, username, password, secret) {
     body: new URLSearchParams({ code }),
   });
   assert.equal(mfaResponse.status, 302);
-  assert.equal(mfaResponse.headers.get("location"), "/app");
+  assert.equal(mfaResponse.headers.get("location"), "/app?entry=login");
   const sessionCookie = mfaResponse.headers.getSetCookie()
     .map((value) => value.split(";")[0])
     .find((value) => value.startsWith("sgq_session="));
@@ -690,7 +690,7 @@ test("admin, exportações, backup e revogação de sessão funcionam", async (t
   assert.equal((await changePassword("Nova-Senha-123", "Outra-Senha-123")).status, 400);
   assert.equal((await changePassword(temporaryPassword, temporaryPassword)).status, 400);
   const changedPassword = await changePassword("Nova-Senha-123", "Nova-Senha-123");
-  assert.equal(changedPassword.headers.get("location"), "/app");
+  assert.equal(changedPassword.headers.get("location"), "/app?entry=login");
   const newCookie = changedPassword.headers.get("set-cookie").split(";")[0];
   assert.equal((await api(baseUrl, "/api/bootstrap", newCookie)).status, 200);
   assert.equal((await api(baseUrl, "/api/bootstrap", restrictedCookie)).status, 401);

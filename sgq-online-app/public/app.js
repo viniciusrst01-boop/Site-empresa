@@ -422,9 +422,10 @@ async function saveThemePreference(theme) {
 async function initializeApp() {
   try {
     const needsOnboarding = await loadRemoteData();
-    const currentUrl = `${window.location.pathname}${window.location.search}`;
-    const savedView = localStorage.getItem(LAST_VIEW_STORAGE_KEY) || (currentUser?.isAdmin ? "gerenciamento" : "inicio");
-    window.history.replaceState({ sgqView: savedView }, "", currentUrl);
+    const justLoggedIn = new URLSearchParams(window.location.search).get("entry") === "login";
+    const currentUrl = justLoggedIn ? window.location.pathname : `${window.location.pathname}${window.location.search}`;
+    const initialView = justLoggedIn ? "inicio" : (localStorage.getItem(LAST_VIEW_STORAGE_KEY) || (currentUser?.isAdmin ? "gerenciamento" : "inicio"));
+    window.history.replaceState({ sgqView: initialView }, "", currentUrl);
     window.addEventListener("popstate", (event) => {
       const previousView = event.state?.sgqView;
       if (!previousView) return;
@@ -433,12 +434,11 @@ async function initializeApp() {
       else render(previousView);
       restoringBrowserHistory = false;
     });
-    if (currentUser?.isAdmin && !localStorage.getItem(LAST_VIEW_STORAGE_KEY)) render("gerenciamento");
-    else if (needsOnboarding) renderOnboarding();
-    else if (String(savedView).startsWith("module:")) renderModuleDetail(String(savedView).slice(7));
+    if (needsOnboarding) renderOnboarding();
+    else if (String(initialView).startsWith("module:")) renderModuleDetail(String(initialView).slice(7));
     else {
-      if (savedView === "empresa") restoreModuleTabs("empresa");
-      render(savedView);
+      if (initialView === "empresa") restoreModuleTabs("empresa");
+      render(initialView);
     }
   } finally {
     updateNotificationBadge();
@@ -1025,7 +1025,7 @@ function setActiveNav(view) {
 }
 
 function render(view = "inicio") {
-  const adminAllowedViews = ["gerenciamento", "admin-empresas", "admin-usuarios", "admin-planos", "admin-seguranca", "admin-backups", "admin-logs", "configuracoes", "perfil"];
+  const adminAllowedViews = ["inicio", "gerenciamento", "admin-empresas", "admin-usuarios", "admin-planos", "admin-seguranca", "admin-backups", "admin-logs", "configuracoes", "perfil"];
   if (currentUser?.isAdmin && !adminAllowedViews.includes(view)) {
     view = "gerenciamento";
   }

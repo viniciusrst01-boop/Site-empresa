@@ -25,6 +25,20 @@ test("theme preference persists after reloading the application", async ({ page 
   await expect(page.locator("body")).toHaveClass(/theme-light/);
 });
 
+test("a new login always opens the home page", async ({ page }) => {
+  await signIn(page);
+  await page.locator('[data-view="configuracoes"]').click();
+  await page.locator('#settingsForm').waitFor();
+  await page.locator('form[action="/logout"]').evaluate((form) => form.submit());
+  await expect(page).toHaveURL(/\/login$/);
+
+  await page.getByLabel("Usuário").fill("browser.owner@example.com");
+  await page.getByLabel("Senha").fill("Browser-Teste-123");
+  await page.getByRole("button", { name: "Entrar no sistema" }).click();
+  await expect(page).toHaveURL(/\/app$/);
+  await expect(page.locator(".home-v2")).toBeVisible();
+});
+
 test("support button opens and submits a request", async ({ page }) => {
   await signIn(page);
   await page.locator(".btn-support").click();
