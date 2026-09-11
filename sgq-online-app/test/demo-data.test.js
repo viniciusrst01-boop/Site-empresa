@@ -59,7 +59,9 @@ test('seed is deterministic, preserves credentials/status, and has coherent refe
   assert.equal(state.documents.filter(row => row.kind === 'internal').length, 9);
   assert.equal(state.documents.filter(row => row.kind === 'external').length, 5);
   assert.ok(state.documents.every(row => row.code && row.title && row.status));
-  assert.equal(state.audits.length, 12); assert.deepEqual(state.equipment, []);
+  assert.equal(state.audits.length, 12); assert.equal(state.equipment.length, 30); assert.equal(state.equipmentDistributions.length, 10);
+  assert.ok(state.equipment.every(row => row.codigo && row.descricao && row.proximaCalib && row.certificado));
+  assert.ok(state.equipment.some(row => row.descricao.includes('Paquímetro')));
   assert.equal(new Set(state.audits.map(row => row.dataInicio.slice(0, 7))).size, 12);
   for (const nc of state.ncs) {
     assert.ok(get('context').processos.some(p => p.nome === nc.processo));

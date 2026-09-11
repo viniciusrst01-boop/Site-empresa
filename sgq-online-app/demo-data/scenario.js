@@ -1,6 +1,6 @@
 const { healthObservation } = require('../sgq-health');
 
-const SEED = 'quality-pro-demo-v1';
+const SEED = 'quality-pro-demo-v2';
 const companyName = 'Quality Pro Solutions';
 const sectors = ['Direção', 'Gestão da Qualidade', 'Consultoria e Operações', 'Comercial', 'Administrativo e Financeiro', 'Atendimento ao Cliente'];
 const processNames = ['Direcionamento estratégico', 'Gestão do SGQ', 'Execução de consultorias', 'Propostas e contratos', 'Compras e infraestrutura', 'Atendimento e acompanhamento'];
@@ -109,7 +109,41 @@ function buildScenario(users, today) {
       planoAcoes: [],
     };
   });
-  const state = { company, users: operational.map(u => ({ name: u.display_name, email: u.username, role: u.id === hugo.id ? 'Administrador' : u.role, status: u.status })), settings: { emailAlerts: false, weeklyReport: false, companyAccess: 'Plano Professional', theme: 'dark', operationalStatus: 'updated' }, documents, audits, equipment: [], ncs, ncCatalogs: { clientes: [], fornecedores: [], setores: [], processos: [] }, notifications: [], supplierStateVersion: 0, climate };
+  const equipmentRows = [
+    ['EQ-0001', 'Paquímetro digital 0-150 mm', 'Digital', 'Mitutoyo', 'CD-15APX-241', '0 a 150', '0,01', 'mm', 'Gestão da Qualidade', 'Em uso', -10, 12, 'CAL-2026-001', 'Metrolab Brasil', 'Erro máximo permitido de ±0,03 mm'],
+    ['EQ-0002', 'Paquímetro digital 0-300 mm', 'Digital', 'Mitutoyo', 'CD-30APX-318', '0 a 300', '0,01', 'mm', 'Consultoria e Operações', 'Em uso', -9, 12, 'CAL-2026-002', 'Metrolab Brasil', 'Erro máximo permitido de ±0,04 mm'],
+    ['EQ-0003', 'Paquímetro analógico 0-150 mm', 'Analógico', 'Starrett', '125ME-057', '0 a 150', '0,02', 'mm', 'Gestão da Qualidade', 'Em uso', -11, 12, 'CAL-2026-003', 'Calibra SP', 'Erro máximo permitido de ±0,04 mm'],
+    ['EQ-0004', 'Micrômetro externo 0-25 mm', 'Analógico', 'Mitutoyo', '103-137-09', '0 a 25', '0,001', 'mm', 'Consultoria e Operações', 'Em uso', -8, 12, 'CAL-2026-004', 'Metrolab Brasil', 'Erro máximo permitido de ±0,004 mm'],
+    ['EQ-0005', 'Micrômetro externo 25-50 mm', 'Analógico', 'Mitutoyo', '103-138-22', '25 a 50', '0,001', 'mm', 'Gestão da Qualidade', 'Em uso', -7, 12, 'CAL-2026-005', 'Metrolab Brasil', 'Erro máximo permitido de ±0,004 mm'],
+    ['EQ-0006', 'Relógio comparador 0-10 mm', 'Analógico', 'Digimess', '110.200-810', '0 a 10', '0,01', 'mm', 'Consultoria e Operações', 'Em uso', -6, 12, 'CAL-2026-006', 'Calibra SP', 'Erro máximo permitido de ±0,02 mm'],
+    ['EQ-0007', 'Altímetro digital 0-300 mm', 'Digital', 'Insize', '1150-300', '0 a 300', '0,01', 'mm', 'Gestão da Qualidade', 'Em calibração', -12, 12, 'CAL-2025-007', 'Metrologia Técnica', 'Erro máximo permitido de ±0,03 mm'],
+    ['EQ-0008', 'Bloco padrão classe 1', 'Outro', 'Mitutoyo', 'BM-1-032', '0,5 a 100', '0,001', 'mm', 'Gestão da Qualidade', 'Em uso', -5, 24, 'CAL-2026-008', 'RBC Metrologia', 'Conforme certificado RBC vigente'],
+    ['EQ-0009', 'Balança de precisão 0-3 kg', 'Digital', 'Marte', 'AD330-179', '0 a 3', '0,1', 'g', 'Administrativo e Financeiro', 'Em uso', -10, 12, 'CAL-2026-009', 'Metrolab Brasil', 'Erro máximo permitido de ±0,2 g'],
+    ['EQ-0010', 'Balança plataforma 0-30 kg', 'Digital', 'Toledo', 'Prix-3-921', '0 a 30', '1', 'g', 'Consultoria e Operações', 'Em uso', -7, 12, 'CAL-2026-010', 'Pesagem Certificada', 'Erro máximo permitido de ±5 g'],
+    ['EQ-0011', 'Termômetro infravermelho -50 a 550 °C', 'Digital', 'Fluke', '62MAX-608', '-50 a 550', '0,1', '°C', 'Consultoria e Operações', 'Em uso', -9, 12, 'CAL-2026-011', 'Termocal', 'Erro máximo permitido de ±1,5 °C'],
+    ['EQ-0012', 'Termômetro de imersão -10 a 200 °C', 'Digital', 'Incoterm', 'TPI-711', '-10 a 200', '0,1', '°C', 'Atendimento ao Cliente', 'Em uso', -8, 12, 'CAL-2026-012', 'Termocal', 'Erro máximo permitido de ±0,5 °C'],
+    ['EQ-0013', 'Termo-higrômetro digital', 'Digital', 'Instrutherm', 'HT-500', '-10 a 60', '0,1', '°C / %UR', 'Gestão da Qualidade', 'Em uso', -11, 12, 'CAL-2026-013', 'Clima Metrologia', 'Erro máximo permitido de ±0,5 °C e ±3 %UR'],
+    ['EQ-0014', 'Manômetro 0-10 bar', 'Analógico', 'Wika', '232.50-104', '0 a 10', '0,1', 'bar', 'Consultoria e Operações', 'Em uso', -8, 12, 'CAL-2026-014', 'Pressão Técnica', 'Erro máximo permitido de ±1 % do fundo de escala'],
+    ['EQ-0015', 'Manômetro digital 0-20 bar', 'Digital', 'Fluke', '700G-530', '0 a 20', '0,01', 'bar', 'Consultoria e Operações', 'Em uso', -6, 12, 'CAL-2026-015', 'Pressão Técnica', 'Erro máximo permitido de ±0,25 % da leitura'],
+    ['EQ-0016', 'Torquímetro 20-200 N.m', 'Analógico', 'Gedore', 'TORCOFIX-200', '20 a 200', '1', 'N.m', 'Consultoria e Operações', 'Em uso', -9, 12, 'CAL-2026-016', 'Torque Lab', 'Erro máximo permitido de ±4 % da leitura'],
+    ['EQ-0017', 'Multímetro digital True RMS', 'Digital', 'Fluke', '87V-714', '0 a 1000', '0,001', 'V / Ω', 'Administrativo e Financeiro', 'Em uso', -10, 12, 'CAL-2026-017', 'Eletrocal', 'Conforme especificação do fabricante'],
+    ['EQ-0018', 'Luxímetro digital', 'Digital', 'Instrutherm', 'LD-300', '0 a 200000', '1', 'lux', 'Administrativo e Financeiro', 'Em uso', -7, 12, 'CAL-2026-018', 'Luminotec', 'Erro máximo permitido de ±5 %'],
+    ['EQ-0019', 'Decibelímetro classe 2', 'Digital', 'Instrutherm', 'DEC-490', '30 a 130', '0,1', 'dB', 'Consultoria e Operações', 'Em uso', -6, 12, 'CAL-2026-019', 'Acústica Cal', 'Erro máximo permitido de ±1,5 dB'],
+    ['EQ-0020', 'pHmetro portátil', 'Digital', 'Hanna', 'HI-98107-122', '0 a 14', '0,01', 'pH', 'Consultoria e Operações', 'Em uso', -5, 12, 'CAL-2026-020', 'Química Metrológica', 'Erro máximo permitido de ±0,1 pH'],
+    ['EQ-0021', 'Condutivímetro portátil', 'Digital', 'Hanna', 'HI-98312-514', '0 a 3999', '1', 'µS/cm', 'Consultoria e Operações', 'Em uso', -8, 12, 'CAL-2026-021', 'Química Metrológica', 'Erro máximo permitido de ±2 % da leitura'],
+    ['EQ-0022', 'Rugosímetro portátil', 'Digital', 'Mitutoyo', 'SJ-210-711', '0,05 a 40', '0,01', 'µm', 'Gestão da Qualidade', 'Em uso', -9, 12, 'CAL-2026-022', 'Metrologia Técnica', 'Erro máximo permitido de ±10 %'],
+    ['EQ-0023', 'Durômetro portátil Rockwell', 'Digital', 'Time', 'TH-160-385', '20 a 70', '0,1', 'HRC', 'Consultoria e Operações', 'Em uso', -6, 12, 'CAL-2026-023', 'Dureza Lab', 'Conforme bloco de referência certificado'],
+    ['EQ-0024', 'Medidor de espessura por ultrassom', 'Digital', 'Dakota', 'ZX-6-182', '0,6 a 500', '0,01', 'mm', 'Consultoria e Operações', 'Em uso', -7, 12, 'CAL-2026-024', 'Ultramed', 'Erro máximo permitido de ±0,1 mm'],
+    ['EQ-0025', 'Trena metálica 5 m', 'Analógico', 'Starrett', 'TM-5M-339', '0 a 5', '1', 'mm', 'Consultoria e Operações', 'Em uso', -12, 24, 'CAL-2025-025', 'RBC Metrologia', 'Erro máximo permitido de ±1,2 mm'],
+    ['EQ-0026', 'Cronômetro digital', 'Digital', 'Casio', 'HS-80TW-613', '0 a 24', '0,01', 'h', 'Gestão da Qualidade', 'Em uso', -8, 12, 'CAL-2026-026', 'Tempo Certo', 'Erro máximo permitido de ±0,01 s/h'],
+    ['EQ-0027', 'Goniômetro universal 0-360°', 'Analógico', 'Mitutoyo', '187-907-464', '0 a 360', '5', 'minutos de arco', 'Consultoria e Operações', 'Fora de uso', -13, 12, 'CAL-2025-027', 'Metrolab Brasil', 'Aguardando avaliação de manutenção'],
+    ['EQ-0028', 'Medidor de camada por indução', 'Digital', 'PosiTector', '6000-830', '0 a 1500', '1', 'µm', 'Consultoria e Operações', 'Reprovado', -13, 12, 'CAL-2025-028', 'Metalcal', 'Desvio acima do critério de aceitação'],
+    ['EQ-0029', 'Esquadro de precisão 150 mm', 'Outro', 'Starrett', 'K53-150-551', '0 a 150', '0,01', 'mm', 'Gestão da Qualidade', 'Em uso', -11, 12, 'CAL-2026-029', 'RBC Metrologia', 'Esquadro máximo de 0,02 mm/100 mm'],
+    ['EQ-0030', 'Medidor de força digital 0-500 N', 'Digital', 'Instron', 'DFG-500-710', '0 a 500', '0,1', 'N', 'Consultoria e Operações', 'Em calibração', -12, 12, 'CAL-2025-030', 'Força Cal', 'Erro máximo permitido de ±0,5 % da leitura'],
+  ];
+  const equipment = equipmentRows.map(([id, descricao, modelo, marca, serie, faixa, resolucao, unidade, setor, situacao, lastOffset, periodicidade, certificado, laboratorio, criterio], n) => ({ id, codigo: id, descricao, modelo, marca, serie, faixa, resolucao, unidade, setor, responsavel: owner(n), situacao, ultimaCalib: past(lastOffset, n % 24 + 1), periodicidade: String(periodicidade), proximaCalib: n < 3 ? past(-1, n + 1) : n < 7 ? date(0, n + 11) : n === 27 ? past(-2, 6) : date(2 + n % 7, n % 24 + 1), certificado, laboratorio, criterio, anexo: '' }));
+  const equipmentDistributions = [0, 1, 5, 10, 13, 18, 21, 23, 25, 28].map((index, n) => ({ id: id('DST', n), equipId: equipment[index].id, solicitante: owner(n + 1), setor: sectors[(n + 2) % sectors.length], saida: past(-5 + n, n % 20 + 1), retornoPrev: date(n % 2 ? 1 : 0, n % 20 + 4), retornoReal: n < 5 ? past(-4 + n, n % 20 + 3) : '', obs: ['Verificação dimensional de item recebido.', 'Auditoria interna e inspeção de processo.', 'Conferência de condição ambiental.', 'Avaliação técnica em visita ao cliente.'][n % 4] }));
+  const state = { company, users: operational.map(u => ({ name: u.display_name, email: u.username, role: u.id === hugo.id ? 'Administrador' : u.role, status: u.status })), settings: { emailAlerts: false, weeklyReport: false, companyAccess: 'Plano Professional', theme: 'dark', operationalStatus: 'updated' }, documents, audits, equipment, equipmentDistributions, ncs, ncCatalogs: { clientes: [], fornecedores: [], setores: [], processos: [] }, notifications: [], supplierStateVersion: 0, climate };
   // Build historical observations with the application's calculator from each dated base state.
   // The test scenario includes deterministic Context and Risk activity to demonstrate the consolidated actions trend.
   const observations = [];
