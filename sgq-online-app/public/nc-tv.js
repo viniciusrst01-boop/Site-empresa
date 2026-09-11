@@ -87,16 +87,43 @@ function aggregate(state) {
   };
 }
 
-function entries(object, preferredOrder = []) {
+function entries(object, preferredOrder = [], includeEmpty = false) {
   const source = object || {};
   const order = [...preferredOrder, ...Object.keys(source).filter((key) => !preferredOrder.includes(key))];
-  return order.map((key) => [key, Number(source[key] || 0)]).filter(([, value]) => value > 0);
+  return order.map((key) => [key, Number(source[key] || 0)]).filter(([, value]) => includeEmpty || value > 0);
 }
 
 const tvCharts = {};
 
 const centerTextPlugin = {
   id: "centerText",
+  beforeDraw(chart, _args, options) {
+    if (!options?.detailed) return;
+    const arc = chart.getDatasetMeta(0).data[0];
+    if (!arc?.outerRadius) return;
+    const { ctx } = chart;
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(arc.x, arc.y, arc.outerRadius * 1.08, 0, Math.PI * 2);
+    ctx.fillStyle = options.surface;
+    ctx.fill();
+    ctx.strokeStyle = options.border;
+    ctx.stroke();
+    const discRadius = arc.innerRadius * .9;
+    ctx.beginPath();
+    ctx.arc(arc.x, arc.y, discRadius, 0, Math.PI * 2);
+    const fill = ctx.createRadialGradient(arc.x, arc.y - discRadius * .25, 0, arc.x, arc.y, discRadius);
+    fill.addColorStop(0, options.panel);
+    fill.addColorStop(.7, options.panel);
+    fill.addColorStop(1, options.surface);
+    ctx.fillStyle = fill;
+    ctx.fill();
+    ctx.strokeStyle = options.accent;
+    ctx.globalAlpha = .45;
+    ctx.lineWidth = .75;
+    ctx.stroke();
+    ctx.restore();
+  },
   afterDraw(chart, _args, options) {
     if (!options?.display || chart.config.type !== "doughnut") return;
     const { ctx, chartArea } = chart;
@@ -105,12 +132,19 @@ const centerTextPlugin = {
     ctx.save();
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillStyle = "#f5f7fa";
-    ctx.font = "800 21px 'JetBrains Mono'";
-    ctx.fillText(String(options.value ?? 0), x, y - 5);
-    ctx.fillStyle = "#8b98ab";
-    ctx.font = "700 8px 'Plus Jakarta Sans'";
-    ctx.fillText("TOTAL", x, y + 13);
+    const discRadius = chart.getDatasetMeta(0).data[0]?.innerRadius * .9 || 0;
+    const value = String(options.value ?? 0);
+    let size = options.detailed ? Math.min(48, discRadius * .68) : 21;
+    ctx.fillStyle = options.text || "#f5f7fa";
+    ctx.font = `800 ${size}px '${options.detailed ? "Plus Jakarta Sans" : "JetBrains Mono"}'`;
+    if (options.detailed && ctx.measureText(value).width > discRadius * 1.55) {
+      size *= discRadius * 1.55 / ctx.measureText(value).width;
+      ctx.font = `800 ${size}px 'Plus Jakarta Sans'`;
+    }
+    ctx.fillText(value, x, options.detailed ? y - discRadius * .15 : y - 5);
+    ctx.fillStyle = options.muted || "#8b98ab";
+    ctx.font = `700 ${options.detailed ? Math.max(7, Math.min(14, discRadius * .26)) : 8}px 'Plus Jakarta Sans'`;
+    ctx.fillText("TOTAL", x, options.detailed ? y + discRadius * .45 : y + 13);
     ctx.restore();
   },
 };
@@ -144,7 +178,7 @@ function createChart(id, config) {
   tvCharts[id] = new Chart(chartCanvas(id), config);
 }
 
-function doughnutChart(id, data, palette) {
+function doughnutChart(id, data, palette, detailed = false) {
   const labels = data.length ? data.map(([label]) => label) : ["Sem registros"];
   const values = data.length ? data.map(([, value]) => value) : [1];
   const total = data.reduce((sum, [, value]) => sum + value, 0);
@@ -157,6 +191,54 @@ function doughnutChart(id, data, palette) {
   options.plugins.legend = { position: "right", align: "center", labels: { boxWidth: 9, boxHeight: 9, usePointStyle: true, pointStyle: "circle", padding: 10, font: { size: 9, weight: "600" } } };
   options.plugins.centerText = { display: true, value: total };
   options.plugins.datalabels = { display: (context) => total > 0 && context.dataset.data[context.dataIndex] > 0, color: "#f5f7fa", font: { size: 10, weight: "800" }, formatter: (value) => value };
+  if (detailed) {
+    const style = getComputedStyle(document.body);
+    const token = (name) => style.getPropertyValue(name).trim();
+    const chartColors = data.map((_, index) => palette[index % palette.length]);
+    options.cutout = "64%";
+    options.radius = "100%";
+    options.rotation = id === "chartStatus" ? -90 : -120;
+    options.layout.padding = 4;
+    options.plugins.legend = { display: false };
+    options.plugins.centerText = { display: true, detailed: true, value: total, text: token("--text"), muted: token("--muted"), panel: token("--panel"), surface: token("--bg"), border: token("--border"), accent: token("--blue") };
+    options.plugins.datalabels = {
+      ...options.plugins.datalabels,
+      display: (context) => total > 0 && context.dataset.data[context.dataIndex] > 0 ? "auto" : false,
+      font: (context) => ({ size: Math.max(10, Math.min(16, Math.min(context.chart.width, context.chart.height) * .085)), weight: "800" }),
+      textShadowBlur: 3, textShadowColor: "rgba(0,0,0,.3)",
+    };
+    const shades = { "#f87171": ["#ffa399", "#ff6670"], "#fbbf24": ["#ffe866", "#ffcb0a"], "#46d9f5": ["#7bebff", "#00bde0"], "#34d399": ["#53e6b2", "#00bf8c"] };
+    const dataset = {
+      data: total ? values : [1],
+      backgroundColor: (context) => {
+        if (!total) return token("--panel-2");
+        const color = chartColors[context.dataIndex];
+        const area = context.chart.chartArea;
+        if (!area) return color;
+        const gradient = context.chart.ctx.createLinearGradient(0, area.top, 0, area.bottom);
+        const [top, bottom] = shades[color] || [color, color];
+        gradient.addColorStop(0, top);
+        gradient.addColorStop(1, bottom);
+        return gradient;
+      },
+      borderColor: token("--panel"), borderWidth: 1, borderRadius: 3, spacing: 0, hoverOffset: 3,
+    };
+    createChart(id, { type: "doughnut", data: { labels: total ? labels : ["Sem registros"], datasets: [dataset] }, options });
+    const legend = $(`#${id}Legend`);
+    legend.innerHTML = data.map(([label, value], index) => `<li><button type="button" data-slice="${index}" aria-pressed="true" title="Mostrar ou ocultar ${escapeHtml(label)}"><i class="tv-legend-dot" style="--slice:${chartColors[index]}" aria-hidden="true"></i><span class="tv-legend-label">${escapeHtml(label)}</span><strong>${value}</strong></button></li>`).join("");
+    legend.querySelectorAll("button").forEach((button) => button.addEventListener("click", () => {
+      if (!total) return;
+      const chart = tvCharts[id];
+      const index = Number(button.dataset.slice);
+      chart.toggleDataVisibility(index);
+      button.setAttribute("aria-pressed", String(chart.getDataVisibility(index)));
+      chart.update();
+    }));
+    const canvas = $(`#${id} canvas`);
+    canvas.setAttribute("role", "img");
+    canvas.setAttribute("aria-label", `${id === "chartStatus" ? "Status dos RNCs" : "Por gravidade"}: ${total} RNCs no total. ${data.map(([label, value]) => `${label}: ${value}`).join("; ")}.`);
+    return;
+  }
   createChart(id, { type: "doughnut", data: { labels, datasets: [{ data: values, backgroundColor: data.length ? palette : ["rgba(255,255,255,.08)"], borderColor: "#0b1526", borderWidth: 2, spacing: 0, hoverOffset: 4 }] }, options });
 }
 
@@ -209,10 +291,10 @@ function radarChart(id, data) {
 
 function buildCharts(agg) {
   paretoChart("chartPareto", entries(agg.dimensions[selectedDimension]).sort((a, b) => b[1] - a[1]));
-  doughnutChart("chartStatus", entries(agg.status, ["Aguardando análise", "Ações em andamento", "Aguardando eficácia", "Encerrado"]), ["#f87171", "#fbbf24", "#46d9f5", "#34d399"]);
-  doughnutChart("chartSeverity", entries(agg.severity, ["Menor", "Média", "Maior"]), ["#34d399", "#fbbf24", "#f87171"]);
+  doughnutChart("chartStatus", entries(agg.status, ["Aguardando análise", "Ações em andamento", "Aguardando eficácia", "Encerrado"], true), ["#f87171", "#fbbf24", "#46d9f5", "#34d399"], true);
+  doughnutChart("chartSeverity", entries(agg.severity, ["Menor", "Média", "Maior"], true), ["#34d399", "#fbbf24", "#f87171"], true);
   horizontalBarChart("chartOrigin", entries(agg.origin, ["Interno", "Fornecedor", "Cliente"]), ["#4fa3ff", "#a78bfa", "#46d9f5"]);
-  doughnutChart("chartRepeat", entries(agg.recurrence, ["Reincidentes", "Não reincidentes"]), ["#a78bfa", "#34d399"]);
+  doughnutChart("chartRepeat", entries(agg.recurrence, ["Reincidentes", "Não reincidentes"], true), ["#a78bfa", "#34d399"], true);
   evolutionChart("chartEvolution", agg);
   horizontalBarChart("chartActions", entries(agg.actionSummary, ["Concluídas", "Pendentes", "Atrasadas"]), ["#34d399", "#fbbf24", "#f87171"]);
   radarChart("chartSector", entries(agg.sectors).sort((a, b) => b[1] - a[1]));

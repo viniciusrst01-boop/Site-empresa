@@ -112,6 +112,8 @@ const seedState = {
     { code: "NC-001", title: "Documento obsoleto em uso", severity: "Média", status: "Aberta", owner: "SGQ" },
     { code: "NC-002", title: "Registro sem aprovação", severity: "Baixa", status: "Tratando", owner: "Qualidade" },
   ],
+  equipment: [],
+  equipmentDistributions: [],
   ncCatalogs: {
     clientes: [
       { id: "CLI-1", nome: "Metalúrgica Andrade Ltda", codigo: "CLI-001" },
@@ -1163,6 +1165,7 @@ function renderDashboardHtml() {
     .join("");
   const audits = state.audits || [];
   const ncs = state.ncs || [];
+  const equipment = Array.isArray(state.equipment) ? state.equipment : [];
   const docs = state.documents || [];
   const openNcs = ncs.filter((item) => !isClosedStatus(item.status));
   const plannedAudits = audits.filter((item) => !isClosedStatus(item.status));
@@ -1675,6 +1678,7 @@ function dashboardSummary() {
   const docs = state.documents || [];
   const audits = state.audits || [];
   const ncs = state.ncs || [];
+  const equipment = Array.isArray(state.equipment) ? state.equipment : [];
   const users = state.users || [];
   const leadership = leadershipGetAll();
   const leadershipOpenPlans = leadership.plano.filter((item) => !isClosedStatus(item.status)).length;
@@ -1723,8 +1727,8 @@ function dashboardSummary() {
         caption: `${openNcs} abertas/em tratamento`,
       },
       equipamentos: {
-        value: "Disponível",
-        caption: "Pronto para receber calibrações e manutenções",
+        value: `${equipment.length} equipamento${equipment.length === 1 ? "" : "s"}`,
+        caption: `${equipment.filter((item) => item.proximaCalib && item.proximaCalib < followUpToday()).length} calibração(ões) vencida(s)`,
       },
     },
   };
@@ -2070,6 +2074,11 @@ function renderModuleDetail(moduleId, options = {}) {
     return;
   }
 
+  if (moduleId === "equipamentos") {
+    renderEquipmentModule();
+    return;
+  }
+
   if (moduleId === "mudancas-climaticas") {
     renderClimateModule();
     return;
@@ -2147,7 +2156,7 @@ function renderAuditsModule() {
   setTopbar("Auditorias", "Planejamento e acompanhamento de auditorias internas.");
   pageContent.innerHTML = `
     <section class="audits-module-shell" aria-label="Módulo de auditorias">
-      <iframe class="audits-module-frame" title="Auditorias" src="/audits-module-frame.html?v=20260910-audit-report-fields"></iframe>
+      <iframe class="audits-module-frame" title="Auditorias" src="/audits-module-frame.html?v=20260910-audit-plan-attachment"></iframe>
     </section>
   `;
   const frame = pageContent.querySelector(".audits-module-frame");
@@ -2165,17 +2174,84 @@ function renderAuditsModule() {
   scrollPageToTop();
 }
 
+function equipmentRoster() {
+  return auditRoster().map((user) => user.nome);
+}
+
+function hydrateEquipmentFrame(frame) {
+  if (!frame?.contentWindow) return;
+  frame.contentWindow.postMessage({
+    type: "qualitypro:equipment:hydrate",
+    equipment: Array.isArray(state.equipment) ? state.equipment : [],
+    distributions: Array.isArray(state.equipmentDistributions) ? state.equipmentDistributions : [],
+    roster: equipmentRoster(),
+    currentUser,
+    theme: state.settings.theme || "dark",
+  }, window.location.origin);
+}
+
+async function persistEquipmentFromFrame(equipment, distributions, frame) {
+  if (!Array.isArray(equipment) || !Array.isArray(distributions)) return;
+  const previousEquipment = state.equipment;
+  const previousDistributions = state.equipmentDistributions;
+  state.equipment = equipment;
+  state.equipmentDistributions = distributions;
+  const saved = await saveRemoteData("state", state, "equipamentos");
+  if (saved) return;
+  state.equipment = previousEquipment;
+  state.equipmentDistributions = previousDistributions;
+  hydrateEquipmentFrame(frame);
+  toast("Não foi possível salvar os equipamentos. Tente novamente.");
+}
+
+function renderEquipmentModule() {
+  pageContent.innerHTML = `
+    ${moduleHeaderHtml("equipamentos")}
+    <section class="equipment-module-shell" aria-label="Módulo de equipamentos de medição">
+      <iframe class="equipment-module-frame" title="Equipamentos de Medição" src="/equipment-module-frame.html?v=20260911"></iframe>
+    </section>
+  `;
+  const frame = pageContent.querySelector(".equipment-module-frame");
+  frame.addEventListener("load", () => hydrateEquipmentFrame(frame));
+  if (!companyUsersData.length) {
+    fetch("/api/company/users", { headers: { Accept: "application/json" }, cache: "no-store" })
+      .then((response) => response.ok ? response.json() : Promise.reject(new Error("users_unavailable")))
+      .then((payload) => {
+        companyUsersData = (payload.users || []).map(normalizeCompanyUser);
+        syncStateUsersFromCompanyUsers();
+        hydrateEquipmentFrame(frame);
+      })
+      .catch(() => {});
+  }
+  scrollPageToTop();
+}
+
 if (!window.__qualityProAuditsFrameBridge) {
   window.__qualityProAuditsFrameBridge = true;
   window.addEventListener("message", (event) => {
     if (event.origin !== window.location.origin) return;
-    const frame = pageContent?.querySelector(".audits-module-frame");
-    if (!frame || event.source !== frame.contentWindow) return;
-    if (event.data?.type === "qualitypro:audits:ready") hydrateAuditsFrame(frame);
-    if (event.data?.type === "qualitypro:audits:persist") persistAuditsFromFrame(event.data.audits, frame);
-    if (event.data?.type === "qualitypro:audits:resize") {
+    const auditFrame = pageContent?.querySelector(".audits-module-frame");
+    if (auditFrame && event.source === auditFrame.contentWindow) {
+      if (event.data?.type === "qualitypro:audits:ready") hydrateAuditsFrame(auditFrame);
+      if (event.data?.type === "qualitypro:audits:persist") persistAuditsFromFrame(event.data.audits, auditFrame);
+      if (event.data?.type === "qualitypro:audits:resize") {
+        const height = Number(event.data.height);
+        if (Number.isFinite(height) && height >= 680) auditFrame.style.height = `${Math.ceil(height)}px`;
+      }
+      if (event.data?.type === "qualitypro:audits:registration-modal") {
+        document.body.classList.toggle("audits-reg-modal-open", Boolean(event.data.open));
+      }
+      return;
+    }
+    const equipmentFrame = pageContent?.querySelector(".equipment-module-frame");
+    if (!equipmentFrame || event.source !== equipmentFrame.contentWindow) return;
+    if (event.data?.type === "qualitypro:equipment:ready") hydrateEquipmentFrame(equipmentFrame);
+    if (event.data?.type === "qualitypro:equipment:persist") {
+      persistEquipmentFromFrame(event.data.equipment, event.data.distributions, equipmentFrame);
+    }
+    if (event.data?.type === "qualitypro:equipment:resize") {
       const height = Number(event.data.height);
-      if (Number.isFinite(height) && height >= 680) frame.style.height = `${Math.ceil(height)}px`;
+      if (Number.isFinite(height) && height >= 620) equipmentFrame.style.height = `${Math.ceil(height)}px`;
     }
   });
 }
@@ -2876,9 +2952,15 @@ function renderLeadershipIndicatorCharts() {
     const canvas = document.querySelector(`#${id}`);
     if (canvas) leadershipCharts[id] = new Chart(canvas, config);
   };
+  const makeDoughnut = (id, labels, values, palette) => {
+    const canvas = document.querySelector(`#${id}`);
+    const design = window.QualityProDoughnut?.decorate(canvas, { labels, values, colors: palette });
+    make(id, { type: "doughnut", data: { labels, datasets: [{ data: values, backgroundColor: design?.dataset.backgroundColor || palette, borderColor: design?.dataset.borderColor || "transparent", borderWidth: design?.dataset.borderWidth ?? 0, borderRadius: design?.dataset.borderRadius, spacing: design?.dataset.spacing, hoverOffset: design?.dataset.hoverOffset ?? 5 }] }, options: design?.options || doughnutOptions() });
+    if (design) design.bind(leadershipCharts[id]);
+  };
   const countStatuses = (rows, labels, field = "status") => labels.map((label) => rows.filter((row) => row[field] === label).length);
 
-  make("lcActionsStatusChart", { type: "doughnut", data: { labels: ["Concluídas", "Programadas", "Não realizadas"], datasets: [{ data: countStatuses(actions, ["Concluída", "Programada", "Não Realizada"]), backgroundColor: [colors.green, colors.gold, colors.red], borderColor: "transparent", borderWidth: 0, hoverOffset: 5 }] }, options: doughnutOptions() });
+  makeDoughnut("lcActionsStatusChart", ["Concluídas", "Programadas", "Não realizadas"], countStatuses(actions, ["Concluída", "Programada", "Não Realizada"]), [colors.green, colors.gold, colors.red]);
   make("lcPlanStatusChart", { type: "bar", data: { labels: ["Concluído", "Em andamento", "Não iniciado", "Atrasado"], datasets: [{ label: "Itens", data: countStatuses(plan, ["Concluído", "Em Andamento", "Não Iniciado", "Atrasado"]), backgroundColor: [colors.green, colors.blue, colors.cyan, colors.red], borderRadius: 5, borderSkipped: false, maxBarThickness: 34 }] }, options: options({ scales: { x: { ticks: { color: colors.text, font: { size: 10 } }, grid: { display: false } }, y: { beginAtZero: true, ticks: { color: colors.text, precision: 0 }, grid: { color: colors.grid } } }, plugins: { legend: { display: false } } }) });
 
   const months = Array.from({ length: 6 }, (_, index) => {
@@ -2954,10 +3036,16 @@ function renderLeadershipRoleIndicatorCharts() {
     const canvas = document.querySelector(`#${id}`);
     if (canvas) leadershipCharts[id] = new Chart(canvas, config);
   };
+  const makeDoughnut = (id, labels, values, palette) => {
+    const canvas = document.querySelector(`#${id}`);
+    const design = window.QualityProDoughnut?.decorate(canvas, { labels, values, colors: palette });
+    make(id, { type: "doughnut", data: { labels, datasets: [{ data: values, backgroundColor: design?.dataset.backgroundColor || palette, borderColor: design?.dataset.borderColor || "transparent", borderWidth: design?.dataset.borderWidth ?? 0, borderRadius: design?.dataset.borderRadius, spacing: design?.dataset.spacing, hoverOffset: design?.dataset.hoverOffset ?? 5 }] }, options: design?.options || doughnutOptions() });
+    if (design) design.bind(leadershipCharts[id]);
+  };
   const count = (rows, values) => values.map((value) => rows.filter((row) => row.status === value).length);
   const raciCounts = ["R", "A", "C", "I"].map((letter) => raci.reduce((total, row) => total + ["diretorGeral", "qualidade", "comercial", "financeiro"].filter((key) => row[key] === letter).length, 0));
 
-  make("lcRoleStatusChart", { type: "doughnut", data: { labels: ["Ativos", "Inativos"], datasets: [{ data: count(roles, ["Ativo", "Inativo"]), backgroundColor: [colors.green, colors.red], borderColor: "transparent", borderWidth: 0, hoverOffset: 5 }] }, options: doughnutOptions() });
+  makeDoughnut("lcRoleStatusChart", ["Ativos", "Inativos"], count(roles, ["Ativo", "Inativo"]), [colors.green, colors.red]);
   make("lcRaciChart", { type: "bar", data: { labels: ["Responsável", "Aprovador", "Consultado", "Informado"], datasets: [{ label: "Designações", data: raciCounts, backgroundColor: [colors.blue, colors.gold, colors.cyan, colors.purple], borderRadius: 5, borderSkipped: false, maxBarThickness: 36 }] }, options: options({ scales: { x: { ticks: { color: colors.text, font: { size: 10 } }, grid: { display: false } }, y: { beginAtZero: true, ticks: { color: colors.text, precision: 0 }, grid: { color: colors.grid } } }, plugins: { legend: { display: false } } }) });
   const delegationLabels = ["Ativas", "Agendadas", "Encerradas"];
   make("lcDelegationCommitmentChart", { data: { labels: delegationLabels, datasets: [{ type: "bar", label: "Delegações", data: count(delegations, ["Ativa", "Agendada", "Encerrada"]), backgroundColor: [colors.green, colors.gold, colors.red], borderRadius: 5, borderSkipped: false, maxBarThickness: 46 }, { type: "line", label: "Compromissos", data: count(commitments, ["Concluído", "Em Andamento", "Pendente"]), borderColor: colors.cyan, backgroundColor: "rgba(70, 217, 245, .14)", fill: true, tension: .35, pointRadius: 3, pointHoverRadius: 5, borderWidth: 2.5 }] }, options: options({ scales: { x: { ticks: { color: colors.text }, grid: { display: false } }, y: { beginAtZero: true, ticks: { color: colors.text, precision: 0 }, grid: { color: colors.grid } } } }) });

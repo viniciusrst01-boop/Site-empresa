@@ -10,7 +10,7 @@ async function login(page) {
 
 test("nova auditoria mantém todos os controles visíveis sem rolagem interna no desktop", async ({ page }) => {
   await login(page);
-  for (const viewport of [{ width: 1920, height: 1080 }, { width: 1600, height: 900 }, { width: 1440, height: 900 }, { width: 1366, height: 768 }]) {
+  for (const viewport of [{ width: 1920, height: 1080 }, { width: 1600, height: 900 }, { width: 1440, height: 900 }, { width: 1366, height: 768 }, { width: 1280, height: 720 }, { width: 1024, height: 600 }]) {
     await page.setViewportSize(viewport);
     await page.evaluate(() => renderModuleDetail("auditorias"));
 
@@ -18,6 +18,7 @@ test("nova auditoria mantém todos os controles visíveis sem rolagem interna no
     await auditsFrame.locator("#kpiRow").waitFor({ state: "visible" });
     await auditsFrame.locator(".page-toolbar .btn-grad").click();
     await expect(auditsFrame.locator("#modalReg")).toBeVisible();
+    await expect(page.locator("body")).toHaveClass(/audits-reg-modal-open/);
 
     const layout = await auditsFrame.locator("#modalReg .modal-box").evaluate((modal) => {
       const viewportHeight = window.innerHeight;
@@ -44,6 +45,9 @@ test("nova auditoria mantém todos os controles visíveis sem rolagem interna no
     expect(layout.overflowY).not.toBe("auto");
     expect(layout.fitsViewport).toBe(true);
     expect(layout.allControlsVisible).toBe(true);
+
+    await auditsFrame.locator("#modalReg .modal-close").click();
+    await expect(page.locator("body")).not.toHaveClass(/audits-reg-modal-open/);
   }
 });
 

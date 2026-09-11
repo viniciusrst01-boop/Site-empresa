@@ -1,8 +1,8 @@
-.audits-module-shell {
+.equipment-module-shell {
   min-height: max(620px, calc(100vh - 142px));
 }
 
-.audits-module-frame {
+.equipment-module-frame {
   display: block;
   width: 100%;
   min-height: max(620px, calc(100vh - 142px));
@@ -10,12 +10,8 @@
   background: transparent;
 }
 
-body.audits-reg-modal-open {
-  overflow: hidden;
-}
-
 @media (max-width: 900px) {
-  .audits-module-frame {
+  .equipment-module-frame {
     min-height: 0;
   }
 }

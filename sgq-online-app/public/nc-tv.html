@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/nc-tv.css?v=20260910-nc-embedded-theme">
+  <link rel="stylesheet" href="/nc-tv.css?v=20260910-nc-distributions">
 </head>
 <body>
   <main class="tv-shell">
@@ -30,10 +30,16 @@
 
     <section class="tv-grid">
       <article class="tv-panel tv-pareto"><header><h2>Gráfico de Pareto</h2><span>Priorização 80/20</span></header><div class="tv-chart" id="chartPareto"></div></article>
-      <article class="tv-panel"><header><h2>Status dos RNCs</h2><span>Distribuição atual</span></header><div class="tv-chart" id="chartStatus"></div></article>
-      <article class="tv-panel"><header><h2>Por gravidade</h2><span>Menor, média e maior</span></header><div class="tv-chart" id="chartSeverity"></div></article>
+      <article class="tv-panel tv-distribution">
+        <header><div class="tv-distribution-title"><span class="tv-distribution-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><polyline points="14 3 14 8 19 8"/><path d="M9 13h6M9 17h6"/></svg></span><h2>Status dos RNCs</h2></div><span>Distribuição atual</span></header>
+        <div class="tv-distribution-body"><div class="tv-chart" id="chartStatus"></div><ul class="tv-distribution-legend" id="chartStatusLegend" aria-label="Status dos RNCs"></ul></div>
+      </article>
+      <article class="tv-panel tv-distribution">
+        <header><div class="tv-distribution-title"><span class="tv-distribution-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span><h2>Por gravidade</h2></div><span>Menor, média e maior</span></header>
+        <div class="tv-distribution-body"><div class="tv-chart" id="chartSeverity"></div><ul class="tv-distribution-legend" id="chartSeverityLegend" aria-label="Por gravidade"></ul></div>
+      </article>
       <article class="tv-panel"><header><h2>Por origem</h2><span>Interno, fornecedor e cliente</span></header><div class="tv-chart" id="chartOrigin"></div></article>
-      <article class="tv-panel"><header><h2>Reincidência</h2><span>Ocorrências repetidas</span></header><div class="tv-chart" id="chartRepeat"></div></article>
+      <article class="tv-panel tv-distribution"><header><div class="tv-distribution-title"><span class="tv-distribution-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M20 11a8.1 8.1 0 0 0-15.5-2M4 5v4h4"/><path d="M4 13a8.1 8.1 0 0 0 15.5 2M20 19v-4h-4"/></svg></span><h2>Reincidência</h2></div><span>Ocorrências repetidas</span></header><div class="tv-distribution-body"><div class="tv-chart" id="chartRepeat"></div><ul class="tv-distribution-legend" id="chartRepeatLegend" aria-label="Reincidência"></ul></div></article>
       <article class="tv-panel tv-wide"><header><h2>Aberturas x encerramentos</h2><span>Últimos 12 meses</span></header><div class="tv-chart" id="chartEvolution"></div></article>
       <article class="tv-panel"><header><h2>Ações corretivas</h2><span>Concluídas, pendentes e atrasadas</span></header><div class="tv-chart" id="chartActions"></div></article>
       <article class="tv-panel"><header><h2>NCs por setor</h2><span>Áreas com maior incidência</span></header><div class="tv-chart" id="chartSector"></div></article>
@@ -44,6 +50,6 @@
   </main>
   <script src="/vendor/chart.umd.js"></script>
   <script src="/vendor/chartjs-plugin-datalabels.min.js"></script>
-  <script src="/nc-tv.js?v=20260910-nc-embedded-theme"></script>
+  <script src="/nc-tv.js?v=20260910-nc-distribution-center"></script>
 </body>
 </html>

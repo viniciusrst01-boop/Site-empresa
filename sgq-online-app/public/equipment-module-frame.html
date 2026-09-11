@@ -1,0 +1,1192 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QualityPro Cloud - Equipamentos de Medição</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+<script src="/vendor/chart.umd.js"></script>
+<script src="/vendor/chartjs-plugin-datalabels.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-chart-treemap@2.3.0/dist/chartjs-chart-treemap.min.js"></script>
+<script src="/doughnut-layout.js?v=20260911-unified"></script>
+<style>
+  :root {
+    /* ===== TEMA AZUL-CLARO (degradê azul-marinho) ===== */
+    --bg-deep: #0a1e3f; --bg-grad-top: #123a6b; --bg-grad-bot: #0a1c38;
+    --bg-sidebar: #0a1a33; --bg-panel: #102a4d; --bg-panel-2: #0e2445; --bg-panel-hover: #143154;
+    --border-subtle: rgba(255,255,255,0.10); --border-strong: rgba(255,255,255,0.18);
+    --text-primary: #eef4fb; --text-secondary: #9fb4d0; --text-muted: #6f87a8;
+    --accent-blue: #2f8ff0; --accent-blue-bright: #4fa3ff; --accent-cyan: #46D9F5; --accent-gold: #F2B705;
+    --accent-green: #34D399; --accent-amber: #FBBF24; --accent-red: #F87171; --accent-orange: #fb923c; --accent-purple: #A78BFA;
+    --accent-gradient: linear-gradient(90deg, #2f8ff0, #4fa3ff); --radius: 14px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; color: var(--text-primary); -webkit-font-smoothing: antialiased; }
+  body { background: linear-gradient(160deg, var(--bg-grad-top) 0%, var(--bg-deep) 42%, var(--bg-grad-bot) 100%); background-attachment: fixed; }
+  svg { display: block; }
+  .icon { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
+  a { text-decoration: none; }
+  .mono { font-family: 'JetBrains Mono', 'SFMono-Regular', Consolas, monospace; }
+  button, textarea, select, input { font-family: inherit; }
+  .app-shell { display: flex; min-height: 100vh; }
+
+  /* SIDEBAR */
+  .sidebar { width: 220px; flex-shrink: 0; background: var(--bg-sidebar); border-right: 1px solid var(--border-subtle); display: flex; flex-direction: column; padding: 20px 12px 18px; position: sticky; top: 0; height: 100vh; }
+  .sb-logo-row { display: flex; align-items: center; padding: 4px 6px 18px; border-bottom: 1px solid var(--border-subtle); margin-bottom: 16px; }
+  .sb-logo-img { width: 100%; max-width: 178px; height: auto; display: block; }
+  .sb-section-label { font-family: 'JetBrains Mono', monospace; font-size: 9.5px; font-weight: 600; letter-spacing: 1.3px; color: var(--text-muted); padding: 0 10px; margin: 4px 0 9px; }
+  .sb-nav { display: flex; flex-direction: column; gap: 2px; flex: 1; }
+  .nav-item { display: flex; align-items: center; gap: 11px; padding: 9px 10px; border-radius: 8px; color: #a7bcda; font-size: 13px; font-weight: 600; cursor: pointer; position: relative; transition: background 0.15s ease, color 0.15s ease; }
+  .nav-item .icon { width: 17px; height: 17px; color: #7d95b8; transition: color 0.15s ease; }
+  .nav-item:hover { background: rgba(255,255,255,0.05); color: var(--text-primary); }
+  .nav-item:hover .icon { color: var(--accent-blue-bright); }
+  .nav-item.active { background: rgba(47,143,240,0.18); color: var(--text-primary); }
+  .nav-item.active .icon { color: var(--accent-cyan); }
+  .nav-item.active::before { content: ""; position: absolute; left: -12px; top: 7px; bottom: 7px; width: 3px; background: var(--accent-cyan); border-radius: 0 3px 3px 0; box-shadow: 0 0 8px rgba(70,217,245,0.7); }
+  .sb-help-card { margin-top: 16px; background: var(--bg-panel); border: 1px solid var(--border-subtle); border-radius: var(--radius); padding: 16px; display: flex; flex-direction: column; gap: 10px; position: relative; overflow: hidden; }
+  .sb-help-card::after { content: ""; position: absolute; top: -30px; right: -30px; width: 90px; height: 90px; border-radius: 50%; background: radial-gradient(circle, rgba(47,143,240,0.28), transparent 70%); }
+  .sb-help-icon { width: 34px; height: 34px; border-radius: 9px; background: transparent; border: 1px solid rgba(70,217,245,0.4); display: flex; align-items: center; justify-content: center; color: var(--accent-cyan); margin-bottom: 2px; position: relative; z-index: 1; }
+  .sb-help-icon .icon { width: 17px; height: 17px; }
+  .sb-help-card .htitle { color: var(--text-primary); font-size: 13.5px; font-weight: 700; position: relative; z-index: 1; }
+  .sb-help-card .hdesc { color: var(--text-secondary); font-size: 12px; line-height: 1.5; position: relative; z-index: 1; }
+  .btn-support { margin-top: 2px; background: transparent; border: 1.5px solid rgba(255,255,255,0.2); color: var(--text-primary); font-size: 12.5px; font-weight: 700; padding: 9px 12px; border-radius: 8px; display: flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; transition: background 0.15s ease, border-color 0.15s ease; position: relative; z-index: 1; }
+  .btn-support:hover { background: rgba(255,255,255,0.07); border-color: var(--accent-blue-bright); }
+  .btn-support .icon { width: 15px; height: 15px; }
+
+  /* MAIN */
+  .main-area { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .topbar { height: 72px; flex-shrink: 0; background: rgba(10,26,51,0.75); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border-subtle); display: flex; align-items: center; justify-content: space-between; padding: 0 28px; position: sticky; top: 0; z-index: 5; gap: 20px; }
+  .topbar-left { display: flex; align-items: center; gap: 16px; }
+  .menu-toggle { width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: var(--text-secondary); cursor: pointer; flex-shrink: 0; }
+  .menu-toggle:hover { background: rgba(255,255,255,0.06); color: var(--text-primary); }
+  .topbar-title { font-size: 17px; font-weight: 800; color: var(--text-primary); line-height: 1.25; }
+  .topbar-subtitle { font-size: 12.5px; color: var(--text-secondary); font-weight: 500; }
+  .topbar-search { flex: 1; max-width: 420px; display: flex; align-items: center; gap: 9px; background: rgba(255,255,255,0.05); border: 1px solid var(--border-subtle); border-radius: 11px; padding: 10px 14px; color: var(--text-muted); }
+  .topbar-search input { flex: 1; background: transparent; border: none; outline: none; color: var(--text-primary); font-size: 13px; }
+  .topbar-search input::placeholder { color: var(--text-muted); }
+  .topbar-search .icon { width: 17px; height: 17px; }
+  .topbar-right { display: flex; align-items: center; gap: 6px; }
+  .tb-icon-btn { position: relative; width: 38px; height: 38px; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: var(--text-secondary); cursor: pointer; flex-shrink: 0; }
+  .tb-icon-btn:hover { background: rgba(255,255,255,0.06); color: var(--text-primary); }
+  .tb-divider { width: 1px; height: 26px; background: var(--border-subtle); margin: 0 10px; }
+  .tb-user { display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 6px 8px 6px 6px; border-radius: 10px; }
+  .tb-user:hover { background: rgba(255,255,255,0.06); }
+  .tb-avatar { width: 36px; height: 36px; border-radius: 50%; background: var(--accent-gradient); color: #fff; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-family: 'JetBrains Mono', monospace; }
+  .tb-user-info { line-height: 1.25; }
+  .tb-user-name { font-size: 13.5px; font-weight: 700; color: var(--text-primary); }
+  .tb-user-role { font-size: 11.5px; color: var(--text-secondary); }
+  .tb-chevron { color: var(--text-muted); width: 16px; height: 16px; margin-left: 2px; }
+
+  .page-content { flex: 1; padding: 24px 28px 40px; position: relative; }
+  .breadcrumb { font-size: 12.5px; color: var(--text-secondary); margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+  .breadcrumb a { color: var(--text-secondary); }
+  .breadcrumb a:hover { color: var(--accent-blue-bright); }
+  .breadcrumb .sep { color: var(--text-muted); }
+  .breadcrumb .cur { color: var(--text-primary); font-weight: 700; }
+  .welcome-eyebrow { font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 600; letter-spacing: 1.5px; color: var(--accent-cyan); margin-bottom: 8px; }
+  .welcome-sub { margin: 0 0 22px; color: var(--text-primary); font-size: 15px; font-weight: 600; }
+
+  /* KPI cards */
+  .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 22px; }
+  .kpi-card { background: var(--bg-panel); border: 1px solid var(--border-subtle); border-radius: var(--radius); padding: 18px; position: relative; overflow: hidden; display: flex; flex-direction: column; gap: 12px; transition: border-color 0.2s ease; }
+  .kpi-card:hover { border-color: var(--border-strong); }
+  .kpi-card.clickable { cursor: pointer; }
+  .kpi-card.clickable:hover { border-color: var(--accent-blue-bright); transform: translateY(-1px); }
+  .kpi-ver { color: var(--accent-blue-bright); font-weight: 700; opacity: 0; transition: opacity 0.15s ease; margin-left: 4px; }
+  .kpi-card.clickable:hover .kpi-ver { opacity: 1; }
+  .kpi-card::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--accent-line, var(--accent-blue)); }
+  .kpi-top { display: flex; align-items: center; gap: 12px; }
+  .kpi-icon { width: 40px; height: 40px; border-radius: 10px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: transparent; border: 1px solid; }
+  .kpi-icon .icon { width: 19px; height: 19px; }
+  .kpi-label { font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.6px; color: var(--text-muted); font-weight: 600; margin-bottom: 3px; text-transform: uppercase; }
+  .kpi-value { font-size: 15px; font-weight: 700; color: var(--text-primary); }
+  .kpi-value.big { font-size: 26px; font-family: 'JetBrains Mono', monospace; }
+  .kpi-caption { font-size: 12px; color: var(--text-secondary); font-weight: 600; }
+
+  /* Tabs */
+  .ctx-tabs { display: flex; flex-wrap: wrap; gap: 6px; border-bottom: 1px solid var(--border-subtle); margin-bottom: 20px; }
+  .ctx-tab { padding: 11px 16px; font-size: 13.5px; font-weight: 700; color: var(--text-secondary); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color 0.15s ease, border-color 0.15s ease; }
+  .ctx-tab:hover { color: var(--text-primary); }
+  .ctx-tab.active { color: var(--accent-cyan); border-color: var(--accent-cyan); }
+
+  /* Section / table */
+  .dcc { background: var(--bg-panel); border: 1px solid var(--border-subtle); border-radius: var(--radius); overflow: hidden; }
+  .dcc-hd { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding: 20px 22px; border-bottom: 1px solid var(--border-subtle); }
+  .dcc-title { font-size: 15.5px; font-weight: 800; margin: 0 0 3px; color: var(--text-primary); }
+  .dcc-sub { font-size: 12.5px; color: var(--text-secondary); margin: 0; }
+  .btn-grad { background: var(--accent-gradient); color: #fff; border: none; border-radius: 10px; padding: 11px 18px; font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 7px; cursor: pointer; transition: filter 0.15s ease; flex-shrink: 0; }
+  .btn-grad:hover { filter: brightness(1.08); }
+  .btn-grad .icon { width: 16px; height: 16px; stroke: #fff; }
+
+  table.ctxtbl { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  .ctxtbl thead th { text-align: left; font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase; color: var(--text-muted); padding: 12px 14px; border-bottom: 1px solid var(--border-subtle); white-space: normal; word-break: keep-all; }
+  .ctxtbl tbody td { padding: 12px 14px; border-bottom: 1px solid var(--border-subtle); font-size: 12.5px; color: var(--text-primary); vertical-align: middle; overflow-wrap: break-word; word-break: break-word; }
+  /* Variante compacta: cabe em 100% da largura sem rolagem lateral */
+  .ctxtbl.compact thead th { padding: 8px 9px; font-size: 9px; letter-spacing: 0.2px; }
+  .ctxtbl.compact tbody td { padding: 6px 9px; font-size: 11px; line-height: 1.3; }
+  .ctxtbl.compact tbody td.mono, .ctxtbl.compact tbody td .mono { font-size: 10.5px; white-space: nowrap; }
+  .ctxtbl.compact .mchip { font-size: 9.5px; padding: 2px 7px; }
+  .ctxtbl.compact .status-pill { font-size: 10px; }
+  .ctxtbl.compact .abtn { width: 25px; height: 25px; }
+  .ctxtbl.compact .abtn .icon { width: 13px; height: 13px; }
+  .ctxtbl.compact .row-actions { flex-direction: row; gap: 3px; }
+  .ctxtbl tbody td.mono, .ctxtbl tbody td .mono { white-space: nowrap; font-size: 12px; }
+  .ctxtbl tbody tr:last-child td { border-bottom: none; }
+  .ctxtbl tbody tr:hover { background: rgba(255,255,255,0.03); }
+  .ctxtbl .desc-cell { color: var(--text-secondary); line-height: 1.4; }
+
+  .mchip { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 7px; font-size: 11px; font-weight: 700; border: 1px solid; white-space: nowrap; }
+  .mchip-blue { color: var(--accent-blue-bright); border-color: rgba(79,163,255,0.45); background: rgba(79,163,255,0.12); }
+  .mchip-cyan { color: var(--accent-cyan); border-color: rgba(70,217,245,0.45); background: rgba(70,217,245,0.12); }
+  .mchip-purple { color: var(--accent-purple); border-color: rgba(167,139,250,0.45); background: rgba(167,139,250,0.12); }
+  .mchip-gray { color: var(--text-secondary); border-color: var(--border-strong); background: rgba(255,255,255,0.04); }
+
+  .status-pill { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 700; white-space: nowrap; }
+  .status-dot2 { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .st-uso .status-dot2 { background: var(--accent-green); box-shadow: 0 0 6px rgba(52,211,153,0.7); } .st-uso { color: var(--accent-green); }
+  .st-calib .status-dot2 { background: var(--accent-amber); box-shadow: 0 0 6px rgba(251,191,36,0.7); } .st-calib { color: var(--accent-amber); }
+  .st-fora .status-dot2 { background: var(--text-secondary); } .st-fora { color: var(--text-secondary); }
+  .st-reprov .status-dot2 { background: var(--accent-red); box-shadow: 0 0 6px rgba(248,113,113,0.7); } .st-reprov { color: var(--accent-red); }
+  .st-distuso .status-dot2 { background: var(--accent-amber); box-shadow: 0 0 6px rgba(251,191,36,0.7); } .st-distuso { color: var(--accent-amber); }
+  .st-devolvido .status-dot2 { background: var(--accent-green); box-shadow: 0 0 6px rgba(52,211,153,0.7); } .st-devolvido { color: var(--accent-green); }
+  .st-atraso .status-dot2 { background: var(--accent-red); box-shadow: 0 0 6px rgba(248,113,113,0.7); } .st-atraso { color: var(--accent-red); }
+
+  .row-actions { display: flex; align-items: center; gap: 2px; white-space: nowrap; }
+  .abtn { width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: var(--text-secondary); cursor: pointer; flex-shrink: 0; background: transparent; border: 1px solid var(--border-subtle); padding: 0; }
+  .abtn .icon { width: 15px; height: 15px; }
+  .abtn:hover { background: rgba(79,163,255,0.12); color: var(--accent-blue-bright); border-color: var(--accent-blue-bright); }
+  .abtn.danger:hover { background: rgba(248,113,113,0.12); color: var(--accent-red); border-color: var(--accent-red); }
+  .empty-state { padding: 48px 22px; text-align: center; color: var(--text-secondary); font-size: 13.5px; }
+  .evid-file { display: inline-flex; align-items: center; gap: 5px; color: var(--accent-blue-bright); font-size: 11.5px; font-family: 'JetBrains Mono', monospace; overflow-wrap: anywhere; }
+
+  /* Filters */
+  .filter-bar { display: grid; grid-template-columns: repeat(4, 1fr) auto; gap: 12px; background: var(--bg-panel); border: 1px solid var(--border-subtle); border-radius: var(--radius); padding: 18px; margin-bottom: 18px; align-items: end; }
+  .filter-bar .fg { display: flex; flex-direction: column; gap: 6px; }
+  .filter-bar .fg label { font-size: 10px; font-weight: 700; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; letter-spacing: 0.4px; text-transform: uppercase; }
+
+  /* Form */
+  .form-card { background: var(--bg-panel); border: 1px solid var(--border-subtle); border-radius: var(--radius); padding: 24px; }
+  .form-section-label { font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase; color: var(--accent-cyan); margin: 6px 0 14px; padding-bottom: 8px; border-bottom: 1px solid var(--border-subtle); }
+  .form-section-label:not(:first-of-type) { margin-top: 24px; }
+  .field { margin-bottom: 15px; }
+  .field label { display: block; font-size: 12.5px; font-weight: 700; margin-bottom: 7px; color: var(--text-primary); }
+  .field-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .field-row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+  .input-basic, select.input-basic, textarea.input-basic { width: 100%; border: 1px solid var(--border-strong); border-radius: 10px; background: rgba(255,255,255,0.04); color: var(--text-primary); font-size: 13.5px; padding: 11px 13px; outline: none; font-family: inherit; transition: border-color 0.15s ease; }
+  textarea.input-basic { resize: vertical; min-height: 70px; }
+  .input-basic:focus { border-color: var(--accent-blue-bright); }
+  select.input-basic option, select.input-basic optgroup { background: #10233f; color: var(--text-primary); }
+  /* Combobox (autocomplete) */
+  .combo-wrap { position: relative; }
+  .combo-list { position: absolute; top: calc(100% + 4px); left: 0; right: 0; background: #10233f; border: 1px solid var(--border-strong); border-radius: 10px; box-shadow: 0 16px 40px rgba(0,0,0,0.5); max-height: 240px; overflow-y: auto; z-index: 20; display: none; }
+  .combo-list.show { display: block; }
+  .combo-item { padding: 10px 13px; font-size: 13px; cursor: pointer; border-bottom: 1px solid var(--border-subtle); display: flex; flex-direction: column; gap: 2px; }
+  .combo-item:last-child { border-bottom: none; }
+  .combo-item:hover, .combo-item.active { background: rgba(47,143,240,0.18); }
+  .combo-item .ci-cod { font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 12px; color: var(--accent-blue-bright); }
+  .combo-item .ci-desc { font-size: 12px; color: var(--text-secondary); }
+  .combo-empty { padding: 12px 13px; font-size: 12.5px; color: var(--text-muted); }
+  .input-basic::placeholder { color: var(--text-muted); }
+  .input-basic.field-erro { border-color: var(--accent-red) !important; box-shadow: 0 0 0 2px rgba(248,113,113,0.18); }
+  .input-readonly { background: rgba(255,255,255,0.02); color: var(--text-secondary); cursor: default; }
+  .upload-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 2px; }
+  .upload-btn { display: inline-flex; align-items: center; gap: 7px; cursor: pointer; padding: 10px 14px; border-radius: 10px; border: 1px solid var(--border-strong); background: rgba(255,255,255,0.04); color: var(--text-primary); font-size: 12.5px; font-weight: 700; flex-shrink: 0; }
+  .upload-btn:hover { background: rgba(255,255,255,0.07); border-color: var(--accent-blue-bright); }
+  .upload-btn input[type="file"] { display: none; }
+  .upload-btn .icon { width: 15px; height: 15px; }
+  .upload-filename { font-size: 12px; color: var(--text-secondary); font-family: 'JetBrains Mono', monospace; overflow-wrap: anywhere; }
+  .form-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px; align-items: center; }
+  .btn-ghost { padding: 11px 18px; border-radius: 10px; border: 1px solid var(--border-strong); background: transparent; color: var(--text-primary); font-size: 13px; font-weight: 700; cursor: pointer; }
+  .btn-ghost:hover { background: rgba(255,255,255,0.06); }
+  .btn-primary { padding: 11px 20px; border-radius: 10px; border: none; background: var(--accent-gradient); color: #fff; font-size: 13px; font-weight: 700; cursor: pointer; }
+  .btn-primary:hover { filter: brightness(1.08); }
+
+  /* Modal */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(4,14,30,0.72); backdrop-filter: blur(3px); display: none; align-items: center; justify-content: center; z-index: 50; padding: 24px; }
+  .modal-overlay.show { display: flex; }
+  .modal-box { width: 720px; max-width: 100%; max-height: 90vh; overflow-y: auto; background: var(--bg-panel); border: 1px solid var(--border-subtle); border-radius: 16px; padding: 28px; box-shadow: 0 24px 70px rgba(0,0,0,0.5); }
+  .modal-box.wide { width: 860px; }
+  .modal-hd { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 20px; }
+  .modal-hd h3 { margin: 0 0 4px; font-size: 17px; font-weight: 800; }
+  .modal-hd p { margin: 0; font-size: 12.5px; color: var(--text-secondary); }
+  .modal-close { color: var(--text-secondary); cursor: pointer; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 8px; flex-shrink: 0; }
+  .modal-close:hover { background: rgba(255,255,255,0.07); color: var(--text-primary); }
+  .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 22px; flex-wrap: wrap; }
+
+  /* Toast */
+  #toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-20px); z-index: 200; display: flex; align-items: center; gap: 10px; background: #0e2a1c; border: 1px solid rgba(52,211,153,0.5); color: var(--accent-green); font-weight: 700; font-size: 13.5px; padding: 12px 18px; border-radius: 12px; box-shadow: 0 12px 40px rgba(0,0,0,0.45); opacity: 0; pointer-events: none; transition: opacity 0.25s ease, transform 0.25s ease; }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  #toast .tick { width: 24px; height: 24px; border-radius: 50%; background: var(--accent-green); color: #06110b; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  #toast .tick svg { width: 15px; height: 15px; stroke: #06110b; stroke-width: 3; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+
+  .app-footer { display: flex; align-items: center; justify-content: space-between; padding: 16px 28px; border-top: 1px solid var(--border-subtle); font-size: 12px; color: var(--text-secondary); }
+  .app-footer .mono { color: var(--text-muted); }
+  .footer-status { display: flex; align-items: center; gap: 6px; }
+  .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent-green); flex-shrink: 0; box-shadow: 0 0 6px rgba(52,211,153,0.8); }
+
+  /* Indicadores */
+  .dash-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 16px; }
+  .dash-solid-card { position: relative; border-radius: var(--radius); padding: 18px 20px; overflow: hidden; color: #06101f; background: var(--card-bg, #4fa3ff); }
+  .dash-solid-card .sc-icon { position: absolute; top: 14px; right: 14px; opacity: 0.28; }
+  .dash-solid-card .sc-icon .icon { width: 30px; height: 30px; stroke: #06101f; stroke-width: 1.7; }
+  .dash-solid-card .sc-label { font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.7px; text-transform: uppercase; font-weight: 700; opacity: 0.75; }
+  .dash-solid-card .sc-value { font-size: 30px; font-weight: 800; font-family: 'JetBrains Mono', monospace; line-height: 1; margin-top: 8px; }
+  .dash-solid-card .sc-caption { font-size: 11.5px; font-weight: 600; opacity: 0.72; margin-top: 8px; }
+  .dash-solid-card.clickable { cursor: pointer; transition: transform 0.15s ease, box-shadow 0.15s ease; }
+  .dash-solid-card.clickable:hover { transform: translateY(-2px); box-shadow: 0 10px 28px rgba(0,0,0,0.35); }
+  .dash-solid-card .sc-ver { font-weight: 800; opacity: 0; transition: opacity 0.15s ease; }
+  .dash-solid-card.clickable:hover .sc-ver { opacity: 0.95; }
+  .chart-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+  .chart-card { background: var(--bg-panel); border: 1px solid var(--border-subtle); border-radius: var(--radius); padding: 18px 20px; display: flex; flex-direction: column; }
+  .chart-card.full { grid-column: 1 / -1; }
+  .chart-card-hd { margin-bottom: 14px; }
+  .chart-card-hd h4 { margin: 0; font-size: 14px; font-weight: 800; }
+  .chart-card-hd .sub { font-size: 11.5px; color: var(--text-secondary); margin-top: 2px; }
+  .chart-holder { position: relative; width: 100%; height: 300px; }
+  @media (max-width: 1000px) { .chart-grid { grid-template-columns: 1fr; } .dash-cards { grid-template-columns: repeat(2,1fr); } }
+
+  @media (max-width: 1200px) { .kpi-row { grid-template-columns: repeat(2, 1fr); } .filter-bar { grid-template-columns: repeat(2,1fr); } }
+  @media (max-width: 900px) {
+    .kpi-row { grid-template-columns: 1fr 1fr; }
+    .topbar-search { display: none; }
+    .ctxtbl thead { display: none; }
+    .ctxtbl, .ctxtbl tbody, .ctxtbl tr, .ctxtbl td { display: block; width: 100%; }
+    .ctxtbl tbody tr { padding: 14px 16px; border-bottom: 1px solid var(--border-subtle); }
+    .ctxtbl tbody td { padding: 4px 0; border-bottom: none; }
+    .field-row2, .field-row3 { grid-template-columns: 1fr; }
+    .filter-bar { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 720px) { .sidebar { display: none; } .kpi-row { grid-template-columns: 1fr; } }
+  /* The host application already renders navigation and the global topbar. */
+  .sidebar, .topbar, .app-footer { display: none !important; }
+  .app-shell, .main-area { display: block !important; min-height: 0 !important; }
+  .page-content { max-width: none !important; padding: 0 2px 18px !important; }
+  .breadcrumb { display: none !important; }
+  body { min-height: 0 !important; overflow-x: hidden; }
+  @media (max-width: 900px) { .page-content { padding: 0 0 14px !important; } }
+</style>
+</head>
+<body>
+<div class="app-shell">
+
+  <aside class="sidebar">
+    <div class="sb-logo-row"><img class="sb-logo-img" src="data:image/png;base64,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" alt="QualityPro Cloud"></div>
+    <div class="sb-section-label">NAVEGAÇÃO</div>
+    <nav class="sb-nav">
+      <a class="nav-item" href="SGQ_QualityPro_Solutions_dark.html"><svg class="icon" viewBox="0 0 24 24"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M9 20v-6h6v6"/></svg>Página inicial</a>
+      <a class="nav-item active" href="meus-modulos-preview.html"><svg class="icon" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Meus módulos</a>
+      <a class="nav-item" href="empresa-preview.html"><svg class="icon" viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="1"/><line x1="9" y1="8" x2="9" y2="8"/><line x1="15" y1="8" x2="15" y2="8"/><line x1="9" y1="12" x2="9" y2="12"/><line x1="15" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="15" y2="16"/></svg>Minha empresa</a>
+      <a class="nav-item" href="usuarios-preview.html"><svg class="icon" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/><circle cx="10" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Usuários</a>
+      <a class="nav-item" href="#"><svg class="icon" viewBox="0 0 24 24"><line x1="6" y1="20" x2="6" y2="12"/><line x1="12" y1="20" x2="12" y2="6"/><line x1="18" y1="20" x2="18" y2="14"/></svg>Relatórios</a>
+      <a class="nav-item" href="#"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Configurações</a>
+    </nav>
+    <div class="sb-help-card">
+      <div class="sb-help-icon"><svg class="icon" viewBox="0 0 24 24"><path d="M3 11l9-8 9 8"/><path d="M9 22V12h6v10"/></svg></div>
+      <div class="htitle">Precisa de ajuda?</div>
+      <div class="hdesc">Nossa equipe está pronta para te atender.</div>
+      <button class="btn-support"><svg class="icon" viewBox="0 0 24 24"><path d="M3 11l9-8 9 8"/><path d="M12 3v9"/></svg>Abrir suporte</button>
+    </div>
+  </aside>
+
+  <div class="main-area">
+    <header class="topbar">
+      <div class="topbar-left">
+        <div class="menu-toggle"><svg class="icon" viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></div>
+        <div>
+          <div class="topbar-title">Equipamentos de Medição</div>
+          <div class="topbar-subtitle">Controle metrológico e calibração dos instrumentos.</div>
+        </div>
+      </div>
+      <div class="topbar-search"><svg class="icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input placeholder="Buscar módulos, equipamentos, registros..."></div>
+      <div class="topbar-right">
+        <div class="tb-icon-btn"><svg class="icon" viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></div>
+        <div class="tb-icon-btn"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 5 0c0 1.5-2.5 2-2.5 3.5"/><line x1="12" y1="17" x2="12" y2="17"/></svg></div>
+        <div class="tb-divider"></div>
+        <div class="tb-user">
+          <div class="tb-avatar">HM</div>
+          <div class="tb-user-info"><div class="tb-user-name">Hugo Melo</div><div class="tb-user-role">Administrador</div></div>
+          <svg class="icon tb-chevron" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+      </div>
+    </header>
+
+    <div class="page-content">
+      <div class="breadcrumb"><a href="meus-modulos-preview.html">Meus módulos</a><span class="sep">›</span><span class="cur">Equipamentos de Medição</span></div>
+      <div class="welcome-eyebrow">RECURSOS DE MONITORAMENTO E MEDIÇÃO · 7.1.5</div>
+      <p class="welcome-sub">Cadastro, controle metrológico, empréstimo e indicadores dos equipamentos de medição do Sistema de Gestão da Qualidade.</p>
+
+      <div class="kpi-row" id="kpiRow"></div>
+
+      <div class="ctx-tabs" id="mainTabs">
+        <div class="ctx-tab active" data-tab="cadastro" onclick="switchTab('cadastro')">Cadastro</div>
+        <div class="ctx-tab" data-tab="controle" onclick="switchTab('controle')">Controle</div>
+        <div class="ctx-tab" data-tab="distribuicao" onclick="switchTab('distribuicao')">Distribuição</div>
+        <div class="ctx-tab" data-tab="indicadores" onclick="switchTab('indicadores')">Indicadores</div>
+      </div>
+
+      <div id="tabContent"></div>
+    </div>
+
+    <footer class="app-footer">
+      <div>© 2026 QualityPro Solutions. Todos os direitos reservados.</div>
+      <div class="mono">QualityPro Cloud &nbsp;•&nbsp; v2.0</div>
+      <div class="footer-status"><span class="status-dot"></span>Sistema atualizado</div>
+    </footer>
+  </div>
+</div>
+
+<!-- ===================== MODAL: EDITAR EQUIPAMENTO ===================== -->
+<div class="modal-overlay" id="modalEquip">
+  <div class="modal-box wide">
+    <div class="modal-hd">
+      <div><h3 id="eqModalTitle">Editar equipamento</h3><p id="eqModalSub">Controle metrológico</p></div>
+      <div class="modal-close" onclick="closeModal('modalEquip')"><svg class="icon" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></div>
+    </div>
+    <input type="hidden" id="eqEditId">
+    <div class="form-section-label">Identificação</div>
+    <div class="field-row2">
+      <div class="field"><label>Código / TAG</label><input class="input-basic" id="eqCodigo"></div>
+      <div class="field"><label>Descrição / nome</label><input class="input-basic" id="eqDescricao"></div>
+    </div>
+    <div class="field-row3">
+      <div class="field"><label>Modelo</label><select class="input-basic" id="eqModelo"><option>Digital</option><option>Analógico</option><option>Outro</option></select></div>
+      <div class="field"><label>Marca</label><input class="input-basic" id="eqMarca"></div>
+      <div class="field"><label>Nº de série</label><input class="input-basic" id="eqSerie"></div>
+    </div>
+    <div class="form-section-label">Características</div>
+    <div class="field-row3">
+      <div class="field"><label>Faixa de medição</label><input class="input-basic" id="eqFaixa"></div>
+      <div class="field"><label>Resolução</label><input class="input-basic" id="eqResolucao"></div>
+      <div class="field"><label>Unidade</label><input class="input-basic" id="eqUnidade"></div>
+    </div>
+    <div class="field-row2">
+      <div class="field"><label>Localização / setor</label><input class="input-basic" id="eqSetor"></div>
+      <div class="field"><label>Responsável</label><select class="input-basic" id="eqResponsavel"></select></div>
+    </div>
+    <div class="form-section-label">Calibração e controle</div>
+    <div class="field-row3">
+      <div class="field"><label>Situação</label><select class="input-basic" id="eqSituacao"><option>Em uso</option><option>Em calibração</option><option>Fora de uso</option><option>Reprovado</option></select></div>
+      <div class="field"><label>Data da última calibração</label><input class="input-basic" type="date" id="eqUltimaCalib" onchange="calcProximaEdit()"></div>
+      <div class="field"><label>Periodicidade (meses)</label><input class="input-basic" type="number" min="1" id="eqPeriodicidade" onchange="calcProximaEdit()" oninput="calcProximaEdit()"></div>
+    </div>
+    <div class="field-row3">
+      <div class="field"><label>Próxima calibração</label><input class="input-basic input-readonly" id="eqProximaCalib" readonly></div>
+      <div class="field"><label>Nº do certificado</label><input class="input-basic" id="eqCertificado"></div>
+      <div class="field"><label>Critério de aceitação</label><input class="input-basic" id="eqCriterio"></div>
+    </div>
+    <div class="field"><label>Laboratório de calibração</label><input class="input-basic" id="eqLaboratorio"></div>
+    <div class="field"><label>Certificado de calibração (anexo)</label>
+      <div class="upload-row">
+        <label class="upload-btn"><svg class="icon" viewBox="0 0 24 24"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>Escolher arquivo<input type="file" onchange="handleEqAnexo(event)"></label>
+        <span class="upload-filename" id="eqAnexoName">Nenhum arquivo selecionado</span>
+        <span class="abtn danger" id="eqAnexoRemove" style="display:none;" onclick="removeEqAnexo()" title="Remover"><svg class="icon" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></span>
+      </div>
+      <input type="hidden" id="eqAnexo">
+    </div>
+    <div class="modal-actions">
+      <div class="btn-ghost" onclick="closeModal('modalEquip')">Cancelar</div>
+      <div class="btn-primary" onclick="saveEquip()">Salvar</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== MODAL: NOVA DISTRIBUIÇÃO ===================== -->
+<div class="modal-overlay" id="modalDist">
+  <div class="modal-box">
+    <div class="modal-hd">
+      <div><h3 id="distModalTitle">Nova distribuição</h3><p>Registro de saída de equipamento</p></div>
+      <div class="modal-close" onclick="closeModal('modalDist')"><svg class="icon" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></div>
+    </div>
+    <input type="hidden" id="distEditId">
+    <div class="field"><label>Equipamento</label>
+      <div class="combo-wrap">
+        <input class="input-basic" id="distEquipBusca" placeholder="Digite o código ou nome do equipamento..." autocomplete="off" oninput="filtrarEquipCombo(this.value)" onfocus="filtrarEquipCombo(this.value)">
+        <input type="hidden" id="distEquip">
+        <div class="combo-list" id="distEquipList"></div>
+      </div>
+    </div>
+    <div class="field-row2">
+      <div class="field"><label>Solicitante</label><select class="input-basic" id="distSolicitante"></select></div>
+      <div class="field"><label>Setor de destino</label><input class="input-basic" id="distSetor" placeholder="Ex.: Produção"></div>
+    </div>
+    <div class="field-row2">
+      <div class="field"><label>Data de saída</label><input class="input-basic" type="date" id="distSaida"></div>
+      <div class="field"><label>Retorno previsto</label><input class="input-basic" type="date" id="distRetornoPrev"></div>
+    </div>
+    <div class="field"><label>Finalidade / observação</label><textarea class="input-basic" id="distObs" placeholder="Para que o equipamento será utilizado"></textarea></div>
+    <div class="modal-actions">
+      <div class="btn-ghost" onclick="closeModal('modalDist')">Cancelar</div>
+      <div class="btn-primary" onclick="saveDist()">Salvar</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== MODAL: LISTA POR CATEGORIA ===================== -->
+<div class="modal-overlay" id="modalCategoria">
+  <div class="modal-box wide">
+    <div class="modal-hd">
+      <div><h3 id="catTitle">Equipamentos</h3><p id="catSub"></p></div>
+      <div class="modal-close" onclick="closeModal('modalCategoria')"><svg class="icon" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></div>
+    </div>
+    <div id="catBody"></div>
+    <div class="modal-actions"><div class="btn-ghost" onclick="closeModal('modalCategoria')">Fechar</div></div>
+  </div>
+</div>
+
+<div id="toast"><span class="tick"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span><span id="toastText">Salvo</span></div>
+
+<script>
+/* ===================== DATA LAYER ===================== */
+document.querySelector('.sidebar')?.remove();
+document.querySelector('.topbar')?.remove();
+document.querySelector('.app-footer')?.remove();
+const frameState = { equipment: [], distributions: [] };
+let equipmentHydrated = false;
+let persistTimer = null;
+const clone = (value) => value === undefined ? undefined : JSON.parse(JSON.stringify(value));
+const store = {
+  get(k){
+    if (k === 'qps_equipamentos') return clone(frameState.equipment);
+    if (k === 'qps_eq_dist') return clone(frameState.distributions);
+    return null;
+  },
+  set(k,v){
+    if (k === 'qps_equipamentos') frameState.equipment = Array.isArray(v) ? clone(v) : [];
+    if (k === 'qps_eq_dist') frameState.distributions = Array.isArray(v) ? clone(v) : [];
+    if (equipmentHydrated && (k === 'qps_equipamentos' || k === 'qps_eq_dist')) schedulePersist();
+  }
+};
+function schedulePersist(){
+  window.clearTimeout(persistTimer);
+  persistTimer = window.setTimeout(() => {
+    window.parent.postMessage({
+      type: 'qualitypro:equipment:persist',
+      equipment: clone(frameState.equipment),
+      distributions: clone(frameState.distributions)
+    }, window.location.origin);
+  }, 120);
+}
+function esc(s){ return (s===undefined||s===null?'':String(s)).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function fmtDate(iso){ if(!iso) return '-'; const [y,m,d]=iso.split('-'); return d&&m&&y?`${d}/${m}/${y}`:iso; }
+function todayISO(){ return new Date().toISOString().slice(0,10); }
+function addMonths(iso, meses){ if(!iso) return ''; const d=new Date(iso); d.setMonth(d.getMonth()+parseInt(meses||0)); return d.toISOString().slice(0,10); }
+
+let ROSTER = [];
+
+
+function initData(){
+  if (!Array.isArray(frameState.equipment)) frameState.equipment = [];
+}
+
+/* ===================== HELPERS ===================== */
+function uid(prefix, list){ let n = list.length ? Math.max(...list.map(i=>parseInt((i.id||'').split('-').pop())||0))+1 : 1; return prefix+'-'+String(n).padStart(4,'0'); }
+function situacaoPill(s){
+  const map={'Em uso':'st-uso','Em calibração':'st-calib','Fora de uso':'st-fora','Reprovado':'st-reprov'};
+  return `<span class="status-pill ${map[s]||'st-fora'}"><span class="status-dot2"></span>${esc(s)}</span>`;
+}
+function calibVencida(e){ return e.proximaCalib && e.proximaCalib < todayISO() && e.situacao!=='Fora de uso'; }
+// Prestes a vencer: próxima calibração dentro de 1 mês (e ainda não vencida)
+function calibPrestesVencer(e){
+  if(!e.proximaCalib || e.situacao==='Fora de uso') return false;
+  if(e.proximaCalib < todayISO()) return false; // já vencida, não é "prestes"
+  const limite = addMonths(todayISO(), 1);
+  return e.proximaCalib <= limite;
+}
+// Situação exibida na tabela: alertas de calibração têm prioridade sobre a situação manual
+function situacaoEfetivaPill(e){
+  if(calibVencida(e)) return `<span class="status-pill st-reprov" style="align-items:flex-start; line-height:1.25;"><span class="status-dot2" style="margin-top:3px;"></span><span>Calibração<br>vencida</span></span>`;
+  if(calibPrestesVencer(e)) return `<span class="status-pill st-calib" style="align-items:flex-start; line-height:1.25;"><span class="status-dot2" style="margin-top:3px;"></span><span>Prestes a vencer<br>calibração</span></span>`;
+  return situacaoPill(e.situacao);
+}
+
+/* ===================== TAB SWITCHING ===================== */
+let currentTab = 'cadastro';
+function switchTab(t){
+  currentTab = t;
+  document.querySelectorAll('#mainTabs .ctx-tab').forEach(el=>el.classList.toggle('active', el.dataset.tab===t));
+  renderTab();
+}
+function renderTab(){
+  const el = document.getElementById('tabContent');
+  if(currentTab==='cadastro'){ el.innerHTML = cadastroHTML(); initCadastro(); }
+  else if(currentTab==='controle') el.innerHTML = controleHTML();
+  else if(currentTab==='distribuicao') el.innerHTML = distribuicaoHTML();
+  else if(currentTab==='indicadores'){ el.innerHTML = indicadoresHTML(); initEqCharts(); }
+  requestAnimationFrame(reportFrameHeight);
+}
+function placeholderHTML(titulo, msg){
+  return `<div class="dcc"><div class="dcc-hd"><div><div class="dcc-title">${esc(titulo)}</div><div class="dcc-sub">Em construção</div></div></div><div class="empty-state">${esc(msg)}</div></div>`;
+}
+
+/* ===================== ABA 1: CADASTRO ===================== */
+function cadastroHTML(){
+  const rosterOpts = ROSTER.map(p=>`<option>${p}</option>`).join('');
+  return `
+  <div class="form-card">
+    <div class="dcc-title" style="margin-bottom:2px;">Cadastro de equipamento</div>
+    <div class="dcc-sub" style="margin-bottom:6px;">Ao salvar, o equipamento entra na aba Controle. A próxima calibração é calculada automaticamente.</div>
+
+    <div class="form-section-label">Identificação</div>
+    <div class="field-row2">
+      <div class="field"><label>Código / TAG</label><input class="input-basic" id="fCodigo" placeholder="Ex.: PAQ-002"></div>
+      <div class="field"><label>Descrição / nome</label><input class="input-basic" id="fDescricao" placeholder="Ex.: Paquímetro digital"></div>
+    </div>
+    <div class="field-row3">
+      <div class="field"><label>Modelo</label><select class="input-basic" id="fModelo"><option>Digital</option><option>Analógico</option><option>Outro</option></select></div>
+      <div class="field"><label>Marca</label><input class="input-basic" id="fMarca" placeholder="Ex.: Mitutoyo"></div>
+      <div class="field"><label>Nº de série</label><input class="input-basic" id="fSerie" placeholder="Ex.: MT-00000"></div>
+    </div>
+
+    <div class="form-section-label">Características</div>
+    <div class="field-row3">
+      <div class="field"><label>Faixa de medição</label><input class="input-basic" id="fFaixa" placeholder="Ex.: 0–150 mm"></div>
+      <div class="field"><label>Resolução</label><input class="input-basic" id="fResolucao" placeholder="Ex.: 0,01 mm"></div>
+      <div class="field"><label>Unidade</label><input class="input-basic" id="fUnidade" placeholder="Ex.: mm"></div>
+    </div>
+    <div class="field-row2">
+      <div class="field"><label>Localização / setor</label><input class="input-basic" id="fSetor" placeholder="Ex.: Metrologia"></div>
+      <div class="field"><label>Responsável</label><select class="input-basic" id="fResponsavel">${rosterOpts}</select></div>
+    </div>
+
+    <div class="form-section-label">Calibração e controle</div>
+    <div class="field-row3">
+      <div class="field"><label>Situação</label><select class="input-basic" id="fSituacao"><option>Em uso</option><option>Em calibração</option><option>Fora de uso</option><option>Reprovado</option></select></div>
+      <div class="field"><label>Data da última calibração</label><input class="input-basic" type="date" id="fUltimaCalib" onchange="calcProxima()"></div>
+      <div class="field"><label>Periodicidade (meses)</label><input class="input-basic" type="number" min="1" id="fPeriodicidade" placeholder="Ex.: 12" onchange="calcProxima()" oninput="calcProxima()"></div>
+    </div>
+    <div class="field-row3">
+      <div class="field"><label>Próxima calibração</label><input class="input-basic input-readonly" id="fProximaCalib" readonly placeholder="Calculada automaticamente"></div>
+      <div class="field"><label>Nº do certificado</label><input class="input-basic" id="fCertificado" placeholder="Ex.: CAL-2026-000"></div>
+      <div class="field"><label>Critério de aceitação</label><input class="input-basic" id="fCriterio" placeholder="Ex.: ≤ 0,02 mm"></div>
+    </div>
+    <div class="field"><label>Laboratório de calibração</label><input class="input-basic" id="fLaboratorio" placeholder="Ex.: Calibra Metrologia"></div>
+
+    <div class="form-section-label">Anexo</div>
+    <div class="field"><label>Certificado de calibração</label>
+      <div class="upload-row">
+        <label class="upload-btn"><svg class="icon" viewBox="0 0 24 24"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>Escolher arquivo<input type="file" onchange="handleFAnexo(event)"></label>
+        <span class="upload-filename" id="fAnexoName">Nenhum arquivo selecionado</span>
+        <span class="abtn danger" id="fAnexoRemove" style="display:none;" onclick="removeFAnexo()" title="Remover"><svg class="icon" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></span>
+      </div>
+      <input type="hidden" id="fAnexo">
+    </div>
+
+    <div class="form-actions">
+      <div class="btn-ghost" onclick="limparCadastro()">Limpar</div>
+      <div class="btn-primary" onclick="salvarEquipamento()">Salvar equipamento</div>
+    </div>
+  </div>`;
+}
+function initCadastro(){ document.getElementById('fPeriodicidade').value='12'; }
+function calcProxima(){
+  const ult=document.getElementById('fUltimaCalib').value;
+  const per=document.getElementById('fPeriodicidade').value;
+  document.getElementById('fProximaCalib').value = (ult && per) ? fmtDate(addMonths(ult, per)) : '';
+}
+function handleFAnexo(e){ const f=e.target.files[0]; if(!f) return; if(f.size>5*1024*1024){alert('Arquivo muito grande (máx. 5MB).'); e.target.value=''; return;} document.getElementById('fAnexo').value=f.name; document.getElementById('fAnexoName').textContent='📎 '+f.name; document.getElementById('fAnexoRemove').style.display='flex'; }
+function removeFAnexo(){ document.getElementById('fAnexo').value=''; document.getElementById('fAnexoName').textContent='Nenhum arquivo selecionado'; document.getElementById('fAnexoRemove').style.display='none'; }
+function limparErros(){ document.querySelectorAll('.form-card .field-erro').forEach(el=>el.classList.remove('field-erro')); }
+function marcarErro(id,msg){ const el=document.getElementById(id); if(el){ el.classList.add('field-erro'); try{el.focus();}catch(e){} if(el.scrollIntoView) el.scrollIntoView({behavior:'smooth',block:'center'}); } showToast(msg); }
+function limparCadastro(){
+  ['fCodigo','fDescricao','fMarca','fSerie','fFaixa','fResolucao','fUnidade','fSetor','fUltimaCalib','fProximaCalib','fCertificado','fCriterio','fLaboratorio','fAnexo'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  document.getElementById('fModelo').value='Digital';
+  document.getElementById('fSituacao').value='Em uso';
+  document.getElementById('fResponsavel').selectedIndex=0;
+  document.getElementById('fPeriodicidade').value='12';
+  removeFAnexo(); limparErros();
+}
+function salvarEquipamento(){
+  limparErros();
+  const codigo=document.getElementById('fCodigo').value.trim();
+  const descricao=document.getElementById('fDescricao').value.trim();
+  if(!codigo){ marcarErro('fCodigo','Informe o código / TAG do equipamento.'); return; }
+  if(!descricao){ marcarErro('fDescricao','Informe a descrição / nome.'); return; }
+  const equips = store.get('qps_equipamentos')||[];
+  const ult=document.getElementById('fUltimaCalib').value;
+  const per=document.getElementById('fPeriodicidade').value;
+  const rec = {
+    id: uid('EQ', equips), codigo, descricao,
+    modelo: document.getElementById('fModelo').value, marca: document.getElementById('fMarca').value, serie: document.getElementById('fSerie').value,
+    faixa: document.getElementById('fFaixa').value, resolucao: document.getElementById('fResolucao').value, unidade: document.getElementById('fUnidade').value,
+    setor: document.getElementById('fSetor').value, responsavel: document.getElementById('fResponsavel').value,
+    situacao: document.getElementById('fSituacao').value, ultimaCalib: ult, periodicidade: per,
+    proximaCalib: (ult&&per)?addMonths(ult,per):'',
+    certificado: document.getElementById('fCertificado').value, laboratorio: document.getElementById('fLaboratorio').value, criterio: document.getElementById('fCriterio').value,
+    anexo: document.getElementById('fAnexo').value
+  };
+  equips.push(rec);
+  store.set('qps_equipamentos', equips);
+  renderKpis();
+  showToast('Equipamento cadastrado com sucesso');
+  limparCadastro();
+}
+
+
+/* ===================== ABA 2: CONTROLE ===================== */
+let ctrlFilters = { situacao:'', setor:'', modelo:'', busca:'' };
+function controleHTML(){
+  let eq = store.get('qps_equipamentos')||[];
+  const setores = Array.from(new Set(eq.map(e=>e.setor))).filter(Boolean);
+  const opt=(arr,sel)=>['<option value="">Todos</option>'].concat(arr.map(v=>`<option ${sel===v?'selected':''}>${esc(v)}</option>`)).join('');
+
+  const filterBar = `
+  <div class="filter-bar">
+    <div class="fg"><label>Situação</label><select class="input-basic" onchange="setCtrlFilter('situacao',this.value)">
+      <option value="">Todas</option>
+      <option ${ctrlFilters.situacao==='Em uso'?'selected':''}>Em uso</option>
+      <option ${ctrlFilters.situacao==='Em calibração'?'selected':''}>Em calibração</option>
+      <option ${ctrlFilters.situacao==='Fora de uso'?'selected':''}>Fora de uso</option>
+      <option ${ctrlFilters.situacao==='Reprovado'?'selected':''}>Reprovado</option>
+    </select></div>
+    <div class="fg"><label>Setor</label><select class="input-basic" onchange="setCtrlFilter('setor',this.value)">${opt(setores, ctrlFilters.setor)}</select></div>
+    <div class="fg"><label>Modelo</label><select class="input-basic" onchange="setCtrlFilter('modelo',this.value)">
+      <option value="">Todos</option>
+      <option ${ctrlFilters.modelo==='Digital'?'selected':''}>Digital</option>
+      <option ${ctrlFilters.modelo==='Analógico'?'selected':''}>Analógico</option>
+      <option ${ctrlFilters.modelo==='Outro'?'selected':''}>Outro</option>
+    </select></div>
+    <div class="fg"><label>Busca livre</label><input class="input-basic" placeholder="Código, descrição, marca..." value="${esc(ctrlFilters.busca)}" oninput="setCtrlFilter('busca',this.value)"></div>
+    <div class="fg"><label>&nbsp;</label><div class="btn-ghost" style="justify-content:center;" onclick="clearCtrlFilters()">Limpar</div></div>
+  </div>`;
+
+  let filtered = eq.filter(e=>{
+    if(ctrlFilters.situacao && e.situacao!==ctrlFilters.situacao) return false;
+    if(ctrlFilters.setor && e.setor!==ctrlFilters.setor) return false;
+    if(ctrlFilters.modelo && e.modelo!==ctrlFilters.modelo) return false;
+    if(ctrlFilters.busca){ const q=ctrlFilters.busca.toLowerCase(); if(!(`${e.codigo} ${e.descricao} ${e.marca} ${e.serie}`.toLowerCase().includes(q))) return false; }
+    return true;
+  });
+
+  const body = filtered.length ? filtered.map(e=>`
+    <tr>
+      <td class="mono" style="font-weight:700;">${esc(e.codigo)}</td>
+      <td class="desc-cell">${esc(e.descricao)}</td>
+      <td><span class="mchip ${e.modelo==='Digital'?'mchip-blue':(e.modelo==='Analógico'?'mchip-purple':'mchip-gray')}">${esc(e.modelo)}</span></td>
+      <td class="mono">${esc(e.resolucao)||'—'}</td>
+      <td class="desc-cell">${esc(e.setor)||'—'}</td>
+      <td class="desc-cell">${esc(e.responsavel)||'—'}</td>
+      <td class="mono" ${calibVencida(e)?'style="color:var(--accent-red); font-weight:700;" title="Calibração vencida"':''}>${fmtDate(e.proximaCalib)}</td>
+      <td>${situacaoEfetivaPill(e)}</td>
+      <td>
+        <div class="row-actions">
+          <div class="abtn" onclick="openEquip('${e.id}')" title="Editar / ver"><svg class="icon" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></div>
+          <div class="abtn danger" onclick="deleteEquip('${e.id}')" title="Excluir"><svg class="icon" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></div>
+        </div>
+      </td>
+    </tr>`).join('') : `<tr><td colspan="9"><div class="empty-state">Nenhum equipamento encontrado.</div></td></tr>`;
+
+  return filterBar + `
+  <div class="dcc">
+    <div class="dcc-hd">
+      <div><div class="dcc-title">Controle de Equipamentos</div><div class="dcc-sub">${filtered.length} equipamento(s) · controle metrológico</div></div>
+      <div class="btn-grad" onclick="switchTab('cadastro'); document.querySelectorAll('#mainTabs .ctx-tab').forEach(el=>el.classList.toggle('active', el.dataset.tab==='cadastro'));"><svg class="icon" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Novo equipamento</div>
+    </div>
+    <table class="ctxtbl compact">
+      <colgroup><col style="width:10%"><col style="width:18%"><col style="width:9%"><col style="width:10%"><col style="width:12%"><col style="width:13%"><col style="width:10%"><col style="width:11%"><col style="width:7%"></colgroup>
+      <thead><tr><th>Código</th><th>Descrição</th><th>Modelo</th><th>Resolução</th><th>Setor</th><th>Responsável</th><th>Próx. calib.</th><th>Situação</th><th>Ações</th></tr></thead>
+      <tbody>${body}</tbody>
+    </table>
+  </div>`;
+}
+function setCtrlFilter(k,v){ ctrlFilters[k]=v; renderTab(); }
+function clearCtrlFilters(){ ctrlFilters={situacao:'',setor:'',modelo:'',busca:''}; renderTab(); }
+
+/* ---- Editar equipamento ---- */
+function calcProximaEdit(){
+  const ult=document.getElementById('eqUltimaCalib').value;
+  const per=document.getElementById('eqPeriodicidade').value;
+  document.getElementById('eqProximaCalib').value = (ult && per) ? fmtDate(addMonths(ult, per)) : '';
+}
+function handleEqAnexo(e){ const f=e.target.files[0]; if(!f) return; if(f.size>5*1024*1024){alert('Arquivo muito grande (máx. 5MB).'); e.target.value=''; return;} document.getElementById('eqAnexo').value=f.name; document.getElementById('eqAnexoName').textContent='📎 '+f.name; document.getElementById('eqAnexoRemove').style.display='flex'; }
+function removeEqAnexo(){ document.getElementById('eqAnexo').value=''; document.getElementById('eqAnexoName').textContent='Nenhum arquivo selecionado'; document.getElementById('eqAnexoRemove').style.display='none'; }
+function openEquip(id){
+  const e=(store.get('qps_equipamentos')||[]).find(x=>x.id===id); if(!e) return;
+  document.getElementById('eqEditId').value=e.id;
+  document.getElementById('eqModalTitle').textContent=`${e.codigo} — ${e.descricao}`;
+  document.getElementById('eqResponsavel').innerHTML = ROSTER.map(p=>`<option ${e.responsavel===p?'selected':''}>${p}</option>`).join('');
+  document.getElementById('eqCodigo').value=e.codigo;
+  document.getElementById('eqDescricao').value=e.descricao;
+  document.getElementById('eqModelo').value=e.modelo||'Digital';
+  document.getElementById('eqMarca').value=e.marca||'';
+  document.getElementById('eqSerie').value=e.serie||'';
+  document.getElementById('eqFaixa').value=e.faixa||'';
+  document.getElementById('eqResolucao').value=e.resolucao||'';
+  document.getElementById('eqUnidade').value=e.unidade||'';
+  document.getElementById('eqSetor').value=e.setor||'';
+  document.getElementById('eqSituacao').value=e.situacao||'Em uso';
+  document.getElementById('eqUltimaCalib').value=e.ultimaCalib||'';
+  document.getElementById('eqPeriodicidade').value=e.periodicidade||'';
+  document.getElementById('eqCertificado').value=e.certificado||'';
+  document.getElementById('eqCriterio').value=e.criterio||'';
+  document.getElementById('eqLaboratorio').value=e.laboratorio||'';
+  document.getElementById('eqAnexo').value=e.anexo||'';
+  document.getElementById('eqAnexoName').textContent=e.anexo?('📎 '+e.anexo):'Nenhum arquivo selecionado';
+  document.getElementById('eqAnexoRemove').style.display=e.anexo?'flex':'none';
+  calcProximaEdit();
+  openModal('modalEquip');
+}
+function saveEquip(){
+  const equips=store.get('qps_equipamentos')||[];
+  const id=document.getElementById('eqEditId').value;
+  const e=equips.find(x=>x.id===id); if(!e) return;
+  const codigo=document.getElementById('eqCodigo').value.trim();
+  if(!codigo){ alert('Informe o código / TAG.'); return; }
+  const ult=document.getElementById('eqUltimaCalib').value;
+  const per=document.getElementById('eqPeriodicidade').value;
+  Object.assign(e, {
+    codigo, descricao:document.getElementById('eqDescricao').value,
+    modelo:document.getElementById('eqModelo').value, marca:document.getElementById('eqMarca').value, serie:document.getElementById('eqSerie').value,
+    faixa:document.getElementById('eqFaixa').value, resolucao:document.getElementById('eqResolucao').value, unidade:document.getElementById('eqUnidade').value,
+    setor:document.getElementById('eqSetor').value, responsavel:document.getElementById('eqResponsavel').value,
+    situacao:document.getElementById('eqSituacao').value, ultimaCalib:ult, periodicidade:per,
+    proximaCalib:(ult&&per)?addMonths(ult,per):'',
+    certificado:document.getElementById('eqCertificado').value, criterio:document.getElementById('eqCriterio').value, laboratorio:document.getElementById('eqLaboratorio').value,
+    anexo:document.getElementById('eqAnexo').value
+  });
+  store.set('qps_equipamentos', equips);
+  closeModal('modalEquip'); renderKpis(); renderTab();
+  showToast('Equipamento atualizado');
+}
+function deleteEquip(id){ if(!confirm('Excluir este equipamento?')) return; let equips=store.get('qps_equipamentos')||[]; equips=equips.filter(x=>x.id!==id); store.set('qps_equipamentos',equips); renderKpis(); renderTab(); showToast('Equipamento excluído'); }
+
+/* ===================== MODAL HELPERS ===================== */
+function openModal(id){ document.getElementById(id).classList.add('show'); }
+function closeModal(id){ document.getElementById(id).classList.remove('show'); }
+document.querySelectorAll('.modal-overlay').forEach(ov=>{ ov.addEventListener('click', e=>{ if(e.target===ov) ov.classList.remove('show'); }); });
+
+
+/* ===================== ABA 3: DISTRIBUIÇÃO ===================== */
+function initDistData(){
+  if (!Array.isArray(frameState.distributions)) frameState.distributions = [];
+}
+function equipById(id){ return (store.get('qps_equipamentos')||[]).find(e=>e.id===id); }
+function equipLabel(id){ const e=equipById(id); return e?`${e.codigo} — ${e.descricao}`:'(equipamento removido)'; }
+function distStatus(d){
+  if(d.retornoReal) return 'Devolvido';
+  if(d.retornoPrev && d.retornoPrev < todayISO()) return 'Em atraso';
+  return 'Em uso';
+}
+function distStatusPill(s){
+  const map={'Em uso':'st-distuso','Devolvido':'st-devolvido','Em atraso':'st-atraso'};
+  return `<span class="status-pill ${map[s]||'st-distuso'}"><span class="status-dot2"></span>${esc(s)}</span>`;
+}
+let distFilters = { status:'', setor:'', solicitante:'', busca:'' };
+function distribuicaoHTML(){
+  initDistData();
+  let dist = (store.get('qps_eq_dist')||[]).slice().sort((a,b)=>(b.saida||'').localeCompare(a.saida||''));
+  const setores = Array.from(new Set(dist.map(d=>d.setor))).filter(Boolean);
+  const solicitantes = Array.from(new Set(dist.map(d=>d.solicitante))).filter(Boolean);
+  const opt=(arr,sel)=>['<option value="">Todos</option>'].concat(arr.map(v=>`<option ${sel===v?'selected':''}>${esc(v)}</option>`)).join('');
+
+  const filterBar = `
+  <div class="filter-bar">
+    <div class="fg"><label>Status</label><select class="input-basic" onchange="setDistFilter('status',this.value)">
+      <option value="">Todos</option>
+      <option ${distFilters.status==='Em uso'?'selected':''}>Em uso</option>
+      <option ${distFilters.status==='Devolvido'?'selected':''}>Devolvido</option>
+      <option ${distFilters.status==='Em atraso'?'selected':''}>Em atraso</option>
+    </select></div>
+    <div class="fg"><label>Setor destino</label><select class="input-basic" onchange="setDistFilter('setor',this.value)">${opt(setores, distFilters.setor)}</select></div>
+    <div class="fg"><label>Solicitante</label><select class="input-basic" onchange="setDistFilter('solicitante',this.value)">${opt(solicitantes, distFilters.solicitante)}</select></div>
+    <div class="fg"><label>Busca livre</label><input class="input-basic" placeholder="Equipamento, código, obs..." value="${esc(distFilters.busca)}" oninput="setDistFilter('busca',this.value)"></div>
+    <div class="fg"><label>&nbsp;</label><div class="btn-ghost" style="justify-content:center;" onclick="clearDistFilters()">Limpar</div></div>
+  </div>`;
+
+  let filtered = dist.filter(d=>{
+    const st = distStatus(d);
+    if(distFilters.status && st!==distFilters.status) return false;
+    if(distFilters.setor && d.setor!==distFilters.setor) return false;
+    if(distFilters.solicitante && d.solicitante!==distFilters.solicitante) return false;
+    if(distFilters.busca){ const q=distFilters.busca.toLowerCase(); if(!(`${equipLabel(d.equipId)} ${d.solicitante} ${d.setor} ${d.obs||''}`.toLowerCase().includes(q))) return false; }
+    return true;
+  });
+
+  const body = filtered.length ? filtered.map(d=>{
+    const st = distStatus(d);
+    const atrasado = st==='Em atraso';
+    return `
+    <tr>
+      <td class="desc-cell" style="color:var(--text-primary); font-weight:600;">${esc(equipLabel(d.equipId))}</td>
+      <td class="desc-cell">${esc(d.solicitante)}</td>
+      <td class="desc-cell">${esc(d.setor)||'—'}</td>
+      <td class="mono">${fmtDate(d.saida)}</td>
+      <td class="mono" ${atrasado?'style="color:var(--accent-red); font-weight:700;" title="Retorno em atraso"':''}>${fmtDate(d.retornoPrev)}</td>
+      <td class="mono">${d.retornoReal?fmtDate(d.retornoReal):'<span style="color:var(--text-muted);">—</span>'}</td>
+      <td>${distStatusPill(st)}</td>
+      <td>
+        <div class="row-actions">
+          ${ !d.retornoReal ? `<div class="abtn" style="color:var(--accent-green); border-color:rgba(52,211,153,0.4);" onclick="registrarDevolucao('${d.id}')" title="Registrar devolução"><svg class="icon" viewBox="0 0 24 24"><path d="M9 14l-4-4 4-4"/><path d="M5 10h11a4 4 0 0 1 0 8h-1"/></svg></div>` : '' }
+          <div class="abtn" onclick="editDist('${d.id}')" title="Editar"><svg class="icon" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></div>
+          <div class="abtn danger" onclick="deleteDist('${d.id}')" title="Excluir"><svg class="icon" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></div>
+        </div>
+      </td>
+    </tr>`;
+  }).join('') : `<tr><td colspan="8"><div class="empty-state">Nenhuma distribuição encontrada.</div></td></tr>`;
+
+  return filterBar + `
+  <div class="dcc">
+    <div class="dcc-hd">
+      <div><div class="dcc-title">Distribuição de Equipamentos</div><div class="dcc-sub">${filtered.length} registro(s) · saída e retorno de instrumentos</div></div>
+      <div class="btn-grad" onclick="openDist()"><svg class="icon" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Nova distribuição</div>
+    </div>
+    <table class="ctxtbl compact">
+      <colgroup><col style="width:24%"><col style="width:14%"><col style="width:13%"><col style="width:11%"><col style="width:11%"><col style="width:11%"><col style="width:9%"><col style="width:7%"></colgroup>
+      <thead><tr><th>Equipamento</th><th>Solicitante</th><th>Setor destino</th><th>Saída</th><th>Retorno previsto</th><th>Retorno real</th><th>Status</th><th>Ações</th></tr></thead>
+      <tbody>${body}</tbody>
+    </table>
+  </div>`;
+}
+function setDistFilter(k,v){ distFilters[k]=v; renderTab(); }
+function clearDistFilters(){ distFilters={status:'',setor:'',solicitante:'',busca:''}; renderTab(); }
+function preencherDistSelects(){
+  document.getElementById('distSolicitante').innerHTML = ROSTER.map(p=>`<option>${p}</option>`).join('');
+}
+function setEquipCombo(id){
+  const e = equipById(id);
+  document.getElementById('distEquip').value = id||'';
+  document.getElementById('distEquipBusca').value = e ? `${e.codigo} — ${e.descricao}` : '';
+  document.getElementById('distEquipList').classList.remove('show');
+}
+function filtrarEquipCombo(termo){
+  const lista = document.getElementById('distEquipList');
+  const equips = store.get('qps_equipamentos')||[];
+  const q = (termo||'').toLowerCase();
+  // se o texto já corresponde exatamente ao selecionado, não mostra nada
+  const sel = equipById(document.getElementById('distEquip').value);
+  if(sel && termo === `${sel.codigo} — ${sel.descricao}`){ lista.classList.remove('show'); return; }
+  // se digitou e não bate mais com o selecionado, limpa o hidden
+  if(sel && termo !== `${sel.codigo} — ${sel.descricao}`) document.getElementById('distEquip').value='';
+  const res = equips.filter(e=> `${e.codigo} ${e.descricao} ${e.marca||''}`.toLowerCase().includes(q));
+  if(!res.length){ lista.innerHTML = `<div class="combo-empty">Nenhum equipamento encontrado.</div>`; lista.classList.add('show'); return; }
+  lista.innerHTML = res.slice(0,50).map(e=>`<div class="combo-item" onmousedown="setEquipCombo('${e.id}')"><span class="ci-cod">${esc(e.codigo)}</span><span class="ci-desc">${esc(e.descricao)}${e.marca?' · '+esc(e.marca):''}</span></div>`).join('');
+  lista.classList.add('show');
+}
+document.addEventListener('click', e=>{
+  const wrap = e.target.closest && e.target.closest('.combo-wrap');
+  if(!wrap){ const l=document.getElementById('distEquipList'); if(l) l.classList.remove('show'); }
+});
+function openDist(){
+  const equips = store.get('qps_equipamentos')||[];
+  if(!equips.length){ alert('Cadastre um equipamento antes de registrar uma distribuição.'); return; }
+  document.getElementById('distModalTitle').textContent='Nova distribuição';
+  document.getElementById('distEditId').value='';
+  preencherDistSelects();
+  setEquipCombo('');
+  document.getElementById('distSetor').value='';
+  document.getElementById('distSaida').value=todayISO();
+  document.getElementById('distRetornoPrev').value=todayISO();
+  document.getElementById('distObs').value='';
+  openModal('modalDist');
+}
+function editDist(id){
+  const d=(store.get('qps_eq_dist')||[]).find(x=>x.id===id); if(!d) return;
+  document.getElementById('distModalTitle').textContent='Editar distribuição';
+  document.getElementById('distEditId').value=d.id;
+  preencherDistSelects();
+  setEquipCombo(d.equipId);
+  document.getElementById('distSolicitante').value=d.solicitante;
+  document.getElementById('distSetor').value=d.setor||'';
+  document.getElementById('distSaida').value=d.saida||'';
+  document.getElementById('distRetornoPrev').value=d.retornoPrev||'';
+  document.getElementById('distObs').value=d.obs||'';
+  openModal('modalDist');
+}
+function saveDist(){
+  const dist=store.get('qps_eq_dist')||[];
+  const id=document.getElementById('distEditId').value;
+  const equipId=document.getElementById('distEquip').value;
+  const saida=document.getElementById('distSaida').value;
+  if(!equipId){ alert('Selecione um equipamento na lista.'); document.getElementById('distEquipBusca').focus(); return; }
+  if(!saida){ alert('Informe a data de saída.'); return; }
+  const base={
+    equipId,
+    solicitante:document.getElementById('distSolicitante').value,
+    setor:document.getElementById('distSetor').value,
+    saida, retornoPrev:document.getElementById('distRetornoPrev').value,
+    obs:document.getElementById('distObs').value
+  };
+  if(id){
+    const d=dist.find(x=>x.id===id); Object.assign(d, base);
+  } else {
+    dist.push(Object.assign({id:uid('DST',dist), retornoReal:''}, base));
+  }
+  store.set('qps_eq_dist', dist);
+  closeModal('modalDist'); renderTab();
+  showToast(id?'Distribuição atualizada':'Distribuição registrada');
+}
+function registrarDevolucao(id){
+  const dist=store.get('qps_eq_dist')||[]; const d=dist.find(x=>x.id===id); if(!d) return;
+  if(!confirm(`Registrar a devolução de ${equipLabel(d.equipId)} hoje (${fmtDate(todayISO())})?`)) return;
+  d.retornoReal = todayISO();
+  store.set('qps_eq_dist', dist);
+  renderTab();
+  showToast('Devolução registrada');
+}
+function deleteDist(id){ if(!confirm('Excluir este registro de distribuição?')) return; let dist=store.get('qps_eq_dist')||[]; dist=dist.filter(x=>x.id!==id); store.set('qps_eq_dist',dist); renderTab(); showToast('Registro excluído'); }
+
+
+/* ===================== ABA 4: INDICADORES ===================== */
+function computeEqAgg(){
+  const eq = store.get('qps_equipamentos')||[];
+  const dist = store.get('qps_eq_dist')||[];
+
+  // situação (com alertas de calibração)
+  const sitOrder = ['Em uso','Em calibração','Fora de uso','Reprovado','Prestes a vencer','Vencida'];
+  const porSit = {}; sitOrder.forEach(s=>porSit[s]=0);
+  eq.forEach(e=>{
+    if(calibVencida(e)) porSit['Vencida']++;
+    else if(calibPrestesVencer(e)) porSit['Prestes a vencer']++;
+    else porSit[e.situacao]=(porSit[e.situacao]||0)+1;
+  });
+
+  // por setor
+  const porSetor = {};
+  eq.forEach(e=>{ if(e.setor) porSetor[e.setor]=(porSetor[e.setor]||0)+1; });
+
+  // por modelo
+  const modeloOrder = ['Digital','Analógico','Outro'];
+  const porModelo = {}; modeloOrder.forEach(m=>porModelo[m]=0);
+  eq.forEach(e=>{ porModelo[e.modelo]=(porModelo[e.modelo]||0)+1; });
+
+  // por marca (treemap)
+  const porMarca = {};
+  eq.forEach(e=>{ const m=e.marca||'Sem marca'; porMarca[m]=(porMarca[m]||0)+1; });
+
+  // calibrações vencendo por mês (próximos 12 meses) + acumulado
+  const now=new Date();
+  const meses=[]; for(let i=0;i<12;i++){ const d=new Date(now.getFullYear(), now.getMonth()+i, 1); meses.push(d.toISOString().slice(0,7)); }
+  const calibMes={}; meses.forEach(m=>calibMes[m]=0);
+  eq.forEach(e=>{ const mk=(e.proximaCalib||'').slice(0,7); if(mk in calibMes) calibMes[mk]++; });
+  const calibVals=meses.map(m=>calibMes[m]);
+  const acumulado=[]; let acc=0; calibVals.forEach(v=>{ acc+=v; acumulado.push(acc); });
+
+  // distribuições (saídas) por mês — últimos 12 meses
+  const mesesPass=[]; for(let i=11;i>=0;i--){ const d=new Date(now.getFullYear(), now.getMonth()-i, 1); mesesPass.push(d.toISOString().slice(0,7)); }
+  const distMes={}; mesesPass.forEach(m=>distMes[m]=0);
+  dist.forEach(d=>{ const mk=(d.saida||'').slice(0,7); if(mk in distMes) distMes[mk]++; });
+
+  // cards
+  const total = eq.length;
+  const emUso = eq.filter(e=>e.situacao==='Em uso' && !calibVencida(e) && !calibPrestesVencer(e)).length;
+  const prestes = eq.filter(calibPrestesVencer).length;
+  const vencidas = eq.filter(calibVencida).length;
+
+  return { total, emUso, prestes, vencidas, sitOrder, porSit, porSetor, modeloOrder, porModelo, porMarca,
+    meses, calibVals, acumulado, mesesPass, distMes };
+}
+function indicadoresHTML(){
+  const a = computeEqAgg();
+  return `
+  <div class="dash-cards">
+    <div class="dash-solid-card clickable" style="--card-bg:#4fa3ff;" onclick="verCategoria('total')">
+      <div class="sc-icon"><svg class="icon" viewBox="0 0 24 24"><path d="M2 12h4l3 8 4-16 3 8h6"/></svg></div>
+      <div class="sc-label">Total de equipamentos</div><div class="sc-value">${a.total}</div><div class="sc-caption">instrumentos cadastrados <span class="sc-ver">ver lista ›</span></div>
+    </div>
+    <div class="dash-solid-card clickable" style="--card-bg:#34D399;" onclick="verCategoria('emuso')">
+      <div class="sc-icon"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 12l2 2 4-4"/></svg></div>
+      <div class="sc-label">Em uso</div><div class="sc-value">${a.emUso}</div><div class="sc-caption">calibrados e disponíveis <span class="sc-ver">ver lista ›</span></div>
+    </div>
+    <div class="dash-solid-card clickable" style="--card-bg:#FBBF24;" onclick="verCategoria('prestes')">
+      <div class="sc-icon"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg></div>
+      <div class="sc-label">Prestes a vencer</div><div class="sc-value">${a.prestes}</div><div class="sc-caption">calibração em até 1 mês <span class="sc-ver">ver lista ›</span></div>
+    </div>
+    <div class="dash-solid-card clickable" style="--card-bg:#F87171;" onclick="verCategoria('vencida')">
+      <div class="sc-icon"><svg class="icon" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/></svg></div>
+      <div class="sc-label">Calibração vencida</div><div class="sc-value">${a.vencidas}</div><div class="sc-caption">fora do prazo <span class="sc-ver">ver lista ›</span></div>
+    </div>
+  </div>
+
+  <div class="chart-grid">
+    <div class="chart-card full"><div class="chart-card-hd"><h4>Calibrações a vencer — próximos 12 meses</h4><div class="sub">Combinado: quantidade por mês (barras) + acumulado (linha)</div></div><div class="chart-holder"><canvas id="eqCombo"></canvas></div></div>
+    <div class="chart-card"><div class="chart-card-hd"><h4>Equipamentos por setor</h4><div class="sub">Distribuição por localização (barras)</div></div><div class="chart-holder"><canvas id="eqSetor"></canvas></div></div>
+    <div class="chart-card"><div class="chart-card-hd"><h4>Equipamentos por modelo</h4><div class="sub">Digital · Analógico · Outro (rosca)</div></div><div class="chart-holder"><canvas id="eqModelo"></canvas></div></div>
+    <div class="chart-card full"><div class="chart-card-hd"><h4>Distribuições por mês</h4><div class="sub">Saídas de equipamentos nos últimos 12 meses (linha)</div></div><div class="chart-holder"><canvas id="eqDist"></canvas></div></div>
+    <div class="chart-card"><div class="chart-card-hd"><h4>Situação dos equipamentos</h4><div class="sub">Panorama por situação (radar)</div></div><div class="chart-holder"><canvas id="eqRadar"></canvas></div></div>
+    <div class="chart-card"><div class="chart-card-hd"><h4>Equipamentos por marca</h4><div class="sub">Área proporcional à quantidade (mapa de árvore)</div></div><div class="chart-holder"><canvas id="eqTree"></canvas></div></div>
+  </div>`;
+}
+let eqCharts = {};
+function initEqCharts(){
+  if(typeof Chart==='undefined') return;
+  if(window.ChartDataLabels && !window._dl){ Chart.register(window.ChartDataLabels); Chart.defaults.set('plugins.datalabels',{display:false}); window._dl=true; }
+  const hasDL=!!window.ChartDataLabels;
+  const C={cyan:'#46D9F5',blue:'#4fa3ff',gold:'#F2B705',green:'#34D399',amber:'#FBBF24',red:'#F87171',orange:'#fb923c',purple:'#A78BFA',gray:'#9fb4d0'};
+  const palette=[C.blue,C.green,C.gold,C.purple,C.cyan,C.orange,C.red,C.amber];
+  const text='#9fb4d0', grid='rgba(255,255,255,0.08)';
+  Chart.defaults.color=text; Chart.defaults.font.family="'Plus Jakarta Sans', sans-serif"; Chart.defaults.borderColor=grid;
+  const a=computeEqAgg();
+  function mk(id,cfg){ const cv=document.getElementById(id); if(!cv) return; if(eqCharts[id]) eqCharts[id].destroy(); eqCharts[id]=new Chart(cv.getContext('2d'),cfg); }
+  const dlBar=hasDL?{datalabels:{display:(c)=>Number(c.dataset.data[c.dataIndex])>0,anchor:'end',align:'end',offset:2,color:text,font:{weight:'700',size:11},formatter:v=>v}}:{};
+  const dlPie=hasDL?{datalabels:{display:(c)=>Number(c.dataset.data[c.dataIndex])>0,color:'#06101f',font:{weight:'800',size:12},formatter:v=>v}}:{};
+  const legend={position:'bottom',labels:{color:text,boxWidth:12,padding:12,font:{size:11}}};
+  const gs={grid:{color:grid},ticks:{color:text,font:{size:11}}};
+  function mkDoughnut(id,labels,values,colors){
+    const canvas=document.getElementById(id);
+    const design=window.QualityProDoughnut?.decorate(canvas,{labels,values,colors});
+    mk(id,{type:'doughnut',data:{labels,datasets:[{data:values,backgroundColor:design?.dataset.backgroundColor||colors,borderColor:design?.dataset.borderColor||'#10233f',borderWidth:design?.dataset.borderWidth??2,borderRadius:design?.dataset.borderRadius,spacing:design?.dataset.spacing,hoverOffset:design?.dataset.hoverOffset}]},options:{responsive:true,maintainAspectRatio:false,...(design?.options||{cutout:'60%',plugins:{legend,...dlPie}})}});
+    if(design) design.bind(eqCharts[id]);
+  }
+  const mesLbl=(m)=>{ const [y,mm]=m.split('-'); return mm+'/'+y.slice(2); };
+
+  // 1. Combinado: calibrações por mês (barras) + acumulado (linha)
+  mk('eqCombo',{
+    data:{ labels:a.meses.map(mesLbl), datasets:[
+      { type:'bar', label:'Calibrações no mês', data:a.calibVals, backgroundColor:C.blue, borderRadius:5, order:2, datalabels:(dlBar.datalabels||undefined) },
+      { type:'line', label:'Acumulado', data:a.acumulado, borderColor:C.gold, backgroundColor:C.gold, tension:0.3, pointRadius:3, order:1, datalabels: undefined }
+    ]},
+    options:{ responsive:true, maintainAspectRatio:false, layout:{padding:{top:hasDL?14:0}}, plugins:{ legend }, scales:{ x:{...gs}, y:{ beginAtZero:true, ...gs, ticks:{...gs.ticks, precision:0} } } }
+  });
+  // 2. Por setor (barras)
+  const setorLbl=Object.keys(a.porSetor), setorVal=Object.values(a.porSetor);
+  mk('eqSetor',{ type:'bar',
+    data:{ labels:setorLbl, datasets:[{ label:'Equipamentos', data:setorVal, backgroundColor:C.green, borderRadius:6 }] },
+    options:{ responsive:true, maintainAspectRatio:false, layout:{padding:{top:hasDL?14:0}}, plugins:{ legend:{display:false}, ...dlBar }, scales:{ x:{...gs, ticks:{...gs.ticks, font:{size:10}}}, y:{ beginAtZero:true, ...gs, ticks:{...gs.ticks, precision:0} } } }
+  });
+  // 3. Por modelo (rosca)
+  mkDoughnut('eqModelo',a.modeloOrder,a.modeloOrder.map(m=>a.porModelo[m]||0),[C.blue,C.purple,C.gray]);
+  // 4. Distribuições por mês (linha)
+  mk('eqDist',{ type:'line',
+    data:{ labels:a.mesesPass.map(mesLbl), datasets:[{ label:'Distribuições', data:a.mesesPass.map(m=>a.distMes[m]||0), borderColor:C.cyan, backgroundColor:'rgba(70,217,245,0.14)', fill:true, tension:0.35, pointRadius:3, pointBackgroundColor:C.cyan }] },
+    options:{ responsive:true, maintainAspectRatio:false, layout:{padding:{top:hasDL?16:0}}, plugins:{ legend:{display:false}, ...dlBar }, scales:{ x:{...gs}, y:{ beginAtZero:true, ...gs, ticks:{...gs.ticks, precision:0} } } }
+  });
+  // 5. Situação (radar)
+  mk('eqRadar',{ type:'radar',
+    data:{ labels:a.sitOrder, datasets:[{ label:'Equipamentos', data:a.sitOrder.map(s=>a.porSit[s]||0), backgroundColor:'rgba(79,163,255,0.2)', borderColor:C.blue, pointBackgroundColor:C.blue, borderWidth:2 }] },
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{display:false} }, scales:{ r:{ angleLines:{color:grid}, grid:{color:grid}, pointLabels:{color:text, font:{size:10.5}}, ticks:{ color:text, backdropColor:'transparent', precision:0 } } } }
+  });
+  // 6. Por marca (treemap)
+  const marcaData = Object.entries(a.porMarca).map(([k,v])=>({marca:k, valor:v}));
+  const treeOk = (typeof window!=='undefined') && Chart.registry.controllers.map && Chart.registry.controllers.map['treemap'];
+  if(treeOk){
+    mk('eqTree',{ type:'treemap',
+      data:{ datasets:[{
+        tree: marcaData, key:'valor', groups:['marca'],
+        backgroundColor:(ctx)=>{ const i=ctx.dataIndex||0; return palette[i%palette.length]; },
+        borderColor:'#10233f', borderWidth:2, spacing:1,
+        labels:{ display:true, color:'#06101f', font:{weight:'700',size:12}, formatter:(ctx)=>{ const it=ctx.raw&&ctx.raw._data; return it?[it.marca, it.valor+'']:''; } }
+      }]},
+      options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{display:false}, datalabels:{display:false} } }
+    });
+  } else {
+    mk('eqTree',{ type:'bar',
+      data:{ labels:marcaData.map((item)=>item.marca), datasets:[{ data:marcaData.map((item)=>item.valor), backgroundColor:marcaData.map((_,index)=>palette[index%palette.length]), borderRadius:6 }] },
+      options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{display:false}, datalabels:{display:false} }, scales:{ x:{...gs}, y:{beginAtZero:true,...gs,ticks:{...gs.ticks,precision:0}} } }
+    });
+  }
+}
+
+/* ===================== KPIs ===================== */
+
+
+
+function renderKpis(){
+  const eq = store.get('qps_equipamentos')||[];
+  const total = eq.length;
+  const emUso = eq.filter(e=>e.situacao==='Em uso').length;
+  const emCalib = eq.filter(e=>e.situacao==='Em calibração').length;
+  const vencidos = eq.filter(calibVencida).length;
+  document.getElementById('kpiRow').innerHTML = `
+    <div class="kpi-card clickable" style="--accent-line:#4fa3ff;" onclick="verCategoria('total')">
+      <div class="kpi-top"><div class="kpi-icon" style="border-color:rgba(79,163,255,0.45); color:#4fa3ff;"><svg class="icon" viewBox="0 0 24 24"><path d="M2 12h4l3 8 4-16 3 8h6"/></svg></div>
+        <div><div class="kpi-label">Total de equipamentos</div><div class="kpi-value big">${total}</div></div></div>
+      <div class="kpi-caption">instrumentos cadastrados <span class="kpi-ver">ver lista ›</span></div>
+    </div>
+    <div class="kpi-card clickable" style="--accent-line:#34D399;" onclick="verCategoria('emuso')">
+      <div class="kpi-top"><div class="kpi-icon" style="border-color:rgba(52,211,153,0.45); color:#34D399;"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 12l2 2 4-4"/></svg></div>
+        <div><div class="kpi-label">Em uso</div><div class="kpi-value big">${emUso}</div></div></div>
+      <div class="kpi-caption">disponíveis e calibrados <span class="kpi-ver">ver lista ›</span></div>
+    </div>
+    <div class="kpi-card clickable" style="--accent-line:#46D9F5;" onclick="verCategoria('emcalib')">
+      <div class="kpi-top"><div class="kpi-icon" style="border-color:rgba(70,217,245,0.45); color:#46D9F5;"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg></div>
+        <div><div class="kpi-label">Em calibração</div><div class="kpi-value big">${emCalib}</div></div></div>
+      <div class="kpi-caption">no laboratório <span class="kpi-ver">ver lista ›</span></div>
+    </div>
+    <div class="kpi-card clickable" style="--accent-line:#F2B705;" onclick="verCategoria('vencida')">
+      <div class="kpi-top"><div class="kpi-icon" style="border-color:rgba(242,183,5,0.45); color:#F2B705;"><svg class="icon" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/></svg></div>
+        <div><div class="kpi-label">Calibração vencida</div><div class="kpi-value big">${vencidos}</div></div></div>
+      <div class="kpi-caption">fora do prazo <span class="kpi-ver">ver lista ›</span></div>
+    </div>`;
+}
+
+/* ===================== LISTA POR CATEGORIA (cards clicáveis) ===================== */
+function filtrarCategoria(cat){
+  const eq = store.get('qps_equipamentos')||[];
+  const M = {
+    total:      { titulo:'Todos os equipamentos', fn:()=>true },
+    emuso:      { titulo:'Equipamentos em uso', fn:e=>e.situacao==='Em uso' && !calibVencida(e) && !calibPrestesVencer(e) },
+    emcalib:    { titulo:'Equipamentos em calibração', fn:e=>e.situacao==='Em calibração' },
+    foradeuso:  { titulo:'Equipamentos fora de uso', fn:e=>e.situacao==='Fora de uso' },
+    reprovado:  { titulo:'Equipamentos reprovados', fn:e=>e.situacao==='Reprovado' },
+    prestes:    { titulo:'Calibração prestes a vencer', fn:e=>calibPrestesVencer(e) },
+    vencida:    { titulo:'Calibração vencida', fn:e=>calibVencida(e) }
+  };
+  const conf = M[cat] || M.total;
+  return { titulo: conf.titulo, itens: eq.filter(conf.fn) };
+}
+function verCategoria(cat){
+  const { titulo, itens } = filtrarCategoria(cat);
+  document.getElementById('catTitle').textContent = titulo;
+  document.getElementById('catSub').textContent = `${itens.length} equipamento(s)`;
+  const body = itens.length ? `
+    <table class="ctxtbl compact">
+      <colgroup><col style="width:13%"><col style="width:26%"><col style="width:12%"><col style="width:16%"><col style="width:14%"><col style="width:19%"></colgroup>
+      <thead><tr><th>Código</th><th>Descrição</th><th>Modelo</th><th>Setor</th><th>Próx. calib.</th><th>Situação</th></tr></thead>
+      <tbody>${itens.map(e=>`
+        <tr>
+          <td class="mono" style="font-weight:700;">${esc(e.codigo)}</td>
+          <td class="desc-cell">${esc(e.descricao)}</td>
+          <td><span class="mchip ${e.modelo==='Digital'?'mchip-blue':(e.modelo==='Analógico'?'mchip-purple':'mchip-gray')}">${esc(e.modelo)}</span></td>
+          <td class="desc-cell">${esc(e.setor)||'—'}</td>
+          <td class="mono" ${calibVencida(e)?'style="color:var(--accent-red); font-weight:700;"':''}>${fmtDate(e.proximaCalib)}</td>
+          <td>${situacaoEfetivaPill(e)}</td>
+        </tr>`).join('')}</tbody>
+    </table>` : `<div class="empty-state">Nenhum equipamento nesta categoria.</div>`;
+  document.getElementById('catBody').innerHTML = body;
+  openModal('modalCategoria');
+}
+
+/* ===================== TOAST ===================== */
+let _toastTimer=null;
+function showToast(texto){
+  const t=document.getElementById('toast'); if(!t) return;
+  document.getElementById('toastText').textContent = texto || 'Salvo com sucesso';
+  t.classList.add('show');
+  if(_toastTimer) clearTimeout(_toastTimer);
+  _toastTimer=setTimeout(()=>t.classList.remove('show'), 2600);
+}
+
+/* ===================== HOST INTEGRATION ===================== */
+function reportFrameHeight(){
+  const height = Math.max(620, document.documentElement.scrollHeight, document.body.scrollHeight);
+  window.parent.postMessage({ type: 'qualitypro:equipment:resize', height }, window.location.origin);
+}
+
+function hydrateEquipment(payload){
+  frameState.equipment = Array.isArray(payload.equipment) ? clone(payload.equipment) : [];
+  frameState.distributions = Array.isArray(payload.distributions) ? clone(payload.distributions) : [];
+  ROSTER = Array.isArray(payload.roster) ? payload.roster.filter(Boolean) : [];
+  if (!ROSTER.length && payload.currentUser?.name) ROSTER = [payload.currentUser.name];
+  document.documentElement.dataset.theme = payload.theme || 'dark';
+  equipmentHydrated = true;
+  initData();
+  initDistData();
+  renderKpis();
+  renderTab();
+  reportFrameHeight();
+}
+
+window.addEventListener('message', (event) => {
+  if (event.origin !== window.location.origin) return;
+  if (event.data?.type === 'qualitypro:equipment:hydrate') hydrateEquipment(event.data);
+});
+
+new ResizeObserver(reportFrameHeight).observe(document.body);
+window.parent.postMessage({ type: 'qualitypro:equipment:ready' }, window.location.origin);
+reportFrameHeight();
+</script>
+
+
+</body>
+</html>
