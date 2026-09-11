@@ -14,6 +14,48 @@ body.audits-reg-modal-open {
   overflow: hidden;
 }
 
+/* Mantém o iframe no espaço visível enquanto um modal de Auditorias estiver aberto. */
+body.audits-reg-modal-open .app-shell {
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+}
+
+body.audits-reg-modal-open .main-area,
+body.audits-reg-modal-open .page-content,
+body.audits-reg-modal-open .audits-module-shell,
+body.audits-reg-modal-open .audits-module-frame {
+  min-height: 0;
+  overflow: hidden;
+}
+
+body.audits-reg-modal-open .audits-module-shell,
+body.audits-reg-modal-open .audits-module-frame {
+  height: 100%;
+}
+
+body.audits-reg-modal-open .page-content {
+  display: flex;
+  flex-direction: column;
+}
+
+body.audits-reg-modal-open .audits-module-shell,
+body.audits-reg-modal-open .audits-module-frame {
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+
+body.audits-reg-modal-open .audits-module-shell,
+body.audits-reg-modal-open .audits-module-frame {
+  flex: 0 0 auto;
+  height: calc(100dvh - 116px);
+  max-height: calc(100dvh - 116px);
+}
+
+body.audits-reg-modal-open .app-footer {
+  display: none;
+}
+
 @media (max-width: 900px) {
   .audits-module-frame {
     min-height: 0;

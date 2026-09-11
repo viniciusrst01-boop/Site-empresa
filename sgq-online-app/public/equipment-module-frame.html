@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
 <script src="/vendor/chart.umd.js"></script>
 <script src="/vendor/chartjs-plugin-datalabels.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chartjs-chart-treemap@2.3.0/dist/chartjs-chart-treemap.min.js"></script>
+<script src="/vendor/chartjs-chart-treemap.min.js"></script>
 <script src="/doughnut-layout.js?v=20260911-unified"></script>
 <style>
   :root {
@@ -1014,7 +1014,7 @@ function initEqCharts(){
   const hasDL=!!window.ChartDataLabels;
   const C={cyan:'#46D9F5',blue:'#4fa3ff',gold:'#F2B705',green:'#34D399',amber:'#FBBF24',red:'#F87171',orange:'#fb923c',purple:'#A78BFA',gray:'#9fb4d0'};
   const palette=[C.blue,C.green,C.gold,C.purple,C.cyan,C.orange,C.red,C.amber];
-  const text='#9fb4d0', grid='rgba(255,255,255,0.08)';
+  const text='#9fb4d0', grid='rgba(255,255,255,0.08)', panel=getComputedStyle(document.documentElement).getPropertyValue('--bg-panel').trim() || '#10233f';
   Chart.defaults.color=text; Chart.defaults.font.family="'Plus Jakarta Sans', sans-serif"; Chart.defaults.borderColor=grid;
   const a=computeEqAgg();
   function mk(id,cfg){ const cv=document.getElementById(id); if(!cv) return; if(eqCharts[id]) eqCharts[id].destroy(); eqCharts[id]=new Chart(cv.getContext('2d'),cfg); }
@@ -1058,14 +1058,17 @@ function initEqCharts(){
   });
   // 6. Por marca (treemap)
   const marcaData = Object.entries(a.porMarca).map(([k,v])=>({marca:k, valor:v}));
-  const treeOk = (typeof window!=='undefined') && Chart.registry.controllers.map && Chart.registry.controllers.map['treemap'];
+  const treeOk = (() => {
+    try { return Boolean(Chart.registry.controllers.get('treemap')); }
+    catch { return false; }
+  })();
   if(treeOk){
     mk('eqTree',{ type:'treemap',
       data:{ datasets:[{
         tree: marcaData, key:'valor', groups:['marca'],
         backgroundColor:(ctx)=>{ const i=ctx.dataIndex||0; return palette[i%palette.length]; },
-        borderColor:'#10233f', borderWidth:2, spacing:1,
-        labels:{ display:true, color:'#06101f', font:{weight:'700',size:12}, formatter:(ctx)=>{ const it=ctx.raw&&ctx.raw._data; return it?[it.marca, it.valor+'']:''; } }
+        borderColor:panel, borderWidth:3, spacing:2,
+        labels:{ display:true, color:'#06101f', font:{weight:'700',size:12}, formatter:(ctx)=>{ const it=ctx.raw&&ctx.raw._data; return it?[it.marca, String(it.valor)]:''; } }
       }]},
       options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{display:false}, datalabels:{display:false} } }
     });

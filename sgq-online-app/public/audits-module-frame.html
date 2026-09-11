@@ -235,8 +235,14 @@
   .modal-box.xwide { width: 1080px; }
   .modal-box.full { width: 96vw; max-width: 1200px; }
   /* Registro de auditoria: desktop compacto, sem rolagem interna. */
-  #modalReg { padding: 15px; overflow: hidden; }
-  #modalReg .modal-box.wide { width: min(95vw, 1500px); max-height: calc(100vh - 30px); overflow: hidden; padding: 13px 16px 10px; }
+  #modalReg { padding: 15px; overflow: clip; overscroll-behavior: contain; }
+  #modalReg .modal-box.wide { width: min(95vw, 1500px); max-height: calc(100dvh - 30px); overflow: hidden; padding: 13px 16px 10px; }
+  @media (min-width: 901px) {
+    #modalReg .modal-box.wide { zoom: 0.96; }
+  }
+  @media (min-width: 901px) and (max-width: 1100px) {
+    #modalReg .modal-box.wide { zoom: 0.88; }
+  }
   #modalReg .modal-hd { align-items: center; gap: 14px; margin-bottom: 8px; }
   #modalReg .reg-heading { display: flex; align-items: center; gap: 12px; min-width: 0; }
   #modalReg .reg-heading-icon { width: 42px; height: 42px; display: flex; align-items: center; justify-content: center; flex: 0 0 auto; color: var(--accent-cyan); border: 1px solid rgba(70,217,245,0.32); border-radius: 9px; background: rgba(47,143,240,0.08); }
@@ -259,6 +265,8 @@
   #modalReg .reg-resource-card { border: 1px solid var(--border-subtle); border-radius: 10px; padding: 8px 10px; min-width: 0; }
   #modalReg .reg-resource-card .form-section-label { margin-bottom: 7px; }
   #modalReg .reg-resource-card .card-hint, #modalReg #relatoriosHint { margin: 0 0 7px; color: var(--text-secondary); font-size: 10.5px; line-height: 1.3; }
+  #modalReg .plan-document-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0; align-items: end; }
+  #modalReg .plan-document-options .upload-row { flex-wrap: wrap; }
   #modalReg .doc-btn-wrap { gap: 4px; }
   #modalReg .btn-ghost, #modalReg .btn-primary, #modalReg .upload-btn { min-height: 32px; padding: 7px 10px; border-radius: 8px; font-size: 11px; }
   #modalReg .btn-ghost { display: inline-flex; align-items: center; justify-content: center; }
@@ -269,6 +277,39 @@
   #modalReg .saved-badge { font-size: 10px; }
   #modalReg .modal-actions { margin-top: 8px; gap: 8px; }
   #modalReg .saved-msg { font-size: 11px; }
+  /* Resumo: cabe inteiramente na viewport, sem criar uma barra interna. */
+  #modalDet { padding: 14px; overflow: hidden; }
+  #modalDet .modal-box { width: min(92vw, 860px); max-height: calc(100dvh - 28px); overflow: hidden; padding: 16px 20px 12px; }
+  #modalDet .modal-hd { margin-bottom: 10px; }
+  #modalDet .detail-grid { gap: 8px 14px; margin-bottom: 10px; }
+  #modalDet .detail-item .l { font-size: 9px; margin-bottom: 2px; }
+  #modalDet .detail-item .v { font-size: 11.5px; }
+  #modalDet .detail-block { margin-bottom: 9px; }
+  #modalDet .detail-block h5 { margin-bottom: 4px; font-size: 10px; }
+  #modalDet .detail-block p { font-size: 11.5px; line-height: 1.35; }
+  #modalDet .team-chips { gap: 4px; }
+  #modalDet .team-chip { padding: 3px 7px; font-size: 10px; }
+  #modalDet .team-chip .av { width: 17px; height: 17px; font-size: 8px; }
+  #modalDet .modal-actions { margin-top: 8px; gap: 7px; }
+  #modalDet .btn-ghost, #modalDet .btn-primary { min-height: 32px; padding: 7px 10px; border-radius: 8px; font-size: 11px; }
+  #modalAta { padding: 14px; overflow: hidden; }
+  #modalAta .modal-box.full { width: min(92vw, 960px); max-height: calc(100dvh - 28px); overflow: hidden; padding: 16px 20px 12px; }
+  #modalAta .modal-hd { margin-bottom: 10px; }
+  #modalAta .rep-head { gap: 6px 14px; padding: 10px 12px; margin-bottom: 10px; }
+  #modalAta .rep-head .l { font-size: 9px; margin-bottom: 2px; }
+  #modalAta .rep-head .v { font-size: 11.5px; }
+  #modalAta .rep-sec { margin: 10px 0 6px; font-size: 12px; }
+  #modalAta .rep-tbl th { padding: 5px 6px; font-size: 8.5px; }
+  #modalAta .rep-tbl td { padding: 3px 4px; }
+  #modalAta .rep-tbl input { padding: 5px 7px; font-size: 11px; }
+  #modalAta .rep-tbl .sign-cell { min-height: 28px; }
+  #modalAta .add-row-btn { padding: 4px 0; font-size: 11px; }
+  #modalAta .modal-actions { margin-top: 8px; gap: 7px; }
+  #modalAta .btn-ghost, #modalAta .btn-primary { min-height: 32px; padding: 7px 10px; border-radius: 8px; font-size: 11px; }
+  #modalPlanoAcoes { padding: 20px; overflow: hidden; }
+  #modalPlanoAcoes #planoAcoesBox { width: min(96vw, 1200px); max-height: calc(100dvh - 40px); overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
+  #modalRel { padding: 20px; overflow: hidden; }
+  #modalRel #relBox { width: min(96vw, 1200px); max-height: calc(100dvh - 40px); overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
   @media (max-height: 700px) and (min-width: 901px) {
     #modalReg { padding: 10px; }
     #modalReg .modal-box.wide { padding: 10px 12px 8px; }
@@ -281,9 +322,31 @@
     #modalReg .input-basic, #modalReg select.input-basic, #modalReg textarea.input-basic { min-height: 28px; padding: 5px 8px; }
     #modalReg textarea.input-basic { min-height: 36px; height: 36px; }
     #modalReg .check-tag { padding: 4px 7px; font-size: 10px; }
-    #modalReg .reg-resource-card { padding: 7px 8px; }
+    #modalReg .reg-resource-card { padding: 7px 8px 4px; }
+    #modalReg .plan-document-options { margin-bottom: -3px; }
     #modalReg .reports-buttons .btn-ghost { min-height: 34px; }
     #modalReg .modal-actions { margin-top: 6px; }
+    #modalDet .modal-box { width: min(92vw, 760px); padding: 10px 12px 8px; }
+    #modalDet .detail-grid { gap: 6px 10px; margin-bottom: 7px; }
+    #modalDet .detail-block { margin-bottom: 6px; }
+    #modalDet .detail-block h5 { margin-bottom: 3px; }
+    #modalDet .modal-actions { margin-top: 6px; }
+    #modalAta { padding: 8px; }
+    #modalAta .modal-box.full { width: min(100%, 760px); padding: 8px 10px 6px; }
+    #modalAta .modal-hd { margin-bottom: 6px; }
+    #modalAta .modal-hd h3 { font-size: 15px; }
+    #modalAta .modal-hd p { font-size: 10px; }
+    #modalAta .rep-head { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 6px 8px; margin-bottom: 6px; }
+    #modalAta .rep-head .full { grid-column: 1 / -1; }
+    #modalAta .rep-sec { margin: 6px 0 4px; }
+    #modalAta .rep-tbl th { padding: 3px 4px; }
+    #modalAta .rep-tbl td { padding: 2px 3px; }
+    #modalAta .rep-tbl input { padding: 4px 6px; }
+    #modalAta .modal-actions { margin-top: 5px; }
+    #modalPlanoAcoes { padding: 12px; }
+    #modalPlanoAcoes #planoAcoesBox { width: min(100%, 960px); max-height: calc(100dvh - 24px); }
+    #modalRel { padding: 12px; }
+    #modalRel #relBox { width: min(100%, 960px); max-height: calc(100dvh - 24px); }
   }
   @media (max-width: 900px) {
     #modalReg { align-items: center; padding: 10px; overflow: hidden; }
@@ -291,6 +354,16 @@
     #modalReg .reg-identification-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
     #modalReg .reg-team-grid, #modalReg .reg-resources-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
     #modalReg .reports-buttons { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px; }
+    #modalDet { padding: 8px; }
+    #modalDet .modal-box { padding: 8px; max-height: calc(100dvh - 16px); }
+    #modalDet .modal-hd p { display: none; }
+    #modalDet .detail-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 8px; }
+    #modalDet .detail-item .l { font-size: 8px; }
+    #modalDet .detail-item .v, #modalDet .detail-block p { font-size: 10px; }
+    #modalDet .detail-block { margin-bottom: 6px; }
+    #modalDet .detail-block h5 { font-size: 9px; }
+    #modalDet .modal-actions { margin-top: 5px; }
+    #modalDet .btn-ghost, #modalDet .btn-primary { min-height: 28px; padding: 5px 7px; font-size: 10px; }
   }
   @media (max-width: 520px) {
     #modalReg .modal-box.wide { padding: 8px; }
@@ -304,6 +377,24 @@
     #modalReg .btn-ghost, #modalReg .btn-primary, #modalReg .upload-btn { min-height: 28px; padding: 5px 6px; font-size: 10px; }
     #modalReg .reports-buttons .btn-ghost { min-height: 30px; }
     #modalReg .saved-msg { display: none; }
+    #modalReg .plan-document-options { grid-template-columns: 1fr; gap: 4px; }
+    #modalAta { padding: 8px; }
+    #modalAta .modal-box.full { padding: 8px; max-height: calc(100dvh - 16px); }
+    #modalAta .modal-hd p { display: none; }
+    #modalAta .rep-head { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 8px; padding: 6px 7px; margin-bottom: 6px; }
+    #modalAta .rep-head .full { grid-column: 1 / -1; }
+    #modalAta .rep-head .l { font-size: 8px; }
+    #modalAta .rep-head .v { font-size: 10px; }
+    #modalAta .rep-sec { margin: 6px 0 4px; font-size: 11px; }
+    #modalAta .rep-tbl th { padding: 3px; font-size: 7px; }
+    #modalAta .rep-tbl td { padding: 2px; }
+    #modalAta .rep-tbl input { min-height: 26px; padding: 3px 5px; font-size: 10px; }
+    #modalAta .modal-actions { margin-top: 5px; }
+    #modalAta .btn-ghost, #modalAta .btn-primary { min-height: 28px; padding: 5px 7px; font-size: 10px; }
+    #modalPlanoAcoes { padding: 8px; }
+    #modalPlanoAcoes #planoAcoesBox { max-height: calc(100dvh - 16px); padding: 14px 12px; }
+    #modalRel { padding: 8px; }
+    #modalRel #relBox { max-height: calc(100dvh - 16px); padding: 14px 12px; }
   }
   /* Atas e relatório */
   .rep-head { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px 20px; background: rgba(255,255,255,0.02); border: 1px solid var(--border-subtle); border-radius: 12px; padding: 14px 16px; margin-bottom: 18px; }
@@ -343,6 +434,8 @@
   .add-row-btn { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--accent-blue-bright); cursor: pointer; padding: 6px 0; }
   .add-row-btn:hover { text-decoration: underline; }
   @media (max-width: 900px) { .rep-head { grid-template-columns: 1fr; } }
+  #modalAta .rep-head { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  #modalAta .rep-head .full { grid-column: 1 / -1; }
   .banner-vazio { display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; border-radius: 10px; background: rgba(251,191,36,0.06); border: 1px solid rgba(251,191,36,0.3); font-size: 12.5px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 16px; }
   .banner-vazio b { color: var(--text-primary); }
   /* Controle de Ações */
@@ -584,6 +677,7 @@
     <section class="reg-resource-card">
     <div class="form-section-label">Documentos</div>
     <p class="card-hint">Plano de auditoria</p>
+    <div class="plan-document-options">
     <div class="field">
       <div class="doc-btn-wrap">
         <div class="btn-ghost" id="btnPlano" style="display:inline-flex; align-items:center; gap:8px;" onclick="abrirPlano()">
@@ -600,6 +694,7 @@
         <span class="abtn danger" id="regAnexoRemove" style="display:none;" onclick="removeRegAnexo()" title="Remover anexo"><svg class="icon" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></span>
       </div>
       <input type="hidden" id="regAnexo">
+    </div>
     </div>
     </section>
     <section class="reg-resource-card">
@@ -2069,8 +2164,8 @@ function setRegistrationModalLock(open){
   document.documentElement.classList.toggle('audit-reg-modal-open', open);
   window.parent.postMessage({ type:'qualitypro:audits:registration-modal', open }, window.location.origin);
 }
-function openModal(id){ document.getElementById(id).classList.add('show'); if(id==='modalReg') setRegistrationModalLock(true); }
-function closeModal(id){ document.getElementById(id).classList.remove('show'); if(id==='modalReg') setRegistrationModalLock(false); }
+function openModal(id){ document.getElementById(id).classList.add('show'); if(id==='modalReg'||id==='modalDet'||id==='modalAta'||id==='modalPlanoAcoes'||id==='modalRel') setRegistrationModalLock(true); }
+function closeModal(id){ document.getElementById(id).classList.remove('show'); if(id==='modalReg'||id==='modalDet'||id==='modalAta'||id==='modalPlanoAcoes'||id==='modalRel') setRegistrationModalLock(false); }
 document.querySelectorAll('.modal-overlay').forEach(ov=>{ ov.addEventListener('click', e=>{ if(e.target===ov) closeModal(ov.id); }); });
 
 /* ===================== INIT ===================== */

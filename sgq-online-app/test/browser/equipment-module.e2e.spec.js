@@ -45,4 +45,10 @@ test("equipamentos usa dados da empresa e persiste cadastro e distribuição", a
   await frame.locator('[data-tab="indicadores"]').click();
   await expect(frame.locator("canvas#eqModelo")).toBeVisible();
   expect(pageErrors).toEqual([]);
+  const treeType = await frame.locator("canvas#eqTree").evaluate(() => ({
+    chartType: eqCharts.eqTree?.getDatasetMeta(0)?.type,
+    charts: Object.keys(eqCharts),
+    registered: Boolean(Chart.registry.controllers.get("treemap")),
+  }));
+  expect(treeType).toEqual({ chartType: "treemap", charts: ["eqCombo", "eqSetor", "eqModelo", "eqDist", "eqRadar", "eqTree"], registered: true });
 });

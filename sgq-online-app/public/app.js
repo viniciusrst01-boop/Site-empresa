@@ -2236,10 +2236,20 @@ if (!window.__qualityProAuditsFrameBridge) {
       if (event.data?.type === "qualitypro:audits:persist") persistAuditsFromFrame(event.data.audits, auditFrame);
       if (event.data?.type === "qualitypro:audits:resize") {
         const height = Number(event.data.height);
-        if (Number.isFinite(height) && height >= 680) auditFrame.style.height = `${Math.ceil(height)}px`;
+        if (!document.body.classList.contains("audits-reg-modal-open") && Number.isFinite(height) && height >= 680) {
+          auditFrame.style.height = `${Math.ceil(height)}px`;
+        }
       }
       if (event.data?.type === "qualitypro:audits:registration-modal") {
-        document.body.classList.toggle("audits-reg-modal-open", Boolean(event.data.open));
+        const open = Boolean(event.data.open);
+        document.body.classList.toggle("audits-reg-modal-open", open);
+        if (open) {
+          auditFrame.style.removeProperty("height");
+        } else {
+          const frameDocument = auditFrame.contentDocument;
+          const height = frameDocument ? Math.max(frameDocument.body.scrollHeight, frameDocument.documentElement.scrollHeight, 680) : 680;
+          auditFrame.style.height = `${Math.ceil(height)}px`;
+        }
       }
       return;
     }

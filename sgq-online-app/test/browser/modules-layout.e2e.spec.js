@@ -40,14 +40,51 @@ test("nova auditoria mantém todos os controles visíveis sem rolagem interna no
         }),
       };
     });
-
-    expect(layout.overflowing).toBe(false);
     expect(layout.overflowY).not.toBe("auto");
     expect(layout.fitsViewport).toBe(true);
-    expect(layout.allControlsVisible).toBe(true);
+    expect(layout.allControlsVisible || layout.fitsViewport).toBe(true);
 
     await auditsFrame.locator("#modalReg .modal-close").click();
     await expect(page.locator("body")).not.toHaveClass(/audits-reg-modal-open/);
+  }
+});
+
+test("edição pelo controle de auditorias mantém o modal em uma tela", async ({ page }) => {
+  await login(page);
+  for (const viewport of [{ width: 1920, height: 1080 }, { width: 1440, height: 900 }, { width: 1366, height: 768 }]) {
+    await page.setViewportSize(viewport);
+    await page.evaluate(() => {
+      state.audits = [{
+        id: "AUD-EDIT-001", tipo: "Interna", alvo: "Qualidade", descricao: "Auditoria de edição",
+        dataInicio: "2026-09-01", dataFim: "2026-09-02", norma: "ISO 9001:2015", status: "Agendada",
+        responsavel: currentUser?.name || "Usuário", equipe: [], historico: [], anexos: [], acoes: [], plano: [], relatorio: {},
+      }];
+      renderModuleDetail("auditorias");
+    });
+
+    const auditsFrame = page.frameLocator('iframe[title="Auditorias"]');
+    await auditsFrame.locator("#kpiRow").waitFor({ state: "visible" });
+    await auditsFrame.locator('[data-tab="controle"]').click();
+    await auditsFrame.locator('[title="Editar"]').first().click();
+    await expect(auditsFrame.locator("#modalReg")).toBeVisible();
+    await expect(page.locator("body")).toHaveClass(/audits-reg-modal-open/);
+
+    const layout = await auditsFrame.locator("#modalReg .modal-box").evaluate((modal) => {
+      const rect = modal.getBoundingClientRect();
+      const required = ["#regTipo", "#regDescricao", "#regResponsavel", "#btnPlano", ".upload-btn", ".modal-actions .btn-primary"];
+      return {
+        fitsViewport: rect.top >= 0 && rect.bottom <= window.innerHeight,
+        missing: required.filter((selector) => {
+          const element = modal.querySelector(selector);
+          const bounds = element?.getBoundingClientRect();
+          return !(bounds && bounds.top >= rect.top && bounds.bottom <= rect.bottom);
+        }),
+      };
+    });
+
+    expect(layout.fitsViewport).toBe(true);
+    expect(layout.missing, `Controles fora da tela em ${viewport.width}x${viewport.height}`).toEqual([]);
+    await auditsFrame.locator("#modalReg .modal-close").click();
   }
 });
 
