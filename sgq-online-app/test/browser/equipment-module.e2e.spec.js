@@ -21,7 +21,15 @@ test("equipamentos carrega a base demonstrativa para empresa sem cadastros", asy
   await expect(frame.locator("#kpiRow")).toBeVisible();
   await expect(frame.locator("#kpiRow .dash-solid-card")).toHaveCount(4);
   await expect(frame.locator("#kpiRow .kpi-card")).toHaveCount(0);
-  await expect.poll(() => page.evaluate(() => ({ equipment: state.equipment.length, distributions: state.equipmentDistributions.length }))).toEqual({ equipment: 20, distributions: 12 });
+  await expect.poll(() => page.evaluate(() => ({ equipment: state.equipment.length, distributions: state.equipmentDistributions.length }))).toEqual({ equipment: 25, distributions: 12 });
+  await frame.locator("#kpiRow .dash-solid-card").first().click();
+  await expect(frame.locator("#modalCategoria")).toHaveClass(/show/);
+  await expect(frame.locator("#catBody tbody tr")).toHaveCount(10);
+  await expect(frame.locator("#catPagination")).toContainText("Página 1 de 3");
+  await frame.getByRole("button", { name: "Próxima página" }).click();
+  await expect(frame.locator("#catBody tbody tr")).toHaveCount(10);
+  await expect(frame.locator("#catPagination")).toContainText("Página 2 de 3");
+  await frame.locator("#modalCategoria .modal-close").click();
   await frame.locator('[data-tab="indicadores"]').click();
   await expect(frame.locator("#tabContent .dash-solid-card")).toHaveCount(0);
   await expect(frame.locator("canvas#eqModelo")).toBeVisible();
@@ -40,7 +48,7 @@ test("equipamentos usa dados da empresa e persiste cadastro e distribuição", a
   await page.evaluate(() => {
     state.equipment = [];
     state.equipmentDistributions = [];
-    state.equipmentDemoVersion = 2;
+    state.equipmentDemoVersion = 3;
     renderModuleDetail("equipamentos");
   });
 

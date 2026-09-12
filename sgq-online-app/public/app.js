@@ -84,6 +84,11 @@ const equipmentDemoSeed = [
   ["Altímetro digital 0-300 mm", "Digital", "Insize", "1150-300", "0 a 300", "0,01", "mm", "Gestão da Qualidade", "Em calibração", "2025-09-12", "2026-09-23", "CAL-2025-007", "Metrologia Técnica", "Equipe Qualidade"],
   ["Bloco padrão classe 1", "Outro", "Mitutoyo", "BM-1-032", "0,5 a 100", "0,001", "mm", "Gestão da Qualidade", "Em uso", "2026-07-12", "2028-07-12", "CAL-2026-008", "RBC Metrologia", "Equipe Qualidade"],
   ["Balança de precisão 0-3 kg", "Digital", "Marte", "AD330-179", "0 a 3", "0,1", "g", "Administrativo e Financeiro", "Em uso", "2026-08-10", "2027-08-10", "CAL-2026-009", "Metrolab Brasil", "Hugo Melo"],
+  ["Balança analítica 0-220 g", "Digital", "Marte", "AY220-001", "0 a 220", "0,001", "g", "Gestão da Qualidade", "Em uso", "2026-08-13", "2027-08-13", "CAL-2026-021", "Metrolab Brasil", "Equipe Qualidade"],
+  ["Balança de precisão 0-6 kg", "Digital", "Marte", "AD6000-042", "0 a 6", "0,1", "g", "Consultoria e Operações", "Em uso", "2026-08-16", "2027-08-16", "CAL-2026-022", "Metrolab Brasil", "Hugo Melo"],
+  ["Balança plataforma 0-60 kg", "Digital", "Marte", "LC60-118", "0 a 60", "5", "g", "Administrativo e Financeiro", "Em calibração", "2026-08-22", "2027-08-22", "CAL-2026-023", "Pesagem Certificada", "Equipe Qualidade"],
+  ["Balança industrial 0-150 kg", "Digital", "Marte", "L150-207", "0 a 150", "10", "g", "Consultoria e Operações", "Em uso", "2026-08-26", "2027-08-26", "CAL-2026-024", "Pesagem Certificada", "Hugo Melo"],
+  ["Balança contadora de peças", "Digital", "Marte", "ADPC-315", "0 a 30", "0,1", "g", "Atendimento ao Cliente", "Fora de uso", "2026-08-28", "2027-08-28", "CAL-2026-025", "Metrolab Brasil", "Equipe Qualidade"],
   ["Balança plataforma 0-30 kg", "Digital", "Toledo", "Prix-3-921", "0 a 30", "1", "g", "Consultoria e Operações", "Em uso", "2026-08-17", "2027-08-17", "CAL-2026-010", "Pesagem Certificada", "Hugo Melo"],
   ["Termômetro infravermelho -50 a 550 °C", "Digital", "Fluke", "62MAX-608", "-50 a 550", "0,1", "°C", "Consultoria e Operações", "Em uso", "2026-08-07", "2027-08-07", "CAL-2026-011", "Termocal", "Hugo Melo"],
   ["Termômetro de imersão -10 a 200 °C", "Digital", "Incoterm", "TPI-711", "-10 a 200", "0,1", "°C", "Atendimento ao Cliente", "Em uso", "2026-08-20", "2027-08-20", "CAL-2026-012", "Termocal", "Equipe Qualidade"],
@@ -2277,10 +2282,10 @@ async function persistEquipmentFromFrame(equipment, distributions, frame) {
 function ensureEquipmentDemoData() {
   const equipment = Array.isArray(state.equipment) ? state.equipment : [];
   const isDemoData = equipment.every((item) => String(item.codigo || "").startsWith("EQ-DEMO-"));
-  if (state.equipmentDemoVersion >= 2 || (equipment.length && !isDemoData)) return;
+  if (state.equipmentDemoVersion >= 3 || (equipment.length && !isDemoData)) return;
   state.equipment = structuredClone(equipmentDemoSeed);
   state.equipmentDistributions = structuredClone(equipmentDemoDistributions);
-  state.equipmentDemoVersion = 2;
+  state.equipmentDemoVersion = 3;
   saveRemoteData("state", state, "equipamentos");
 }
 
@@ -2294,7 +2299,7 @@ function renderEquipmentModule() {
       actions: false,
     })}
     <section class="equipment-module-shell" aria-label="Módulo de equipamentos de medição">
-      <iframe class="equipment-module-frame" title="Equipamentos de Medição" src="/equipment-module-frame.html?v=20260911&embedded=1"></iframe>
+      <iframe class="equipment-module-frame" title="Equipamentos de Medição" src="/equipment-module-frame.html?v=20260912-treemap&embedded=1"></iframe>
     </section>
   `;
   const frame = pageContent.querySelector(".equipment-module-frame");

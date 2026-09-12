@@ -5338,7 +5338,7 @@ body.theme-white .leadership-value-suggestions button {
 .leadership-chart-head { margin-bottom: 12px; }
 .leadership-chart-head h4 { margin: 0; color: var(--text-primary); font-size: 14px; }
 .leadership-chart-head p { margin: 4px 0 0; color: var(--text-secondary); font-size: 11px; }
-.leadership-chart-canvas { position: relative; height: 210px; }
+.leadership-chart-canvas { position: relative; height: 190px; padding: 0 8px; }
 body.theme-white .leadership-chart-card { background: #f8fcff; border-color: rgba(15, 81, 130, .15); }
 
 .leadership-page-content {
@@ -8203,7 +8203,7 @@ body.theme-white .btn-support {
   .leadership-chart-grid { grid-template-columns: 1fr; gap: 10px; }
   .leadership-chart-card.wide { grid-column: auto; }
   .leadership-chart-card { min-height: 250px; padding: 14px; }
-  .leadership-chart-canvas { height: 184px; }
+  .leadership-chart-canvas { height: 176px; padding: 0 4px; }
 }
 
 body.theme-white .modules-page-content .mymods-kpi-row .kpi-card {
