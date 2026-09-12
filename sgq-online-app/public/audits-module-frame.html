@@ -112,7 +112,7 @@
   .welcome-sub { margin: 0; color: var(--text-secondary); font-size: 14px; max-width: 660px; }
 
   /* KPI cards */
-  .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 22px; }
+  .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 22px; }
   .kpi-card { background: var(--bg-panel); border: 1px solid var(--border-subtle); border-radius: var(--radius); padding: 18px; position: relative; overflow: hidden; display: flex; flex-direction: column; gap: 12px; transition: border-color 0.2s ease; }
   .kpi-card:hover { border-color: var(--border-strong); }
   .kpi-card::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: var(--accent-line, var(--accent-blue)); }
@@ -607,8 +607,9 @@
   .page-content { padding: 0 0 28px; }
   @media (max-width: 900px) { .page-content { padding-bottom: 20px; } }
 </style>
+<link rel="stylesheet" href="/module-kpis.css?v=20260912">
 </head>
-<body>
+<body class="module-frame-kpis">
 <main class="main-area">
   <div class="page-content">
       <div class="breadcrumb"><a href="meus-modulos-preview.html">Meus módulos</a><span class="sep">›</span><span class="cur">Auditorias</span></div>

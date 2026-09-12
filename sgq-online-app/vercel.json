@@ -34,6 +34,10 @@
       "dest": "/public/styles.css"
     },
     {
+      "src": "/module-kpis.css",
+      "dest": "/public/module-kpis.css"
+    },
+    {
       "src": "/home-dashboard.css",
       "dest": "/public/home-dashboard.css"
     },

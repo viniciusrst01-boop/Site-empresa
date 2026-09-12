@@ -8,6 +8,31 @@ async function login(page) {
   await expect(page).toHaveURL(/\/app$/);
 }
 
+test("equipamentos carrega a base demonstrativa para empresa sem cadastros", async ({ page }) => {
+  await login(page);
+  await page.evaluate(() => {
+    state.equipment = [];
+    state.equipmentDistributions = [];
+    delete state.equipmentDemoVersion;
+    renderModuleDetail("equipamentos");
+  });
+
+  const frame = page.frameLocator('iframe[title="Equipamentos de Medição"]');
+  await expect(frame.locator("#kpiRow")).toBeVisible();
+  await expect(frame.locator("#kpiRow .dash-solid-card")).toHaveCount(4);
+  await expect(frame.locator("#kpiRow .kpi-card")).toHaveCount(0);
+  await expect.poll(() => page.evaluate(() => ({ equipment: state.equipment.length, distributions: state.equipmentDistributions.length }))).toEqual({ equipment: 20, distributions: 12 });
+  await frame.locator('[data-tab="indicadores"]').click();
+  await expect(frame.locator("#tabContent .dash-solid-card")).toHaveCount(0);
+  await expect(frame.locator("canvas#eqModelo")).toBeVisible();
+  const indicatorData = await frame.locator("canvas#eqDist").evaluate(() => ({
+    distributions: eqCharts.eqDist.data.datasets[0].data,
+    situations: eqCharts.eqRadar.data.datasets[0].data,
+  }));
+  expect(indicatorData.distributions.filter(Boolean)).toHaveLength(12);
+  expect(indicatorData.situations.filter(Boolean).length).toBeGreaterThan(3);
+});
+
 test("equipamentos usa dados da empresa e persiste cadastro e distribuição", async ({ page }) => {
   const pageErrors = [];
   page.on("pageerror", (error) => pageErrors.push(error.message));
@@ -15,6 +40,7 @@ test("equipamentos usa dados da empresa e persiste cadastro e distribuição", a
   await page.evaluate(() => {
     state.equipment = [];
     state.equipmentDistributions = [];
+    state.equipmentDemoVersion = 2;
     renderModuleDetail("equipamentos");
   });
 

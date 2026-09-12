@@ -32,7 +32,7 @@ const modules = [
   {
     id: "auditorias",
     title: "Auditorias",
-    accent: "#34D399",
+    accent: "#8B5CF6",
     desc: "Planejamento e acompanhamento de auditorias internas.",
   },
   {
@@ -73,6 +73,54 @@ const moduleHeaderMeta = {
   "nao-conformidades": { category: "", description: "Registre, acompanhe e avalie cada ação de melhoria.", topbarSubtitle: "Acompanhe melhorias, ações corretivas e a evolução dos processos." },
   equipamentos: { category: "RECURSOS" },
 };
+
+const equipmentDemoSeed = [
+  ["Paquímetro digital 0-150 mm", "Digital", "Mitutoyo", "CD-15APX-241", "0 a 150", "0,01", "mm", "Gestão da Qualidade", "Em uso", "2026-08-11", "2027-08-11", "CAL-2026-001", "Metrolab Brasil", "Hugo Melo"],
+  ["Paquímetro digital 0-300 mm", "Digital", "Mitutoyo", "CD-30APX-318", "0 a 300", "0,01", "mm", "Consultoria e Operações", "Em uso", "2026-08-19", "2027-08-19", "CAL-2026-002", "Metrolab Brasil", "Hugo Melo"],
+  ["Paquímetro analógico 0-150 mm", "Analógico", "Starrett", "125ME-057", "0 a 150", "0,02", "mm", "Gestão da Qualidade", "Em uso", "2026-08-05", "2027-08-05", "CAL-2026-003", "Calibra SP", "Equipe Qualidade"],
+  ["Micrômetro externo 0-25 mm", "Analógico", "Mitutoyo", "103-137-09", "0 a 25", "0,001", "mm", "Consultoria e Operações", "Em uso", "2026-08-21", "2027-08-21", "CAL-2026-004", "Metrolab Brasil", "Hugo Melo"],
+  ["Micrômetro externo 25-50 mm", "Analógico", "Mitutoyo", "103-138-22", "25 a 50", "0,001", "mm", "Gestão da Qualidade", "Em uso", "2026-08-15", "2027-08-15", "CAL-2026-005", "Metrolab Brasil", "Equipe Qualidade"],
+  ["Relógio comparador 0-10 mm", "Analógico", "Digimess", "110.200-810", "0 a 10", "0,01", "mm", "Consultoria e Operações", "Em uso", "2026-08-24", "2027-08-24", "CAL-2026-006", "Calibra SP", "Hugo Melo"],
+  ["Altímetro digital 0-300 mm", "Digital", "Insize", "1150-300", "0 a 300", "0,01", "mm", "Gestão da Qualidade", "Em calibração", "2025-09-12", "2026-09-23", "CAL-2025-007", "Metrologia Técnica", "Equipe Qualidade"],
+  ["Bloco padrão classe 1", "Outro", "Mitutoyo", "BM-1-032", "0,5 a 100", "0,001", "mm", "Gestão da Qualidade", "Em uso", "2026-07-12", "2028-07-12", "CAL-2026-008", "RBC Metrologia", "Equipe Qualidade"],
+  ["Balança de precisão 0-3 kg", "Digital", "Marte", "AD330-179", "0 a 3", "0,1", "g", "Administrativo e Financeiro", "Em uso", "2026-08-10", "2027-08-10", "CAL-2026-009", "Metrolab Brasil", "Hugo Melo"],
+  ["Balança plataforma 0-30 kg", "Digital", "Toledo", "Prix-3-921", "0 a 30", "1", "g", "Consultoria e Operações", "Em uso", "2026-08-17", "2027-08-17", "CAL-2026-010", "Pesagem Certificada", "Hugo Melo"],
+  ["Termômetro infravermelho -50 a 550 °C", "Digital", "Fluke", "62MAX-608", "-50 a 550", "0,1", "°C", "Consultoria e Operações", "Em uso", "2026-08-07", "2027-08-07", "CAL-2026-011", "Termocal", "Hugo Melo"],
+  ["Termômetro de imersão -10 a 200 °C", "Digital", "Incoterm", "TPI-711", "-10 a 200", "0,1", "°C", "Atendimento ao Cliente", "Em uso", "2026-08-20", "2027-08-20", "CAL-2026-012", "Termocal", "Equipe Qualidade"],
+  ["Termo-higrômetro digital", "Digital", "Instrutherm", "HT-500", "-10 a 60", "0,1", "°C / %UR", "Gestão da Qualidade", "Em uso", "2026-08-02", "2027-08-02", "CAL-2026-013", "Clima Metrologia", "Equipe Qualidade"],
+  ["Manômetro 0-10 bar", "Analógico", "Wika", "232.50-104", "0 a 10", "0,1", "bar", "Consultoria e Operações", "Reprovado", "2026-08-12", "2027-08-12", "CAL-2026-014", "Pressão Técnica", "Hugo Melo"],
+  ["Manômetro digital 0-20 bar", "Digital", "Fluke", "700G-530", "0 a 20", "0,01", "bar", "Consultoria e Operações", "Em uso", "2026-08-29", "2027-08-29", "CAL-2026-015", "Pressão Técnica", "Hugo Melo"],
+  ["Torquímetro 20-200 N.m", "Analógico", "Gedore", "TORCOFIX-200", "20 a 200", "1", "N.m", "Consultoria e Operações", "Fora de uso", "2026-08-18", "2027-08-18", "CAL-2026-016", "Torque Lab", "Hugo Melo"],
+  ["Multímetro digital True RMS", "Digital", "Fluke", "87V-714", "0 a 1000", "0,001", "V / Ω", "Administrativo e Financeiro", "Em calibração", "2026-08-08", "2027-08-08", "CAL-2026-017", "Eletrocal", "Hugo Melo"],
+  ["Luxímetro digital", "Digital", "Instrutherm", "LD-300", "0 a 200000", "1", "lux", "Administrativo e Financeiro", "Em calibração", "2026-08-25", "2027-08-25", "CAL-2026-018", "Luminotec", "Equipe Qualidade"],
+  ["Decibelímetro classe 2", "Digital", "Instrutherm", "DEC-490", "30 a 130", "0,1", "dB", "Consultoria e Operações", "Em uso", "2025-09-05", "2026-09-05", "CAL-2025-019", "Acústica Cal", "Hugo Melo"],
+  ["pHmetro portátil", "Digital", "Hanna", "HI-98107-122", "0 a 14", "0,01", "pH", "Consultoria e Operações", "Fora de uso", "2025-09-12", "2026-09-10", "CAL-2025-020", "Química Metrológica", "Equipe Qualidade"],
+].map(([descricao, modelo, marca, serie, faixa, resolucao, unidade, setor, situacao, ultimaCalib, proximaCalib, certificado, laboratorio, responsavel], index) => ({
+  id: `EQ-DEMO-${String(index + 1).padStart(3, "0")}`,
+  codigo: `EQ-DEMO-${String(index + 1).padStart(3, "0")}`,
+  descricao, modelo, marca, serie, faixa, resolucao, unidade, setor, situacao, ultimaCalib, proximaCalib, certificado, laboratorio, responsavel,
+  periodicidade: "12", criterio: "Conforme critério de aceitação aplicável.", anexo: "",
+}));
+
+const equipmentDemoDistributions = [
+  [0, "Hugo Melo", "Consultoria e Operações", "2025-10-14", "2025-10-17", "2025-10-17"],
+  [1, "Equipe Qualidade", "Gestão da Qualidade", "2025-11-12", "2025-11-15", "2025-11-15"],
+  [3, "Hugo Melo", "Consultoria e Operações", "2025-12-09", "2025-12-12", "2025-12-12"],
+  [5, "Equipe Qualidade", "Gestão da Qualidade", "2026-01-13", "2026-01-16", "2026-01-16"],
+  [7, "Hugo Melo", "Atendimento ao Cliente", "2026-02-11", "2026-02-14", "2026-02-14"],
+  [9, "Equipe Qualidade", "Consultoria e Operações", "2026-03-10", "2026-03-13", "2026-03-13"],
+  [11, "Hugo Melo", "Atendimento ao Cliente", "2026-04-14", "2026-04-17", "2026-04-17"],
+  [13, "Equipe Qualidade", "Consultoria e Operações", "2026-05-12", "2026-05-15", "2026-05-15"],
+  [15, "Hugo Melo", "Consultoria e Operações", "2026-06-09", "2026-06-12", "2026-06-12"],
+  [16, "Equipe Qualidade", "Administrativo e Financeiro", "2026-07-14", "2026-07-17", "2026-07-17"],
+  [6, "Hugo Melo", "Consultoria e Operações", "2026-08-18", "2026-08-21", "2026-08-21"],
+  [10, "Equipe Qualidade", "Atendimento ao Cliente", "2026-09-04", "2026-09-15", ""],
+].map(([equipmentIndex, solicitante, setor, saida, retornoPrev, retornoReal], index) => ({
+  id: `DST-DEMO-${String(index + 1).padStart(3, "0")}`,
+  equipId: equipmentDemoSeed[equipmentIndex].id,
+  solicitante, setor, saida, retornoPrev, retornoReal,
+  obs: "Registro demonstrativo de distribuição para visualização dos indicadores.",
+}));
 
 const seedState = {
   company: {
@@ -2033,6 +2081,7 @@ function renderModuleDetail(moduleId, options = {}) {
     "context-page-content",
     "leadership-page-content",
     "nc-page-content",
+    "equipment-page-content",
     "climate-page-content",
   );
   if (!canViewModule(moduleId)) {
@@ -2180,6 +2229,27 @@ function equipmentRoster() {
 
 function hydrateEquipmentFrame(frame) {
   if (!frame?.contentWindow) return;
+  const frameDocument = frame.contentDocument;
+  const tabs = frameDocument?.querySelector('#mainTabs');
+  if (tabs) {
+    let actions = tabs.querySelector('.equipment-history-actions');
+    if (!actions) {
+      actions = frameDocument.createElement('div');
+      actions.className = 'equipment-history-actions';
+      tabs.append(actions);
+      actions.addEventListener('click', (event) => {
+        const button = event.target.closest('[data-module-history-action]');
+        if (!button || button.disabled) return;
+        if (button.dataset.moduleHistoryAction === 'undo') undoModuleAction('equipamentos');
+        else redoModuleAction('equipamentos');
+      });
+    }
+    actions.innerHTML = canEditModule('equipamentos') ? moduleHistoryControlsHtml('equipamentos') : '';
+    const theme = getComputedStyle(pageContent);
+    for (const name of ['--bg-panel', '--border-subtle', '--text-primary', '--text-secondary', '--text-muted', '--accent-cyan']) {
+      frameDocument.documentElement.style.setProperty(name, theme.getPropertyValue(name));
+    }
+  }
   frame.contentWindow.postMessage({
     type: "qualitypro:equipment:hydrate",
     equipment: Array.isArray(state.equipment) ? state.equipment : [],
@@ -2204,11 +2274,27 @@ async function persistEquipmentFromFrame(equipment, distributions, frame) {
   toast("Não foi possível salvar os equipamentos. Tente novamente.");
 }
 
+function ensureEquipmentDemoData() {
+  const equipment = Array.isArray(state.equipment) ? state.equipment : [];
+  const isDemoData = equipment.every((item) => String(item.codigo || "").startsWith("EQ-DEMO-"));
+  if (state.equipmentDemoVersion >= 2 || (equipment.length && !isDemoData)) return;
+  state.equipment = structuredClone(equipmentDemoSeed);
+  state.equipmentDistributions = structuredClone(equipmentDemoDistributions);
+  state.equipmentDemoVersion = 2;
+  saveRemoteData("state", state, "equipamentos");
+}
+
 function renderEquipmentModule() {
+  ensureEquipmentDemoData();
+  pageContent.classList.add("equipment-page-content");
   pageContent.innerHTML = `
-    ${moduleHeaderHtml("equipamentos")}
+    ${moduleHeaderHtml("equipamentos", {
+      category: "",
+      description: "Recursos de monitoramento e medição · 7.1.5",
+      actions: false,
+    })}
     <section class="equipment-module-shell" aria-label="Módulo de equipamentos de medição">
-      <iframe class="equipment-module-frame" title="Equipamentos de Medição" src="/equipment-module-frame.html?v=20260911"></iframe>
+      <iframe class="equipment-module-frame" title="Equipamentos de Medição" src="/equipment-module-frame.html?v=20260911&embedded=1"></iframe>
     </section>
   `;
   const frame = pageContent.querySelector(".equipment-module-frame");

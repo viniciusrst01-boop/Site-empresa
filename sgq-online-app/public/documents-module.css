@@ -1,5 +1,5 @@
 .documents-module { --doc-panel: var(--bg-panel); --doc-panel-soft: var(--bg-panel-hover); --doc-line: var(--border-subtle); --doc-muted: var(--text-secondary); --doc-text: var(--text-primary); --doc-cyan: #43c7f4; --doc-blue: #2f8ff0; --doc-green: #34d399; --doc-amber: #fbbf24; --doc-red: #f87171; --doc-purple: #a78bfa; }
-.documents-module .documents-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin: 14px 0 20px; }
+.documents-module .documents-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 14px 0 20px; }
 .documents-module .documents-kpi { position: relative; min-height: 116px; overflow: hidden; padding: 16px; border: 1px solid var(--doc-line); border-radius: 8px; background: var(--doc-panel); }
 .documents-module .documents-kpi::before { position: absolute; top: 0; right: 0; left: 0; height: 2px; background: var(--doc-kpi-color); content: ""; }
 .documents-module .documents-kpi-top { display: flex; align-items: center; gap: 12px; }

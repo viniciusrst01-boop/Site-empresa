@@ -256,7 +256,7 @@ body:not(.theme-light):not(.theme-white) .modules-page-content .mymod-record-cou
   .modules-page-content .welcome-title { margin-bottom: 1px; font-size: 19px; }
   .modules-page-content .welcome-sub { font-size: 10.5px; }
 
-  .modules-page-content .mymods-kpi-row { gap: 8px; margin-bottom: 8px; }
+  .modules-page-content .mymods-kpi-row { gap: 12px; margin-bottom: 8px; }
   .modules-page-content .mymods-kpi-row .kpi-card { min-height: 66px; gap: 4px; padding: 8px 12px; }
   .modules-page-content .mymods-kpi-row .kpi-top { gap: 8px; }
   .modules-page-content .mymods-kpi-row .kpi-icon { width: 34px; height: 34px; }
