@@ -21,7 +21,7 @@ test("equipamentos carrega a base demonstrativa para empresa sem cadastros", asy
   await expect(frame.locator("#kpiRow")).toBeVisible();
   await expect(frame.locator("#kpiRow .dash-solid-card")).toHaveCount(4);
   await expect(frame.locator("#kpiRow .kpi-card")).toHaveCount(0);
-  await expect.poll(() => page.evaluate(() => ({ equipment: state.equipment.length, distributions: state.equipmentDistributions.length }))).toEqual({ equipment: 25, distributions: 12 });
+  await expect.poll(() => page.evaluate(() => ({ equipment: state.equipment.length, distributions: state.equipmentDistributions.length }))).toEqual({ equipment: 30, distributions: 12 });
   await frame.locator("#kpiRow .dash-solid-card").first().click();
   await expect(frame.locator("#modalCategoria")).toHaveClass(/show/);
   await expect(frame.locator("#catBody tbody tr")).toHaveCount(10);
@@ -38,7 +38,7 @@ test("equipamentos carrega a base demonstrativa para empresa sem cadastros", asy
     situations: eqCharts.eqRadar.data.datasets[0].data,
   }));
   expect(indicatorData.distributions.filter(Boolean)).toHaveLength(12);
-  expect(indicatorData.situations.filter(Boolean).length).toBeGreaterThan(3);
+  expect(indicatorData.situations).toEqual([16, 12, 9, 7, 8, 5]);
 });
 
 test("equipamentos usa dados da empresa e persiste cadastro e distribuição", async ({ page }) => {

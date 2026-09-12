@@ -100,6 +100,11 @@ const equipmentDemoSeed = [
   ["Luxímetro digital", "Digital", "Instrutherm", "LD-300", "0 a 200000", "1", "lux", "Administrativo e Financeiro", "Em calibração", "2026-08-25", "2027-08-25", "CAL-2026-018", "Luminotec", "Equipe Qualidade"],
   ["Decibelímetro classe 2", "Digital", "Instrutherm", "DEC-490", "30 a 130", "0,1", "dB", "Consultoria e Operações", "Em uso", "2025-09-05", "2026-09-05", "CAL-2025-019", "Acústica Cal", "Hugo Melo"],
   ["pHmetro portátil", "Digital", "Hanna", "HI-98107-122", "0 a 14", "0,01", "pH", "Consultoria e Operações", "Fora de uso", "2025-09-12", "2026-09-10", "CAL-2025-020", "Química Metrológica", "Equipe Qualidade"],
+  ["pHmetro de bancada", "Digital", "Hanna", "HI-2211-301", "0 a 14", "0,01", "pH", "Gestão da Qualidade", "Em uso", "2026-08-14", "2027-08-14", "CAL-2026-026", "Química Metrológica", "Equipe Qualidade"],
+  ["Condutivímetro portátil", "Digital", "Hanna", "HI-98312-044", "0 a 3999", "1", "µS/cm", "Consultoria e Operações", "Em uso", "2026-08-18", "2027-08-18", "CAL-2026-027", "Química Metrológica", "Hugo Melo"],
+  ["Oxímetro de bancada", "Digital", "Hanna", "HI-5421-087", "0 a 45", "0,01", "mg/L", "Administrativo e Financeiro", "Em calibração", "2026-08-23", "2027-08-23", "CAL-2026-028", "Química Metrológica", "Equipe Qualidade"],
+  ["Medidor multiparâmetro", "Digital", "Hanna", "HI-9829-116", "0 a 20", "0,01", "pH / mS/cm", "Atendimento ao Cliente", "Em uso", "2026-08-27", "2027-08-27", "CAL-2026-029", "Química Metrológica", "Hugo Melo"],
+  ["Refratômetro digital", "Digital", "Hanna", "HI-96801-052", "0 a 85", "0,1", "% Brix", "Consultoria e Operações", "Fora de uso", "2026-08-30", "2027-08-30", "CAL-2026-030", "Química Metrológica", "Equipe Qualidade"],
 ].map(([descricao, modelo, marca, serie, faixa, resolucao, unidade, setor, situacao, ultimaCalib, proximaCalib, certificado, laboratorio, responsavel], index) => ({
   id: `EQ-DEMO-${String(index + 1).padStart(3, "0")}`,
   codigo: `EQ-DEMO-${String(index + 1).padStart(3, "0")}`,
@@ -2259,6 +2264,7 @@ function hydrateEquipmentFrame(frame) {
     type: "qualitypro:equipment:hydrate",
     equipment: Array.isArray(state.equipment) ? state.equipment : [],
     distributions: Array.isArray(state.equipmentDistributions) ? state.equipmentDistributions : [],
+    demoEquipment: state.equipmentDemoVersion >= 4,
     roster: equipmentRoster(),
     currentUser,
     theme: state.settings.theme || "dark",
@@ -2282,10 +2288,10 @@ async function persistEquipmentFromFrame(equipment, distributions, frame) {
 function ensureEquipmentDemoData() {
   const equipment = Array.isArray(state.equipment) ? state.equipment : [];
   const isDemoData = equipment.every((item) => String(item.codigo || "").startsWith("EQ-DEMO-"));
-  if (state.equipmentDemoVersion >= 3 || (equipment.length && !isDemoData)) return;
+  if (state.equipmentDemoVersion >= 4 || (equipment.length && !isDemoData)) return;
   state.equipment = structuredClone(equipmentDemoSeed);
   state.equipmentDistributions = structuredClone(equipmentDemoDistributions);
-  state.equipmentDemoVersion = 3;
+  state.equipmentDemoVersion = 4;
   saveRemoteData("state", state, "equipamentos");
 }
 

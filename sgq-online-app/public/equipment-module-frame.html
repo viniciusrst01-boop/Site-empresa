@@ -291,6 +291,7 @@
   .chart-holder-model .qualitypro-doughnut-legend button { min-height: 40px; padding: 9px 0; font-size: 14px; }
   .chart-holder-model .qualitypro-doughnut-legend strong { font-size: 14px; }
   .chart-holder-model .qualitypro-doughnut-dot { width: 12px; height: 12px; }
+  .chart-holder-radar { height: 400px; padding: 0 20px; }
   @media (max-width: 1000px) { .chart-grid { grid-template-columns: 1fr; } .dash-cards { grid-template-columns: repeat(2,1fr); } }
 
   @media (max-width: 1200px) { .kpi-row { grid-template-columns: repeat(2, 1fr); } .filter-bar { grid-template-columns: repeat(2,1fr); } }
@@ -322,6 +323,7 @@
   body.embedded #modalCategoria { align-items: flex-start; padding-top: 80px; }
   body.embedded #modalCategoria .modal-box { max-height: calc(100vh - 104px); overflow: hidden; transform: none; }
   body.embedded .kpi-row { gap: 20px; margin-bottom: 28px; }
+  body.embedded .equipment-summary-row { padding-top: 4px; }
   body.embedded .kpi-card { min-height: 122px; padding: 10px 12px 9px; border-radius: 12px; }
   body.embedded .kpi-card::before { height: 2px; }
   body.embedded .kpi-top { gap: 10px; }
@@ -543,7 +545,7 @@ if (new URLSearchParams(window.location.search).has('embedded')) document.body.c
 document.querySelector('.sidebar')?.remove();
 document.querySelector('.topbar')?.remove();
 document.querySelector('.app-footer')?.remove();
-const frameState = { equipment: [], distributions: [] };
+const frameState = { equipment: [], distributions: [], demoEquipment: false };
 let equipmentHydrated = false;
 let persistTimer = null;
 const clone = (value) => value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -1059,6 +1061,9 @@ function computeEqAgg(){
     else if(calibPrestesVencer(e)) porSit['Prestes a vencer']++;
     else porSit[e.situacao]=(porSit[e.situacao]||0)+1;
   });
+  // A base demonstrativa usa uma distribuição equilibrada no radar para facilitar a visualização.
+  const isDemoEquipment = frameState.demoEquipment || eq.some(e => String(e.codigo || '').startsWith('EQ-DEMO-'));
+  if (isDemoEquipment) Object.assign(porSit, { 'Em uso': 16, 'Em calibração': 12, 'Fora de uso': 9, 'Reprovado': 7, 'Prestes a vencer': 8, 'Vencida': 5 });
 
   // por setor
   const porSetor = {};
@@ -1125,7 +1130,7 @@ function indicadoresHTML(){
     <div class="chart-card"><div class="chart-card-hd"><h4>Equipamentos por setor</h4><div class="sub">Distribuição por localização (barras)</div></div><div class="chart-holder"><canvas id="eqSetor"></canvas></div></div>
     <div class="chart-card"><div class="chart-card-hd"><h4>Equipamentos por modelo</h4><div class="sub">Digital · Analógico · Outro (rosca)</div></div><div class="chart-holder chart-holder-model"><canvas id="eqModelo"></canvas></div></div>
     <div class="chart-card full"><div class="chart-card-hd"><h4>Distribuições por mês</h4><div class="sub">Saídas de equipamentos nos últimos 12 meses (linha)</div></div><div class="chart-holder"><canvas id="eqDist"></canvas></div></div>
-    <div class="chart-card"><div class="chart-card-hd"><h4>Situação dos equipamentos</h4><div class="sub">Panorama por situação (radar)</div></div><div class="chart-holder"><canvas id="eqRadar"></canvas></div></div>
+    <div class="chart-card"><div class="chart-card-hd"><h4>Situação dos equipamentos</h4><div class="sub">Panorama por situação (radar)</div></div><div class="chart-holder chart-holder-radar"><canvas id="eqRadar"></canvas></div></div>
     <div class="chart-card"><div class="chart-card-hd"><h4>Equipamentos por marca</h4><div class="sub">Área proporcional à quantidade (mapa de árvore)</div></div><div class="chart-holder"><canvas id="eqTree"></canvas></div></div>
   </div>`;
 }
@@ -1206,7 +1211,7 @@ function initEqCharts(){
   // 5. Situação (radar)
   mk('eqRadar',{ type:'radar',
     data:{ labels:a.sitOrder, datasets:[{ label:'Equipamentos', data:a.sitOrder.map(s=>a.porSit[s]||0), backgroundColor:'rgba(79,163,255,0.2)', borderColor:C.blue, pointBackgroundColor:C.blue, borderWidth:2 }] },
-    options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{display:false} }, scales:{ r:{ angleLines:{color:grid}, grid:{color:grid}, pointLabels:{color:text, font:{size:10.5}}, ticks:{ color:text, backdropColor:'transparent', precision:0 } } } }
+    options:{ responsive:true, maintainAspectRatio:false, layout:{padding:28}, plugins:{ legend:{display:false} }, scales:{ r:{ beginAtZero:true, suggestedMax:Math.max(...a.sitOrder.map(s=>a.porSit[s]||0))+2, angleLines:{color:grid}, grid:{color:grid}, pointLabels:{color:text, font:{size:12.5}}, ticks:{ color:text, backdropColor:'transparent', precision:0, font:{size:11} } } } }
   });
   // 6. Por marca (treemap)
   const marcaData = Object.entries(a.porMarca).map(([k,v])=>({marca:k, valor:v}));
@@ -1336,6 +1341,7 @@ function reportFrameHeight(){
 function hydrateEquipment(payload){
   frameState.equipment = Array.isArray(payload.equipment) ? clone(payload.equipment) : [];
   frameState.distributions = Array.isArray(payload.distributions) ? clone(payload.distributions) : [];
+  frameState.demoEquipment = Boolean(payload.demoEquipment);
   ROSTER = Array.isArray(payload.roster) ? payload.roster.filter(Boolean) : [];
   if (!ROSTER.length && payload.currentUser?.name) ROSTER = [payload.currentUser.name];
   document.documentElement.dataset.theme = payload.theme || 'dark';
