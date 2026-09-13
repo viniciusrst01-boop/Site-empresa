@@ -8634,6 +8634,12 @@ body.module-detail-view .module-summary-toolbar .welcome-eyebrow {
   line-height: 15px;
   letter-spacing: 1px;
 }
+body.module-detail-view .module-summary-toolbar .module-iso-eyebrow {
+  font-family: 'Roboto Mono', monospace;
+  font-weight: 500;
+  letter-spacing: -0.2px;
+  word-spacing: -2px;
+}
 @media (min-width: 981px) {
   body.module-detail-view .topbar { padding-left: 24px; padding-right: 24px; }
   body.module-detail-view .topbar-left { gap: 16px; }

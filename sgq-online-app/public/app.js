@@ -2087,7 +2087,7 @@ function moduleHeaderHtml(moduleId, options = {}) {
     </div>
     <div class="page-toolbar module-summary-toolbar${toolbarClass}">
       <div>
-        ${moduleIsoHeaders[module.id] ? `<div class="welcome-eyebrow" title="Itens relacionados da ISO 9001:2015">${escapeHtml(moduleIsoHeaders[module.id])}</div>` : `${category ? `<div class="welcome-eyebrow">${escapeHtml(category)}</div>` : ""}<p class="welcome-sub">${escapeHtml(description)}</p>`}
+        ${moduleIsoHeaders[module.id] ? `<div class="welcome-eyebrow module-iso-eyebrow" title="Itens relacionados da ISO 9001:2015">${escapeHtml(moduleIsoHeaders[module.id])}</div>` : `${category ? `<div class="welcome-eyebrow">${escapeHtml(category)}</div>` : ""}<p class="welcome-sub">${escapeHtml(description)}</p>`}
       </div>
       ${actions}
     </div>
