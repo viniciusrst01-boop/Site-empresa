@@ -20,6 +20,7 @@ async function openDashboard(page, theme = "light") {
   });
   await page.goto(`/nc-tv?embedded=1&theme=${theme}`);
   await expect(page.locator("#chartStatusLegend strong")).toHaveText(["2", "6", "2", "26"]);
+  await expect(page.locator("#chartOriginLegend strong")).toHaveText(["36"]);
   await page.evaluate(() => document.fonts.ready);
 }
 
@@ -39,6 +40,7 @@ test("distribuições de RNC seguem a referência nos temas e tamanhos de tela",
         const canvas = panel.querySelector("canvas");
         const chart = Chart.getChart(canvas);
         const legend = panel.querySelector(".tv-distribution-legend");
+        const arc = chart.getDatasetMeta(0).data[0];
         return {
           overflow: panel.scrollWidth - panel.clientWidth,
           verticalOverflow: panel.scrollHeight - panel.clientHeight,
@@ -47,6 +49,7 @@ test("distribuições de RNC seguem a referência nos temas e tamanhos de tela",
           total: chart.options.plugins.centerText.value,
           values: [...legend.querySelectorAll("strong")].reduce((sum, item) => sum + Number(item.textContent), 0),
           painted: canvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height).data.some((value, index) => index % 4 === 3 && value > 0),
+          arcMargin: Math.min(arc.x - arc.outerRadius, canvas.width - arc.x - arc.outerRadius, arc.y - arc.outerRadius, canvas.height - arc.y - arc.outerRadius),
         };
       }));
       for (const panel of layout) {
@@ -56,6 +59,7 @@ test("distribuições de RNC seguem a referência nos temas e tamanhos de tela",
         expect(panel.total).toBe(36);
         expect(panel.values).toBe(panel.total);
         expect(panel.painted).toBe(true);
+        expect(panel.arcMargin).toBeGreaterThanOrEqual(4);
       }
       if (width === 1440) {
         const blocks = await page.locator(".tv-grid > .tv-panel").evaluateAll((panels) => panels.slice(1, 5).map((panel) => {
@@ -81,6 +85,10 @@ test("distribuições de RNC seguem a referência nos temas e tamanhos de tela",
 
 test("legendas preservam cores e totais ao filtrar RNCs e permitem alternar fatias", async ({ page }) => {
   await openDashboard(page);
+  expect(await page.evaluate(() => tvCharts.chartOrigin.config.type)).toBe("doughnut");
+  expect(await page.evaluate(() => tvCharts.chartOrigin.options.plugins.centerText.value)).toBe(36);
+  await page.locator("#chartOriginLegend button").first().click();
+  await expect(page.locator("#chartOriginLegend button").first()).toHaveAttribute("aria-pressed", "false");
   await page.locator("#chartStatusLegend button").last().click();
   await expect(page.locator("#chartStatusLegend button").last()).toHaveAttribute("aria-pressed", "false");
   expect(await page.evaluate(() => tvCharts.chartStatus.getDataVisibility(3))).toBe(false);

@@ -1,5 +1,7 @@
 .documents-module { --doc-panel: var(--bg-panel); --doc-panel-soft: var(--bg-panel-hover); --doc-line: var(--border-subtle); --doc-muted: var(--text-secondary); --doc-text: var(--text-primary); --doc-cyan: #43c7f4; --doc-blue: #2f8ff0; --doc-green: #34d399; --doc-amber: #fbbf24; --doc-red: #f87171; --doc-purple: #a78bfa; }
-.documents-module .documents-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 14px 0 20px; }
+.page-content:has(> .documents-module) > .module-summary-toolbar { padding-top: 0; }
+.page-content:has(> .documents-module) > .module-summary-toolbar .welcome-sub:empty { display: none; }
+.documents-module .documents-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 0 0 20px; }
 .documents-module .documents-kpi { position: relative; min-height: 116px; overflow: hidden; padding: 16px; border: 1px solid var(--doc-line); border-radius: 8px; background: var(--doc-panel); }
 .documents-module .documents-kpi::before { position: absolute; top: 0; right: 0; left: 0; height: 2px; background: var(--doc-kpi-color); content: ""; }
 .documents-module .documents-kpi-top { display: flex; align-items: center; gap: 12px; }
@@ -16,6 +18,26 @@
 .documents-module .documents-panel h2 { margin: 0; font-size: 15px; }
 .documents-module .documents-panel p { margin: 4px 0 0; color: var(--doc-muted); font-size: 12px; }
 .documents-module .documents-form { padding: 20px; }
+.documents-module .documents-registration > .documents-panel-head { justify-content: flex-start; align-items: center; padding: 12px 16px; border: 1px solid var(--doc-line); border-radius: 8px; background: var(--doc-panel); }
+.documents-module .documents-registration > .documents-panel-head > .icon { width: 30px; height: 30px; flex: 0 0 30px; color: var(--doc-cyan); }
+.documents-module .documents-registration h2 { margin: 0; font-size: 17px; }
+.documents-module .documents-registration p { margin: 4px 0 0; font-size: 11px; color: var(--doc-muted); }
+.documents-module .documents-registration .documents-form { display: grid; gap: 10px; padding: 10px 0 0; }
+.documents-module .documents-registration-section { display: grid; gap: 8px; padding: 10px 16px; border: 1px solid var(--doc-line); border-radius: 8px; background: var(--doc-panel); }
+.documents-module .documents-registration .documents-section-label { display: flex; align-items: center; gap: 10px; margin: 0; font-family: inherit; font-size: 11px; letter-spacing: 0; }
+.documents-module .documents-registration .documents-section-label .icon { width: 16px; height: 16px; }
+.documents-module .documents-registration .documents-field { gap: 4px; }
+.documents-module .documents-registration .documents-field-label { font-family: inherit; font-size: 9px; font-weight: 500; letter-spacing: 0; }
+.documents-module .documents-registration .input-basic { height: 32px; min-height: 32px; padding: 0 12px; font-size: 11px; border-radius: 6px; }
+.documents-module .documents-registration .documents-revision-grid { grid-template-columns: 1.1fr .85fr 1fr 1fr; }
+.documents-module .documents-registration [data-doc-other-type] { grid-column: 1 / -1; order: 1; }
+.documents-module .documents-registration [hidden] { display: none; }
+.documents-module .documents-registration .documents-upload { min-height: 34px; padding: 3px 6px; border-style: solid; }
+.documents-module .documents-registration .documents-upload .documents-action-button { min-height: 26px; }
+.documents-module .documents-registration .documents-actions { margin: 0; padding-top: 8px; border-top: 1px solid var(--doc-line); }
+.documents-module .documents-registration .documents-action-button { min-height: 32px; font-size: 11px; }
+@media (max-width: 760px) { .documents-module .documents-registration .documents-revision-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 640px) { .documents-module .documents-registration .documents-revision-grid { grid-template-columns: 1fr; } }
 .documents-module .documents-section-label { margin: 20px 0 12px; color: var(--doc-cyan); font-family: "JetBrains Mono", monospace; font-size: 10px; font-weight: 700; letter-spacing: .7px; text-transform: uppercase; }
 .documents-module .documents-section-label:first-child { margin-top: 0; }
 .documents-module .documents-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }

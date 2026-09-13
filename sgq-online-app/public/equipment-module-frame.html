@@ -364,6 +364,14 @@
   .equipment-history-actions button { width: 38px; height: 38px; padding: 10px; border: 1px solid var(--border-subtle); border-radius: 10px; background: transparent; color: var(--text-secondary); cursor: pointer; }
   .equipment-history-actions button:disabled { opacity: .45; cursor: default; }
   .equipment-history-actions .icon { width: 16px; height: 16px; }
+  :root { --scrollbar-track: #080d16; --scrollbar-thumb: #495565; --scrollbar-thumb-hover: #718093; --scrollbar-edge: #141c28; }
+  html[data-theme="light"] { --scrollbar-track: #0a294c; --scrollbar-thumb: #5b9fc7; --scrollbar-thumb-hover: #83c2e7; --scrollbar-edge: #071f3b; }
+  html[data-theme="white"] { --scrollbar-track: #e7eef5; --scrollbar-thumb: #7fa5bf; --scrollbar-thumb-hover: #5e8cab; --scrollbar-edge: #d8e3ee; }
+  html, body, body * { scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track); scrollbar-width: thin; }
+  html::-webkit-scrollbar, body::-webkit-scrollbar, body *::-webkit-scrollbar { width: 14px; height: 14px; }
+  html::-webkit-scrollbar-track, body::-webkit-scrollbar-track, body *::-webkit-scrollbar-track { background: var(--scrollbar-track); border: 1px solid var(--scrollbar-edge); border-radius: 999px; }
+  html::-webkit-scrollbar-thumb, body::-webkit-scrollbar-thumb, body *::-webkit-scrollbar-thumb { min-height: 42px; border: 3px solid var(--scrollbar-track); border-radius: 999px; background: var(--scrollbar-thumb); box-shadow: inset 0 0 0 1px rgba(255,255,255,.2); }
+  html::-webkit-scrollbar-thumb:hover, body::-webkit-scrollbar-thumb:hover, body *::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-thumb-hover); }
   </style>
 <link rel="stylesheet" href="/module-kpis.css?v=20260912">
 </head>
@@ -1295,8 +1303,22 @@ function renderCategoryPage(){
     </button>`;
 }
 function changeCategoryPage(delta){
+  const previousPage = categoryListPage;
+  const wrapper = document.getElementById('catBody');
+  const scrollLeft = wrapper.scrollLeft;
   categoryListPage += delta;
   renderCategoryPage();
+  wrapper.scrollLeft = scrollLeft;
+  const rows = wrapper.querySelector('tbody');
+  if(categoryListPage === previousPage || !rows || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const direction = categoryListPage > previousPage ? 1 : -1;
+  const overflow = wrapper.style.overflow;
+  wrapper.style.overflow = 'hidden';
+  const animation = rows.animate([
+    { opacity: 0, transform: `translateX(${direction * 32}px)` },
+    { opacity: 1, transform: 'translateX(0)' },
+  ], { duration: 240, easing: 'cubic-bezier(.22, 1, .36, 1)' });
+  animation.finished.finally(() => { wrapper.style.overflow = overflow; }).catch(() => {});
 }
 function filtrarCategoria(cat){
   const eq = store.get('qps_equipamentos')||[];

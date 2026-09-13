@@ -124,7 +124,7 @@ const centerTextPlugin = {
     ctx.stroke();
     ctx.restore();
   },
-  afterDraw(chart, _args, options) {
+  afterDatasetsDraw(chart, _args, options) {
     if (!options?.display || chart.config.type !== "doughnut") return;
     const { ctx, chartArea } = chart;
     const x = (chartArea.left + chartArea.right) / 2;
@@ -196,9 +196,9 @@ function doughnutChart(id, data, palette, detailed = false) {
     const token = (name) => style.getPropertyValue(name).trim();
     const chartColors = data.map((_, index) => palette[index % palette.length]);
     options.cutout = "64%";
-    options.radius = "100%";
+    options.radius = "98%";
     options.rotation = id === "chartStatus" ? -90 : -120;
-    options.layout.padding = 4;
+    options.layout.padding = 6;
     options.plugins.legend = { display: false };
     options.plugins.centerText = { display: true, detailed: true, value: total, text: token("--text"), muted: token("--muted"), panel: token("--panel"), surface: token("--bg"), border: token("--border"), accent: token("--blue") };
     options.plugins.datalabels = {
@@ -293,7 +293,7 @@ function buildCharts(agg) {
   paretoChart("chartPareto", entries(agg.dimensions[selectedDimension]).sort((a, b) => b[1] - a[1]));
   doughnutChart("chartStatus", entries(agg.status, ["Aguardando análise", "Ações em andamento", "Aguardando eficácia", "Encerrado"], true), ["#f87171", "#fbbf24", "#46d9f5", "#34d399"], true);
   doughnutChart("chartSeverity", entries(agg.severity, ["Menor", "Média", "Maior"], true), ["#34d399", "#fbbf24", "#f87171"], true);
-  horizontalBarChart("chartOrigin", entries(agg.origin, ["Interno", "Fornecedor", "Cliente"]), ["#4fa3ff", "#a78bfa", "#46d9f5"]);
+  doughnutChart("chartOrigin", entries(agg.origin, ["Interno", "Fornecedor", "Cliente"]), ["#4fa3ff", "#a78bfa", "#46d9f5"], true);
   doughnutChart("chartRepeat", entries(agg.recurrence, ["Reincidentes", "Não reincidentes"], true), ["#a78bfa", "#34d399"], true);
   evolutionChart("chartEvolution", agg);
   horizontalBarChart("chartActions", entries(agg.actionSummary, ["Concluídas", "Pendentes", "Atrasadas"]), ["#34d399", "#fbbf24", "#f87171"]);

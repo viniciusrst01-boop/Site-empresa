@@ -63,6 +63,19 @@ const modules = [
   },
 ];
 
+const moduleIsoHeaders = {
+  "mudancas-climaticas": "MUDANÇAS CLIMÁTICAS · 4.1 E 4.2 · EMENDA 2024",
+  contexto: "CONTEXTO DA ORGANIZAÇÃO · 4.1 A 4.4",
+  lideranca: "LIDERANÇA E ANÁLISE CRÍTICA · 5.1 A 5.3 E 9.3",
+  riscos: "RISCOS, OBJETIVOS E MUDANÇAS · 6.1 A 6.3",
+  documentos: "INFORMAÇÃO DOCUMENTADA · 7.5",
+  auditorias: "AUDITORIA INTERNA · 9.2",
+  "nao-conformidades": "NÃO CONFORMIDADE E AÇÃO CORRETIVA · 10.2",
+  equipamentos: "RECURSOS DE MONITORAMENTO E MEDIÇÃO · 7.1.5",
+  "satisfacao-clientes": "SATISFAÇÃO DO CLIENTE · 9.1.2",
+  fornecedores: "CONTROLE DE PROVEDORES EXTERNOS · 8.4",
+};
+
 const moduleHeaderMeta = {
   "mudancas-climaticas": { category: "ISO 9001:2015 · EMENDA 2024", description: "Determinação de relevância, controle das questões e ações climáticas e indicadores de acompanhamento." },
   contexto: { category: "", description: "Contexto organizacional, partes interessadas, escopo do SGQ e gestão de processos." },
@@ -1054,6 +1067,10 @@ function applyTheme() {
   syncAuditsFrameTheme();
 }
 
+function themeDisplayName(theme) {
+  return ({ dark: "Escuro", white: "Branco", light: "Azul" })[theme] || "Escuro";
+}
+
 function syncAuditsFrameTheme() {
   const frame = pageContent?.querySelector(".audits-module-frame");
   if (!frame?.contentWindow) return;
@@ -2001,6 +2018,8 @@ function moduleIcon(name) {
     arrow: '<svg class="icon" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>',
     "arrow-left": '<svg class="icon" viewBox="0 0 24 24"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 5 5 12 12 19"/></svg>',
     "arrow-right": '<svg class="icon" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>',
+    "chevron-left": '<svg class="icon" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>',
+    "chevron-right": '<svg class="icon" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>',
     undo: '<svg class="icon" viewBox="0 0 24 24"><path d="M9 7 4 12l5 5"/><path d="M4 12h9a7 7 0 0 1 7 7"/></svg>',
     redo: '<svg class="icon" viewBox="0 0 24 24"><path d="m15 7 5 5-5 5"/><path d="M20 12h-9a7 7 0 0 0-7 7"/></svg>',
     plus: '<svg class="icon" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>',
@@ -2068,8 +2087,7 @@ function moduleHeaderHtml(moduleId, options = {}) {
     </div>
     <div class="page-toolbar module-summary-toolbar${toolbarClass}">
       <div>
-        ${category ? `<div class="welcome-eyebrow">${escapeHtml(category)}</div>` : ""}
-        <p class="welcome-sub">${escapeHtml(description)}</p>
+        ${moduleIsoHeaders[module.id] ? `<div class="welcome-eyebrow" title="Itens relacionados da ISO 9001:2015">${escapeHtml(moduleIsoHeaders[module.id])}</div>` : `${category ? `<div class="welcome-eyebrow">${escapeHtml(category)}</div>` : ""}<p class="welcome-sub">${escapeHtml(description)}</p>`}
       </div>
       ${actions}
     </div>
@@ -5584,7 +5602,74 @@ function ncFilterSelect(key, label, items) {
   return `<label class="fg">${label}<select class="input-basic" data-nc-filter="${key}"><option value="">Todos</option>${items.map((item) => `<option ${ncFilters[key] === item ? "selected" : ""}>${escapeHtml(item)}</option>`).join("")}</select></label>`;
 }
 
+let ncSelectMenu;
+function enhanceNcFilterSelects() {
+  pageContent.querySelectorAll(".filter-bar select[data-nc-filter]").forEach((select) => {
+    if (select.closest(".qp-select")) return;
+    const wrapper = document.createElement("span");
+    wrapper.className = "qp-select";
+    select.parentNode.insertBefore(wrapper, select);
+    wrapper.appendChild(select);
+    const trigger = document.createElement("button");
+    trigger.type = "button";
+    trigger.className = "qp-select-trigger";
+    trigger.setAttribute("aria-haspopup", "listbox");
+    trigger.setAttribute("aria-expanded", "false");
+    const menu = document.createElement("div");
+    menu.className = "qp-select-menu";
+    menu.setAttribute("role", "listbox");
+    const sync = () => {
+      const selected = select.options[select.selectedIndex];
+      trigger.innerHTML = `<span>${escapeHtml(selected?.textContent || "")}</span><span class="qp-select-chevron" aria-hidden="true">⌄</span>`;
+      menu.querySelectorAll("[role=option]").forEach((option) => option.setAttribute("aria-selected", String(option.dataset.value === select.value)));
+    };
+    Array.from(select.options).forEach((option) => {
+      const item = document.createElement("button");
+      item.type = "button";
+      item.className = "qp-select-option";
+      item.dataset.value = option.value;
+      item.setAttribute("role", "option");
+      item.textContent = option.textContent;
+      item.addEventListener("click", () => {
+        select.value = item.dataset.value;
+        select.dispatchEvent(new Event("change", { bubbles: true }));
+        closeNcSelectMenu();
+      });
+      menu.appendChild(item);
+    });
+    trigger.addEventListener("click", (event) => {
+      event.stopPropagation();
+      if (ncSelectMenu === menu) return closeNcSelectMenu();
+      closeNcSelectMenu();
+      const rect = trigger.getBoundingClientRect();
+      menu.style.left = `${rect.left}px`;
+      menu.style.top = `${rect.bottom + 7}px`;
+      menu.style.width = `${rect.width}px`;
+      menu.classList.add("is-open");
+      trigger.setAttribute("aria-expanded", "true");
+      ncSelectMenu = menu;
+    });
+    wrapper.append(trigger);
+    document.body.append(menu);
+    sync();
+    select.addEventListener("change", sync);
+  });
+  if (document.body.dataset.ncSelectBound === "true") return;
+  document.body.dataset.ncSelectBound = "true";
+  document.addEventListener("pointerdown", (event) => {
+    if (!event.target.closest(".qp-select") && !event.target.closest(".qp-select-menu")) closeNcSelectMenu();
+  });
+  window.addEventListener("resize", closeNcSelectMenu);
+}
+function closeNcSelectMenu() {
+  if (!ncSelectMenu) return;
+  ncSelectMenu.classList.remove("is-open");
+  ncSelectMenu = null;
+  document.querySelectorAll(".qp-select-trigger[aria-expanded=true]").forEach((trigger) => trigger.setAttribute("aria-expanded", "false"));
+}
+
 function bindNcTabActions() {
+  enhanceNcFilterSelects();
   pageContent.querySelector("[data-nc-new-catalog]")?.addEventListener("click", () => openNcCatalogModal());
   pageContent.querySelectorAll("[data-nc-edit-catalog]").forEach((button) => button.addEventListener("click", () => openNcCatalogModal(button.dataset.ncEditCatalog)));
   pageContent.querySelectorAll("[data-nc-delete-catalog]").forEach((button) => button.addEventListener("click", () => deleteNcCatalog(button.dataset.ncDeleteCatalog)));
@@ -7383,6 +7468,24 @@ function followUpSummaryCard(kind, value, label, caption, icon) {
   return `<button class="follow-up-summary-card ${kind}" type="button" data-follow-up-summary="${kind}"><span class="follow-up-summary-icon">${moduleIcon(icon)}</span><span><strong>${value}</strong><b>${escapeHtml(label)}</b><small>${escapeHtml(caption)}</small></span>${moduleIcon("arrow")}</button>`;
 }
 
+function changeFollowUpPage(nextPage) {
+  if (nextPage === followUpPage) return;
+  const direction = nextPage > followUpPage ? 1 : -1;
+  const scrollLeft = pageContent.querySelector(".qp-table-wrap")?.scrollLeft || 0;
+  followUpPage = nextPage;
+  renderFollowUpItems();
+  const wrapper = pageContent.querySelector(".qp-table-wrap");
+  const rows = wrapper?.querySelector("tbody");
+  if (wrapper) wrapper.scrollLeft = scrollLeft;
+  if (!rows || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  wrapper.style.overflow = "hidden";
+  const animation = rows.animate([
+    { opacity: 0, transform: `translateX(${direction * 32}px)` },
+    { opacity: 1, transform: "translateX(0)" },
+  ], { duration: 240, easing: "cubic-bezier(.22, 1, .36, 1)" });
+  animation.finished.finally(() => { wrapper.style.overflow = ""; }).catch(() => {});
+}
+
 function renderFollowUpItems() {
   setTopbar("Ações em acompanhamento", "Visão consolidada das pendências do SGQ");
   document.body.classList.add("module-detail-view");
@@ -7413,7 +7516,7 @@ function renderFollowUpItems() {
   const pageItems = filteredItems.slice((followUpPage - 1) * followUpPageSize, followUpPage * followUpPageSize);
   pageContent.innerHTML = `
     <section class="qp-card follow-up-panel">
-      <header class="follow-up-panel-head"><span class="follow-up-panel-icon">${moduleIcon("clipboard")}</span><div><h3>${items.length} item(ns) exigem acompanhamento</h3><p class="qp-muted">Os registros permanecem em seus módulos de origem.</p></div><button class="btn-secondary" type="button" data-view-target="inicio">${moduleIcon("arrow-left")} Voltar ao resumo</button></header>
+<header class="follow-up-panel-head"><span class="follow-up-panel-icon">${moduleIcon("clipboard")}</span><div><h3>${items.length} item(ns) exigem acompanhamento</h3><p class="qp-muted">Os registros permanecem em seus módulos de origem.</p></div><button class="btn-secondary" type="button" data-view-target="inicio">${moduleIcon("arrow-left")} Voltar ao resumo</button></header>
       <div class="follow-up-summary-grid">
         ${followUpSummaryCard("delayed", delayed.length, "Atrasadas", `${followUpPercent(delayed.length, items.length)} do total`, "calendar-clock")}
         ${followUpSummaryCard("treatment", treatment.length, "Em tratamento", `${followUpPercent(treatment.length, items.length)} do total`, "redo")}
@@ -7426,7 +7529,7 @@ function renderFollowUpItems() {
         <label>Prioridade<select data-follow-up-filter="priority">${followUpOptionList(items, "priority", followUpFilters.priority, "Média")}</select></label>
         <label>Responsável<select data-follow-up-filter="responsible">${followUpOptionList(items, "responsible", followUpFilters.responsible, "Não informado")}</select></label>
         <label class="follow-up-search"><span aria-hidden="true">${moduleIcon("search")}</span><input type="search" value="${escapeHtml(followUpFilters.search)}" placeholder="Buscar por item, responsável..." data-follow-up-search></label>
-        <button class="btn-secondary follow-up-clear" type="button" data-follow-up-clear>${moduleIcon("filter")} Limpar filtros</button>
+        <button class="btn-secondary follow-up-clear" type="button" data-follow-up-clear>${moduleIcon("trash")} Limpar filtros</button>
       </div>
       <div class="qp-table-wrap"><table class="qp-table follow-up-table"><thead><tr><th>Origem</th><th>Item</th><th>Responsável</th><th><button type="button" data-follow-up-sort>Prazo <span>${followUpDueSort === "asc" ? "↓" : "↑"}</span></button></th><th>Status</th><th>Prioridade</th><th>Ação</th></tr></thead><tbody>${pageItems.length ? pageItems.map((item) => `<tr><td><span class="follow-up-origin" style="--follow-up-color:${item.color}">${escapeHtml(item.origin)}</span></td><td>${escapeHtml(item.title)}</td><td><span class="follow-up-responsible"><i>${escapeHtml(initials(item.responsible || "NI"))}</i>${escapeHtml(item.responsible || "Não informado")}</span></td><td><span class="follow-up-date">${moduleIcon("calendar")}${escapeHtml(item.dueDate ? formatDate(item.dueDate) : "Sem prazo")}</span></td><td><span class="follow-up-status ${followUpStatusClass(item.status)}"><i></i>${escapeHtml(item.status || "Em acompanhamento")}</span></td><td><span class="follow-up-priority ${item.priority === "Alta" ? "high" : item.priority === "Baixa" ? "low" : "medium"}">${escapeHtml(item.priority)}</span></td><td><button class="icon-btn follow-up-open" type="button" data-follow-up-open="${escapeHtml(item.id)}" title="Abrir no módulo de origem">${moduleIcon("arrow")}</button></td></tr>`).join("") : `<tr><td colspan="7" class="follow-up-empty">Nenhum item encontrado com os filtros selecionados.</td></tr>`}</tbody></table></div>
       <footer class="follow-up-footer"><span>Mostrando ${pageItems.length} de ${filteredItems.length} registros</span><nav aria-label="Paginação"><button type="button" data-follow-up-page="${followUpPage - 1}" ${followUpPage === 1 ? "disabled" : ""}>‹</button>${Array.from({ length: totalPages }, (_, index) => index + 1).map((page) => `<button type="button" data-follow-up-page="${page}" class="${page === followUpPage ? "active" : ""}">${page}</button>`).join("")}<button type="button" data-follow-up-page="${followUpPage + 1}" ${followUpPage === totalPages ? "disabled" : ""}>›</button></nav><label>Itens por página<select data-follow-up-page-size><option value="12"${followUpPageSize === 12 ? " selected" : ""}>12</option><option value="24"${followUpPageSize === 24 ? " selected" : ""}>24</option><option value="48"${followUpPageSize === 48 ? " selected" : ""}>48</option></select></label></footer>
@@ -7436,7 +7539,7 @@ function renderFollowUpItems() {
   pageContent.querySelectorAll("[data-follow-up-filter]").forEach((select) => select.addEventListener("change", () => { followUpFilters[select.dataset.followUpFilter] = select.value; followUpPage = 1; renderFollowUpItems(); }));
   pageContent.querySelector("[data-follow-up-search]")?.addEventListener("input", (event) => { followUpFilters.search = event.target.value; followUpPage = 1; renderFollowUpItems(); const search = pageContent.querySelector("[data-follow-up-search]"); search?.focus(); search?.setSelectionRange(search.value.length, search.value.length); });
   pageContent.querySelector("[data-follow-up-clear]")?.addEventListener("click", () => { followUpFilters = { origin: "", status: "", priority: "", responsible: "", search: "" }; followUpPage = 1; renderFollowUpItems(); });
-  pageContent.querySelectorAll("[data-follow-up-page]").forEach((button) => button.addEventListener("click", () => { followUpPage = Number(button.dataset.followUpPage); renderFollowUpItems(); }));
+  pageContent.querySelectorAll("[data-follow-up-page]").forEach((button) => button.addEventListener("click", () => changeFollowUpPage(Number(button.dataset.followUpPage))));
   pageContent.querySelector("[data-follow-up-page-size]")?.addEventListener("change", (event) => { followUpPageSize = Number(event.target.value); followUpPage = 1; renderFollowUpItems(); });
   pageContent.querySelector("[data-follow-up-sort]")?.addEventListener("click", () => { followUpDueSort = followUpDueSort === "asc" ? "desc" : "asc"; renderFollowUpItems(); });
   pageContent.querySelectorAll("[data-follow-up-summary]").forEach((button) => button.addEventListener("click", () => {
@@ -7711,7 +7814,7 @@ function adminCompanyDetailContent(company, users, logs) {
       <section data-admin-company-detail-panel="modules" hidden><article class="admin-company-detail-section admin-company-detail-wide"><h3>Módulos e acessos</h3><div class="admin-company-module-groups"><div><h4>Habilitados</h4>${registeredModules.length ? `<div class="admin-company-access-list">${registeredModules.map(([moduleId, access]) => `<span><strong>${escapeHtml(adminCompanyModuleLabel(moduleId))}</strong><em>${escapeHtml(access === "edit" ? "Edição" : "Visualização")}</em></span>`).join("")}</div>` : `<p class="admin-company-no-data">Nenhum módulo habilitado registrado.</p>`}</div><div><h4>Desabilitados</h4>${disabledModules.length ? `<div class="admin-company-access-list">${disabledModules.map((module) => `<span><strong>${escapeHtml(module.title)}</strong><em>Sem acesso</em></span>`).join("")}</div>` : `<p class="admin-company-no-data">Nenhum módulo desabilitado registrado.</p>`}</div></div></article></section>
       <section data-admin-company-detail-panel="security" hidden><article class="admin-company-detail-section admin-company-detail-wide"><h3>Segurança</h3>${detailRows([["Usuários bloqueados", String(users.filter((user) => String(user.status).toLowerCase() === "bloqueado").length)], ["Último acesso", users.some((user) => user.lastLoginAt) ? formatDateTime(users.filter((user) => user.lastLoginAt).sort((a, b) => new Date(b.lastLoginAt) - new Date(a.lastLoginAt))[0]?.lastLoginAt) : "Não registrado"]])}${adminCompanyDetailLogs(logs.filter((log) => /login|mfa|password|csrf|session|security/i.test(log.eventType)), "Nenhum evento de segurança registrado.")}</article></section>
       <section data-admin-company-detail-panel="history" hidden><article class="admin-company-detail-section admin-company-detail-wide"><h3>Histórico</h3>${adminCompanyHistoryTable(logs)}</article></section>
-      <section data-admin-company-detail-panel="settings" hidden><article class="admin-company-detail-section admin-company-detail-wide"><h3>Configurações administrativas</h3>${detailRows([...(showStatus ? [["Status da empresa", visibleStatus]] : []), ["Plano configurado", settings.companyAccess || company.plan], ["Tema", settings.theme]])}<a class="admin-company-inline-action" href="/api/admin/backup?companyId=${Number(company.id)}">${moduleIcon("download")} Backup da empresa</a></article></section>
+      <section data-admin-company-detail-panel="settings" hidden><article class="admin-company-detail-section admin-company-detail-wide"><h3>Configurações administrativas</h3>${detailRows([...(showStatus ? [["Status da empresa", visibleStatus]] : []), ["Plano configurado", settings.companyAccess || company.plan], ["Tema", themeDisplayName(settings.theme)]])}<a class="admin-company-inline-action" href="/api/admin/backup?companyId=${Number(company.id)}">${moduleIcon("download")} Backup da empresa</a></article></section>
     </div>`;
 }
 
@@ -9158,8 +9261,8 @@ async function renderConfiguracoes() {
         <span>Tema do sistema</span>
         <select name="theme">
           <option value="dark" ${!state.settings.theme || state.settings.theme === "dark" ? "selected" : ""}>Escuro</option>
-          <option value="light" ${state.settings.theme === "light" ? "selected" : ""}>Claro azul</option>
-          <option value="white" ${state.settings.theme === "white" ? "selected" : ""}>Claro</option>
+          <option value="light" ${state.settings.theme === "light" ? "selected" : ""}>Azul</option>
+          <option value="white" ${state.settings.theme === "white" ? "selected" : ""}>Branco</option>
         </select>
       </label>
       <label class="check-row"><input name="emailAlerts" type="checkbox" ${state.settings.emailAlerts ? "checked" : ""} /> <span>Enviar alertas por e-mail</span></label>
