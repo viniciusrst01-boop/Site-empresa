@@ -5603,8 +5603,8 @@ function ncFilterSelect(key, label, items) {
 }
 
 let ncSelectMenu;
-function enhanceNcFilterSelects() {
-  pageContent.querySelectorAll(".filter-bar select[data-nc-filter]").forEach((select) => {
+function enhanceAppSelects() {
+  pageContent.querySelectorAll("select.input-basic").forEach((select) => {
     if (select.closest(".qp-select")) return;
     const wrapper = document.createElement("span");
     wrapper.className = "qp-select";
@@ -5620,7 +5620,7 @@ function enhanceNcFilterSelects() {
     menu.setAttribute("role", "listbox");
     const sync = () => {
       const selected = select.options[select.selectedIndex];
-      trigger.innerHTML = `<span>${escapeHtml(selected?.textContent || "")}</span><span class="qp-select-chevron" aria-hidden="true">⌄</span>`;
+      trigger.innerHTML = `<span>${escapeHtml(selected?.textContent || "")}</span><svg class="qp-select-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>`;
       menu.querySelectorAll("[role=option]").forEach((option) => option.setAttribute("aria-selected", String(option.dataset.value === select.value)));
     };
     Array.from(select.options).forEach((option) => {
@@ -5669,7 +5669,7 @@ function closeNcSelectMenu() {
 }
 
 function bindNcTabActions() {
-  enhanceNcFilterSelects();
+  enhanceAppSelects();
   pageContent.querySelector("[data-nc-new-catalog]")?.addEventListener("click", () => openNcCatalogModal());
   pageContent.querySelectorAll("[data-nc-edit-catalog]").forEach((button) => button.addEventListener("click", () => openNcCatalogModal(button.dataset.ncEditCatalog)));
   pageContent.querySelectorAll("[data-nc-delete-catalog]").forEach((button) => button.addEventListener("click", () => deleteNcCatalog(button.dataset.ncDeleteCatalog)));
@@ -9895,6 +9895,11 @@ function observeStandardActionButtons() {
   }).observe(document.body, { childList: true, subtree: true });
 }
 
+function observeAppSelects() {
+  enhanceAppSelects();
+  new MutationObserver(() => enhanceAppSelects()).observe(pageContent, { childList: true, subtree: true });
+}
+
 function confirmSensitiveAction(title, description = "Confirme sua senha para continuar.") {
   return new Promise((resolve) => {
     const overlay = document.createElement("div");
@@ -9957,4 +9962,5 @@ document.addEventListener("click", (event) => {
 
 syncDashboardFooterDate();
 observeStandardActionButtons();
+observeAppSelects();
 initializeApp();
