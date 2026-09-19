@@ -59,7 +59,6 @@ const modules = [
     title: "Fornecedores",
     accent: "#F97316",
     desc: "Homologação, avaliação e acompanhamento de fornecedores críticos.",
-    future: true,
   },
 ];
 
@@ -1065,6 +1064,7 @@ function applyTheme() {
     logo.src = "/assets/qualitypro-cloud-logo-app.png";
   });
   syncAuditsFrameTheme();
+  syncSuppliersFrameTheme();
 }
 
 function themeDisplayName(theme) {
@@ -1076,6 +1076,15 @@ function syncAuditsFrameTheme() {
   if (!frame?.contentWindow) return;
   frame.contentWindow.postMessage({
     type: "qualitypro:audits:theme",
+    theme: state.settings.theme || "dark",
+  }, window.location.origin);
+}
+
+function syncSuppliersFrameTheme() {
+  const frame = pageContent?.querySelector(".suppliers-module-frame");
+  if (!frame?.contentWindow) return;
+  frame.contentWindow.postMessage({
+    type: "qualitypro:fornecedores:theme",
     theme: state.settings.theme || "dark",
   }, window.location.origin);
 }
@@ -1389,7 +1398,7 @@ function healthIndicatorCard(metric) {
     : allowed && metric.view
       ? `data-view-target="${metric.view}"`
     : "disabled";
-  return `<button type="button" class="sgq-health-indicator" ${target} style="--health-color:${metric.color}">
+  return `<button type="button" class="sgq-health-indicator" data-health-series="${metric.key}" ${target} style="--health-color:${metric.color}">
     <span class="sgq-health-icon">${moduleIcon(metric.icon)}</span>
     <span class="sgq-health-copy"><span>${metric.title}</span><strong data-health-value="${metric.key}">—</strong></span>
     ${allowed && (metric.module || metric.view) ? moduleIcon("arrow") : ""}
@@ -1494,6 +1503,7 @@ function mountSGQHealth() {
   let controller;
   let activeData;
   let transitionTimer;
+  let highlightedMetric = null;
   const openMetric = (metricIndex) => {
     const metric = sgqHealthMetrics[metricIndex];
     if (!metric) return;
@@ -1523,6 +1533,45 @@ function mountSGQHealth() {
       instance.$sgqRevealClipped = false;
     },
   };
+  const focusedSeriesPlugin = {
+    id: "sgqHealthFocusedSeries",
+    beforeDatasetDraw: (instance, args) => {
+      const metric = sgqHealthMetrics[args.index];
+      if (!metric || instance.$sgqFocusedMetric !== metric.key) return;
+      instance.ctx.save();
+      instance.ctx.shadowColor = hexToRgba(metric.color, 0.9);
+      instance.ctx.shadowBlur = 14;
+    },
+    afterDatasetDraw: (instance, args) => {
+      const metric = sgqHealthMetrics[args.index];
+      if (metric && instance.$sgqFocusedMetric === metric.key) instance.ctx.restore();
+    },
+  };
+  const setSeriesEmphasis = (metricKey, update = true) => {
+    if (!chart) return;
+    highlightedMetric = metricKey;
+    chart.$sgqFocusedMetric = metricKey;
+    chart.data.datasets.forEach((dataset, index) => {
+      const metric = sgqHealthMetrics[index];
+      const isFocused = metric.key === metricKey;
+      const isDimmed = metricKey && !isFocused;
+      dataset.borderColor = isDimmed ? hexToRgba(metric.color, 0.52) : metric.color;
+      dataset.backgroundColor = isDimmed ? hexToRgba(metric.color, 0.52) : metric.color;
+      dataset.borderWidth = isFocused ? 4 : isDimmed ? 1.75 : 2;
+      dataset.pointRadius = isFocused ? 4.5 : isDimmed ? 2.5 : 3;
+      dataset.pointHoverRadius = isFocused ? 7 : isDimmed ? 4 : 5;
+    });
+    if (update) chart.update("none");
+  };
+  root.querySelectorAll(".sgq-health-indicator[data-health-series]").forEach((card) => {
+    const metricKey = card.dataset.healthSeries;
+    card.addEventListener("mouseenter", () => setSeriesEmphasis(metricKey));
+    card.addEventListener("mouseleave", () => setSeriesEmphasis(null));
+    card.addEventListener("focusin", () => setSeriesEmphasis(metricKey));
+    card.addEventListener("focusout", (event) => {
+      if (!card.contains(event.relatedTarget)) setSeriesEmphasis(null);
+    });
+  });
   const label = (point, long = false) => {
     if (point.axisLabel !== undefined) {
       return long
@@ -1578,6 +1627,7 @@ function mountSGQHealth() {
           },
         }
         : false;
+      setSeriesEmphasis(highlightedMetric, false);
       chart.update();
       clearTimeout(transitionTimer);
       if (animate && !reducedMotion) {
@@ -1591,7 +1641,7 @@ function mountSGQHealth() {
     }
     chart = new Chart(canvas, {
       type: "line",
-      plugins: [progressiveRevealPlugin],
+      plugins: [progressiveRevealPlugin, focusedSeriesPlugin],
       data: {
         labels: data.points.map((point) => label(point)),
         datasets: sgqHealthMetrics.map((metric) => ({
@@ -1805,6 +1855,10 @@ function dashboardSummary() {
         value: `${equipment.length} equipamento${equipment.length === 1 ? "" : "s"}`,
         caption: `${equipment.filter((item) => item.proximaCalib && item.proximaCalib < followUpToday()).length} calibração(ões) vencida(s)`,
       },
+      fornecedores: {
+        value: "Cadastros ativos",
+        caption: "Homologação, avaliação e planos de ação",
+      },
     },
   };
 }
@@ -1890,8 +1944,8 @@ function firstName(name) {
 function renderModulos() {
   setTopbar("Meus módulos", "Módulos do QualityPro Cloud contratados pela sua empresa");
   pageContent.classList.add("modules-page-content");
-  const moduleOrder = ["contexto", "lideranca", "riscos", "documentos", "auditorias", "nao-conformidades", "equipamentos", "mudancas-climaticas"];
-  const futureModuleOrder = ["satisfacao-clientes", "fornecedores"];
+  const moduleOrder = ["contexto", "lideranca", "riscos", "documentos", "auditorias", "nao-conformidades", "equipamentos", "mudancas-climaticas", "fornecedores"];
+  const futureModuleOrder = ["satisfacao-clientes"];
   const activeModules = moduleOrder
     .map((id) => modules.find((module) => module.id === id))
     .filter((module) => module && canViewModule(module.id));
@@ -1958,7 +2012,7 @@ function renderModulos() {
         <p class="section-sub">Estes são os módulos atualmente contratados e disponíveis para uso pela sua empresa.</p>
       </div>
 
-      <div class="mymods-grid has-nine mymods-reference-grid">
+      <div class="mymods-grid has-${visibleModules.length} mymods-reference-grid">
         ${visibleModules
         .map(
           (module) => {
@@ -2111,6 +2165,7 @@ function renderModuleDetail(moduleId, options = {}) {
     "nc-page-content",
     "equipment-page-content",
     "climate-page-content",
+    "suppliers-page-content",
   );
   if (!canViewModule(moduleId)) {
     toast("Seu perfil não possui acesso a este módulo.");
@@ -2158,6 +2213,11 @@ function renderModuleDetail(moduleId, options = {}) {
 
   if (moduleId === "mudancas-climaticas") {
     renderClimateModule();
+    return;
+  }
+
+  if (moduleId === "fornecedores") {
+    renderSuppliersModule();
     return;
   }
 
@@ -2341,6 +2401,19 @@ function renderEquipmentModule() {
   scrollPageToTop();
 }
 
+function renderSuppliersModule() {
+  pageContent.classList.add("suppliers-page-content");
+  pageContent.innerHTML = `
+    ${moduleHeaderHtml("fornecedores", { actions: false })}
+    <section class="suppliers-module-shell" aria-label="Módulo de fornecedores">
+      <iframe class="suppliers-module-frame" title="Fornecedores" src="/fornecedores-module-frame.html?v=20260919" loading="eager"></iframe>
+    </section>
+  `;
+  const frame = pageContent.querySelector(".suppliers-module-frame");
+  frame.addEventListener("load", () => syncSuppliersFrameTheme());
+  scrollPageToTop();
+}
+
 if (!window.__qualityProAuditsFrameBridge) {
   window.__qualityProAuditsFrameBridge = true;
   window.addEventListener("message", (event) => {
@@ -2366,6 +2439,11 @@ if (!window.__qualityProAuditsFrameBridge) {
           auditFrame.style.height = `${Math.ceil(height)}px`;
         }
       }
+      return;
+    }
+    const suppliersFrame = pageContent?.querySelector(".suppliers-module-frame");
+    if (suppliersFrame && event.source === suppliersFrame.contentWindow) {
+      if (event.data?.type === "qualitypro:fornecedores:ready") syncSuppliersFrameTheme();
       return;
     }
     const equipmentFrame = pageContent?.querySelector(".equipment-module-frame");
@@ -9897,7 +9975,7 @@ function observeStandardActionButtons() {
 
 function observeAppSelects() {
   enhanceAppSelects();
-  new MutationObserver(() => enhanceAppSelects()).observe(pageContent, { childList: true, subtree: true });
+  new MutationObserver(() => enhanceAppSelects()).observe(document.body, { childList: true, subtree: true });
 }
 
 function confirmSensitiveAction(title, description = "Confirme sua senha para continuar.") {

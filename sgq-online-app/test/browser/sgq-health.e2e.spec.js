@@ -68,6 +68,21 @@ test("notebook dashboard keeps cards readable and footer reachable", async ({ pa
   await page.screenshot({ path: info.outputPath('modules-readable.png') });
 });
 
+test("health indicator hover emphasizes the matching chart series", async ({ page }) => {
+  await page.route('**/api/dashboard/health-history?*', route => route.fulfill({ json: fixture(6) }));
+  await home(page);
+  await expect(page.locator('.sgq-health-plot')).toHaveAttribute('aria-busy', 'false');
+  const indicator = page.locator('.sgq-health-indicator[data-health-series="audits"]');
+  await indicator.hover();
+  const emphasized = await page.locator('.sgq-health-canvas canvas').evaluate((canvas) => Chart.getChart(canvas).data.datasets.map((dataset) => ({
+    borderWidth: dataset.borderWidth,
+    pointRadius: dataset.pointRadius,
+    borderColor: dataset.borderColor,
+  })));
+  expect(emphasized[2]).toMatchObject({ borderWidth: 4, pointRadius: 4.5, borderColor: '#8B5CF6' });
+  expect(emphasized[0]).toMatchObject({ borderWidth: 1.75, pointRadius: 2.5, borderColor: 'rgba(255,83,100,0.52)' });
+});
+
 test("health keeps the desktop shell and renders contained charts in all themes", async ({ page }, info) => {
   await page.setViewportSize({ width: 1600, height: 900 });
   const repo = path.join(__dirname, "../..");
@@ -179,7 +194,7 @@ test("periods, error recovery, empty state, mobile layout and navigation", async
     expect(overflow).toEqual({ x: 0, y: 0 });
     await page.locator(".home-v2-health").screenshot({ path: info.outputPath(`health-mobile-${width}.png`) });
   }
-  await page.getByRole("button", { name: /Documentos pendentes/ }).click();
+  await page.locator('.sgq-health-indicator[data-health-series="documents"]').click();
   await expect(page.locator(".home-v2-health")).toHaveCount(0);
   expect(await page.evaluate(() => Object.values(Chart.instances).filter((chart) => !chart.canvas.isConnected).length)).toBe(0);
 });

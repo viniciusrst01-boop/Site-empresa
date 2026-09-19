@@ -21,6 +21,12 @@ test("equipamentos carrega a base demonstrativa para empresa sem cadastros", asy
   await expect(frame.locator("#kpiRow")).toBeVisible();
   await expect(frame.locator("#kpiRow .dash-solid-card")).toHaveCount(4);
   await expect(frame.locator("#kpiRow .kpi-card")).toHaveCount(0);
+  const responsibleSelect = frame.locator(".qp-select:has(#fResponsavel)");
+  const selectedResponsible = await frame.locator("#fResponsavel").evaluate((select) => select.options[select.selectedIndex]?.textContent);
+  await responsibleSelect.locator(".qp-select-trigger").click();
+  await expect(frame.locator(".qp-select-menu.is-open")).toContainText(selectedResponsible);
+  await frame.locator(".qp-select-menu.is-open .qp-select-option").first().click();
+  await expect(responsibleSelect.locator(".qp-select-trigger")).toContainText(selectedResponsible);
   await expect.poll(() => page.evaluate(() => ({ equipment: state.equipment.length, distributions: state.equipmentDistributions.length }))).toEqual({ equipment: 30, distributions: 12 });
   await frame.locator("#kpiRow .dash-solid-card").first().click();
   await expect(frame.locator("#modalCategoria")).toHaveClass(/show/);

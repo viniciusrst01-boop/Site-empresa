@@ -1737,6 +1737,14 @@ async function handleRequest(req, res) {
     return;
   }
 
+  if (url.pathname === "/fornecedores-module-frame.html") {
+    serveFile(res, path.join(publicDir, "fornecedores-module-frame.html"), {
+      "X-Frame-Options": "SAMEORIGIN",
+      "Content-Security-Policy": "frame-ancestors 'self'",
+    });
+    return;
+  }
+
   if (url.pathname === "/login.css") {
     serveFile(res, path.join(publicDir, "login.css"));
     return;

@@ -1,0 +1,1699 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QualityPro Cloud - Fornecedores</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+<script src="/vendor/chart.umd.js"></script>
+<script src="/vendor/chartjs-plugin-datalabels.min.js"></script>
+<script src="/frame-selects.js?v=20260919"></script>
+<style>
+
+  :root {
+    /* ===== TEMA AZUL-CLARO (degradê azul-marinho) ===== */
+    --bg-deep: #0a1e3f; --bg-grad-top: #123a6b; --bg-grad-bot: #0a1c38;
+    --bg-sidebar: #0a1a33; --bg-panel: #102a4d; --bg-panel-2: #0e2445; --bg-panel-hover: #143154;
+    --border-subtle: rgba(255,255,255,0.10); --border-strong: rgba(255,255,255,0.18);
+    --text-primary: #eef4fb; --text-secondary: #9fb4d0; --text-muted: #6f87a8;
+    --accent-blue: #2f8ff0; --accent-blue-bright: #4fa3ff; --accent-cyan: #46D9F5; --accent-gold: #F2B705;
+    --accent-green: #34D399; --accent-amber: #FBBF24; --accent-red: #F87171; --accent-orange: #fb923c; --accent-purple: #A78BFA;
+    --accent-gradient: linear-gradient(90deg, #2f8ff0, #4fa3ff); --radius: 14px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; color: var(--text-primary); -webkit-font-smoothing: antialiased; }
+  body { background: linear-gradient(160deg, var(--bg-grad-top) 0%, var(--bg-deep) 42%, var(--bg-grad-bot) 100%); background-attachment: fixed; }
+  svg { display: block; }
+  .icon { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
+  a { text-decoration: none; }
+  .mono { font-family: 'JetBrains Mono', 'SFMono-Regular', Consolas, monospace; }
+  button, textarea, select, input { font-family: inherit; }
+  .app-shell { display: flex; min-height: 100vh; }
+
+  /* SIDEBAR */
+  .sidebar { width: 220px; flex-shrink: 0; background: var(--bg-sidebar); border-right: 1px solid var(--border-subtle); display: flex; flex-direction: column; padding: 20px 12px 18px; position: sticky; top: 0; height: 100vh; }
+  .sb-logo-row { display: flex; align-items: center; padding: 4px 6px 18px; border-bottom: 1px solid var(--border-subtle); margin-bottom: 16px; }
+  .sb-logo-img { width: 100%; max-width: 178px; height: auto; display: block; }
+  .sb-section-label { font-family: 'JetBrains Mono', monospace; font-size: 9.5px; font-weight: 600; letter-spacing: 1.3px; color: var(--text-muted); padding: 0 10px; margin: 4px 0 9px; }
+  .sb-nav { display: flex; flex-direction: column; gap: 2px; flex: 1; }
+  .nav-item { display: flex; align-items: center; gap: 11px; padding: 9px 10px; border-radius: 8px; color: #a7bcda; font-size: 13px; font-weight: 600; cursor: pointer; position: relative; transition: background 0.15s ease, color 0.15s ease; }
+  .nav-item .icon { width: 17px; height: 17px; color: #7d95b8; transition: color 0.15s ease; }
+  .nav-item:hover { background: rgba(255,255,255,0.05); color: var(--text-primary); }
+  .nav-item:hover .icon { color: var(--accent-blue-bright); }
+  .nav-item.active { background: rgba(47,143,240,0.18); color: var(--text-primary); }
+  .nav-item.active .icon { color: var(--accent-cyan); }
+  .nav-item.active::before { content: ""; position: absolute; left: -12px; top: 7px; bottom: 7px; width: 3px; background: var(--accent-cyan); border-radius: 0 3px 3px 0; box-shadow: 0 0 8px rgba(70,217,245,0.7); }
+  .sb-help-card { margin-top: 16px; background: var(--bg-panel); border: 1px solid var(--border-subtle); border-radius: var(--radius); padding: 16px; display: flex; flex-direction: column; gap: 10px; position: relative; overflow: hidden; }
+  .sb-help-card::after { content: ""; position: absolute; top: -30px; right: -30px; width: 90px; height: 90px; border-radius: 50%; background: radial-gradient(circle, rgba(47,143,240,0.28), transparent 70%); }
+  .sb-help-icon { width: 34px; height: 34px; border-radius: 9px; background: transparent; border: 1px solid rgba(70,217,245,0.4); display: flex; align-items: center; justify-content: center; color: var(--accent-cyan); margin-bottom: 2px; position: relative; z-index: 1; }
+  .sb-help-icon .icon { width: 17px; height: 17px; }
+  .sb-help-card .htitle { color: var(--text-primary); font-size: 13.5px; font-weight: 700; position: relative; z-index: 1; }
+  .sb-help-card .hdesc { color: var(--text-secondary); font-size: 12px; line-height: 1.5; position: relative; z-index: 1; }
+  .btn-support { margin-top: 2px; background: transparent; border: 1.5px solid rgba(255,255,255,0.2); color: var(--text-primary); font-size: 12.5px; font-weight: 700; padding: 9px 12px; border-radius: 8px; display: flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; transition: background 0.15s ease, border-color 0.15s ease; position: relative; z-index: 1; }
+  .btn-support:hover { background: rgba(255,255,255,0.07); border-color: var(--accent-blue-bright); }
+  .btn-support .icon { width: 15px; height: 15px; }
+
+  /* MAIN */
+  .main-area { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .topbar { height: 72px; flex-shrink: 0; background: rgba(10,26,51,0.75); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border-subtle); display: flex; align-items: center; justify-content: space-between; padding: 0 28px; position: sticky; top: 0; z-index: 5; gap: 20px; }
+  .topbar-left { display: flex; align-items: center; gap: 16px; }
+  .menu-toggle { width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: var(--text-secondary); cursor: pointer; flex-shrink: 0; }
+  .menu-toggle:hover { background: rgba(255,255,255,0.06); color: var(--text-primary); }
+  .topbar-title { font-size: 17px; font-weight: 800; color: var(--text-primary); line-height: 1.25; }
+  .topbar-subtitle { font-size: 12.5px; color: var(--text-secondary); font-weight: 500; }
+  .topbar-search { flex: 1; max-width: 420px; display: flex; align-items: center; gap: 9px; background: rgba(255,255,255,0.05); border: 1px solid var(--border-subtle); border-radius: 11px; padding: 10px 14px; color: var(--text-muted); }
+  .topbar-search input { flex: 1; background: transparent; border: none; outline: none; color: var(--text-primary); font-size: 13px; }
+  .topbar-search input::placeholder { color: var(--text-muted); }
+  .topbar-search .icon { width: 17px; height: 17px; }
+  .topbar-right { display: flex; align-items: center; gap: 6px; }
+  .tb-icon-btn { position: relative; width: 38px; height: 38px; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: var(--text-secondary); cursor: pointer; flex-shrink: 0; }
+  .tb-icon-btn:hover { background: rgba(255,255,255,0.06); color: var(--text-primary); }
+  .tb-divider { width: 1px; height: 26px; background: var(--border-subtle); margin: 0 10px; }
+  .tb-user { display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 6px 8px 6px 6px; border-radius: 10px; }
+  .tb-user:hover { background: rgba(255,255,255,0.06); }
+  .tb-avatar { width: 36px; height: 36px; border-radius: 50%; background: var(--accent-gradient); color: #fff; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-family: 'JetBrains Mono', monospace; }
+  .tb-user-info { line-height: 1.25; }
+  .tb-user-name { font-size: 13.5px; font-weight: 700; color: var(--text-primary); }
+  .tb-user-role { font-size: 11.5px; color: var(--text-secondary); }
+  .tb-chevron { color: var(--text-muted); width: 16px; height: 16px; margin-left: 2px; }
+
+  .page-content { flex: 1; padding: 24px 28px 40px; position: relative; }
+  .breadcrumb { font-size: 12.5px; color: var(--text-secondary); margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+  .breadcrumb a { color: var(--text-secondary); }
+  .breadcrumb a:hover { color: var(--accent-blue-bright); }
+  .breadcrumb .sep { color: var(--text-muted); }
+  .breadcrumb .cur { color: var(--text-primary); font-weight: 700; }
+  .welcome-eyebrow { font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 600; letter-spacing: 1.5px; color: var(--accent-cyan); margin-bottom: 8px; }
+  .welcome-sub { margin: 0 0 22px; color: var(--text-primary); font-size: 15px; font-weight: 600; }
+
+  /* KPI cards */
+  .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 22px; }
+  /* Cards superiores sólidos (padrão colorido) */
+  .kpi-solid { position: relative; border-radius: var(--radius); padding: 18px 20px; overflow: hidden; color: #06101f; background: var(--kc, #4fa3ff); display: flex; flex-direction: column; cursor: pointer; transition: transform 0.15s ease, box-shadow 0.15s ease; }
+  .kpi-solid:hover { transform: translateY(-2px); box-shadow: 0 10px 28px rgba(0,0,0,0.35); }
+  .kpi-solid .ks-icon { position: absolute; top: 15px; right: 15px; }
+  .kpi-solid .ks-icon .icon { width: 26px; height: 26px; stroke: #06101f; stroke-width: 1.8; opacity: 0.9; }
+  .kpi-solid .ks-label { font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.7px; text-transform: uppercase; font-weight: 700; opacity: 0.72; }
+  .kpi-solid .ks-value { font-size: 30px; font-weight: 800; font-family: 'JetBrains Mono', monospace; line-height: 1; margin-top: 8px; }
+  .kpi-solid .ks-caption { display: flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 600; opacity: 0.8; margin-top: 10px; }
+  .kpi-solid .ks-dot { width: 7px; height: 7px; border-radius: 50%; background: #06101f; opacity: 0.5; flex-shrink: 0; }
+  .kpi-solid .ks-bar { height: 5px; border-radius: 3px; background: rgba(6,16,31,0.18); margin-top: 9px; overflow: hidden; }
+  .kpi-solid .ks-bar span { display: block; height: 100%; border-radius: 3px; background: rgba(6,16,31,0.55); }
+  .kpi-card { background: var(--bg-panel); border: 1px solid var(--border-subtle); border-radius: var(--radius); padding: 18px; position: relative; overflow: hidden; display: flex; flex-direction: column; gap: 12px; transition: border-color 0.2s ease; }
+  .kpi-card:hover { border-color: var(--border-strong); }
+  .kpi-card.clickable { cursor: pointer; }
+  .kpi-card.clickable:hover { border-color: var(--accent-blue-bright); transform: translateY(-1px); }
+  .kpi-ver { color: var(--accent-blue-bright); font-weight: 700; opacity: 0; transition: opacity 0.15s ease; margin-left: 4px; }
+  .kpi-card.clickable:hover .kpi-ver { opacity: 1; }
+  .kpi-card::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--accent-line, var(--accent-blue)); }
+  .kpi-top { display: flex; align-items: center; gap: 12px; }
+  .kpi-icon { width: 40px; height: 40px; border-radius: 10px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: transparent; border: 1px solid; }
+  .kpi-icon .icon { width: 19px; height: 19px; }
+  .kpi-label { font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.6px; color: var(--text-muted); font-weight: 600; margin-bottom: 3px; text-transform: uppercase; }
+  .kpi-value { font-size: 15px; font-weight: 700; color: var(--text-primary); }
+  .kpi-value.big { font-size: 26px; font-family: 'JetBrains Mono', monospace; }
+  .kpi-caption { font-size: 12px; color: var(--text-secondary); font-weight: 600; }
+
+  /* Tabs */
+  .ctx-tabs { display: flex; flex-wrap: wrap; gap: 6px; border-bottom: 1px solid var(--border-subtle); margin-bottom: 20px; }
+  .ctx-tab { padding: 11px 16px; font-size: 13.5px; font-weight: 700; color: var(--text-secondary); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color 0.15s ease, border-color 0.15s ease; }
+  .ctx-tab:hover { color: var(--text-primary); }
+  .ctx-tab.active { color: var(--accent-cyan); border-color: var(--accent-cyan); }
+
+  /* Section / table */
+  .dcc { background: var(--bg-panel); border: 1px solid var(--border-subtle); border-radius: var(--radius); overflow: hidden; }
+  .dcc-hd { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding: 20px 22px; border-bottom: 1px solid var(--border-subtle); }
+  .dcc-title { font-size: 15.5px; font-weight: 800; margin: 0 0 3px; color: var(--text-primary); }
+  .dcc-sub { font-size: 12.5px; color: var(--text-secondary); margin: 0; }
+  .btn-grad { background: var(--accent-gradient); color: #fff; border: none; border-radius: 10px; padding: 11px 18px; font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 7px; cursor: pointer; transition: filter 0.15s ease; flex-shrink: 0; }
+  .btn-grad:hover { filter: brightness(1.08); }
+  .btn-grad .icon { width: 16px; height: 16px; stroke: #fff; }
+
+  table.ctxtbl { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  .ctxtbl thead th { text-align: left; font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase; color: var(--text-muted); padding: 12px 14px; border-bottom: 1px solid var(--border-subtle); white-space: normal; word-break: keep-all; }
+  .ctxtbl tbody td { padding: 12px 14px; border-bottom: 1px solid var(--border-subtle); font-size: 12.5px; color: var(--text-primary); vertical-align: middle; overflow-wrap: break-word; word-break: break-word; }
+  /* Variante compacta: cabe em 100% da largura sem rolagem lateral */
+  .ctxtbl.compact thead th { padding: 8px 9px; font-size: 9px; letter-spacing: 0.2px; }
+  .ctxtbl.compact tbody td { padding: 6px 9px; font-size: 11px; line-height: 1.3; }
+  .ctxtbl.compact tbody td.mono, .ctxtbl.compact tbody td .mono { font-size: 10.5px; white-space: nowrap; }
+  .ctxtbl.compact .mchip { font-size: 9.5px; padding: 2px 7px; }
+  .ctxtbl.compact .status-pill { font-size: 10px; }
+  .ctxtbl.compact .abtn { width: 25px; height: 25px; }
+  .ctxtbl.compact .abtn .icon { width: 13px; height: 13px; }
+  .ctxtbl.compact .row-actions { flex-direction: row; gap: 3px; }
+  .ctxtbl tbody td.mono, .ctxtbl tbody td .mono { white-space: nowrap; font-size: 12px; }
+  .ctxtbl tbody tr:last-child td { border-bottom: none; }
+  .ctxtbl tbody tr:hover { background: rgba(255,255,255,0.03); }
+  .ctxtbl .desc-cell { color: var(--text-secondary); line-height: 1.4; }
+
+  .mchip { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 7px; font-size: 11px; font-weight: 700; border: 1px solid; white-space: nowrap; }
+  .mchip-blue { color: var(--accent-blue-bright); border-color: rgba(79,163,255,0.45); background: rgba(79,163,255,0.12); }
+  .mchip-cyan { color: var(--accent-cyan); border-color: rgba(70,217,245,0.45); background: rgba(70,217,245,0.12); }
+  .mchip-purple { color: var(--accent-purple); border-color: rgba(167,139,250,0.45); background: rgba(167,139,250,0.12); }
+  .mchip-gray { color: var(--text-secondary); border-color: var(--border-strong); background: rgba(255,255,255,0.04); }
+
+  .status-pill { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 700; white-space: nowrap; }
+  .status-dot2 { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .st-uso .status-dot2 { background: var(--accent-green); box-shadow: 0 0 6px rgba(52,211,153,0.7); } .st-uso { color: var(--accent-green); }
+  .st-calib .status-dot2 { background: var(--accent-amber); box-shadow: 0 0 6px rgba(251,191,36,0.7); } .st-calib { color: var(--accent-amber); }
+  .st-fora .status-dot2 { background: var(--text-secondary); } .st-fora { color: var(--text-secondary); }
+  .st-reprov .status-dot2 { background: var(--accent-red); box-shadow: 0 0 6px rgba(248,113,113,0.7); } .st-reprov { color: var(--accent-red); }
+  .st-distuso .status-dot2 { background: var(--accent-amber); box-shadow: 0 0 6px rgba(251,191,36,0.7); } .st-distuso { color: var(--accent-amber); }
+  .st-devolvido .status-dot2 { background: var(--accent-green); box-shadow: 0 0 6px rgba(52,211,153,0.7); } .st-devolvido { color: var(--accent-green); }
+  .st-atraso .status-dot2 { background: var(--accent-red); box-shadow: 0 0 6px rgba(248,113,113,0.7); } .st-atraso { color: var(--accent-red); }
+
+  .row-actions { display: flex; align-items: center; gap: 2px; white-space: nowrap; }
+  .abtn { width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: var(--text-secondary); cursor: pointer; flex-shrink: 0; background: transparent; border: 1px solid var(--border-subtle); padding: 0; }
+  .abtn .icon { width: 15px; height: 15px; }
+  .abtn:hover { background: rgba(79,163,255,0.12); color: var(--accent-blue-bright); border-color: var(--accent-blue-bright); }
+  .abtn.danger:hover { background: rgba(248,113,113,0.12); color: var(--accent-red); border-color: var(--accent-red); }
+  .empty-state { padding: 48px 22px; text-align: center; color: var(--text-secondary); font-size: 13.5px; }
+  .evid-file { display: inline-flex; align-items: center; gap: 5px; color: var(--accent-blue-bright); font-size: 11.5px; font-family: 'JetBrains Mono', monospace; overflow-wrap: anywhere; }
+
+  /* Filters */
+  .filter-bar { display: grid; grid-template-columns: repeat(4, 1fr) auto; gap: 12px; background: var(--bg-panel); border: 1px solid var(--border-subtle); border-radius: var(--radius); padding: 18px; margin-bottom: 18px; align-items: end; }
+  .filter-bar .fg { display: flex; flex-direction: column; gap: 6px; }
+  .filter-bar .fg label { font-size: 10px; font-weight: 700; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; letter-spacing: 0.4px; text-transform: uppercase; }
+
+  /* Form */
+  .form-card { background: var(--bg-panel); border: 1px solid var(--border-subtle); border-radius: var(--radius); padding: 24px; }
+  .form-section-label { font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase; color: var(--accent-cyan); margin: 6px 0 14px; padding-bottom: 8px; border-bottom: 1px solid var(--border-subtle); }
+  .form-section-label:not(:first-of-type) { margin-top: 24px; }
+  .field { margin-bottom: 15px; }
+  .field label { display: block; font-size: 12.5px; font-weight: 700; margin-bottom: 7px; color: var(--text-primary); }
+  .field-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .field-row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+  .input-basic, select.input-basic, textarea.input-basic { width: 100%; border: 1px solid var(--border-strong); border-radius: 10px; background: rgba(255,255,255,0.04); color: var(--text-primary); font-size: 13.5px; padding: 11px 13px; outline: none; font-family: inherit; transition: border-color 0.15s ease; }
+  textarea.input-basic { resize: vertical; min-height: 70px; }
+  .input-basic:focus { border-color: var(--accent-blue-bright); }
+  select.input-basic option, select.input-basic optgroup { background: #10233f; color: var(--text-primary); }
+  /* Combobox (autocomplete) */
+  .combo-wrap { position: relative; }
+  .combo-list { position: absolute; top: calc(100% + 4px); left: 0; right: 0; background: #10233f; border: 1px solid var(--border-strong); border-radius: 10px; box-shadow: 0 16px 40px rgba(0,0,0,0.5); max-height: 240px; overflow-y: auto; z-index: 20; display: none; }
+  .combo-list.show { display: block; }
+  .combo-item { padding: 10px 13px; font-size: 13px; cursor: pointer; border-bottom: 1px solid var(--border-subtle); display: flex; flex-direction: column; gap: 2px; }
+  .combo-item:last-child { border-bottom: none; }
+  .combo-item:hover, .combo-item.active { background: rgba(47,143,240,0.18); }
+  .combo-item .ci-cod { font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 12px; color: var(--accent-blue-bright); }
+  .combo-item .ci-desc { font-size: 12px; color: var(--text-secondary); }
+  .combo-empty { padding: 12px 13px; font-size: 12.5px; color: var(--text-muted); }
+  .input-basic::placeholder { color: var(--text-muted); }
+  .input-basic.field-erro { border-color: var(--accent-red) !important; box-shadow: 0 0 0 2px rgba(248,113,113,0.18); }
+  .input-readonly { background: rgba(255,255,255,0.02); color: var(--text-secondary); cursor: default; }
+  .upload-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 2px; }
+  .upload-btn { display: inline-flex; align-items: center; gap: 7px; cursor: pointer; padding: 10px 14px; border-radius: 10px; border: 1px solid var(--border-strong); background: rgba(255,255,255,0.04); color: var(--text-primary); font-size: 12.5px; font-weight: 700; flex-shrink: 0; }
+  .upload-btn:hover { background: rgba(255,255,255,0.07); border-color: var(--accent-blue-bright); }
+  .upload-btn input[type="file"] { display: none; }
+  .upload-btn .icon { width: 15px; height: 15px; }
+  .upload-filename { font-size: 12px; color: var(--text-secondary); font-family: 'JetBrains Mono', monospace; overflow-wrap: anywhere; }
+  .form-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px; align-items: center; }
+  .btn-ghost { padding: 11px 18px; border-radius: 10px; border: 1px solid var(--border-strong); background: transparent; color: var(--text-primary); font-size: 13px; font-weight: 700; cursor: pointer; }
+  .btn-ghost:hover { background: rgba(255,255,255,0.06); }
+  .btn-primary { padding: 11px 20px; border-radius: 10px; border: none; background: var(--accent-gradient); color: #fff; font-size: 13px; font-weight: 700; cursor: pointer; }
+  .btn-primary:hover { filter: brightness(1.08); }
+
+  /* Modal */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(4,14,30,0.72); backdrop-filter: blur(3px); display: none; align-items: center; justify-content: center; z-index: 50; padding: 24px; }
+  .modal-overlay.show { display: flex; }
+  .modal-box { width: 720px; max-width: 100%; max-height: 90vh; overflow-y: auto; background: var(--bg-panel); border: 1px solid var(--border-subtle); border-radius: 16px; padding: 28px; box-shadow: 0 24px 70px rgba(0,0,0,0.5); }
+  .modal-box.wide { width: 860px; }
+  .modal-hd { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 20px; }
+  .modal-hd h3 { margin: 0 0 4px; font-size: 17px; font-weight: 800; }
+  .modal-hd p { margin: 0; font-size: 12.5px; color: var(--text-secondary); }
+  .modal-close { color: var(--text-secondary); cursor: pointer; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 8px; flex-shrink: 0; }
+  .modal-close:hover { background: rgba(255,255,255,0.07); color: var(--text-primary); }
+  .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 22px; flex-wrap: wrap; }
+
+  /* Toast */
+  #toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-20px); z-index: 200; display: flex; align-items: center; gap: 10px; background: #0e2a1c; border: 1px solid rgba(52,211,153,0.5); color: var(--accent-green); font-weight: 700; font-size: 13.5px; padding: 12px 18px; border-radius: 12px; box-shadow: 0 12px 40px rgba(0,0,0,0.45); opacity: 0; pointer-events: none; transition: opacity 0.25s ease, transform 0.25s ease; }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  #toast .tick { width: 24px; height: 24px; border-radius: 50%; background: var(--accent-green); color: #06110b; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  #toast .tick svg { width: 15px; height: 15px; stroke: #06110b; stroke-width: 3; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+
+  .app-footer { display: flex; align-items: center; justify-content: space-between; padding: 16px 28px; border-top: 1px solid var(--border-subtle); font-size: 12px; color: var(--text-secondary); }
+  .app-footer .mono { color: var(--text-muted); }
+  .footer-status { display: flex; align-items: center; gap: 6px; }
+  .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent-green); flex-shrink: 0; box-shadow: 0 0 6px rgba(52,211,153,0.8); }
+
+  /* Indicadores */
+  .dash-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 16px; }
+  .dash-solid-card { position: relative; border-radius: var(--radius); padding: 18px 20px; overflow: hidden; color: #06101f; background: var(--card-bg, #4fa3ff); }
+  .dash-solid-card .sc-icon { position: absolute; top: 14px; right: 14px; opacity: 0.28; }
+  .dash-solid-card .sc-icon .icon { width: 30px; height: 30px; stroke: #06101f; stroke-width: 1.7; }
+  .dash-solid-card .sc-label { font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.7px; text-transform: uppercase; font-weight: 700; opacity: 0.75; }
+  .dash-solid-card .sc-value { font-size: 30px; font-weight: 800; font-family: 'JetBrains Mono', monospace; line-height: 1; margin-top: 8px; }
+  .dash-solid-card .sc-caption { font-size: 11.5px; font-weight: 600; opacity: 0.72; margin-top: 8px; }
+  .dash-solid-card.clickable { cursor: pointer; transition: transform 0.15s ease, box-shadow 0.15s ease; }
+  .dash-solid-card.clickable:hover { transform: translateY(-2px); box-shadow: 0 10px 28px rgba(0,0,0,0.35); }
+  .dash-solid-card .sc-ver { font-weight: 800; opacity: 0; transition: opacity 0.15s ease; }
+  .dash-solid-card.clickable:hover .sc-ver { opacity: 0.95; }
+  .chart-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+  .chart-card { background: var(--bg-panel); border: 1px solid var(--border-subtle); border-radius: var(--radius); padding: 18px 20px; display: flex; flex-direction: column; }
+  .chart-card.full { grid-column: 1 / -1; }
+  .chart-card-hd { margin-bottom: 14px; }
+  .chart-card-hd h4 { margin: 0; font-size: 14px; font-weight: 800; }
+  .chart-card-hd .sub { font-size: 11.5px; color: var(--text-secondary); margin-top: 2px; }
+  .chart-holder { position: relative; width: 100%; height: 300px; }
+  @media (max-width: 1000px) { .chart-grid { grid-template-columns: 1fr; } .dash-cards { grid-template-columns: repeat(2,1fr); } }
+
+  @media (max-width: 1200px) { .kpi-row { grid-template-columns: repeat(2, 1fr); } .filter-bar { grid-template-columns: repeat(2,1fr); } }
+  @media (max-width: 900px) {
+    .kpi-row { grid-template-columns: 1fr 1fr; }
+    .topbar-search { display: none; }
+    .ctxtbl thead { display: none; }
+    .ctxtbl, .ctxtbl tbody, .ctxtbl tr, .ctxtbl td { display: block; width: 100%; }
+    .ctxtbl tbody tr { padding: 14px 16px; border-bottom: 1px solid var(--border-subtle); }
+    .ctxtbl tbody td { padding: 4px 0; border-bottom: none; }
+    .field-row2, .field-row3 { grid-template-columns: 1fr; }
+    .filter-bar { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 720px) { .sidebar { display: none; } .kpi-row { grid-template-columns: 1fr; } }
+
+  /* Fornecedores — específicos */
+  .st-homologado .status-dot2 { background:var(--accent-green); box-shadow:0 0 6px rgba(52,211,153,0.7); } .st-homologado { color:var(--accent-green); }
+  .st-analise .status-dot2 { background:var(--accent-cyan); box-shadow:0 0 6px rgba(70,217,245,0.7); } .st-analise { color:var(--accent-cyan); }
+  .st-suspenso .status-dot2 { background:var(--accent-amber); box-shadow:0 0 6px rgba(251,191,36,0.7); } .st-suspenso { color:var(--accent-amber); }
+  .st-reprovado .status-dot2 { background:var(--accent-red); box-shadow:0 0 6px rgba(248,113,113,0.7); } .st-reprovado { color:var(--accent-red); }
+  .crit-chip { display:inline-flex; align-items:center; gap:5px; padding:3px 9px; border-radius:7px; font-size:10.5px; font-weight:700; border:1px solid; }
+  .crit-critico { color:var(--accent-red); border-color:rgba(248,113,113,0.45); background:rgba(248,113,113,0.12); }
+  .crit-naocritico { color:var(--text-secondary); border-color:var(--border-strong); background:rgba(255,255,255,0.04); }
+  .res-aprovado { color:var(--accent-green); font-weight:800; }
+  .res-restricao { color:var(--accent-amber); font-weight:800; }
+  .res-reprovado { color:var(--accent-red); font-weight:800; }
+  .nota-box { display:inline-flex; align-items:center; justify-content:center; min-width:42px; height:30px; border-radius:8px; color:#06110b; font-weight:800; font-size:14px; font-family:'JetBrains Mono',monospace; }
+  .ctxtbl.compact .nota-box { min-width:32px; height:21px; font-size:11px; border-radius:6px; padding:0 5px; }
+  /* critérios com peso */
+  .crit-item { display:flex; align-items:center; gap:12px; background:rgba(255,255,255,0.03); border:1px solid var(--border-subtle); border-radius:12px; padding:12px 16px; margin-bottom:10px; }
+  .crit-item .ci-num { width:26px; height:26px; border-radius:7px; background:var(--accent-gradient); color:#fff; font-size:12px; font-weight:800; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-family:'JetBrains Mono',monospace; }
+  .crit-item .ci-nome { flex:1; }
+  .crit-item input { border:1px solid var(--border-strong); border-radius:9px; background:rgba(255,255,255,0.04); color:var(--text-primary); font-size:13.5px; padding:9px 12px; outline:none; font-family:inherit; width:100%; }
+  .crit-item input:focus { border-color:var(--accent-blue-bright); }
+  .crit-item .ci-peso { width:110px; flex-shrink:0; }
+  .peso-total { display:flex; align-items:center; justify-content:space-between; padding:12px 16px; border-radius:10px; font-size:13px; font-weight:700; margin-top:6px; }
+  .peso-ok { background:rgba(52,211,153,0.1); border:1px solid rgba(52,211,153,0.35); color:var(--accent-green); }
+  .peso-erro { background:rgba(248,113,113,0.1); border:1px solid rgba(248,113,113,0.35); color:var(--accent-red); }
+  /* avaliação: notas por critério */
+  .aval-linha { display:flex; align-items:center; justify-content:space-between; gap:14px; padding:12px 0; border-bottom:1px solid var(--border-subtle); }
+  .aval-linha:last-child { border-bottom:none; }
+  .aval-linha .al-nome { font-size:13px; font-weight:700; }
+  .aval-linha .al-peso { font-size:10.5px; color:var(--text-muted); font-family:'JetBrains Mono',monospace; }
+  .escala-notas { display:flex; gap:5px; flex-wrap:wrap; }
+  .escala-notas .en { width:32px; height:32px; border-radius:8px; border:1px solid var(--border-strong); background:rgba(255,255,255,0.03); color:var(--text-secondary); font-weight:700; font-size:12.5px; display:flex; align-items:center; justify-content:center; cursor:pointer; font-family:'JetBrains Mono',monospace; }
+  .escala-notas .en:hover { border-color:var(--accent-blue-bright); color:var(--text-primary); }
+  .escala-notas .en.sel { background:var(--accent-gradient); border-color:transparent; color:#fff; }
+  .nota-final-box { display:flex; align-items:center; justify-content:space-between; gap:14px; padding:16px 18px; border-radius:12px; background:rgba(255,255,255,0.03); border:1px solid var(--border-subtle); margin-top:16px; }
+  .nota-final-box .nf-label { font-size:11px; font-family:'JetBrains Mono',monospace; text-transform:uppercase; letter-spacing:0.5px; color:var(--text-muted); }
+  .nota-final-box .nf-valor { font-size:30px; font-weight:800; font-family:'JetBrains Mono',monospace; line-height:1; }
+  /* alertas */
+  .alerta-card { display:flex; align-items:center; gap:12px; padding:13px 16px; border-radius:11px; margin-bottom:10px; border:1px solid; }
+  .alerta-vencido { background:rgba(248,113,113,0.08); border-color:rgba(248,113,113,0.35); }
+  .alerta-proximo { background:rgba(251,191,36,0.08); border-color:rgba(251,191,36,0.35); }
+  .alerta-card .ac-icon { width:32px; height:32px; border-radius:9px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .alerta-card .ac-txt { flex:1; font-size:12.5px; line-height:1.5; }
+  .alerta-card .ac-txt b { color:var(--text-primary); }
+  /* Alertas — layout moderno */
+  .alert-tiles { display:grid; grid-template-columns:repeat(6,1fr); gap:12px; margin-bottom:22px; }
+  .alert-tile { background:var(--bg-panel-2,#0e2445); border:1px solid var(--border-subtle); border-radius:12px; padding:14px; cursor:pointer; transition:transform 0.12s ease, border-color 0.12s ease; position:relative; overflow:hidden; }
+  .alert-tile::before { content:""; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--at,var(--accent-blue)); }
+  .alert-tile:hover { transform:translateY(-2px); border-color:var(--border-strong); }
+  .alert-tile.active { border-color:var(--at); box-shadow:0 0 0 1px var(--at) inset; }
+  .alert-tile .at-count { font-size:22px; font-weight:800; font-family:'JetBrains Mono',monospace; line-height:1; color:var(--at); }
+  .alert-tile .at-label { font-size:10.5px; color:var(--text-secondary); font-weight:600; margin-top:6px; line-height:1.3; }
+  .alert-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .alert-item { display:flex; align-items:stretch; gap:0; background:var(--bg-panel-2,#0e2445); border:1px solid var(--border-subtle); border-radius:12px; overflow:hidden; transition:transform 0.12s ease, border-color 0.12s ease; }
+  .alert-item:hover { transform:translateY(-2px); border-color:var(--sevc); }
+  .alert-item .ai-accent { width:4px; background:var(--sevc); flex-shrink:0; }
+  .alert-item .ai-body { flex:1; padding:14px 16px; min-width:0; }
+  .alert-item .ai-top { display:flex; align-items:center; gap:10px; margin-bottom:8px; }
+  .alert-item .ai-ic { width:32px; height:32px; border-radius:9px; display:flex; align-items:center; justify-content:center; flex-shrink:0; background:var(--sevbg); color:var(--sevc); }
+  .alert-item .ai-ic .icon { width:16px; height:16px; }
+  .alert-item .ai-nome { font-size:13.5px; font-weight:800; color:var(--text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .alert-item .ai-tipo { font-size:10.5px; font-family:'JetBrains Mono',monospace; text-transform:uppercase; letter-spacing:0.4px; color:var(--text-muted); }
+  .alert-item .ai-desc { font-size:12px; color:var(--text-secondary); line-height:1.5; margin-bottom:10px; }
+  .alert-item .ai-meta { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .day-badge { display:inline-flex; align-items:center; gap:5px; font-size:10.5px; font-weight:700; padding:3px 9px; border-radius:20px; background:var(--sevbg); color:var(--sevc); font-family:'JetBrains Mono',monospace; }
+  .alert-item .ai-abrir { margin-left:auto; font-size:11.5px; font-weight:700; color:var(--accent-blue-bright); cursor:pointer; padding:5px 10px; border:1px solid var(--border-strong); border-radius:8px; }
+  .alert-item .ai-abrir:hover { background:rgba(79,163,255,0.12); border-color:var(--accent-blue-bright); }
+  .alert-empty-ok { text-align:center; padding:54px 20px; }
+  .alert-empty-ok .aeo-ic { width:64px; height:64px; border-radius:50%; background:rgba(52,211,153,0.14); display:flex; align-items:center; justify-content:center; margin:0 auto 16px; }
+  .alert-empty-ok .aeo-ic .icon { width:32px; height:32px; stroke:var(--accent-green); stroke-width:2.5; }
+  .alert-empty-ok h4 { font-size:16px; font-weight:800; margin-bottom:6px; }
+  .alert-empty-ok p { font-size:13px; color:var(--text-secondary); }
+  @media (max-width:1000px){ .alert-tiles { grid-template-columns:repeat(3,1fr); } .alert-grid { grid-template-columns:1fr; } }
+  select.input-basic option, select.input-basic optgroup { background:#10233f; color:var(--text-primary); }
+  .status-2linhas { display:flex; flex-direction:column; gap:3px; align-items:flex-start; }
+  .status-2linhas .linha-alerta { font-size:10px; font-weight:700; color:var(--accent-amber); white-space:nowrap; }
+
+</style>
+<style>
+  /* A navegação e o cabeçalho pertencem ao aplicativo principal. */
+  html, body { min-height: 100%; background: transparent; }
+  body { background: transparent; }
+  .sidebar, .topbar, .app-footer, .breadcrumb, .welcome-eyebrow, .welcome-sub { display: none; }
+  .app-shell, .main-area { min-height: 0; display: block; }
+  .page-content { padding: 0 0 24px; }
+
+  body.theme-light {
+    --bg-deep: #eaf4fd; --bg-panel: #f8fcff; --bg-panel-2: #eef7ff; --bg-panel-hover: #e4f1fb;
+    --border-subtle: rgba(15,81,130,.16); --border-strong: rgba(15,81,130,.26);
+    --text-primary: #102a43; --text-secondary: #4a6681; --text-muted: #6f88a3;
+    color-scheme: light;
+  }
+  body.theme-white {
+    --bg-deep: #f4f7fb; --bg-panel: #ffffff; --bg-panel-2: #f7faff; --bg-panel-hover: #f2f7fd;
+    --border-subtle: #dce5f0; --border-strong: #c5d3e3;
+    --text-primary: #12233a; --text-secondary: #5c6f86; --text-muted: #8797aa;
+    color-scheme: light;
+  }
+  body.theme-light .modal-overlay, body.theme-white .modal-overlay { background: rgba(7,31,59,.4); }
+  body.theme-light select.input-basic option, body.theme-white select.input-basic option { background: #fff; color: #12233a; }
+</style>
+</head>
+<body>
+<div class="app-shell">
+
+  <aside class="sidebar">
+    <div class="sb-logo-row"><img class="sb-logo-img" src="data:image/png;base64,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" alt="QualityPro Cloud"></div>
+    <div class="sb-section-label">NAVEGAÇÃO</div>
+    <nav class="sb-nav">
+      <a class="nav-item" href="SGQ_QualityPro_Solutions_dark.html"><svg class="icon" viewBox="0 0 24 24"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M9 20v-6h6v6"/></svg>Página inicial</a>
+      <a class="nav-item active" href="meus-modulos-preview.html"><svg class="icon" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Meus módulos</a>
+      <a class="nav-item" href="empresa-preview.html"><svg class="icon" viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="1"/><line x1="9" y1="8" x2="9" y2="8"/><line x1="15" y1="8" x2="15" y2="8"/><line x1="9" y1="12" x2="9" y2="12"/><line x1="15" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="15" y2="16"/></svg>Minha empresa</a>
+      <a class="nav-item" href="usuarios-preview.html"><svg class="icon" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/><circle cx="10" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Usuários</a>
+      <a class="nav-item" href="#"><svg class="icon" viewBox="0 0 24 24"><line x1="6" y1="20" x2="6" y2="12"/><line x1="12" y1="20" x2="12" y2="6"/><line x1="18" y1="20" x2="18" y2="14"/></svg>Relatórios</a>
+      <a class="nav-item" href="#"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Configurações</a>
+    </nav>
+    <div class="sb-help-card">
+      <div class="sb-help-icon"><svg class="icon" viewBox="0 0 24 24"><path d="M3 11l9-8 9 8"/><path d="M9 22V12h6v10"/></svg></div>
+      <div class="htitle">Precisa de ajuda?</div>
+      <div class="hdesc">Nossa equipe está pronta para te atender.</div>
+      <button class="btn-support"><svg class="icon" viewBox="0 0 24 24"><path d="M3 11l9-8 9 8"/><path d="M12 3v9"/></svg>Abrir suporte</button>
+    </div>
+  </aside>
+
+  <div class="main-area">
+    <header class="topbar">
+      <div class="topbar-left">
+        <div class="menu-toggle"><svg class="icon" viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></div>
+        <div>
+          <div class="topbar-title">Fornecedores</div>
+          <div class="topbar-subtitle">Homologação, avaliação e acompanhamento de fornecedores.</div>
+        </div>
+      </div>
+      <div class="topbar-search"><svg class="icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input placeholder="Buscar fornecedores, avaliações..."></div>
+      <div class="topbar-right">
+        <div class="tb-icon-btn"><svg class="icon" viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></div>
+        <div class="tb-icon-btn"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 5 0c0 1.5-2.5 2-2.5 3.5"/><line x1="12" y1="17" x2="12" y2="17"/></svg></div>
+        <div class="tb-divider"></div>
+        <div class="tb-user">
+          <div class="tb-avatar">HM</div>
+          <div class="tb-user-info"><div class="tb-user-name">Hugo Melo</div><div class="tb-user-role">Administrador</div></div>
+          <svg class="icon tb-chevron" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+      </div>
+    </header>
+
+    <div class="page-content">
+      <div class="breadcrumb"><a href="meus-modulos-preview.html">Meus módulos</a><span class="sep">&rsaquo;</span><span class="cur">Fornecedores</span></div>
+      <div class="welcome-eyebrow">PROVISÃO EXTERNA &middot; 8.4</div>
+      <p class="welcome-sub">Homologação, critérios de avaliação, desempenho periódico e acompanhamento dos fornecedores.</p>
+
+      <div class="kpi-row" id="kpiRow"></div>
+
+      <div class="ctx-tabs" id="mainTabs">
+        <div class="ctx-tab active" data-tab="cadastro" onclick="switchTab('cadastro')">Cadastro / Homologação</div>
+        <div class="ctx-tab" data-tab="criterios" onclick="switchTab('criterios')">Critérios de Avaliação</div>
+        <div class="ctx-tab" data-tab="avaliacao" onclick="switchTab('avaliacao')">Avaliação de Desempenho</div>
+        <div class="ctx-tab" data-tab="acoes" onclick="switchTab('acoes')">Plano de Ação</div>
+        <div class="ctx-tab" data-tab="alertas" onclick="switchTab('alertas')">Alertas</div>
+        <div class="ctx-tab" data-tab="indicadores" onclick="switchTab('indicadores')">Indicadores</div>
+      </div>
+
+      <div id="tabContent"></div>
+    </div>
+
+    <footer class="app-footer">
+      <div>&copy; 2026 QualityPro Solutions. Todos os direitos reservados.</div>
+      <div class="mono">QualityPro Cloud &nbsp;&bull;&nbsp; v2.0</div>
+      <div class="footer-status"><span class="status-dot"></span>Sistema atualizado</div>
+    </footer>
+  </div>
+</div>
+
+<!-- ===================== MODAL: FORNECEDOR ===================== -->
+<div class="modal-overlay" id="modalForn">
+  <div class="modal-box wide">
+    <div class="modal-hd">
+      <div><h3 id="fornTitle">Novo fornecedor</h3><p id="fornSub">Cadastro e homologação</p></div>
+      <div class="modal-close" onclick="closeModal('modalForn')"><svg class="icon" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></div>
+    </div>
+    <input type="hidden" id="fEditId">
+    <div class="form-section-label">Identificação</div>
+    <div class="field-row2">
+      <div class="field"><label>Razão social</label><input class="input-basic" id="fRazao" placeholder="Ex.: Aços Premium Ltda"></div>
+      <div class="field"><label>CNPJ</label><input class="input-basic" id="fCnpj" placeholder="00.000.000/0000-00"></div>
+    </div>
+    <div class="field-row2">
+      <div class="field"><label>Contato (responsável)</label><input class="input-basic" id="fContato" placeholder="Nome do responsável"></div>
+      <div class="field"><label>E-mail</label><input class="input-basic" type="email" id="fEmail" placeholder="contato@empresa.com.br"></div>
+    </div>
+    <div class="field-row2">
+      <div class="field"><label>Telefone</label><input class="input-basic" id="fTelefone" placeholder="(00) 00000-0000"></div>
+      <div class="field"><label>Cidade / UF</label><input class="input-basic" id="fCidade" placeholder="Ex.: Belo Horizonte / MG"></div>
+    </div>
+
+    <div class="form-section-label">Fornecimento e criticidade</div>
+    <div class="field-row2">
+      <div class="field"><label>Tipo de fornecimento</label><select class="input-basic" id="fTipo"><option>Matéria-prima</option><option>Componente</option><option>Serviço</option><option>Calibração</option><option>Transporte</option><option>Manutenção</option><option>Consultoria</option><option>Outro</option></select></div>
+      <div class="field"><label>Criticidade</label><select class="input-basic" id="fCriticidade" onchange="onCriticidade()"><option>Crítico</option><option>Não crítico</option></select></div>
+    </div>
+    <div class="field"><label>Produto / serviço fornecido</label><input class="input-basic" id="fProduto" placeholder="Descreva o que é fornecido"></div>
+    <div class="field"><label>Justificativa da criticidade</label><textarea class="input-basic" id="fJustCrit" placeholder="Por que este fornecedor é (ou não é) crítico para o produto/serviço final"></textarea></div>
+
+    <div class="form-section-label">Homologação</div>
+    <div class="field-row3">
+      <div class="field"><label>Status</label><select class="input-basic" id="fStatus"><option>Em análise</option><option>Homologado</option><option>Suspenso</option><option>Reprovado</option></select></div>
+      <div class="field"><label>Data da homologação</label><input class="input-basic" type="date" id="fDataHomolog" onchange="calcProxReaval()"></div>
+      <div class="field"><label>Periodicidade de reavaliação</label><select class="input-basic" id="fPeriodicidade" onchange="calcProxReaval()"><option value="6">Semestral (6 meses)</option><option value="12" selected>Anual (12 meses)</option><option value="3">Trimestral (3 meses)</option><option value="24">Bienal (24 meses)</option></select></div>
+    </div>
+    <div class="field-row2">
+      <div class="field"><label>Próxima reavaliação</label><input class="input-basic input-readonly" id="fProxReaval" readonly placeholder="Calculada automaticamente"></div>
+      <div class="field"><label>Tem certificado ISO 9001?</label><select class="input-basic" id="fIso9001" onchange="onIso9001()"><option>Não</option><option>Sim</option></select></div>
+    </div>
+    <div id="fIsoBlock" style="display:none;">
+      <div class="field-row2">
+        <div class="field"><label>Anexo do certificado ISO 9001</label>
+          <div class="upload-row">
+            <label class="upload-btn"><svg class="icon" viewBox="0 0 24 24"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>Anexar certificado<input type="file" onchange="handleFIsoAnexo(event)"></label>
+            <span class="upload-filename" id="fIsoAnexoName">Nenhum arquivo selecionado</span>
+            <span class="abtn danger" id="fIsoAnexoRemove" style="display:none;" onclick="removeFIsoAnexo()" title="Remover"><svg class="icon" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></span>
+          </div>
+          <input type="hidden" id="fIsoAnexo">
+        </div>
+        <div class="field"><label>Validade do certificado ISO 9001</label><input class="input-basic" type="date" id="fIsoValidade"></div>
+      </div>
+    </div>
+    <div class="field"><label>Outras certificações / documentos</label><input class="input-basic" id="fCertificacoes" placeholder="Ex.: ISO 14001, licença ambiental, alvará"></div>
+    <div class="field"><label>Anexo (documento de homologação)</label>
+      <div class="upload-row">
+        <label class="upload-btn"><svg class="icon" viewBox="0 0 24 24"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>Escolher arquivo<input type="file" onchange="handleFAnexo(event)"></label>
+        <span class="upload-filename" id="fAnexoName">Nenhum arquivo selecionado</span>
+        <span class="abtn danger" id="fAnexoRemove" style="display:none;" onclick="removeFAnexo()" title="Remover"><svg class="icon" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></span>
+      </div>
+      <input type="hidden" id="fAnexo">
+    </div>
+    <div class="modal-actions">
+      <div class="btn-ghost" onclick="closeModal('modalForn')">Cancelar</div>
+      <div class="btn-primary" onclick="salvarFornecedor()">Salvar</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== MODAL: AVALIAÇÃO ===================== -->
+<div class="modal-overlay" id="modalAval">
+  <div class="modal-box">
+    <div class="modal-hd">
+      <div><h3 id="avalTitle">Nova avaliação</h3><p id="avalSub">Desempenho do fornecedor</p></div>
+      <div class="modal-close" onclick="closeModal('modalAval')"><svg class="icon" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></div>
+    </div>
+    <input type="hidden" id="avEditId">
+    <input type="hidden" id="avFornId">
+    <div class="field-row2">
+      <div class="field"><label>Fornecedor</label><select class="input-basic" id="avFornecedor" onchange="onAvalForn()"></select></div>
+      <div class="field"><label>Data da avaliação</label><input class="input-basic" type="date" id="avData"></div>
+    </div>
+    <div class="field"><label>Período avaliado</label><input class="input-basic" id="avPeriodo" placeholder="Ex.: 1º semestre de 2026"></div>
+    <div class="form-section-label">Notas por critério (0 a 10)</div>
+    <div id="avalCriterios"></div>
+    <div class="nota-final-box">
+      <div><div class="nf-label">Nota final ponderada</div><div style="font-size:11.5px; color:var(--text-secondary); margin-top:4px;" id="avResultado">—</div></div>
+      <div class="nf-valor" id="avNotaFinal">—</div>
+    </div>
+    <div class="field" style="margin-top:16px;"><label>Observações</label><textarea class="input-basic" id="avObs" placeholder="Comentários sobre o desempenho no período"></textarea></div>
+    <div class="field"><label>Anexo (evidência da avaliação)</label>
+      <div class="upload-row">
+        <label class="upload-btn"><svg class="icon" viewBox="0 0 24 24"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>Escolher arquivo<input type="file" onchange="handleAvAnexo(event)"></label>
+        <span class="upload-filename" id="avAnexoName">Nenhum arquivo selecionado</span>
+        <span class="abtn danger" id="avAnexoRemove" style="display:none;" onclick="removeAvAnexo()" title="Remover"><svg class="icon" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></span>
+      </div>
+      <input type="hidden" id="avAnexo">
+    </div>
+    <div class="modal-actions">
+      <div class="btn-ghost" onclick="closeModal('modalAval')">Cancelar</div>
+      <div class="btn-primary" onclick="salvarAvaliacao()">Salvar avaliação</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== MODAL: DETALHE DO FORNECEDOR ===================== -->
+<div class="modal-overlay" id="modalDetForn">
+  <div class="modal-box wide">
+    <div class="modal-hd">
+      <div><h3 id="detTitle">Fornecedor</h3><p id="detSub"></p></div>
+      <div class="modal-close" onclick="closeModal('modalDetForn')"><svg class="icon" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></div>
+    </div>
+    <div id="detBody"></div>
+    <div class="modal-actions"><div class="btn-ghost" onclick="closeModal('modalDetForn')">Fechar</div></div>
+  </div>
+</div>
+
+<!-- ===================== MODAL: AÇÃO (PLANO DE AÇÃO) ===================== -->
+<div class="modal-overlay" id="modalAcao">
+  <div class="modal-box">
+    <div class="modal-hd">
+      <div><h3 id="acaoTitle">Ação para fornecedor</h3><p id="acaoSub"></p></div>
+      <div class="modal-close" onclick="closeModal('modalAcao')"><svg class="icon" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></div>
+    </div>
+    <input type="hidden" id="acEditId">
+    <input type="hidden" id="acFornId">
+    <input type="hidden" id="acAvalId">
+    <div id="acContexto"></div>
+    <div class="field"><label>Fornecedor</label><select class="input-basic" id="acFornecedor" onchange="onAcForn()"></select></div>
+    <div class="field"><label>E-mail do fornecedor</label><input class="input-basic" type="email" id="acEmail" placeholder="contato@fornecedor.com.br"></div>
+    <div class="field"><label>Comunicado ao fornecedor</label><textarea class="input-basic" id="acDescricao" style="min-height:96px;" placeholder="Descreva os pontos avaliados abaixo do esperado e a ação corretiva esperada. Este texto vai no corpo do e-mail ao fornecedor."></textarea></div>
+    <div class="field"><label>Prazo para resposta do fornecedor</label><input class="input-basic" type="date" id="acPrazo"></div>
+    <div class="field"><label>Anexos — evidências da avaliação (comprovam a nota baixa)</label>
+      <div class="upload-row">
+        <label class="upload-btn"><svg class="icon" viewBox="0 0 24 24"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>Anexar evidência<input type="file" onchange="addAcAnexo(event)"></label>
+      </div>
+      <div id="acAnexosList" style="margin-top:8px; display:flex; flex-direction:column; gap:6px;"></div>
+    </div>
+    <div class="modal-actions">
+      <div class="btn-ghost" onclick="closeModal('modalAcao')">Cancelar</div>
+      <div class="btn-primary" onclick="enviarAcao()"><svg class="icon" viewBox="0 0 24 24" style="width:15px;height:15px;display:inline;vertical-align:-2px;margin-right:6px; stroke:#fff;"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>Enviar ao fornecedor</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== MODAL: RESPOSTA / AVALIAÇÃO DA TRATATIVA ===================== -->
+<div class="modal-overlay" id="modalResposta">
+  <div class="modal-box wide">
+    <div class="modal-hd">
+      <div><h3 id="respTitle">Resposta do fornecedor</h3><p id="respSub"></p></div>
+      <div class="modal-close" onclick="closeModal('modalResposta')"><svg class="icon" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></div>
+    </div>
+    <input type="hidden" id="respAcId">
+    <div id="respBody"></div>
+    <div class="modal-actions" id="respActions"></div>
+  </div>
+</div>
+
+
+<div id="toast"><span class="tick"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span><span id="toastText">Salvo</span></div>
+
+<script>
+/* ===================== DATA LAYER ===================== */
+const store = {
+  get(k){ try { return JSON.parse(localStorage.getItem(k)); } catch(e){ return null; } },
+  set(k,v){ localStorage.setItem(k, JSON.stringify(v)); }
+};
+function esc(s){ return (s===undefined||s===null?'':String(s)).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function fmtDate(iso){ if(!iso) return '-'; const [y,m,d]=iso.split('-'); return d&&m&&y?`${d}/${m}/${y}`:iso; }
+function fmtDateTime(iso){ if(!iso) return '-'; const dt=new Date(iso); if(isNaN(dt)) return iso; return dt.toLocaleDateString('pt-BR')+' '+dt.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}); }
+function todayISO(){ return new Date().toISOString().slice(0,10); }
+function addMonths(iso, meses){ if(!iso) return ''; const d=new Date(iso); d.setMonth(d.getMonth()+parseInt(meses||0)); return d.toISOString().slice(0,10); }
+function addDays(iso, dias){ if(!iso) return ''; const d=new Date(iso); d.setDate(d.getDate()+parseInt(dias||0)); return d.toISOString().slice(0,10); }
+function diffDias(iso){ if(!iso) return null; const hoje=new Date(todayISO()); const alvo=new Date(iso); return Math.round((alvo-hoje)/86400000); }
+function uid(prefix, list){ let n = list.length ? Math.max(...list.map(i=>parseInt((i.id||'').split('-').pop())||0))+1 : 1; return prefix+'-'+String(n).padStart(4,'0'); }
+
+const ROSTER = ['Hugo Melo','Marina Souza','Carlos Andrade','Beatriz Santos','Rafael Costa','João Pereira','Eduardo Lima'];
+
+/* ---- Seeds ---- */
+const FORN_SEED = [{"id": "FOR-0001", "razao": "Aços Premium Ltda", "cnpj": "12.345.678/0001-90", "contato": "Roberto Andrade", "email": "roberto@acospremium.com.br", "telefone": "(31) 98765-4321", "cidade": "Betim / MG", "tipo": "Matéria-prima", "criticidade": "Crítico", "produto": "Chapas e perfis de aço carbono", "justCrit": "Material entra diretamente no produto final; falha compromete a resistência estrutural.", "status": "Homologado", "dataHomolog": "2025-06-20", "periodicidade": "12", "proxReaval": "2026-06-20", "certificacoes": "", "anexo": "Homologacao_Aços.pdf", "historico": [{"ts": "2025-06-20T09:00:00", "texto": "Fornecedor cadastrado por <b>Hugo Melo</b> (Crítico)."}], "temIso9001": "Sim", "isoValidade": "2026-08-18", "isoAnexo": "Certificado_ISO9001_Aços.pdf"}, {"id": "FOR-0002", "razao": "USIMINAS", "cnpj": "60.894.730/0001-05", "contato": "Cláudia Rezende", "email": "claudia.rezende@usiminas.com", "telefone": "(31) 3499-8000", "cidade": "Ipatinga / MG", "tipo": "Matéria-prima", "criticidade": "Crítico", "produto": "Bobinas laminadas a frio", "justCrit": "Fornecedor único de bobina para a linha principal.", "status": "Homologado", "dataHomolog": "2025-07-24", "periodicidade": "6", "proxReaval": "2026-01-24", "certificacoes": "ISO 14001", "anexo": "Homologacao_USIMINAS.pdf", "historico": [{"ts": "2025-07-24T09:00:00", "texto": "Fornecedor cadastrado por <b>Hugo Melo</b> (Crítico)."}], "temIso9001": "Sim", "isoValidade": "2028-08-07", "isoAnexo": "Certificado_ISO9001_USIMINAS.pdf"}, {"id": "FOR-0003", "razao": "Calibra Metrologia", "cnpj": "44.555.666/0001-77", "contato": "Sandra Vasconcelos", "email": "sandra@calibrametrologia.com.br", "telefone": "(31) 3222-1010", "cidade": "Contagem / MG", "tipo": "Calibração", "criticidade": "Crítico", "produto": "Calibração de instrumentos de medição", "justCrit": "Rastreabilidade metrológica depende diretamente deste laboratório.", "status": "Homologado", "dataHomolog": "2025-09-18", "periodicidade": "12", "proxReaval": "2026-09-18", "certificacoes": "RBC/INMETRO", "anexo": "Homologacao_Calibra.pdf", "historico": [{"ts": "2025-09-18T09:00:00", "texto": "Fornecedor cadastrado por <b>Hugo Melo</b> (Crítico)."}], "temIso9001": "Não", "isoValidade": "", "isoAnexo": ""}, {"id": "FOR-0004", "razao": "Componentes Delta", "cnpj": "77.888.999/0001-11", "contato": "Ricardo Moura", "email": "ricardo@compdelta.com.br", "telefone": "(11) 4002-8922", "cidade": "São Paulo / SP", "tipo": "Componente", "criticidade": "Crítico", "produto": "Rolamentos e vedações", "justCrit": "Componente crítico de montagem final.", "status": "Homologado", "dataHomolog": "2024-12-23", "periodicidade": "12", "proxReaval": "2025-12-23", "certificacoes": "", "anexo": "Homologacao_Componentes.pdf", "historico": [{"ts": "2024-12-23T09:00:00", "texto": "Fornecedor cadastrado por <b>Hugo Melo</b> (Crítico)."}], "temIso9001": "Sim", "isoValidade": "2026-08-07", "isoAnexo": "Certificado_ISO9001_Componentes.pdf"}, {"id": "FOR-0005", "razao": "Transportadora Rota Sul", "cnpj": "55.666.777/0001-33", "contato": "Juliana Prado", "email": "juliana@rotasul.com.br", "telefone": "(51) 3333-4444", "cidade": "Porto Alegre / RS", "tipo": "Transporte", "criticidade": "Crítico", "produto": "Transporte rodoviário de cargas", "justCrit": "Atraso ou avaria no transporte impacta diretamente a entrega ao cliente.", "status": "Suspenso", "dataHomolog": "2024-12-26", "periodicidade": "6", "proxReaval": "2025-06-26", "certificacoes": "", "anexo": "", "historico": [{"ts": "2024-12-26T09:00:00", "texto": "Fornecedor cadastrado por <b>Hugo Melo</b> (Crítico)."}], "temIso9001": "Não", "isoValidade": "", "isoAnexo": ""}, {"id": "FOR-0006", "razao": "Tratamento Térmico Vulcano", "cnpj": "22.111.333/0001-88", "contato": "Anderson Prado", "email": "anderson@vulcanott.com.br", "telefone": "(31) 3555-7788", "cidade": "Sete Lagoas / MG", "tipo": "Serviço", "criticidade": "Crítico", "produto": "Têmpera e revenimento", "justCrit": "Processo especial terceirizado que define a dureza final da peça.", "status": "Homologado", "dataHomolog": "2025-11-05", "periodicidade": "6", "proxReaval": "2026-05-05", "certificacoes": "", "anexo": "Homologacao_Tratamento.pdf", "historico": [{"ts": "2025-11-05T09:00:00", "texto": "Fornecedor cadastrado por <b>Hugo Melo</b> (Crítico)."}], "temIso9001": "Sim", "isoValidade": "2028-02-15", "isoAnexo": "Certificado_ISO9001_Tratamento.pdf"}, {"id": "FOR-0007", "razao": "Parafusos & Fixadores MG", "cnpj": "33.222.111/0001-44", "contato": "Marcos Teixeira", "email": "marcos@fixadoresmg.com.br", "telefone": "(31) 3111-2222", "cidade": "Contagem / MG", "tipo": "Componente", "criticidade": "Não crítico", "produto": "Parafusos, porcas e arruelas", "justCrit": "Item de prateleira com múltiplas fontes de fornecimento.", "status": "Homologado", "dataHomolog": "2025-06-14", "periodicidade": "12", "proxReaval": "2026-06-14", "certificacoes": "", "anexo": "Homologacao_Parafusos.pdf", "historico": [{"ts": "2025-06-14T09:00:00", "texto": "Fornecedor cadastrado por <b>Hugo Melo</b> (Não crítico)."}], "temIso9001": "Não", "isoValidade": "", "isoAnexo": ""}, {"id": "FOR-0008", "razao": "Office Supply Distribuidora", "cnpj": "88.777.666/0001-22", "contato": "Patrícia Lopes", "email": "patricia@officesupply.com.br", "telefone": "(31) 3777-8899", "cidade": "Belo Horizonte / MG", "tipo": "Outro", "criticidade": "Não crítico", "produto": "Material de escritório e consumíveis", "justCrit": "Não impacta a conformidade do produto.", "status": "Homologado", "dataHomolog": "2026-01-19", "periodicidade": "12", "proxReaval": "2027-01-19", "certificacoes": "", "anexo": "Homologacao_Office.pdf", "historico": [{"ts": "2026-01-19T09:00:00", "texto": "Fornecedor cadastrado por <b>Hugo Melo</b> (Não crítico)."}], "temIso9001": "Não", "isoValidade": "", "isoAnexo": ""}, {"id": "FOR-0009", "razao": "Manutenção Industrial Pro", "cnpj": "66.555.444/0001-99", "contato": "Eduardo Lima", "email": "eduardo@manutencaopro.com.br", "telefone": "(31) 3444-5566", "cidade": "Betim / MG", "tipo": "Manutenção", "criticidade": "Não crítico", "produto": "Manutenção preventiva de máquinas", "justCrit": "Serviço de apoio; possui alternativas no mercado.", "status": "Homologado", "dataHomolog": "2024-11-01", "periodicidade": "12", "proxReaval": "2025-11-01", "certificacoes": "", "anexo": "Homologacao_Manutenção.pdf", "historico": [{"ts": "2024-11-01T09:00:00", "texto": "Fornecedor cadastrado por <b>Hugo Melo</b> (Não crítico)."}], "temIso9001": "Não", "isoValidade": "", "isoAnexo": ""}, {"id": "FOR-0010", "razao": "Embalagens Certas", "cnpj": "99.888.777/0001-66", "contato": "Fernanda Lima", "email": "fernanda@embalagenscertas.com.br", "telefone": "(31) 3888-9900", "cidade": "Betim / MG", "tipo": "Matéria-prima", "criticidade": "Não crítico", "produto": "Caixas e filmes de embalagem", "justCrit": "Embalagem secundária, sem contato com característica crítica.", "status": "Homologado", "dataHomolog": "2024-11-19", "periodicidade": "12", "proxReaval": "2025-11-19", "certificacoes": "", "anexo": "Homologacao_Embalagens.pdf", "historico": [{"ts": "2024-11-19T09:00:00", "texto": "Fornecedor cadastrado por <b>Hugo Melo</b> (Não crítico)."}], "temIso9001": "Não", "isoValidade": "", "isoAnexo": ""}, {"id": "FOR-0011", "razao": "Consultoria Lean BR", "cnpj": "11.999.888/0001-55", "contato": "Dr. André Farias", "email": "andre@leanbr.com.br", "telefone": "(11) 3030-4040", "cidade": "São Paulo / SP", "tipo": "Consultoria", "criticidade": "Não crítico", "produto": "Treinamento e consultoria em Lean", "justCrit": "Serviço de apoio à melhoria contínua.", "status": "Em análise", "dataHomolog": "", "periodicidade": "6", "proxReaval": "", "certificacoes": "", "anexo": "", "historico": [{"ts": "2026-09-16T09:00:00", "texto": "Fornecedor cadastrado por <b>Hugo Melo</b> (Não crítico)."}], "temIso9001": "Não", "isoValidade": "", "isoAnexo": ""}, {"id": "FOR-0012", "razao": "Usinagem Precisa Ltda", "cnpj": "44.333.222/0001-77", "contato": "Paulo Nakamura", "email": "paulo@usinagemprecisa.com.br", "telefone": "(31) 3666-7777", "cidade": "Contagem / MG", "tipo": "Serviço", "criticidade": "Crítico", "produto": "Usinagem de precisão de peças", "justCrit": "Tolerâncias dimensionais críticas do produto.", "status": "Em análise", "dataHomolog": "", "periodicidade": "6", "proxReaval": "", "certificacoes": "", "anexo": "", "historico": [{"ts": "2026-09-16T09:00:00", "texto": "Fornecedor cadastrado por <b>Hugo Melo</b> (Crítico)."}], "temIso9001": "Sim", "isoValidade": "2026-09-21", "isoAnexo": "Certificado_ISO9001_Usinagem.pdf"}, {"id": "FOR-0013", "razao": "Química Industrial Sigma", "cnpj": "55.444.333/0001-88", "contato": "Beatriz Nunes", "email": "beatriz@quimicasigma.com.br", "telefone": "(19) 3555-6666", "cidade": "Campinas / SP", "tipo": "Matéria-prima", "criticidade": "Crítico", "produto": "Tintas e desengraxantes", "justCrit": "Impacta acabamento e proteção anticorrosiva.", "status": "Reprovado", "dataHomolog": "2025-08-10", "periodicidade": "6", "proxReaval": "2026-02-10", "certificacoes": "", "anexo": "", "historico": [{"ts": "2025-08-10T09:00:00", "texto": "Fornecedor cadastrado por <b>Hugo Melo</b> (Crítico)."}], "temIso9001": "Não", "isoValidade": "", "isoAnexo": ""}, {"id": "FOR-0014", "razao": "Elétrica Norte Materiais", "cnpj": "10.203.040/0001-50", "contato": "Simone Alves", "email": "simone@eletronorte.com.br", "telefone": "(31) 3020-4050", "cidade": "Belo Horizonte / MG", "tipo": "Componente", "criticidade": "Não crítico", "produto": "Cabos e conectores elétricos", "justCrit": "Componente padronizado de mercado.", "status": "Homologado", "dataHomolog": "2024-10-23", "periodicidade": "24", "proxReaval": "2026-10-23", "certificacoes": "", "anexo": "Homologacao_Elétrica.pdf", "historico": [{"ts": "2024-10-23T09:00:00", "texto": "Fornecedor cadastrado por <b>Hugo Melo</b> (Não crítico)."}], "temIso9001": "Não", "isoValidade": "", "isoAnexo": ""}, {"id": "FOR-0015", "razao": "Ferramentaria Silva", "cnpj": "77.111.222/0001-33", "contato": "Rafael Costa", "email": "rafael@ferramentariasilva.com.br", "telefone": "(31) 3121-3131", "cidade": "Betim / MG", "tipo": "Serviço", "criticidade": "Crítico", "produto": "Fabricação e manutenção de ferramentais", "justCrit": "Ferramental define geometria da peça.", "status": "Homologado", "dataHomolog": "2024-09-17", "periodicidade": "12", "proxReaval": "2025-09-17", "certificacoes": "", "anexo": "Homologacao_Ferramentaria.pdf", "historico": [{"ts": "2024-09-17T09:00:00", "texto": "Fornecedor cadastrado por <b>Hugo Melo</b> (Crítico)."}], "temIso9001": "Não", "isoValidade": "", "isoAnexo": ""}];
+const AVAL_SEED = [{"id": "AVL-0001", "fornId": "FOR-0014", "fornNome": "Elétrica Norte Materiais", "data": "2025-07-15", "periodo": "2º semestre de 2025", "notas": {"C1": 2, "C2": 7, "C3": 7, "C4": 7, "C5": 3}, "criterios": [{"id": "C1", "nome": "Qualidade do produto/serviço", "peso": 30}, {"id": "C2", "nome": "Cumprimento de prazo de entrega", "peso": 25}, {"id": "C3", "nome": "Preço / custo-benefício", "peso": 15}, {"id": "C4", "nome": "Atendimento e comunicação", "peso": 15}, {"id": "C5", "nome": "Conformidade documental", "peso": 15}], "notaFinal": 4.9, "resultado": "Reprovado", "obs": "Atrasos recorrentes comprometeram a produção."}, {"id": "AVL-0002", "fornId": "FOR-0008", "fornNome": "Office Supply Distribuidora", "data": "2025-07-23", "periodo": "2º semestre de 2025", "notas": {"C1": 10, "C2": 8, "C3": 9, "C4": 10, "C5": 9}, "criterios": [{"id": "C1", "nome": "Qualidade do produto/serviço", "peso": 30}, {"id": "C2", "nome": "Cumprimento de prazo de entrega", "peso": 25}, {"id": "C3", "nome": "Preço / custo-benefício", "peso": 15}, {"id": "C4", "nome": "Atendimento e comunicação", "peso": 15}, {"id": "C5", "nome": "Conformidade documental", "peso": 15}], "notaFinal": 9.2, "resultado": "Aprovado", "obs": "Parceria sólida, mantém padrão."}, {"id": "AVL-0003", "fornId": "FOR-0007", "fornNome": "Parafusos & Fixadores MG", "data": "2025-07-30", "periodo": "2º semestre de 2025", "notas": {"C1": 8, "C2": 8, "C3": 9, "C4": 8, "C5": 8}, "criterios": [{"id": "C1", "nome": "Qualidade do produto/serviço", "peso": 30}, {"id": "C2", "nome": "Cumprimento de prazo de entrega", "peso": 25}, {"id": "C3", "nome": "Preço / custo-benefício", "peso": 15}, {"id": "C4", "nome": "Atendimento e comunicação", "peso": 15}, {"id": "C5", "nome": "Conformidade documental", "peso": 15}], "notaFinal": 8.15, "resultado": "Aprovado", "obs": "Sem ocorrências relevantes."}, {"id": "AVL-0004", "fornId": "FOR-0014", "fornNome": "Elétrica Norte Materiais", "data": "2025-09-26", "periodo": "2º semestre de 2025", "notas": {"C1": 10, "C2": 10, "C3": 9, "C4": 9, "C5": 9}, "criterios": [{"id": "C1", "nome": "Qualidade do produto/serviço", "peso": 30}, {"id": "C2", "nome": "Cumprimento de prazo de entrega", "peso": 25}, {"id": "C3", "nome": "Preço / custo-benefício", "peso": 15}, {"id": "C4", "nome": "Atendimento e comunicação", "peso": 15}, {"id": "C5", "nome": "Conformidade documental", "peso": 15}], "notaFinal": 9.55, "resultado": "Aprovado", "obs": "Parceria sólida, mantém padrão."}, {"id": "AVL-0005", "fornId": "FOR-0015", "fornNome": "Ferramentaria Silva", "data": "2025-09-27", "periodo": "2º semestre de 2025", "notas": {"C1": 2, "C2": 7, "C3": 4, "C4": 7, "C5": 6}, "criterios": [{"id": "C1", "nome": "Qualidade do produto/serviço", "peso": 30}, {"id": "C2", "nome": "Cumprimento de prazo de entrega", "peso": 25}, {"id": "C3", "nome": "Preço / custo-benefício", "peso": 15}, {"id": "C4", "nome": "Atendimento e comunicação", "peso": 15}, {"id": "C5", "nome": "Conformidade documental", "peso": 15}], "notaFinal": 4.9, "resultado": "Reprovado", "obs": "Atrasos recorrentes comprometeram a produção."}, {"id": "AVL-0006", "fornId": "FOR-0005", "fornNome": "Transportadora Rota Sul", "data": "2025-09-28", "periodo": "2º semestre de 2025", "notas": {"C1": 8, "C2": 8, "C3": 6, "C4": 6, "C5": 7}, "criterios": [{"id": "C1", "nome": "Qualidade do produto/serviço", "peso": 30}, {"id": "C2", "nome": "Cumprimento de prazo de entrega", "peso": 25}, {"id": "C3", "nome": "Preço / custo-benefício", "peso": 15}, {"id": "C4", "nome": "Atendimento e comunicação", "peso": 15}, {"id": "C5", "nome": "Conformidade documental", "peso": 15}], "notaFinal": 7.25, "resultado": "Aprovado com restrição", "obs": "Desempenho aceitável, com pontos de atenção."}, {"id": "AVL-0007", "fornId": "FOR-0013", "fornNome": "Química Industrial Sigma", "data": "2025-09-29", "periodo": "2º semestre de 2025", "notas": {"C1": 6, "C2": 5, "C3": 3, "C4": 3, "C5": 4}, "criterios": [{"id": "C1", "nome": "Qualidade do produto/serviço", "peso": 30}, {"id": "C2", "nome": "Cumprimento de prazo de entrega", "peso": 25}, {"id": "C3", "nome": "Preço / custo-benefício", "peso": 15}, {"id": "C4", "nome": "Atendimento e comunicação", "peso": 15}, {"id": "C5", "nome": "Conformidade documental", "peso": 15}], "notaFinal": 4.55, "resultado": "Reprovado", "obs": "Atrasos recorrentes comprometeram a produção."}, {"id": "AVL-0008", "fornId": "FOR-0002", "fornNome": "USIMINAS", "data": "2025-11-05", "periodo": "2º semestre de 2025", "notas": {"C1": 8, "C2": 10, "C3": 8, "C4": 9, "C5": 9}, "criterios": [{"id": "C1", "nome": "Qualidade do produto/serviço", "peso": 30}, {"id": "C2", "nome": "Cumprimento de prazo de entrega", "peso": 25}, {"id": "C3", "nome": "Preço / custo-benefício", "peso": 15}, {"id": "C4", "nome": "Atendimento e comunicação", "peso": 15}, {"id": "C5", "nome": "Conformidade documental", "peso": 15}], "notaFinal": 8.8, "resultado": "Aprovado", "obs": "Desempenho consistente no período."}, {"id": "AVL-0009", "fornId": "FOR-0003", "fornNome": "Calibra Metrologia", "data": "2025-11-29", "periodo": "2º semestre de 2025", "notas": {"C1": 9, "C2": 10, "C3": 10, "C4": 10, "C5": 8}, "criterios": [{"id": "C1", "nome": "Qualidade do produto/serviço", "peso": 30}, {"id": "C2", "nome": "Cumprimento de prazo de entrega", "peso": 25}, {"id": "C3", "nome": "Preço / custo-benefício", "peso": 15}, {"id": "C4", "nome": "Atendimento e comunicação", "peso": 15}, {"id": "C5", "nome": "Conformidade documental", "peso": 15}], "notaFinal": 9.4, "resultado": "Aprovado", "obs": "Sem ocorrências relevantes."}, {"id": "AVL-0010", "fornId": "FOR-0010", "fornNome": "Embalagens Certas", "data": "2026-01-22", "periodo": "1º semestre de 2026", "notas": {"C1": 10, "C2": 9, "C3": 9, "C4": 9, "C5": 9}, "criterios": [{"id": "C1", "nome": "Qualidade do produto/serviço", "peso": 30}, {"id": "C2", "nome": "Cumprimento de prazo de entrega", "peso": 25}, {"id": "C3", "nome": "Preço / custo-benefício", "peso": 15}, {"id": "C4", "nome": "Atendimento e comunicação", "peso": 15}, {"id": "C5", "nome": "Conformidade documental", "peso": 15}], "notaFinal": 9.3, "resultado": "Aprovado", "obs": ""}, {"id": "AVL-0011", "fornId": "FOR-0004", "fornNome": "Componentes Delta", "data": "2026-02-02", "periodo": "1º semestre de 2026", "notas": {"C1": 7, "C2": 6, "C3": 6, "C4": 6, "C5": 7}, "criterios": [{"id": "C1", "nome": "Qualidade do produto/serviço", "peso": 30}, {"id": "C2", "nome": "Cumprimento de prazo de entrega", "peso": 25}, {"id": "C3", "nome": "Preço / custo-benefício", "peso": 15}, {"id": "C4", "nome": "Atendimento e comunicação", "peso": 15}, {"id": "C5", "nome": "Conformidade documental", "peso": 15}], "notaFinal": 6.45, "resultado": "Aprovado com restrição", "obs": "Desempenho aceitável, com pontos de atenção."}, {"id": "AVL-0012", "fornId": "FOR-0014", "fornNome": "Elétrica Norte Materiais", "data": "2026-02-18", "periodo": "1º semestre de 2026", "notas": {"C1": 8, "C2": 8, "C3": 8, "C4": 9, "C5": 10}, "criterios": [{"id": "C1", "nome": "Qualidade do produto/serviço", "peso": 30}, {"id": "C2", "nome": "Cumprimento de prazo de entrega", "peso": 25}, {"id": "C3", "nome": "Preço / custo-benefício", "peso": 15}, {"id": "C4", "nome": "Atendimento e comunicação", "peso": 15}, {"id": "C5", "nome": "Conformidade documental", "peso": 15}], "notaFinal": 8.45, "resultado": "Aprovado", "obs": "Desempenho consistente no período."}, {"id": "AVL-0013", "fornId": "FOR-0004", "fornNome": "Componentes Delta", "data": "2026-03-10", "periodo": "1º semestre de 2026", "notas": {"C1": 7, "C2": 6, "C3": 7, "C4": 8, "C5": 8}, "criterios": [{"id": "C1", "nome": "Qualidade do produto/serviço", "peso": 30}, {"id": "C2", "nome": "Cumprimento de prazo de entrega", "peso": 25}, {"id": "C3", "nome": "Preço / custo-benefício", "peso": 15}, {"id": "C4", "nome": "Atendimento e comunicação", "peso": 15}, {"id": "C5", "nome": "Conformidade documental", "peso": 15}], "notaFinal": 7.05, "resultado": "Aprovado com restrição", "obs": "Desempenho aceitável, com pontos de atenção."}, {"id": "AVL-0014", "fornId": "FOR-0009", "fornNome": "Manutenção Industrial Pro", "data": "2026-03-21", "periodo": "1º semestre de 2026", "notas": {"C1": 6, "C2": 6, "C3": 8, "C4": 6, "C5": 8}, "criterios": [{"id": "C1", "nome": "Qualidade do produto/serviço", "peso": 30}, {"id": "C2", "nome": "Cumprimento de prazo de entrega", "peso": 25}, {"id": "C3", "nome": "Preço / custo-benefício", "peso": 15}, {"id": "C4", "nome": "Atendimento e comunicação", "peso": 15}, {"id": "C5", "nome": "Conformidade documental", "peso": 15}], "notaFinal": 6.6, "resultado": "Aprovado com restrição", "obs": "Alguns atrasos pontuais de entrega."}, {"id": "AVL-0015", "fornId": "FOR-0009", "fornNome": "Manutenção Industrial Pro", "data": "2026-04-02", "periodo": "1º semestre de 2026", "notas": {"C1": 8, "C2": 8, "C3": 10, "C4": 9, "C5": 8}, "criterios": [{"id": "C1", "nome": "Qualidade do produto/serviço", "peso": 30}, {"id": "C2", "nome": "Cumprimento de prazo de entrega", "peso": 25}, {"id": "C3", "nome": "Preço / custo-benefício", "peso": 15}, {"id": "C4", "nome": "Atendimento e comunicação", "peso": 15}, {"id": "C5", "nome": "Conformidade documental", "peso": 15}], "notaFinal": 8.45, "resultado": "Aprovado", "obs": "Desempenho consistente no período."}, {"id": "AVL-0016", "fornId": "FOR-0008", "fornNome": "Office Supply Distribuidora", "data": "2026-06-12", "periodo": "1º semestre de 2026", "notas": {"C1": 8, "C2": 10, "C3": 10, "C4": 9, "C5": 10}, "criterios": [{"id": "C1", "nome": "Qualidade do produto/serviço", "peso": 30}, {"id": "C2", "nome": "Cumprimento de prazo de entrega", "peso": 25}, {"id": "C3", "nome": "Preço / custo-benefício", "peso": 15}, {"id": "C4", "nome": "Atendimento e comunicação", "peso": 15}, {"id": "C5", "nome": "Conformidade documental", "peso": 15}], "notaFinal": 9.25, "resultado": "Aprovado", "obs": ""}, {"id": "AVL-0017", "fornId": "FOR-0001", "fornNome": "Aços Premium Ltda", "data": "2026-07-07", "periodo": "2º semestre de 2026", "notas": {"C1": 8, "C2": 8, "C3": 6, "C4": 8, "C5": 7}, "criterios": [{"id": "C1", "nome": "Qualidade do produto/serviço", "peso": 30}, {"id": "C2", "nome": "Cumprimento de prazo de entrega", "peso": 25}, {"id": "C3", "nome": "Preço / custo-benefício", "peso": 15}, {"id": "C4", "nome": "Atendimento e comunicação", "peso": 15}, {"id": "C5", "nome": "Conformidade documental", "peso": 15}], "notaFinal": 7.55, "resultado": "Aprovado com restrição", "obs": "Alguns atrasos pontuais de entrega."}, {"id": "AVL-0018", "fornId": "FOR-0007", "fornNome": "Parafusos & Fixadores MG", "data": "2026-08-14", "periodo": "2º semestre de 2026", "notas": {"C1": 6, "C2": 6, "C3": 8, "C4": 7, "C5": 6}, "criterios": [{"id": "C1", "nome": "Qualidade do produto/serviço", "peso": 30}, {"id": "C2", "nome": "Cumprimento de prazo de entrega", "peso": 25}, {"id": "C3", "nome": "Preço / custo-benefício", "peso": 15}, {"id": "C4", "nome": "Atendimento e comunicação", "peso": 15}, {"id": "C5", "nome": "Conformidade documental", "peso": 15}], "notaFinal": 6.45, "resultado": "Aprovado com restrição", "obs": "Precisa melhorar comunicação em não conformidades."}, {"id": "AVL-0019", "fornId": "FOR-0006", "fornNome": "Tratamento Térmico Vulcano", "data": "2026-08-19", "periodo": "2º semestre de 2026", "notas": {"C1": 7, "C2": 7, "C3": 8, "C4": 6, "C5": 6}, "criterios": [{"id": "C1", "nome": "Qualidade do produto/serviço", "peso": 30}, {"id": "C2", "nome": "Cumprimento de prazo de entrega", "peso": 25}, {"id": "C3", "nome": "Preço / custo-benefício", "peso": 15}, {"id": "C4", "nome": "Atendimento e comunicação", "peso": 15}, {"id": "C5", "nome": "Conformidade documental", "peso": 15}], "notaFinal": 6.85, "resultado": "Aprovado com restrição", "obs": "Precisa melhorar comunicação em não conformidades."}];
+const ACAO_SEED = [{"id": "ACF-0001", "fornId": "FOR-0001", "fornNome": "Aços Premium Ltda", "avalId": "AVL-0017", "origem": "Avaliação 07/07/2026", "descricao": "Prezados, na última avaliação de desempenho os itens de qualidade, prazo e preço ficaram abaixo do esperado (nota final 4,1 — Reprovado). Solicitamos plano de ação formal com as medidas corretivas e prazos, conforme evidências anexas.", "email": "roberto@acospremium.com.br", "anexos": ["Relatorio_avaliacao_ACOS.pdf", "Registros_atraso_entrega.xlsx"], "prazo": "2026-10-01", "statusRetorno": "Enviada", "resposta": null, "dataEnvio": "2026-09-13", "dataRegistro": "2026-09-13"}, {"id": "ACF-0002", "fornId": "FOR-0004", "fornNome": "Componentes Delta", "avalId": "AVL-0013", "origem": "Avaliação 10/03/2026", "descricao": "Identificamos oportunidades de melhoria nos critérios de atendimento e pós-venda. Pedimos retorno com as ações adotadas para acompanhamento mensal.", "email": "ricardo@compdelta.com.br", "anexos": ["Nao_conformidade_lote_042.pdf"], "prazo": "2026-09-17", "statusRetorno": "Respondida", "resposta": {"acoes": "Implementamos inspeção 100% no lote de rolamentos e trocamos o fornecedor de vedação. Anexamos o novo plano de controle e o certificado do novo material. Reforçamos a equipe de atendimento com um SLA de 24h.", "anexos": ["Plano_controle_revisado.pdf", "Certificado_novo_material.pdf"], "data": "2026-09-16"}, "dataEnvio": "2026-09-07", "dataRegistro": "2026-09-07"}, {"id": "ACF-0003", "fornId": "FOR-0005", "fornNome": "Transportadora Rota Sul", "avalId": "AVL-0006", "origem": "Avaliação 28/09/2025", "descricao": "Reincidência de atrasos de entrega comprometendo a produção. Solicitamos plano de ação imediato com as tratativas para os prazos.", "email": "juliana@rotasul.com.br", "anexos": ["Historico_atrasos_2025.pdf"], "prazo": "2026-08-25", "statusRetorno": "Enviada", "resposta": null, "dataEnvio": "2026-08-10", "dataRegistro": "2026-08-10"}, {"id": "ACF-0004", "fornId": "FOR-0006", "fornNome": "Tratamento Térmico Vulcano", "avalId": "AVL-0019", "origem": "Avaliação 19/08/2026", "descricao": "Notas abaixo do esperado em qualidade e conformidade documental. Solicitamos plano de ação e comprovação da correção do processo de têmpera.", "email": "anderson@vulcanott.com.br", "anexos": ["Laudo_dureza_fora_faixa.pdf"], "prazo": "2026-09-18", "statusRetorno": "Procedente", "resposta": {"acoes": "Recalibramos os fornos e revisamos o procedimento de têmpera e revenimento. Anexamos os novos laudos de dureza dentro da faixa especificada e o registro de calibração dos fornos.", "anexos": ["Laudos_dureza_ok.pdf", "Calibracao_fornos.pdf"], "data": "2026-09-11"}, "dataEnvio": "2026-09-04", "dataRegistro": "2026-09-04"}, {"id": "ACF-0005", "fornId": "FOR-0013", "fornNome": "Química Industrial Sigma", "avalId": "AVL-0007", "origem": "Avaliação 29/09/2025", "descricao": "Fornecedor reprovado por reincidência de problemas de qualidade em tintas e desengraxantes. Solicitamos plano de recuperação.", "email": "beatriz@quimicasigma.com.br", "anexos": ["RNC_tinta_lote.pdf"], "prazo": "2026-07-21", "statusRetorno": "Não procedente", "resposta": {"acoes": "Enviaremos novo lote para teste, mas sem alteração de processo no momento.", "anexos": [], "data": "2026-07-11"}, "dataEnvio": "2026-06-21", "dataRegistro": "2026-06-21"}, {"id": "ACF-0006", "fornId": "FOR-0007", "fornNome": "Parafusos & Fixadores MG", "avalId": "AVL-0018", "origem": "Avaliação 14/08/2026", "descricao": "Documentação de homologação desatualizada. Solicitamos atualização dos certificados e do plano de melhoria.", "email": "marcos@fixadoresmg.com.br", "anexos": ["Checklist_documental.pdf"], "prazo": "2026-10-09", "statusRetorno": "Enviada", "resposta": null, "dataEnvio": "2026-09-16", "dataRegistro": "2026-09-16"}, {"id": "ACF-0007", "fornId": "FOR-0015", "fornNome": "Ferramentaria Silva", "avalId": "AVL-0005", "origem": "Avaliação 27/09/2025", "descricao": "Baixo desempenho recorrente. Solicitamos plano de ação e cronograma de melhoria do ferramental.", "email": "rafael@ferramentariasilva.com.br", "anexos": ["Avaliacao_ferramental.pdf"], "prazo": "2026-09-14", "statusRetorno": "Respondida", "resposta": {"acoes": "Refizemos o ferramental crítico e ajustamos o plano de manutenção preventiva. Anexo o cronograma atualizado.", "anexos": ["Cronograma_manutencao.pdf"], "data": "2026-09-13"}, "dataEnvio": "2026-08-30", "dataRegistro": "2026-08-30"}];
+
+/* ---- Critérios de avaliação (com peso) ---- */
+const CRITERIOS_PADRAO = [
+  {id:'C1', nome:'Qualidade do produto/serviço', peso:30},
+  {id:'C2', nome:'Cumprimento de prazo de entrega', peso:25},
+  {id:'C3', nome:'Preço / custo-benefício', peso:15},
+  {id:'C4', nome:'Atendimento e comunicação', peso:15},
+  {id:'C5', nome:'Conformidade documental', peso:15}
+];
+
+/* ---- Faixas de resultado ---- */
+function resultadoDaNota(n){
+  if(n>=8) return 'Aprovado';
+  if(n>=6) return 'Aprovado com restrição';
+  return 'Reprovado';
+}
+function corResultado(r){ return {'Aprovado':'var(--accent-green)','Aprovado com restrição':'var(--accent-amber)','Reprovado':'var(--accent-red)'}[r]||'var(--text-muted)'; }
+function classeResultado(r){ return {'Aprovado':'res-aprovado','Aprovado com restrição':'res-restricao','Reprovado':'res-reprovado'}[r]||''; }
+
+const FORN_DATA_VERSION = '2026-09-3';
+function initData(){
+  if(store.get('qps_forn_version') !== FORN_DATA_VERSION){
+    store.set('qps_forn_criterios', CRITERIOS_PADRAO);
+    store.set('qps_fornecedores', FORN_SEED);
+    store.set('qps_forn_avaliacoes', AVAL_SEED);
+    store.set('qps_forn_acoes', ACAO_SEED);
+    store.set('qps_forn_version', FORN_DATA_VERSION);
+    return;
+  }
+  if(store.get('qps_forn_criterios')===null) store.set('qps_forn_criterios', CRITERIOS_PADRAO);
+  if(store.get('qps_fornecedores')===null) store.set('qps_fornecedores', FORN_SEED);
+  if(store.get('qps_forn_avaliacoes')===null) store.set('qps_forn_avaliacoes', AVAL_SEED);
+  if(store.get('qps_forn_acoes')===null) store.set('qps_forn_acoes', ACAO_SEED);
+}
+
+/* ===================== HELPERS ===================== */
+function getCriterios(){ return store.get('qps_forn_criterios')||CRITERIOS_PADRAO; }
+function getFornecedores(){ return store.get('qps_fornecedores')||[]; }
+function fornById(id){ return getFornecedores().find(f=>f.id===id); }
+function statusPill(s){
+  const map={'Homologado':'st-homologado','Em análise':'st-analise','Suspenso':'st-suspenso','Reprovado':'st-reprovado'};
+  return `<span class="status-pill ${map[s]||'st-analise'}"><span class="status-dot2"></span>${esc(s)}</span>`;
+}
+function critChip(c){ return `<span class="crit-chip ${c==='Crítico'?'crit-critico':'crit-naocritico'}">${c==='Crítico'?'⚠ ':''}${esc(c)}</span>`; }
+// última avaliação do fornecedor
+function ultimaAvaliacao(fornId){
+  const avs=(store.get('qps_forn_avaliacoes')||[]).filter(a=>a.fornId===fornId).sort((a,b)=>(b.data||'').localeCompare(a.data||''));
+  return avs[0]||null;
+}
+// alertas
+function reavalVencida(f){ return f.proxReaval && f.proxReaval < todayISO() && f.status!=='Reprovado'; }
+function reavalProxima(f){ if(!f.proxReaval || f.status==='Reprovado') return false; const d=diffDias(f.proxReaval); return d!==null && d>=0 && d<=30; }
+function docVencido(f){ return f.temIso9001==='Sim' && f.isoValidade && f.isoValidade < todayISO(); }
+function docProximo(f){ if(f.temIso9001!=='Sim' || !f.isoValidade) return false; const d=diffDias(f.isoValidade); return d!==null && d>=0 && d<=30; }
+function temAlerta(f){ return reavalVencida(f)||reavalProxima(f)||docVencido(f)||docProximo(f); }
+
+/* ===================== TAB SWITCHING ===================== */
+let currentTab = 'cadastro';
+function switchTab(t){
+  currentTab = t;
+  document.querySelectorAll('#mainTabs .ctx-tab').forEach(el=>el.classList.toggle('active', el.dataset.tab===t));
+  renderTab();
+}
+function renderTab(){
+  const el = document.getElementById('tabContent');
+  if(currentTab==='cadastro') el.innerHTML = cadastroHTML();
+  else if(currentTab==='criterios') el.innerHTML = criteriosHTML();
+  else if(currentTab==='avaliacao') el.innerHTML = avaliacaoHTML();
+  else if(currentTab==='acoes') el.innerHTML = acoesHTML();
+  else if(currentTab==='alertas') el.innerHTML = alertasHTML();
+  else if(currentTab==='indicadores'){ el.innerHTML = indicadoresHTML(); initFornCharts(); }
+  renderKpis();
+}
+
+/* ===================== ABA 1: CADASTRO / HOMOLOGAÇÃO ===================== */
+let cadFilters = { status:'', criticidade:'', tipo:'', busca:'' };
+function cadastroHTML(){
+  let forns = getFornecedores().slice().sort((a,b)=>(a.razao||'').localeCompare(b.razao||''));
+  const tipos = Array.from(new Set(forns.map(f=>f.tipo))).filter(Boolean).sort();
+  const opt=(arr,sel)=>['<option value="">Todos</option>'].concat(arr.map(v=>`<option ${sel===v?'selected':''}>${esc(v)}</option>`)).join('');
+
+  const filterBar = `
+  <div class="filter-bar">
+    <div class="fg"><label>Status</label><select class="input-basic" onchange="setCadFilter('status',this.value)">
+      <option value="">Todos</option>
+      <option ${cadFilters.status==='Homologado'?'selected':''}>Homologado</option>
+      <option ${cadFilters.status==='Em análise'?'selected':''}>Em análise</option>
+      <option ${cadFilters.status==='Suspenso'?'selected':''}>Suspenso</option>
+      <option ${cadFilters.status==='Reprovado'?'selected':''}>Reprovado</option>
+    </select></div>
+    <div class="fg"><label>Criticidade</label><select class="input-basic" onchange="setCadFilter('criticidade',this.value)">
+      <option value="">Todas</option>
+      <option ${cadFilters.criticidade==='Crítico'?'selected':''}>Crítico</option>
+      <option ${cadFilters.criticidade==='Não crítico'?'selected':''}>Não crítico</option>
+    </select></div>
+    <div class="fg"><label>Tipo</label><select class="input-basic" onchange="setCadFilter('tipo',this.value)">${opt(tipos, cadFilters.tipo)}</select></div>
+    <div class="fg"><label>Busca livre</label><input class="input-basic" placeholder="Razão social, CNPJ, produto..." value="${esc(cadFilters.busca)}" oninput="setCadFilter('busca',this.value)"></div>
+    <div class="fg"><label>&nbsp;</label><div class="btn-ghost" style="justify-content:center;" onclick="clearCadFilters()">Limpar</div></div>
+  </div>`;
+
+  let filtered = forns.filter(f=>{
+    if(cadFilters.status && f.status!==cadFilters.status) return false;
+    if(cadFilters.criticidade && f.criticidade!==cadFilters.criticidade) return false;
+    if(cadFilters.tipo && f.tipo!==cadFilters.tipo) return false;
+    if(cadFilters.busca){ const q=cadFilters.busca.toLowerCase(); if(!(`${f.razao} ${f.cnpj} ${f.produto} ${f.contato}`.toLowerCase().includes(q))) return false; }
+    return true;
+  });
+
+  const body = filtered.length ? filtered.map(f=>{
+    const ult=ultimaAvaliacao(f.id);
+    const alerta = reavalVencida(f) ? 'vencida' : (reavalProxima(f) ? 'proxima' : (docVencido(f) ? 'docvenc' : ''));
+    const statusCell = alerta ? `<div class="status-2linhas">${statusPill(f.status)}<span class="linha-alerta" style="${alerta==='vencida'||alerta==='docvenc'?'color:var(--accent-red);':''}">⚠ ${alerta==='vencida'?'Reavaliação vencida':(alerta==='proxima'?'Reavaliar em breve':'Documento vencido')}</span></div>` : statusPill(f.status);
+    return `
+    <tr>
+      <td class="desc-cell" style="color:var(--text-primary); font-weight:600;"><a style="color:var(--accent-blue-bright); cursor:pointer;" onclick="verFornecedor('${f.id}')">${esc(f.razao)}</a></td>
+      <td class="mono">${esc(f.cnpj)||'—'}</td>
+      <td><span class="mchip mchip-blue">${esc(f.tipo)}</span></td>
+      <td>${critChip(f.criticidade)}</td>
+      <td class="mono">${fmtDate(f.proxReaval)}</td>
+      <td>${statusCell}</td>
+      <td>
+        <div class="row-actions">
+          <div class="abtn" onclick="editFornecedor('${f.id}')" title="Editar"><svg class="icon" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></div>
+          <div class="abtn danger" onclick="deleteFornecedor('${f.id}')" title="Excluir"><svg class="icon" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></div>
+        </div>
+      </td>
+    </tr>`;
+  }).join('') : `<tr><td colspan="7"><div class="empty-state">Nenhum fornecedor encontrado.</div></td></tr>`;
+
+  return filterBar + `
+  <div class="dcc">
+    <div class="dcc-hd">
+      <div><div class="dcc-title">Cadastro e Homologação</div><div class="dcc-sub">${filtered.length} fornecedor(es) · nível de controle conforme a criticidade</div></div>
+      <div class="btn-grad" onclick="novoFornecedor()"><svg class="icon" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Novo fornecedor</div>
+    </div>
+    <table class="ctxtbl compact">
+      <colgroup><col style="width:25%"><col style="width:15%"><col style="width:12%"><col style="width:11%"><col style="width:12%"><col style="width:18%"><col style="width:7%"></colgroup>
+      <thead><tr><th>Razão social</th><th>CNPJ</th><th>Tipo</th><th>Criticidade</th><th>Próx. reaval.</th><th>Status</th><th>Ações</th></tr></thead>
+      <tbody>${body}</tbody>
+    </table>
+  </div>`;
+}
+function setCadFilter(k,v){ cadFilters[k]=v; renderTab(); }
+function clearCadFilters(){ cadFilters={status:'',criticidade:'',tipo:'',busca:''}; renderTab(); }
+
+function calcProxReaval(){
+  const d=document.getElementById('fDataHomolog').value, p=document.getElementById('fPeriodicidade').value;
+  document.getElementById('fProxReaval').value = (d&&p) ? fmtDate(addMonths(d,p)) : '';
+}
+function onCriticidade(){ /* espaço para regras futuras de nível de controle */ }
+function handleFAnexo(e){ const f=e.target.files[0]; if(!f) return; if(f.size>5*1024*1024){alert('Arquivo muito grande (máx. 5MB).'); e.target.value=''; return;} document.getElementById('fAnexo').value=f.name; document.getElementById('fAnexoName').textContent='📎 '+f.name; document.getElementById('fAnexoRemove').style.display='flex'; }
+function removeFAnexo(){ document.getElementById('fAnexo').value=''; document.getElementById('fAnexoName').textContent='Nenhum arquivo selecionado'; document.getElementById('fAnexoRemove').style.display='none'; }
+function onIso9001(){ document.getElementById('fIsoBlock').style.display = document.getElementById('fIso9001').value==='Sim' ? 'block' : 'none'; }
+function handleFIsoAnexo(e){ const f=e.target.files[0]; if(!f) return; if(f.size>5*1024*1024){alert('Arquivo muito grande (máx. 5MB).'); e.target.value=''; return;} document.getElementById('fIsoAnexo').value=f.name; document.getElementById('fIsoAnexoName').textContent='📎 '+f.name; document.getElementById('fIsoAnexoRemove').style.display='flex'; }
+function removeFIsoAnexo(){ document.getElementById('fIsoAnexo').value=''; document.getElementById('fIsoAnexoName').textContent='Nenhum arquivo selecionado'; document.getElementById('fIsoAnexoRemove').style.display='none'; }
+function novoFornecedor(){
+  document.getElementById('fornTitle').textContent='Novo fornecedor';
+  document.getElementById('fEditId').value='';
+  ['fRazao','fCnpj','fContato','fEmail','fTelefone','fCidade','fProduto','fJustCrit','fDataHomolog','fProxReaval','fIsoValidade','fCertificacoes','fAnexo','fIsoAnexo'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('fTipo').value='Matéria-prima';
+  document.getElementById('fCriticidade').value='Crítico';
+  document.getElementById('fStatus').value='Em análise';
+  document.getElementById('fPeriodicidade').value='12';
+  document.getElementById('fIso9001').value='Não';
+  removeFAnexo(); removeFIsoAnexo(); onIso9001();
+  openModal('modalForn');
+}
+function editFornecedor(id){
+  const f=fornById(id); if(!f) return;
+  document.getElementById('fornTitle').textContent=f.razao;
+  document.getElementById('fEditId').value=f.id;
+  document.getElementById('fRazao').value=f.razao||'';
+  document.getElementById('fCnpj').value=f.cnpj||'';
+  document.getElementById('fContato').value=f.contato||'';
+  document.getElementById('fEmail').value=f.email||'';
+  document.getElementById('fTelefone').value=f.telefone||'';
+  document.getElementById('fCidade').value=f.cidade||'';
+  document.getElementById('fTipo').value=f.tipo||'Matéria-prima';
+  document.getElementById('fCriticidade').value=f.criticidade||'Crítico';
+  document.getElementById('fProduto').value=f.produto||'';
+  document.getElementById('fJustCrit').value=f.justCrit||'';
+  document.getElementById('fStatus').value=f.status||'Em análise';
+  document.getElementById('fDataHomolog').value=f.dataHomolog||'';
+  document.getElementById('fPeriodicidade').value=f.periodicidade||'12';
+  document.getElementById('fCertificacoes').value=f.certificacoes||'';
+  document.getElementById('fAnexo').value=f.anexo||'';
+  document.getElementById('fAnexoName').textContent=f.anexo?('📎 '+f.anexo):'Nenhum arquivo selecionado';
+  document.getElementById('fAnexoRemove').style.display=f.anexo?'flex':'none';
+  document.getElementById('fIso9001').value=f.temIso9001||'Não';
+  document.getElementById('fIsoValidade').value=f.isoValidade||'';
+  document.getElementById('fIsoAnexo').value=f.isoAnexo||'';
+  document.getElementById('fIsoAnexoName').textContent=f.isoAnexo?('📎 '+f.isoAnexo):'Nenhum arquivo selecionado';
+  document.getElementById('fIsoAnexoRemove').style.display=f.isoAnexo?'flex':'none';
+  onIso9001();
+  calcProxReaval();
+  openModal('modalForn');
+}
+function salvarFornecedor(){
+  const razao=document.getElementById('fRazao').value.trim();
+  if(!razao){ showToast('Informe a razão social.'); document.getElementById('fRazao').focus(); return; }
+  const forns=getFornecedores();
+  const id=document.getElementById('fEditId').value;
+  const dataHomolog=document.getElementById('fDataHomolog').value;
+  const periodicidade=document.getElementById('fPeriodicidade').value;
+  const base={
+    razao, cnpj:document.getElementById('fCnpj').value, contato:document.getElementById('fContato').value,
+    email:document.getElementById('fEmail').value, telefone:document.getElementById('fTelefone').value, cidade:document.getElementById('fCidade').value,
+    tipo:document.getElementById('fTipo').value, criticidade:document.getElementById('fCriticidade').value,
+    produto:document.getElementById('fProduto').value, justCrit:document.getElementById('fJustCrit').value,
+    status:document.getElementById('fStatus').value, dataHomolog, periodicidade,
+    proxReaval:(dataHomolog&&periodicidade)?addMonths(dataHomolog,periodicidade):'',
+    certificacoes:document.getElementById('fCertificacoes').value,
+    anexo:document.getElementById('fAnexo').value,
+    temIso9001:document.getElementById('fIso9001').value,
+    isoValidade:document.getElementById('fIso9001').value==='Sim' ? document.getElementById('fIsoValidade').value : '',
+    isoAnexo:document.getElementById('fIso9001').value==='Sim' ? document.getElementById('fIsoAnexo').value : ''
+  };
+  if(id){
+    const f=forns.find(x=>x.id===id); Object.assign(f, base);
+    f.historico=f.historico||[]; f.historico.push({ts:new Date().toISOString(), texto:`<b>Hugo Melo</b> editou o cadastro.`});
+  } else {
+    const rec=Object.assign({id:uid('FOR',forns), historico:[{ts:new Date().toISOString(), texto:`Fornecedor cadastrado por <b>Hugo Melo</b> (${esc(base.criticidade)}).`}]}, base);
+    forns.push(rec);
+  }
+  store.set('qps_fornecedores', forns);
+  closeModal('modalForn'); renderTab();
+  showToast(id?'Fornecedor atualizado':'Fornecedor cadastrado');
+}
+function deleteFornecedor(id){ if(!confirm('Excluir este fornecedor? As avaliações vinculadas permanecem no histórico.')) return; let f=getFornecedores().filter(x=>x.id!==id); store.set('qps_fornecedores',f); renderTab(); showToast('Fornecedor excluído'); }
+
+function verFornecedor(id){
+  const f=fornById(id); if(!f) return;
+  const avs=(store.get('qps_forn_avaliacoes')||[]).filter(a=>a.fornId===id).sort((a,b)=>(b.data||'').localeCompare(a.data||''));
+  document.getElementById('detTitle').textContent=f.razao;
+  document.getElementById('detSub').textContent=`${f.tipo} · ${f.criticidade} · ${f.status}`;
+  const campo=(l,v)=>`<div><div style="font-size:10px; font-family:'JetBrains Mono',monospace; color:var(--text-muted); text-transform:uppercase; margin-bottom:3px;">${l}</div><div style="font-size:13px; font-weight:600;">${v||'—'}</div></div>`;
+  const info=`<div style="display:grid; grid-template-columns:1fr 1fr; gap:12px 20px; margin-bottom:18px;">
+    ${campo('CNPJ', esc(f.cnpj))}${campo('Contato', esc(f.contato))}
+    ${campo('E-mail', esc(f.email))}${campo('Telefone', esc(f.telefone))}
+    ${campo('Cidade / UF', esc(f.cidade))}${campo('Produto / serviço', esc(f.produto))}
+    ${campo('Homologado em', fmtDate(f.dataHomolog))}${campo('Próxima reavaliação', fmtDate(f.proxReaval))}
+    ${campo('Certificado ISO 9001', f.temIso9001==='Sim' ? ('Sim — validade '+fmtDate(f.isoValidade)+(f.isoAnexo?' · 📎 '+esc(f.isoAnexo):'')) : 'Não')}${campo('Outras certificações', esc(f.certificacoes))}
+  </div>
+  ${f.justCrit?`<div style="background:rgba(255,255,255,0.03); border:1px solid var(--border-subtle); border-radius:10px; padding:12px 14px; margin-bottom:18px;"><div style="font-size:10px; font-family:'JetBrains Mono',monospace; color:var(--text-muted); text-transform:uppercase; margin-bottom:5px;">Justificativa da criticidade</div><div style="font-size:12.5px; color:var(--text-secondary); line-height:1.5;">${esc(f.justCrit)}</div></div>`:''}`;
+
+  const histAval = avs.length ? `
+    <div style="font-size:12px; font-weight:800; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.4px; margin:6px 0 10px;">Histórico de avaliações</div>
+    <table class="ctxtbl compact"><colgroup><col style="width:18%"><col style="width:34%"><col style="width:16%"><col style="width:32%"></colgroup>
+    <thead><tr><th>Data</th><th>Período</th><th>Nota</th><th>Resultado</th></tr></thead><tbody>
+    ${avs.map(a=>`<tr><td class="mono">${fmtDate(a.data)}</td><td class="desc-cell">${esc(a.periodo)||'—'}</td><td><span class="nota-box" style="background:${corResultado(a.resultado)};">${a.notaFinal.toFixed(1)}</span></td><td class="${classeResultado(a.resultado)}" style="font-size:12px;">${esc(a.resultado)}</td></tr>`).join('')}
+    </tbody></table>` : '<div class="empty-state" style="padding:24px;">Nenhuma avaliação registrada ainda.</div>';
+
+  const hist=(f.historico||[]).slice().sort((a,b)=>new Date(a.ts)-new Date(b.ts));
+  const histHtml = hist.length ? `<div style="font-size:12px; font-weight:800; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.4px; margin:18px 0 8px;">Histórico do cadastro</div>`+hist.map(h=>`<div class="hist-item"><span class="ht">${fmtDateTime(h.ts)}</span><br>${h.texto}</div>`).join('') : '';
+
+  document.getElementById('detBody').innerHTML = info + histAval + histHtml;
+  openModal('modalDetForn');
+}
+
+/* ===================== ABA 2: CRITÉRIOS DE AVALIAÇÃO ===================== */
+let critsEdit = null;
+function criteriosHTML(){
+  critsEdit = JSON.parse(JSON.stringify(getCriterios()));
+  const total = critsEdit.reduce((s,c)=>s+Number(c.peso||0),0);
+  const itens = critsEdit.map((c,i)=>`
+    <div class="crit-item">
+      <div class="ci-num">${i+1}</div>
+      <div class="ci-nome"><input value="${esc(c.nome)}" onchange="setCritNome(${i}, this.value)" placeholder="Nome do critério"></div>
+      <div class="ci-peso"><input type="number" min="0" max="100" value="${c.peso}" onchange="setCritPeso(${i}, this.value)" placeholder="Peso %"></div>
+      <div class="abtn danger" onclick="removerCriterio(${i})" title="Remover"><svg class="icon" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></div>
+    </div>`).join('');
+
+  return `
+  <div class="dcc" style="padding:22px; margin-bottom:16px;">
+    <div style="display:flex; align-items:flex-start; gap:12px;">
+      <div style="width:36px; height:36px; border-radius:9px; border:1px solid rgba(70,217,245,0.4); color:var(--accent-cyan); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+        <svg class="icon" viewBox="0 0 24 24"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
+      </div>
+      <div style="font-size:12.5px; color:var(--text-secondary); line-height:1.6;">
+        Estes são os critérios usados em toda <b style="color:var(--text-primary);">Avaliação de Desempenho</b>. Cada critério recebe nota de <b style="color:var(--text-primary);">0 a 10</b> e tem um <b style="color:var(--text-primary);">peso</b>; a nota final é a média ponderada. A soma dos pesos deve fechar em <b style="color:var(--text-primary);">100%</b>.
+      </div>
+    </div>
+  </div>
+
+  <div class="dcc">
+    <div class="dcc-hd">
+      <div><div class="dcc-title">Critérios de Avaliação</div><div class="dcc-sub">${critsEdit.length} critério(s) · nota 0–10 ponderada por peso</div></div>
+      <div style="display:flex; gap:10px;">
+        <div class="btn-ghost" onclick="addCriterio()"><svg class="icon" viewBox="0 0 24 24" style="width:15px;height:15px;"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Adicionar critério</div>
+        <div class="btn-grad" onclick="salvarCriterios()">Salvar critérios</div>
+      </div>
+    </div>
+    <div style="padding:18px 20px;">
+      ${itens}
+      <div class="peso-total ${total===100?'peso-ok':'peso-erro'}">
+        <span>Soma dos pesos</span>
+        <span>${total}% ${total===100?'✓':'— deve somar 100%'}</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="dcc" style="margin-top:16px; padding:20px 22px;">
+    <div style="font-size:13px; font-weight:800; margin-bottom:12px;">Faixas de resultado</div>
+    <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:12px;">
+      <div style="padding:14px 16px; border-radius:11px; background:rgba(52,211,153,0.1); border:1px solid rgba(52,211,153,0.35);"><div class="res-aprovado" style="font-size:13px;">Aprovado</div><div style="font-size:12px; color:var(--text-secondary); margin-top:4px;">Nota final ≥ 8,0</div></div>
+      <div style="padding:14px 16px; border-radius:11px; background:rgba(251,191,36,0.1); border:1px solid rgba(251,191,36,0.35);"><div class="res-restricao" style="font-size:13px;">Aprovado com restrição</div><div style="font-size:12px; color:var(--text-secondary); margin-top:4px;">Nota final de 6,0 a 7,9</div></div>
+      <div style="padding:14px 16px; border-radius:11px; background:rgba(248,113,113,0.1); border:1px solid rgba(248,113,113,0.35);"><div class="res-reprovado" style="font-size:13px;">Reprovado</div><div style="font-size:12px; color:var(--text-secondary); margin-top:4px;">Nota final &lt; 6,0 · exige plano de ação</div></div>
+    </div>
+  </div>`;
+}
+function setCritNome(i,v){ if(critsEdit[i]) critsEdit[i].nome=v; }
+function setCritPeso(i,v){ if(critsEdit[i]){ critsEdit[i].peso=Number(v)||0; renderTab(); } }
+function addCriterio(){ critsEdit.push({id:'C'+Date.now().toString().slice(-5), nome:'', peso:0}); store.set('qps_forn_criterios', critsEdit); renderTab(); }
+function removerCriterio(i){ critsEdit.splice(i,1); store.set('qps_forn_criterios', critsEdit); renderTab(); }
+function salvarCriterios(){
+  document.querySelectorAll('.crit-item .ci-nome input').forEach((inp,i)=>{ if(critsEdit[i]) critsEdit[i].nome=inp.value; });
+  const total=critsEdit.reduce((s,c)=>s+Number(c.peso||0),0);
+  if(total!==100){ showToast('A soma dos pesos deve ser exatamente 100%.'); return; }
+  if(critsEdit.some(c=>!c.nome.trim())){ showToast('Preencha o nome de todos os critérios.'); return; }
+  store.set('qps_forn_criterios', critsEdit);
+  showToast('Critérios salvos');
+  renderTab();
+}
+
+
+/* ===================== ABA 3: AVALIAÇÃO DE DESEMPENHO ===================== */
+let avalFilters = { resultado:'', criticidade:'', tipo:'', busca:'' };
+let avalNotas = {};
+function avaliacaoHTML(){
+  const forns = getFornecedores().slice().sort((a,b)=>(a.razao||'').localeCompare(b.razao||''));
+  const todasAvs = store.get('qps_forn_avaliacoes')||[];
+  const tipos = Array.from(new Set(forns.map(f=>f.tipo))).filter(Boolean).sort();
+  const opt=(arr,sel)=>['<option value="">Todos</option>'].concat(arr.map(v=>`<option ${sel===v?'selected':''}>${esc(v)}</option>`)).join('');
+
+  const filterBar = `
+  <div class="filter-bar">
+    <div class="fg"><label>Criticidade</label><select class="input-basic" onchange="setAvalFilter('criticidade',this.value)">
+      <option value="">Todas</option>
+      <option ${avalFilters.criticidade==='Crítico'?'selected':''}>Crítico</option>
+      <option ${avalFilters.criticidade==='Não crítico'?'selected':''}>Não crítico</option>
+    </select></div>
+    <div class="fg"><label>Tipo</label><select class="input-basic" onchange="setAvalFilter('tipo',this.value)">${opt(tipos, avalFilters.tipo)}</select></div>
+    <div class="fg"><label>Último resultado</label><select class="input-basic" onchange="setAvalFilter('resultado',this.value)">
+      <option value="">Todos</option>
+      <option ${avalFilters.resultado==='Aprovado'?'selected':''}>Aprovado</option>
+      <option ${avalFilters.resultado==='Aprovado com restrição'?'selected':''}>Aprovado com restrição</option>
+      <option ${avalFilters.resultado==='Reprovado'?'selected':''}>Reprovado</option>
+      <option ${avalFilters.resultado==='Sem avaliação'?'selected':''}>Sem avaliação</option>
+    </select></div>
+    <div class="fg"><label>Busca livre</label><input class="input-basic" placeholder="Razão social, CNPJ..." value="${esc(avalFilters.busca)}" oninput="setAvalFilter('busca',this.value)"></div>
+    <div class="fg"><label>&nbsp;</label><div class="btn-ghost" style="justify-content:center;" onclick="clearAvalFilters()">Limpar</div></div>
+  </div>`;
+
+  let filtered = forns.filter(f=>{
+    const ult = ultimaAvaliacao(f.id);
+    const ultRes = ult ? ult.resultado : 'Sem avaliação';
+    if(avalFilters.criticidade && f.criticidade!==avalFilters.criticidade) return false;
+    if(avalFilters.tipo && f.tipo!==avalFilters.tipo) return false;
+    if(avalFilters.resultado && ultRes!==avalFilters.resultado) return false;
+    if(avalFilters.busca){ const q=avalFilters.busca.toLowerCase(); if(!(`${f.razao} ${f.cnpj} ${f.produto}`.toLowerCase().includes(q))) return false; }
+    return true;
+  });
+
+  const body = filtered.length ? filtered.map(f=>{
+    const ult = ultimaAvaliacao(f.id);
+    const qtd = todasAvs.filter(a=>a.fornId===f.id).length;
+    const notaCell = ult ? `<span class="nota-box" style="background:${corResultado(ult.resultado)};">${ult.notaFinal.toFixed(1)}</span>` : '<span style="color:var(--text-muted); font-size:11px;">—</span>';
+    const resCell = ult ? `<span class="${classeResultado(ult.resultado)}" style="font-size:11.5px;">${esc(ult.resultado)}</span>` : '<span style="color:var(--text-muted); font-size:11.5px;">Sem avaliação</span>';
+    const b2title = ult ? `Última: ${ult.notaFinal.toFixed(1)} (${ult.resultado})` : 'Nenhuma avaliação ainda';
+    return `
+    <tr>
+      <td class="desc-cell" style="color:var(--text-primary); font-weight:600;">${esc(f.razao)}</td>
+      <td><span class="mchip mchip-blue">${esc(f.tipo)}</span></td>
+      <td>${critChip(f.criticidade)}</td>
+      <td class="mono">${ult?fmtDate(ult.data):'—'}</td>
+      <td>${notaCell}</td>
+      <td>${resCell}</td>
+      <td class="mono" style="text-align:center;">${qtd||'—'}</td>
+      <td>
+        <div class="row-actions">
+          <div class="abtn" style="color:var(--accent-blue-bright); border-color:rgba(79,163,255,0.4);" onclick="avaliarFornecedor('${f.id}')" title="Avaliar fornecedor"><svg class="icon" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div>
+          <div class="abtn" onclick="verHistoricoForn('${f.id}')" title="${b2title}"><svg class="icon" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3"/></svg></div>
+          ${ult && (ult.resultado==='Reprovado'||ult.resultado==='Aprovado com restrição') ? `<div class="abtn" style="color:var(--accent-amber); border-color:rgba(251,191,36,0.4);" onclick="abrirAcao('${f.id}','${ult.id}')" title="Registrar plano de ação"><svg class="icon" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></div>` : ''}
+        </div>
+      </td>
+    </tr>`;
+  }).join('') : `<tr><td colspan="8"><div class="empty-state">Nenhum fornecedor encontrado.</div></td></tr>`;
+
+  return filterBar + `
+  <div class="dcc">
+    <div class="dcc-hd">
+      <div><div class="dcc-title">Avaliação de Desempenho</div><div class="dcc-sub">${filtered.length} fornecedor(es) · uma linha por fornecedor · avaliações acumulam no histórico</div></div>
+    </div>
+    <table class="ctxtbl compact">
+      <colgroup><col style="width:24%"><col style="width:12%"><col style="width:11%"><col style="width:13%"><col style="width:9%"><col style="width:17%"><col style="width:6%"><col style="width:8%"></colgroup>
+      <thead><tr><th>Fornecedor</th><th>Tipo</th><th>Criticidade</th><th>Última aval.</th><th>Nota</th><th>Resultado</th><th>Avals.</th><th>Ações</th></tr></thead>
+      <tbody>${body}</tbody>
+    </table>
+  </div>`;
+}
+function setAvalFilter(k,v){ avalFilters[k]=v; renderTab(); }
+function clearAvalFilters(){ avalFilters={resultado:'',criticidade:'',tipo:'',busca:''}; renderTab(); }
+
+function renderAvalCriterios(){
+  const crits=getCriterios();
+  document.getElementById('avalCriterios').innerHTML = crits.map(c=>{
+    const ops=Array.from({length:11},(_,n)=>`<div class="en ${avalNotas[c.id]===n?'sel':''}" onclick="setNotaCrit('${c.id}',${n})">${n}</div>`).join('');
+    return `<div class="aval-linha">
+      <div><div class="al-nome">${esc(c.nome)}</div><div class="al-peso">peso ${c.peso}%</div></div>
+      <div class="escala-notas">${ops}</div>
+    </div>`;
+  }).join('');
+  atualizarNotaFinal();
+}
+function setNotaCrit(cid,n){ avalNotas[cid]=n; renderAvalCriterios(); }
+function calcNotaFinal(){
+  const crits=getCriterios();
+  let soma=0, pesoTotal=0;
+  crits.forEach(c=>{ if(avalNotas[c.id]!==undefined){ soma += avalNotas[c.id]*Number(c.peso||0); pesoTotal += Number(c.peso||0); } });
+  return pesoTotal ? (soma/pesoTotal) : null;
+}
+function atualizarNotaFinal(){
+  const nf=calcNotaFinal();
+  const el=document.getElementById('avNotaFinal'), res=document.getElementById('avResultado');
+  if(nf===null){ el.textContent='—'; el.style.color='var(--text-muted)'; res.textContent='Preencha as notas'; return; }
+  const r=resultadoDaNota(nf);
+  el.textContent=nf.toFixed(1); el.style.color=corResultado(r);
+  res.innerHTML=`<span style="color:${corResultado(r)}; font-weight:800;">${esc(r)}</span>`;
+}
+function avaliarFornecedor(fornId){
+  const f=fornById(fornId); if(!f) return;
+  document.getElementById('avalTitle').textContent='Avaliar — '+f.razao;
+  document.getElementById('avalSub').textContent='Nova avaliação de desempenho';
+  document.getElementById('avEditId').value='';
+  document.getElementById('avFornId').value=fornId;
+  // fornecedor fixado (a lista mostra só ele, já que a linha é por fornecedor)
+  document.getElementById('avFornecedor').innerHTML = `<option value="${f.id}">${esc(f.razao)}</option>`;
+  document.getElementById('avFornecedor').value=f.id;
+  document.getElementById('avFornecedor').disabled=true;
+  // campos sempre em branco
+  document.getElementById('avData').value=todayISO();
+  document.getElementById('avPeriodo').value='';
+  document.getElementById('avObs').value='';
+  removeAvAnexo();
+  avalNotas={};
+  renderAvalCriterios();
+  openModal('modalAval');
+}
+function handleAvAnexo(e){ const f=e.target.files[0]; if(!f) return; if(f.size>5*1024*1024){alert('Arquivo muito grande (máx. 5MB).'); e.target.value=''; return;} document.getElementById('avAnexo').value=f.name; document.getElementById('avAnexoName').textContent='📎 '+f.name; document.getElementById('avAnexoRemove').style.display='flex'; }
+function removeAvAnexo(){ const el=document.getElementById('avAnexo'); if(el) el.value=''; const n=document.getElementById('avAnexoName'); if(n) n.textContent='Nenhum arquivo selecionado'; const r=document.getElementById('avAnexoRemove'); if(r) r.style.display='none'; }
+function onAvalForn(){ /* espaço para regras futuras por fornecedor */ }
+function salvarAvaliacao(){
+  const crits=getCriterios();
+  if(crits.some(c=>avalNotas[c.id]===undefined)){ showToast('Dê nota a todos os critérios.'); return; }
+  const nf=calcNotaFinal();
+  const fornId=document.getElementById('avFornId').value || document.getElementById('avFornecedor').value;
+  const f=fornById(fornId);
+  const data=document.getElementById('avData').value;
+  if(!data){ showToast('Informe a data da avaliação.'); return; }
+  const avs=store.get('qps_forn_avaliacoes')||[];
+  const rec={
+    id:uid('AVL',avs), fornId, fornNome:f?f.razao:'', data,
+    periodo:document.getElementById('avPeriodo').value,
+    notas:Object.assign({},avalNotas),
+    criterios:JSON.parse(JSON.stringify(crits)),
+    notaFinal:nf, resultado:resultadoDaNota(nf),
+    obs:document.getElementById('avObs').value,
+    anexo:document.getElementById('avAnexo').value
+  };
+  avs.push(rec);
+  store.set('qps_forn_avaliacoes', avs);
+  // atualiza a próxima reavaliação do fornecedor a partir desta avaliação
+  const forns=getFornecedores(); const fr=forns.find(x=>x.id===fornId);
+  if(fr){
+    fr.proxReaval = addMonths(data, fr.periodicidade||12);
+    fr.historico=fr.historico||[];
+    fr.historico.push({ts:new Date().toISOString(), texto:`Avaliação registrada — nota <b>${nf.toFixed(1)}</b> (${esc(rec.resultado)}).`});
+    store.set('qps_fornecedores', forns);
+  }
+  document.getElementById('avFornecedor').disabled=false;
+  closeModal('modalAval'); renderTab();
+  showToast(`Avaliação salva — ${rec.resultado}`);
+}
+function verHistoricoForn(fornId){
+  const f=fornById(fornId); if(!f) return;
+  const avs=(store.get('qps_forn_avaliacoes')||[]).filter(a=>a.fornId===fornId).sort((a,b)=>(b.data||'').localeCompare(a.data||''));
+  document.getElementById('detTitle').textContent='Avaliações — '+f.razao;
+  document.getElementById('detSub').textContent=`${avs.length} avaliação(ões) · ${f.tipo} · ${f.criticidade}`;
+  if(!avs.length){ document.getElementById('detBody').innerHTML='<div class="empty-state" style="padding:30px;">Nenhuma avaliação registrada para este fornecedor ainda. Use o botão <b>Avaliar</b> para registrar a primeira.</div>'; openModal('modalDetForn'); return; }
+  const ult=avs[0];
+  // topo: última avaliação detalhada
+  const linhas=(ult.criterios||[]).map(c=>{
+    const n=ult.notas[c.id];
+    return `<div class="aval-linha"><div><div class="al-nome">${esc(c.nome)}</div><div class="al-peso">peso ${c.peso}%</div></div>
+      <span class="nota-box" style="background:${n>=8?'var(--accent-green)':(n>=6?'var(--accent-amber)':'var(--accent-red)')};">${n!==undefined?n:'—'}</span></div>`;
+  }).join('');
+  const topo=`
+    <div style="font-size:12px; font-weight:800; color:var(--accent-cyan); text-transform:uppercase; letter-spacing:0.4px; margin-bottom:12px;">Última avaliação · ${fmtDate(ult.data)}${ult.periodo?' · '+esc(ult.periodo):''}</div>
+    ${linhas}
+    <div class="nota-final-box"><div><div class="nf-label">Nota final ponderada</div><div style="font-size:12px; margin-top:4px;" class="${classeResultado(ult.resultado)}">${esc(ult.resultado)}</div></div><div class="nf-valor" style="color:${corResultado(ult.resultado)};">${ult.notaFinal.toFixed(1)}</div></div>
+    ${ult.obs?`<div style="background:rgba(255,255,255,0.03); border:1px solid var(--border-subtle); border-radius:10px; padding:12px 14px; margin-top:14px;"><div style="font-size:10px; font-family:'JetBrains Mono',monospace; color:var(--text-muted); text-transform:uppercase; margin-bottom:5px;">Observações</div><div style="font-size:12.5px; color:var(--text-secondary); line-height:1.5;">${esc(ult.obs)}</div></div>`:''}
+    ${ult.anexo?`<div style="margin-top:10px;"><span class="evid-file"><svg class="icon" viewBox="0 0 24 24" style="width:14px;height:14px;"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>${esc(ult.anexo)}</span></div>`:''}`;
+  // baixo: resumo do histórico (todas)
+  const resumo = avs.length>1 ? `
+    <div style="font-size:12px; font-weight:800; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.4px; margin:22px 0 10px;">Histórico de avaliações</div>
+    <table class="ctxtbl compact"><colgroup><col style="width:20%"><col style="width:34%"><col style="width:14%"><col style="width:32%"></colgroup>
+    <thead><tr><th>Data</th><th>Período</th><th>Nota</th><th>Resultado</th></tr></thead><tbody>
+    ${avs.map(a=>`<tr><td class="mono">${fmtDate(a.data)}</td><td class="desc-cell">${esc(a.periodo)||'—'}</td><td><span class="nota-box" style="background:${corResultado(a.resultado)};">${a.notaFinal.toFixed(1)}</span></td><td class="${classeResultado(a.resultado)}" style="font-size:12px;">${esc(a.resultado)}</td></tr>`).join('')}
+    </tbody></table>` : '';
+  document.getElementById('detBody').innerHTML = topo + resumo;
+  openModal('modalDetForn');
+}
+function deleteAvaliacao(id){ if(!confirm('Excluir esta avaliação?')) return; let a=(store.get('qps_forn_avaliacoes')||[]).filter(x=>x.id!==id); store.set('qps_forn_avaliacoes',a); renderTab(); showToast('Avaliação excluída'); }
+function verAvaliacao(id){
+  const a=(store.get('qps_forn_avaliacoes')||[]).find(x=>x.id===id); if(!a) return;
+  document.getElementById('detTitle').textContent=`Avaliação — ${a.fornNome}`;
+  document.getElementById('detSub').textContent=`${fmtDate(a.data)} · ${a.periodo||'—'}`;
+  const linhas=(a.criterios||[]).map(c=>{
+    const n=a.notas[c.id];
+    return `<div class="aval-linha"><div><div class="al-nome">${esc(c.nome)}</div><div class="al-peso">peso ${c.peso}%</div></div>
+      <span class="nota-box" style="background:${n>=8?'var(--accent-green)':(n>=6?'var(--accent-amber)':'var(--accent-red)')};">${n!==undefined?n:'—'}</span></div>`;
+  }).join('');
+  document.getElementById('detBody').innerHTML = linhas + `
+    <div class="nota-final-box"><div><div class="nf-label">Nota final ponderada</div><div style="font-size:12px; margin-top:4px;" class="${classeResultado(a.resultado)}">${esc(a.resultado)}</div></div><div class="nf-valor" style="color:${corResultado(a.resultado)};">${a.notaFinal.toFixed(1)}</div></div>
+    ${a.obs?`<div style="background:rgba(255,255,255,0.03); border:1px solid var(--border-subtle); border-radius:10px; padding:12px 14px; margin-top:16px;"><div style="font-size:10px; font-family:'JetBrains Mono',monospace; color:var(--text-muted); text-transform:uppercase; margin-bottom:5px;">Observações</div><div style="font-size:12.5px; color:var(--text-secondary); line-height:1.5;">${esc(a.obs)}</div></div>`:''}`;
+  openModal('modalDetForn');
+}
+
+/* ===================== ABA 4: PLANO DE AÇÃO ===================== */
+function acaoAtrasada(a){ return a.statusRetorno==='Enviada' && a.prazo && a.prazo < todayISO(); }
+function acaoStatusPill(a){
+  const s = acaoAtrasada(a) ? 'Atrasada' : (a.statusRetorno||'Enviada');
+  const cls={'Enviada':'st-analise','Respondida':'st-suspenso','Procedente':'st-homologado','Não procedente':'st-reprovado','Atrasada':'st-reprovado'}[s]||'st-analise';
+  const label={'Enviada':'Enviada · aguardando','Respondida':'Respondida · analisar','Procedente':'Procedente','Não procedente':'Não procedente','Atrasada':'Sem resposta · atrasada'}[s]||s;
+  return `<span class="status-pill ${cls}"><span class="status-dot2"></span>${esc(label)}</span>`;
+}
+let acFilters = { status:'', fornecedor:'', busca:'' };
+function acoesHTML(){
+  let acs=(store.get('qps_forn_acoes')||[]).slice().sort((a,b)=>(b.dataRegistro||'').localeCompare(a.dataRegistro||''));
+  const fornNomes=Array.from(new Set(acs.map(a=>a.fornNome).filter(Boolean))).sort();
+  const opt=(arr,sel)=>['<option value="">Todos</option>'].concat(arr.map(v=>`<option ${sel===v?'selected':''}>${esc(v)}</option>`)).join('');
+
+  const filterBar = `
+  <div class="filter-bar">
+    <div class="fg"><label>Status do retorno</label><select class="input-basic" onchange="setAcFilter('status',this.value)">
+      <option value="">Todos</option>
+      <option ${acFilters.status==='Enviada'?'selected':''}>Enviada</option>
+      <option ${acFilters.status==='Respondida'?'selected':''}>Respondida</option>
+      <option ${acFilters.status==='Atrasada'?'selected':''}>Atrasada</option>
+      <option ${acFilters.status==='Procedente'?'selected':''}>Procedente</option>
+      <option ${acFilters.status==='Não procedente'?'selected':''}>Não procedente</option>
+    </select></div>
+    <div class="fg"><label>Fornecedor</label><select class="input-basic" onchange="setAcFilter('fornecedor',this.value)">${opt(fornNomes, acFilters.fornecedor)}</select></div>
+    <div class="fg" style="grid-column:span 2;"><label>Busca livre</label><input class="input-basic" placeholder="Descrição, responsável..." value="${esc(acFilters.busca)}" oninput="setAcFilter('busca',this.value)"></div>
+    <div class="fg"><label>&nbsp;</label><div class="btn-ghost" style="justify-content:center;" onclick="clearAcFilters()">Limpar</div></div>
+  </div>`;
+
+  let filtered=acs.filter(a=>{
+    const st=acaoAtrasada(a)?'Atrasada':a.statusRetorno;
+    if(acFilters.status && st!==acFilters.status) return false;
+    if(acFilters.fornecedor && a.fornNome!==acFilters.fornecedor) return false;
+    if(acFilters.busca){ const q=acFilters.busca.toLowerCase(); if(!(`${a.descricao} ${a.email} ${a.fornNome}`.toLowerCase().includes(q))) return false; }
+    return true;
+  });
+
+  const body = filtered.length ? filtered.map(a=>{
+    const respondida = a.statusRetorno==='Respondida';
+    const podeEditar = a.statusRetorno==='Enviada';
+    const decidida = a.statusRetorno==='Procedente' || a.statusRetorno==='Não procedente';
+    return `
+    <tr>
+      <td class="desc-cell" style="color:var(--text-primary); font-weight:600;">${esc(a.fornNome)}</td>
+      <td class="desc-cell">${esc(a.origem)||'—'}</td>
+      <td class="desc-cell mono" style="font-size:10.5px;">${esc(a.email)||'—'}</td>
+      <td class="mono" ${acaoAtrasada(a)?'style="color:var(--accent-red); font-weight:700;"':''}>${fmtDate(a.prazo)}</td>
+      <td>${acaoStatusPill(a)}</td>
+      <td>
+        <div class="row-actions">
+          <div class="abtn" onclick="verResposta('${a.id}')" title="${respondida?'Analisar resposta':(decidida?'Ver tratativa':'Ver / acompanhar')}"><svg class="icon" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></div>
+          ${respondida?`<div class="abtn" style="color:var(--accent-amber); border-color:rgba(251,191,36,0.4);" onclick="verResposta('${a.id}')" title="Avaliar (Procedente / Não procedente)"><svg class="icon" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div>`:''}
+          ${podeEditar?`<div class="abtn" onclick="abrirAcao('${a.fornId}','${a.avalId||''}','${a.id}')" title="Editar / reenviar"><svg class="icon" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></div>`:''}
+          ${decidida?`<div class="abtn" style="color:var(--accent-blue-bright); border-color:rgba(79,163,255,0.4);" onclick="reavaliarDeAcao('${a.fornId}')" title="Reavaliar fornecedor"><svg class="icon" viewBox="0 0 24 24"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></div>`:''}
+          <div class="abtn danger" onclick="deleteAcao('${a.id}')" title="Excluir"><svg class="icon" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></div>
+        </div>
+      </td>
+    </tr>`;
+  }).join('') : `<tr><td colspan="6"><div class="empty-state">Nenhuma ação registrada. Elas aparecem aqui ao comunicar uma ação a partir de avaliações com restrição ou reprovadas.</div></td></tr>`;
+
+  return filterBar + `
+  <div class="dcc">
+    <div class="dcc-hd">
+      <div><div class="dcc-title">Plano de Ação</div><div class="dcc-sub">${filtered.length} tratativa(s) · comunicados enviados e retorno dos fornecedores</div></div>
+      <div class="btn-grad" onclick="abrirAcao('','')"><svg class="icon" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Nova ação</div>
+    </div>
+    <table class="ctxtbl compact">
+      <colgroup><col style="width:24%"><col style="width:18%"><col style="width:24%"><col style="width:11%"><col style="width:15%"><col style="width:8%"></colgroup>
+      <thead><tr><th>Fornecedor</th><th>Origem</th><th>E-mail</th><th>Prazo</th><th>Status do retorno</th><th>Ações</th></tr></thead>
+      <tbody>${body}</tbody>
+    </table>
+  </div>`;
+}
+function setAcFilter(k,v){ acFilters[k]=v; renderTab(); }
+function clearAcFilters(){ acFilters={status:'',fornecedor:'',busca:''}; renderTab(); }
+let acAnexos = [];
+function onAcForn(){
+  const f=fornById(document.getElementById('acFornecedor').value);
+  if(f) document.getElementById('acEmail').value = f.email||'';
+}
+function renderAcAnexos(){
+  const el=document.getElementById('acAnexosList');
+  el.innerHTML = acAnexos.length ? acAnexos.map((n,i)=>`<div style="display:flex; align-items:center; gap:8px;"><span class="evid-file"><svg class="icon" viewBox="0 0 24 24" style="width:14px;height:14px;"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>${esc(n)}</span><span class="abtn danger" style="width:22px;height:22px;" onclick="removeAcAnexo(${i})" title="Remover"><svg class="icon" viewBox="0 0 24 24" style="width:12px;height:12px;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span></div>`).join('') : '<span style="font-size:11.5px; color:var(--text-muted);">Nenhum anexo adicionado</span>';
+}
+function addAcAnexo(e){ const f=e.target.files[0]; if(!f) return; if(f.size>5*1024*1024){alert('Arquivo muito grande (máx. 5MB).'); e.target.value=''; return;} acAnexos.push(f.name); e.target.value=''; renderAcAnexos(); }
+function removeAcAnexo(i){ acAnexos.splice(i,1); renderAcAnexos(); }
+
+function abrirAcao(fornId, avalId, editId){
+  const forns=getFornecedores();
+  if(!forns.length){ alert('Cadastre um fornecedor primeiro.'); return; }
+  const acs=store.get('qps_forn_acoes')||[];
+  const ac = editId ? acs.find(x=>x.id===editId) : null;
+  document.getElementById('acEditId').value=editId||'';
+  document.getElementById('acFornId').value=fornId||(ac?ac.fornId:'');
+  document.getElementById('acAvalId').value=avalId||(ac?ac.avalId:'');
+  document.getElementById('acFornecedor').innerHTML = forns.map(f=>`<option value="${f.id}" ${(fornId||(ac?ac.fornId:''))===f.id?'selected':''}>${esc(f.razao)}</option>`).join('');
+  document.getElementById('acaoTitle').textContent = editId?'Editar comunicado ao fornecedor':'Comunicar avaliação ao fornecedor';
+  const fornSel = fornById(document.getElementById('acFornecedor').value);
+  document.getElementById('acEmail').value = ac?(ac.email||''):(fornSel?fornSel.email||'':'');
+
+  // contexto: se veio de uma avaliação, mostra os critérios ruins
+  let ctx='';
+  const av = (avalId||(ac?ac.avalId:'')) ? (store.get('qps_forn_avaliacoes')||[]).find(x=>x.id===(avalId||ac.avalId)) : null;
+  if(av){
+    const ruins=(av.criterios||[]).filter(c=>av.notas[c.id]!==undefined && av.notas[c.id]<8);
+    document.getElementById('acaoSub').textContent=`Avaliação de ${fmtDate(av.data)} — nota ${av.notaFinal.toFixed(1)} (${av.resultado})`;
+    ctx=`<div style="background:rgba(255,255,255,0.03); border:1px solid var(--border-subtle); border-radius:10px; padding:12px 14px; margin-bottom:16px;">
+      <div style="font-size:10px; font-family:'JetBrains Mono',monospace; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;">Critérios abaixo do esperado</div>
+      ${ruins.map(c=>`<div style="display:flex; align-items:center; gap:10px; padding:5px 0; font-size:12.5px;"><span style="width:26px; height:26px; border-radius:7px; background:${av.notas[c.id]>=6?'var(--accent-amber)':'var(--accent-red)'}; color:#06110b; font-weight:800; display:inline-flex; align-items:center; justify-content:center; font-family:'JetBrains Mono',monospace; flex-shrink:0;">${av.notas[c.id]}</span><span style="color:var(--text-secondary);">${esc(c.nome)}</span></div>`).join('')||'<span style="color:var(--text-muted); font-size:12px;">—</span>'}
+    </div>`;
+  } else {
+    document.getElementById('acaoSub').textContent='Comunicado formal ao fornecedor';
+  }
+  document.getElementById('acContexto').innerHTML=ctx;
+  document.getElementById('acDescricao').value=ac?ac.descricao:'';
+  document.getElementById('acPrazo').value=ac?ac.prazo:addDays(todayISO(),7);
+  acAnexos = ac && ac.anexos ? ac.anexos.slice() : [];
+  renderAcAnexos();
+  closeModal('modalDetForn');
+  openModal('modalAcao');
+}
+/* Envio simulado de e-mail ao fornecedor (preparado p/ Supabase) */
+function notifyFornecedor(ac){
+  // TODO(Supabase): enviar e-mail real ao fornecedor via Edge Function, anexando as evidências e o link da página de resposta.
+  // await supabase.functions.invoke('notify-fornecedor', { body: { to: ac.email, anexos: ac.anexos, link } })
+  return { to: ac.email, assunto: 'Avaliação de Desempenho de Fornecedor — QualityPro Solutions' };
+}
+function enviarAcao(){
+  const desc=document.getElementById('acDescricao').value.trim();
+  const email=document.getElementById('acEmail').value.trim();
+  if(!email){ showToast('Informe o e-mail do fornecedor.'); document.getElementById('acEmail').focus(); return; }
+  if(!desc){ showToast('Escreva o comunicado ao fornecedor.'); document.getElementById('acDescricao').focus(); return; }
+  const acs=store.get('qps_forn_acoes')||[];
+  const id=document.getElementById('acEditId').value;
+  const fornId=document.getElementById('acFornecedor').value;
+  const avalId=document.getElementById('acAvalId').value;
+  const f=fornById(fornId);
+  const av = avalId ? (store.get('qps_forn_avaliacoes')||[]).find(x=>x.id===avalId) : null;
+  const base={
+    fornId, fornNome:f?f.razao:'', avalId:avalId||'',
+    origem: av ? `Avaliação ${fmtDate(av.data)}` : 'Registro manual',
+    descricao:desc, email, anexos:acAnexos.slice(),
+    prazo:document.getElementById('acPrazo').value,
+    statusRetorno:'Enviada', resposta:null,
+    dataEnvio: todayISO()
+  };
+  let rec;
+  if(id){ rec=acs.find(x=>x.id===id); Object.assign(rec, base); }
+  else { rec=Object.assign({id:uid('ACF',acs), dataRegistro:todayISO()}, base); acs.push(rec); }
+  store.set('qps_forn_acoes', acs);
+  const info=notifyFornecedor(rec);
+  closeModal('modalAcao'); renderTab();
+  showToast('Comunicado enviado ao fornecedor');
+  mostrarConfirmacaoEnvioAcao(rec, info);
+}
+function mostrarConfirmacaoEnvioAcao(rec, info){
+  const link=`fornecedor-acao.html?a=${encodeURIComponent(rec.id)}`;
+  document.getElementById('respAcId').value=rec.id;
+  document.getElementById('respTitle').textContent='Comunicado enviado';
+  document.getElementById('respSub').textContent=`${rec.fornNome} · ${rec.email}`;
+  document.getElementById('respBody').innerHTML=`
+    <div style="font-size:13px; color:var(--text-secondary); line-height:1.6; margin-bottom:16px;">
+      Um e-mail formal foi enviado a <b>${esc(rec.fornNome)}</b> (${esc(rec.email)}) com o resultado da avaliação e ${rec.anexos.length} anexo(s) de evidência. O fornecedor deve responder com as ações tomadas até <b>${fmtDate(rec.prazo)}</b>.
+    </div>
+    <div style="background:rgba(255,255,255,0.03); border:1px solid var(--border-subtle); border-radius:10px; padding:12px 14px;">
+      <div style="font-size:10px; font-family:'JetBrains Mono',monospace; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">Link de resposta do fornecedor (simulação)</div>
+      <div class="mono" style="font-size:12px; color:var(--accent-cyan); overflow-wrap:anywhere;">${esc(link)}</div>
+    </div>`;
+  document.getElementById('respActions').innerHTML=`
+    <div class="btn-ghost" onclick="closeModal('modalResposta')">Fechar</div>
+    <div class="btn-primary" onclick="window.open('${link}','_blank')">Abrir página do fornecedor</div>`;
+  openModal('modalResposta');
+}
+function verResposta(id){
+  const ac=(store.get('qps_forn_acoes')||[]).find(x=>x.id===id); if(!ac) return;
+  document.getElementById('respAcId').value=id;
+  document.getElementById('respTitle').textContent='Tratativa — '+ac.fornNome;
+  document.getElementById('respSub').textContent=`${ac.origem} · enviado em ${fmtDate(ac.dataEnvio)}`;
+  const anexosEmpresa = (ac.anexos||[]).length ? (ac.anexos||[]).map(n=>`<span class="evid-file" style="margin-right:10px;"><svg class="icon" viewBox="0 0 24 24" style="width:13px;height:13px;"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>${esc(n)}</span>`).join('') : '<span style="color:var(--text-muted); font-size:12px;">Sem anexos</span>';
+  let body=`
+    <div style="background:rgba(255,255,255,0.03); border:1px solid var(--border-subtle); border-radius:10px; padding:14px 16px; margin-bottom:16px;">
+      <div style="font-size:10px; font-family:'JetBrains Mono',monospace; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">Comunicado enviado ao fornecedor</div>
+      <div style="font-size:12.5px; color:var(--text-secondary); line-height:1.55; margin-bottom:10px;">${esc(ac.descricao)}</div>
+      <div>${anexosEmpresa}</div>
+    </div>`;
+  if(ac.resposta){
+    const anx=(ac.resposta.anexos||[]).length?(ac.resposta.anexos||[]).map(n=>`<span class="evid-file" style="margin-right:10px;"><svg class="icon" viewBox="0 0 24 24" style="width:13px;height:13px;"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>${esc(n)}</span>`).join(''):'<span style="color:var(--text-muted); font-size:12px;">Sem anexos</span>';
+    body+=`
+    <div style="background:rgba(70,217,245,0.06); border:1px solid rgba(70,217,245,0.3); border-radius:10px; padding:14px 16px; margin-bottom:16px;">
+      <div style="font-size:10px; font-family:'JetBrains Mono',monospace; color:var(--accent-cyan); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">Resposta do fornecedor · ${fmtDate(ac.resposta.data)}</div>
+      <div style="font-size:12.5px; color:var(--text-primary); line-height:1.55; margin-bottom:10px;">${esc(ac.resposta.acoes)}</div>
+      <div>${anx}</div>
+    </div>`;
+    if(ac.statusRetorno==='Procedente'||ac.statusRetorno==='Não procedente'){
+      body+=`<div style="text-align:center; padding:6px 0;">Tratativa avaliada como <b style="color:${ac.statusRetorno==='Procedente'?'var(--accent-green)':'var(--accent-red)'};">${esc(ac.statusRetorno)}</b>.</div>`;
+    }
+  } else {
+    body+=`<div class="empty-state" style="padding:22px;">Aguardando a resposta do fornecedor. ${acaoAtrasada(ac)?'<b style="color:var(--accent-red);">Prazo vencido.</b>':''}</div>`;
+  }
+  document.getElementById('respBody').innerHTML=body;
+
+  // ações do rodapé conforme estado
+  let acts='<div class="btn-ghost" onclick="closeModal(\'modalResposta\')">Fechar</div>';
+  if(ac.resposta && ac.statusRetorno==='Respondida'){
+    acts=`<div class="btn-ghost" onclick="closeModal('modalResposta')">Fechar</div>
+      <div class="btn-ghost" style="border-color:rgba(248,113,113,0.4); color:var(--accent-red);" onclick="julgarAcao('${id}','Não procedente')">Não procedente</div>
+      <div class="btn-primary" style="background:linear-gradient(90deg,#1a9d63,#34D399); color:#06110b;" onclick="julgarAcao('${id}','Procedente')">Procedente</div>`;
+  } else if(ac.statusRetorno==='Procedente'||ac.statusRetorno==='Não procedente'){
+    acts=`<div class="btn-ghost" onclick="closeModal('modalResposta')">Fechar</div>
+      <div class="btn-primary" onclick="reavaliarDeAcao('${ac.fornId}')"><svg class="icon" viewBox="0 0 24 24" style="width:15px;height:15px;display:inline;vertical-align:-2px;margin-right:6px; stroke:#fff;"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>Reavaliar fornecedor</div>`;
+  } else if(!ac.resposta){
+    const link=`fornecedor-acao.html?a=${encodeURIComponent(id)}`;
+    acts=`<div class="btn-ghost" onclick="closeModal('modalResposta')">Fechar</div>
+      <div class="btn-ghost" onclick="window.open('${link}','_blank')">Abrir página do fornecedor</div>`;
+  }
+  document.getElementById('respActions').innerHTML=acts;
+  openModal('modalResposta');
+}
+function julgarAcao(id, veredito){
+  const acs=store.get('qps_forn_acoes')||[]; const ac=acs.find(x=>x.id===id); if(!ac) return;
+  ac.statusRetorno=veredito;
+  store.set('qps_forn_acoes', acs);
+  closeModal('modalResposta'); renderTab();
+  showToast(veredito==='Procedente'?'Tratativa julgada procedente':'Tratativa julgada não procedente');
+}
+function reavaliarDeAcao(fornId){
+  closeModal('modalResposta');
+  switchTab('avaliacao');
+  document.querySelectorAll('#mainTabs .ctx-tab').forEach(el=>el.classList.toggle('active', el.dataset.tab==='avaliacao'));
+  setTimeout(()=>{ if(typeof avaliarFornecedor==='function') avaliarFornecedor(fornId); }, 60);
+}
+function deleteAcao(id){ if(!confirm('Excluir esta tratativa?')) return; let a=(store.get('qps_forn_acoes')||[]).filter(x=>x.id!==id); store.set('qps_forn_acoes',a); renderTab(); showToast('Tratativa excluída'); }
+
+
+/* ===================== ABA 5: ALERTAS ===================== */
+let alertaFilter='todos';
+function setAlertaFilter(t){ alertaFilter = (alertaFilter===t?'todos':t); renderTab(); }
+function alertasHTML(){
+  const forns=getFornecedores();
+  const ICON={
+    reaval:'<path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>',
+    cert:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>',
+    acao:'<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/>'
+  };
+  // monta lista unificada de alertas
+  const A=[];
+  forns.filter(reavalVencida).forEach(f=>A.push({tipo:'reavVenc', sev:'vencido', ic:ICON.reaval, fornId:f.id, nome:f.razao, tipoLabel:'Reavaliação vencida', desc:`Reavaliação venceu em ${fmtDate(f.proxReaval)}.`, dias:`${Math.abs(diffDias(f.proxReaval))} dias atrás`, crit:f.criticidade}));
+  forns.filter(reavalProxima).forEach(f=>A.push({tipo:'reavProx', sev:'proximo', ic:ICON.reaval, fornId:f.id, nome:f.razao, tipoLabel:'Reavaliar em breve', desc:`Reavaliar até ${fmtDate(f.proxReaval)}.`, dias:`em ${diffDias(f.proxReaval)} dias`, crit:f.criticidade}));
+  forns.filter(docVencido).forEach(f=>A.push({tipo:'docVenc', sev:'vencido', ic:ICON.cert, fornId:f.id, nome:f.razao, tipoLabel:'Certificado ISO 9001 vencido', desc:`Certificado ISO 9001 venceu em ${fmtDate(f.isoValidade)}.`, dias:`${Math.abs(diffDias(f.isoValidade))} dias atrás`, crit:f.criticidade}));
+  forns.filter(f=>docProximo(f)&&!docVencido(f)).forEach(f=>A.push({tipo:'docProx', sev:'proximo', ic:ICON.cert, fornId:f.id, nome:f.razao, tipoLabel:'Certificado ISO 9001 vencendo', desc:`Certificado ISO 9001 vence em ${fmtDate(f.isoValidade)}.`, dias:`em ${diffDias(f.isoValidade)} dias`, crit:f.criticidade}));
+  (store.get('qps_forn_acoes')||[]).filter(acaoAtrasada).forEach(a=>A.push({tipo:'acaoAtr', sev:'vencido', ic:ICON.acao, fornId:a.fornId, nome:a.fornNome, tipoLabel:'Ação de tratativa atrasada', desc:`Ação "${esc(a.descricao).slice(0,70)}${a.descricao.length>70?'…':''}" com prazo em ${fmtDate(a.prazo)}.`, dias:`${Math.abs(diffDias(a.prazo))} dias atrás`, crit:''}));
+
+  const cont=(t)=>A.filter(x=>x.tipo===t).length;
+  const total=A.length;
+  const tiles=[
+    {t:'todos', c:total, l:'Todos os alertas', cor:'var(--accent-blue-bright)'},
+    {t:'reavVenc', c:cont('reavVenc'), l:'Reavaliação vencida', cor:'var(--accent-red)'},
+    {t:'reavProx', c:cont('reavProx'), l:'Reavaliar em breve', cor:'var(--accent-amber)'},
+    {t:'docVenc', c:cont('docVenc'), l:'Certificado vencido', cor:'var(--accent-red)'},
+    {t:'docProx', c:cont('docProx'), l:'Certificado vencendo', cor:'var(--accent-amber)'},
+    {t:'acaoAtr', c:cont('acaoAtr'), l:'Ações atrasadas', cor:'var(--accent-red)'}
+  ];
+  const tilesHtml = tiles.map(ti=>`<div class="alert-tile ${alertaFilter===ti.t?'active':''}" style="--at:${ti.cor};" onclick="setAlertaFilter('${ti.t}')"><div class="at-count">${ti.c}</div><div class="at-label">${ti.l}</div></div>`).join('');
+
+  const sevColor=(s)=> s==='vencido'?'var(--accent-red)':'var(--accent-amber)';
+  const sevBg=(s)=> s==='vencido'?'rgba(248,113,113,0.15)':'rgba(251,191,36,0.15)';
+  const filtrados = alertaFilter==='todos' ? A : A.filter(x=>x.tipo===alertaFilter);
+  // ordena: vencidos primeiro, depois por dias
+  filtrados.sort((a,b)=> (a.sev===b.sev?0:(a.sev==='vencido'?-1:1)));
+
+  const cards = filtrados.map(x=>`
+    <div class="alert-item" style="--sevc:${sevColor(x.sev)}; --sevbg:${sevBg(x.sev)};">
+      <div class="ai-accent"></div>
+      <div class="ai-body">
+        <div class="ai-top">
+          <div class="ai-ic"><svg class="icon" viewBox="0 0 24 24">${x.ic}</svg></div>
+          <div style="min-width:0; flex:1;">
+            <div class="ai-nome">${esc(x.nome)}</div>
+            <div class="ai-tipo">${esc(x.tipoLabel)}</div>
+          </div>
+          ${x.fornId?`<div class="ai-abrir" onclick="editFornecedor('${x.fornId}')">Abrir</div>`:''}
+        </div>
+        <div class="ai-desc">${x.desc}</div>
+        <div class="ai-meta">
+          <span class="day-badge"><svg class="icon" viewBox="0 0 24 24" style="width:11px;height:11px;"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg>${esc(x.dias)}</span>
+          ${x.crit?critChip(x.crit):''}
+        </div>
+      </div>
+    </div>`).join('');
+
+  const corpo = total ? `
+    <div class="alert-tiles">${tilesHtml}</div>
+    ${filtrados.length ? `<div class="alert-grid">${cards}</div>` : '<div class="empty-state">Nenhum alerta neste filtro.</div>'}
+  ` : `
+    <div class="alert-empty-ok">
+      <div class="aeo-ic"><svg class="icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div>
+      <h4>Tudo em dia!</h4>
+      <p>Nenhum alerta no momento — reavaliações, certificados e tratativas estão em ordem.</p>
+    </div>`;
+
+  return `
+  <div class="dcc" style="padding:22px;">
+    <div class="dcc-title" style="margin-bottom:2px;">Central de Alertas</div>
+    <div class="dcc-sub" style="margin-bottom:20px;">${total} pendência(s) que exigem atenção${alertaFilter!=='todos'?` · filtrando por “${esc((tiles.find(t=>t.t===alertaFilter)||{}).l||'')}”`:''}</div>
+    ${corpo}
+  </div>`;
+}
+
+/* ===================== ABA 6: INDICADORES ===================== */
+function computeFornAgg(){
+  const forns=getFornecedores();
+  const avs=store.get('qps_forn_avaliacoes')||[];
+  const acs=store.get('qps_forn_acoes')||[];
+
+  const statusOrder=['Homologado','Em análise','Suspenso','Reprovado'];
+  const porStatus={}; statusOrder.forEach(s=>porStatus[s]=0);
+  forns.forEach(f=>{ porStatus[f.status]=(porStatus[f.status]||0)+1; });
+
+  const criticos=forns.filter(f=>f.criticidade==='Crítico').length;
+  const naoCriticos=forns.length-criticos;
+
+  const porTipo={}; forns.forEach(f=>{ if(f.tipo) porTipo[f.tipo]=(porTipo[f.tipo]||0)+1; });
+
+  const resOrder=['Aprovado','Aprovado com restrição','Reprovado'];
+  const porResultado={}; resOrder.forEach(r=>porResultado[r]=0);
+  avs.forEach(a=>{ porResultado[a.resultado]=(porResultado[a.resultado]||0)+1; });
+
+  // nota média por critério (última avaliação de cada fornecedor)
+  const crits=getCriterios();
+  const ultimas={}; avs.forEach(a=>{ if(!ultimas[a.fornId] || (a.data||'')>(ultimas[a.fornId].data||'')) ultimas[a.fornId]=a; });
+  const ultArr=Object.values(ultimas);
+  const mediaCriterio = crits.map(c=>{
+    const notas=ultArr.map(a=>a.notas?a.notas[c.id]:undefined).filter(n=>typeof n==='number');
+    return notas.length ? notas.reduce((x,y)=>x+y,0)/notas.length : 0;
+  });
+  const notaMediaGeral = ultArr.length ? ultArr.reduce((s,a)=>s+a.notaFinal,0)/ultArr.length : 0;
+
+  // ranking (última avaliação por fornecedor)
+  const ranking = ultArr.map(a=>({nome:a.fornNome, nota:a.notaFinal})).sort((x,y)=>y.nota-x.nota);
+
+  // evolução: nota média por semestre/mês dos últimos 12 meses
+  const now=new Date();
+  const meses=[]; for(let i=11;i>=0;i--){ const d=new Date(now.getFullYear(), now.getMonth()-i, 1); meses.push(d.toISOString().slice(0,7)); }
+  const notaMes={}, qtdMes={};
+  meses.forEach(m=>{ notaMes[m]=null; qtdMes[m]=0; });
+  const bucket={}; meses.forEach(m=>bucket[m]=[]);
+  avs.forEach(a=>{ const mk=(a.data||'').slice(0,7); if(mk in bucket){ bucket[mk].push(a.notaFinal); qtdMes[mk]++; } });
+  meses.forEach(m=>{ const arr=bucket[m]; if(arr.length) notaMes[m]=+(arr.reduce((x,y)=>x+y,0)/arr.length).toFixed(1); });
+
+  const acOrder=['A definir','Em andamento','Concluída','Atrasada'];
+  const porAcao={}; acOrder.forEach(s=>porAcao[s]=0);
+  acs.forEach(a=>{ const s=acaoAtrasada(a)?'Atrasada':a.status; porAcao[s]=(porAcao[s]||0)+1; });
+  const acoesAbertas=(porAcao['A definir']||0)+(porAcao['Em andamento']||0)+(porAcao['Atrasada']||0);
+
+  const comAlerta=forns.filter(temAlerta).length;
+  const pctCriticos = forns.length ? Math.round((criticos/forns.length)*100) : 0;
+
+  return { total:forns.length, statusOrder, porStatus, criticos, naoCriticos, pctCriticos, porTipo,
+    resOrder, porResultado, crits, mediaCriterio, notaMediaGeral, ranking, meses, notaMes, qtdMes,
+    acOrder, porAcao, acoesAbertas, comAlerta };
+}
+function renderKpisIndicadores(){
+  const a=computeFornAgg();
+  const notaCor = a.notaMediaGeral>=8?'#34D399':(a.notaMediaGeral>=6?'#FBBF24':'#F87171');
+  document.getElementById('kpiRow').innerHTML = `
+    <div class="dash-solid-card" style="--card-bg:#4fa3ff;">
+      <div class="sc-icon"><svg class="icon" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></div>
+      <div class="sc-label">Fornecedores</div><div class="sc-value">${a.total}</div><div class="sc-caption">${a.porStatus['Homologado']||0} homologados</div>
+    </div>
+    <div class="dash-solid-card" style="--card-bg:${notaCor};">
+      <div class="sc-icon"><svg class="icon" viewBox="0 0 24 24"><path d="M12 2l3 7h7l-5.5 4 2 7-6.5-4.5L5.5 20l2-7L2 9h7z"/></svg></div>
+      <div class="sc-label">Nota média</div><div class="sc-value">${a.notaMediaGeral.toFixed(1)}</div><div class="sc-caption">última avaliação de cada um</div>
+    </div>
+    <div class="dash-solid-card" style="--card-bg:#F87171;">
+      <div class="sc-icon"><svg class="icon" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/></svg></div>
+      <div class="sc-label">Críticos</div><div class="sc-value">${a.criticos}</div><div class="sc-caption">${a.pctCriticos}% da base</div>
+    </div>
+    <div class="dash-solid-card" style="--card-bg:#F2B705;">
+      <div class="sc-icon"><svg class="icon" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></div>
+      <div class="sc-label">Ações em aberto</div><div class="sc-value">${a.acoesAbertas}</div><div class="sc-caption">${a.porAcao['Atrasada']||0} atrasada(s)</div>
+    </div>`;
+}
+function indicadoresHTML(){
+  return `
+  <div class="chart-grid">
+    <div class="chart-card"><div class="chart-card-hd"><h4>Fornecedores por status</h4><div class="sub">Homologado · Em análise · Suspenso · Reprovado (rosca)</div></div><div class="chart-holder"><canvas id="fStatus"></canvas></div></div>
+    <div class="chart-card"><div class="chart-card-hd"><h4>Criticidade da base</h4><div class="sub">Críticos × não críticos (rosca)</div></div><div class="chart-holder"><canvas id="fCritic"></canvas></div></div>
+    <div class="chart-card"><div class="chart-card-hd"><h4>Nota média por critério</h4><div class="sub">Última avaliação de cada fornecedor (barras)</div></div><div class="chart-holder"><canvas id="fCriterio"></canvas></div></div>
+    <div class="chart-card"><div class="chart-card-hd"><h4>Resultado das avaliações</h4><div class="sub">Aprovado · Com restrição · Reprovado (barras)</div></div><div class="chart-holder"><canvas id="fResultado"></canvas></div></div>
+    <div class="chart-card full"><div class="chart-card-hd"><h4>Evolução mensal — avaliações × nota média</h4><div class="sub">Avaliações no mês (barras) + nota média do mês (linha)</div></div><div class="chart-holder"><canvas id="fEvol"></canvas></div></div>
+    <div class="chart-card full"><div class="chart-card-hd"><h4>Ranking de fornecedores</h4><div class="sub">Nota da última avaliação, do maior para o menor (barras horizontais)</div></div><div class="chart-holder"><canvas id="fRanking"></canvas></div></div>
+  </div>`;
+}
+let fornCharts = {};
+function initFornCharts(){
+  if(typeof Chart==='undefined') return;
+  if(window.ChartDataLabels && !window._dl){ Chart.register(window.ChartDataLabels); Chart.defaults.set('plugins.datalabels',{display:false}); window._dl=true; }
+  const hasDL=!!window.ChartDataLabels;
+  const C={cyan:'#46D9F5',blue:'#4fa3ff',gold:'#F2B705',green:'#34D399',amber:'#FBBF24',red:'#F87171',purple:'#A78BFA',gray:'#9fb4d0'};
+  const text='#9fb4d0', grid='rgba(255,255,255,0.08)';
+  Chart.defaults.color=text; Chart.defaults.font.family="'Plus Jakarta Sans', sans-serif"; Chart.defaults.borderColor=grid;
+  const a=computeFornAgg();
+  function mk(id,cfg){ const cv=document.getElementById(id); if(!cv) return; if(fornCharts[id]) fornCharts[id].destroy(); fornCharts[id]=new Chart(cv.getContext('2d'),cfg); }
+  const dlBar=hasDL?{datalabels:{display:(c)=>Number(c.dataset.data[c.dataIndex])>0,anchor:'end',align:'end',offset:2,color:text,font:{weight:'700',size:11},formatter:v=>v}}:{};
+  const dlPie=hasDL?{datalabels:{display:(c)=>Number(c.dataset.data[c.dataIndex])>0,color:'#06101f',font:{weight:'800',size:12},formatter:v=>v}}:{};
+  const legend={position:'bottom',labels:{color:text,boxWidth:12,padding:12,font:{size:11}}};
+  const gs={grid:{color:grid},ticks:{color:text,font:{size:11}}};
+  const mesLbl=(m)=>{ const [y,mm]=m.split('-'); return mm+'/'+y.slice(2); };
+  function grad(id,c1,c2){ const c=document.getElementById(id); if(!c) return c1; const g=c.getContext('2d').createLinearGradient(0,0,0,300); g.addColorStop(0,c1); g.addColorStop(1,c2); return g; }
+
+  mk('fStatus',{ type:'doughnut',
+    data:{ labels:a.statusOrder, datasets:[{ data:a.statusOrder.map(s=>a.porStatus[s]||0), backgroundColor:[C.green,C.cyan,C.amber,C.red], borderColor:'#102a4d', borderWidth:2 }] },
+    options:{ responsive:true, maintainAspectRatio:false, cutout:'62%', plugins:{ legend, ...dlPie } } });
+
+  mk('fCritic',{ type:'doughnut',
+    data:{ labels:['Crítico','Não crítico'], datasets:[{ data:[a.criticos,a.naoCriticos], backgroundColor:[C.red,C.gray], borderColor:'#102a4d', borderWidth:2 }] },
+    options:{ responsive:true, maintainAspectRatio:false, cutout:'62%', plugins:{ legend, ...dlPie } } });
+
+  mk('fCriterio',{ type:'bar',
+    data:{ labels:a.crits.map(c=>c.nome.length>18?c.nome.slice(0,18)+'…':c.nome), datasets:[{ label:'Nota média', data:a.mediaCriterio.map(v=>+v.toFixed(1)), backgroundColor:grad('fCriterio','#5fb2ff','#1f6fe0'), borderRadius:8 }] },
+    options:{ responsive:true, maintainAspectRatio:false, layout:{padding:{top:hasDL?16:0}}, plugins:{ legend:{display:false}, ...(hasDL?{datalabels:{anchor:'end',align:'end',offset:2,color:text,font:{weight:'700',size:11},formatter:v=>v.toFixed(1)}}:{}) }, scales:{ x:{...gs, ticks:{...gs.ticks, font:{size:9.5}}}, y:{ beginAtZero:true, max:10, ...gs } } } });
+
+  mk('fResultado',{ type:'bar',
+    data:{ labels:['Aprovado','Com restrição','Reprovado'], datasets:[{ label:'Avaliações', data:a.resOrder.map(r=>a.porResultado[r]||0), backgroundColor:[C.green,C.amber,C.red], borderRadius:8 }] },
+    options:{ responsive:true, maintainAspectRatio:false, layout:{padding:{top:hasDL?16:0}}, plugins:{ legend:{display:false}, ...dlBar }, scales:{ x:{...gs, ticks:{...gs.ticks, font:{size:10}}}, y:{ beginAtZero:true, ...gs, ticks:{...gs.ticks, precision:0} } } } });
+
+  mk('fEvol',{
+    data:{ labels:a.meses.map(mesLbl), datasets:[
+      { type:'bar', label:'Avaliações no mês', data:a.meses.map(m=>a.qtdMes[m]||0), backgroundColor:C.blue, borderRadius:5, order:2, yAxisID:'y', datalabels:(dlBar.datalabels||undefined) },
+      { type:'line', label:'Nota média do mês', data:a.meses.map(m=>a.notaMes[m]), borderColor:C.gold, backgroundColor:C.gold, tension:0.3, pointRadius:3, spanGaps:true, order:1, yAxisID:'y1' }
+    ]},
+    options:{ responsive:true, maintainAspectRatio:false, layout:{padding:{top:hasDL?16:0}}, plugins:{ legend }, scales:{ x:{...gs}, y:{ beginAtZero:true, position:'left', ...gs, ticks:{...gs.ticks, precision:0}, title:{display:true,text:'Avaliações',color:text,font:{size:10}} }, y1:{ position:'right', min:0, max:10, grid:{drawOnChartArea:false}, ticks:{color:text,font:{size:10}}, title:{display:true,text:'Nota',color:text,font:{size:10}} } } } });
+
+  const rank=a.ranking.slice(0,10);
+  mk('fRanking',{ type:'bar',
+    data:{ labels: rank.length?rank.map(r=>r.nome.length>26?r.nome.slice(0,26)+'…':r.nome):['—'], datasets:[{ label:'Nota', data: rank.length?rank.map(r=>+r.nota.toFixed(1)):[0], backgroundColor: rank.map(r=>r.nota>=8?C.green:(r.nota>=6?C.amber:C.red)), borderRadius:7 }] },
+    options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, layout:{padding:{right:hasDL?24:0}}, plugins:{ legend:{display:false}, ...(hasDL?{datalabels:{anchor:'end',align:'end',offset:4,color:text,font:{weight:'700',size:11},formatter:v=>v.toFixed(1)}}:{}) }, scales:{ x:{ beginAtZero:true, max:10, ...gs }, y:{...gs, ticks:{...gs.ticks, font:{size:10}}} } } });
+}
+
+/* ===================== KPIs ===================== */
+function renderKpis(){
+  if(currentTab==='indicadores'){ renderKpisIndicadores(); return; }
+  const forns=getFornecedores();
+  const total=forns.length;
+  const homologados=forns.filter(f=>f.status==='Homologado').length;
+  const criticos=forns.filter(f=>f.criticidade==='Crítico').length;
+  const alertas=forns.filter(temAlerta).length;
+  const pct=(n)=> total ? Math.round((n/total)*100) : 0;
+  document.getElementById('kpiRow').innerHTML = `
+    <div class="kpi-solid" style="--kc:#4fa3ff;" onclick="verCategoriaForn('total')">
+      <div class="ks-icon"><svg class="icon" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></div>
+      <div class="ks-label">Fornecedores</div>
+      <div class="ks-value">${total}</div>
+      <div class="ks-caption">fornecedores cadastrados</div>
+    </div>
+    <div class="kpi-solid" style="--kc:#34D399;" onclick="verCategoriaForn('homologados')">
+      <div class="ks-icon"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 12l2 2 4-4"/></svg></div>
+      <div class="ks-label">Homologados</div>
+      <div class="ks-value">${homologados}</div>
+      <div class="ks-caption"><span class="ks-dot"></span>${homologados} de ${total} homologados</div>
+      <div class="ks-bar"><span style="width:${pct(homologados)}%;"></span></div>
+    </div>
+    <div class="kpi-solid" style="--kc:#F87171;" onclick="verCategoriaForn('criticos')">
+      <div class="ks-icon"><svg class="icon" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/></svg></div>
+      <div class="ks-label">Críticos</div>
+      <div class="ks-value">${criticos}</div>
+      <div class="ks-caption"><span class="ks-dot"></span>${criticos} de ${total} críticos</div>
+      <div class="ks-bar"><span style="width:${pct(criticos)}%;"></span></div>
+    </div>
+    <div class="kpi-solid" style="--kc:#F2B705;" onclick="verCategoriaForn('alertas')">
+      <div class="ks-icon"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg></div>
+      <div class="ks-label">Alertas</div>
+      <div class="ks-value">${alertas}</div>
+      <div class="ks-caption"><span class="ks-dot"></span>${alertas} de ${total} com alerta</div>
+      <div class="ks-bar"><span style="width:${pct(alertas)}%;"></span></div>
+    </div>`;
+}
+function verCategoriaForn(cat){
+  const forns=getFornecedores();
+  const M={
+    total:      { titulo:'Todos os fornecedores', fn:()=>true },
+    homologados:{ titulo:'Fornecedores homologados', fn:f=>f.status==='Homologado' },
+    criticos:   { titulo:'Fornecedores críticos', fn:f=>f.criticidade==='Crítico' },
+    alertas:    { titulo:'Fornecedores com alerta', fn:temAlerta }
+  };
+  const conf=M[cat]||M.total;
+  const itens=forns.filter(conf.fn).sort((a,b)=>(a.razao||'').localeCompare(b.razao||''));
+  document.getElementById('detTitle').textContent=conf.titulo;
+  document.getElementById('detSub').textContent=`${itens.length} fornecedor(es)`;
+  const motivoAlerta=(f)=>{
+    const m=[];
+    if(reavalVencida(f)) m.push('<span style="color:var(--accent-red);">Reavaliação vencida</span>');
+    else if(reavalProxima(f)) m.push('<span style="color:var(--accent-amber);">Reavaliar em breve</span>');
+    if(docVencido(f)) m.push('<span style="color:var(--accent-red);">Certificado ISO vencido</span>');
+    else if(docProximo(f)) m.push('<span style="color:var(--accent-amber);">Certificado ISO vencendo</span>');
+    return m.join(' · ')||'—';
+  };
+  const colAlerta = cat==='alertas';
+  const body = itens.length ? `
+    <table class="ctxtbl compact">
+      <colgroup>${colAlerta?'<col style="width:30%"><col style="width:12%"><col style="width:12%"><col style="width:16%"><col style="width:30%">':'<col style="width:34%"><col style="width:14%"><col style="width:14%"><col style="width:18%"><col style="width:20%">'}</colgroup>
+      <thead><tr><th>Razão social</th><th>Tipo</th><th>Criticidade</th><th>Próx. reaval.</th><th>${colAlerta?'Motivo do alerta':'Status'}</th></tr></thead>
+      <tbody>${itens.map(f=>`
+        <tr>
+          <td class="desc-cell" style="color:var(--text-primary); font-weight:600;">${esc(f.razao)}</td>
+          <td><span class="mchip mchip-blue">${esc(f.tipo)}</span></td>
+          <td>${critChip(f.criticidade)}</td>
+          <td class="mono" ${reavalVencida(f)?'style="color:var(--accent-red); font-weight:700;"':''}>${fmtDate(f.proxReaval)}</td>
+          <td style="font-size:11.5px;">${colAlerta?motivoAlerta(f):statusPill(f.status)}</td>
+        </tr>`).join('')}</tbody>
+    </table>` : '<div class="empty-state">Nenhum fornecedor nesta categoria.</div>';
+  document.getElementById('detBody').innerHTML = body;
+  openModal('modalDetForn');
+}
+
+/* ===================== MODAL / TOAST ===================== */
+function openModal(id){ document.getElementById(id).classList.add('show'); }
+function closeModal(id){ document.getElementById(id).classList.remove('show'); }
+document.querySelectorAll('.modal-overlay').forEach(ov=>{ ov.addEventListener('click', e=>{ if(e.target===ov) ov.classList.remove('show'); }); });
+let _toastTimer=null;
+function showToast(texto){ const t=document.getElementById('toast'); if(!t) return; document.getElementById('toastText').textContent=texto||'Salvo'; t.classList.add('show'); if(_toastTimer) clearTimeout(_toastTimer); _toastTimer=setTimeout(()=>t.classList.remove('show'),2600); }
+
+/* ===================== INIT ===================== */
+initData();
+renderTab();
+function reportFrameHeight(){
+  const height = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight, 720);
+  window.parent.postMessage({ type:'qualitypro:fornecedores:resize', height }, window.location.origin);
+}
+function applySuppliersTheme(theme){
+  document.body.classList.remove('theme-light', 'theme-white');
+  if(theme==='light') document.body.classList.add('theme-light');
+  if(theme==='white') document.body.classList.add('theme-white');
+  requestAnimationFrame(()=>{ renderTab(); renderKpis(); reportFrameHeight(); });
+}
+window.addEventListener('message', event=>{
+  if(event.origin !== window.location.origin) return;
+  if(event.data?.type==='qualitypro:fornecedores:theme') applySuppliersTheme(event.data.theme);
+});
+if(window.ResizeObserver) new ResizeObserver(reportFrameHeight).observe(document.body);
+window.addEventListener('load', reportFrameHeight);
+window.parent.postMessage({ type:'qualitypro:fornecedores:ready' }, window.location.origin);
+</script>
+
+
+</body>
+</html>
