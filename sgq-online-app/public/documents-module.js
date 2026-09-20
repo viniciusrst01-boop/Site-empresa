@@ -40,9 +40,8 @@ function documentRevisionDays(value) { return Number(String(value || "360").matc
 function documentNextRevision(row) { return row.revisionDate ? documentAddDays(row.revisionDate, documentRevisionDays(row.revisionPeriod)) : ""; }
 function documentIsLate(row) { const date = row.kind === "external" ? row.nextVerification : documentNextRevision(row); return Boolean(date && date < documentToday()); }
 function documentEffectiveStatus(row) {
-  if (row.status === "Obsoleto" || row.status === "Aguardando Aprovação") return row.status;
-  if (row.status && row.status !== "Vigente") return row.status;
-  return documentIsLate(row) ? "Revisar documento" : (row.status || "Vigente");
+  if (row.status) return row.status;
+  return documentIsLate(row) ? "Revisar documento" : "Vigente";
 }
 function documentStatusClass(status) {
   return ({ "Vigente": "vigente", "Em Revisão": "revisao", "Aguardando Aprovação": "aguardando", "Revisar documento": "vencido", "Obsoleto": "obsoleto" })[status] || "obsoleto";

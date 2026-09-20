@@ -8,6 +8,59 @@ async function login(page) {
   await expect(page).toHaveURL(/\/app$/);
 }
 
+test("satisfação do cliente é integrada com abas, dados demonstrativos e tema do aplicativo", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await login(page);
+  await page.evaluate(() => {
+    state.settings.theme = "light";
+    applyTheme();
+    renderModuleDetail("satisfacao-clientes");
+  });
+
+  const satisfactionFrame = page.frameLocator('iframe[title="Satisfação do Cliente"]');
+  await satisfactionFrame.locator("#kpiRow").waitFor({ state: "visible" });
+  await expect(satisfactionFrame.locator(".sidebar")).toBeHidden();
+  await expect(satisfactionFrame.locator('[data-tab="formulario"]')).toBeVisible();
+  await expect.poll(() => satisfactionFrame.locator("body").evaluate((body) => body.classList.contains("theme-light"))).toBe(true);
+  await expect.poll(() => satisfactionFrame.locator("body").evaluate((body) => getComputedStyle(body).getPropertyValue("--bg-panel").trim())).toBe("#0c2a4e");
+
+  await satisfactionFrame.locator('[data-tab="indicadores"]').click();
+  await expect(satisfactionFrame.locator("#satNps")).toBeVisible();
+  await expect(satisfactionFrame.locator("#satAcoes")).toBeVisible();
+
+  await page.evaluate(() => {
+    state.settings.theme = "white";
+    applyTheme();
+  });
+  await expect.poll(() => satisfactionFrame.locator("body").evaluate((body) => body.classList.contains("theme-white"))).toBe(true);
+});
+
+test("fornecedores recebe o tema inicial e acompanha as trocas do aplicativo", async ({ page }) => {
+  await login(page);
+  await page.evaluate(() => {
+    state.settings.theme = "light";
+    applyTheme();
+    renderModuleDetail("fornecedores");
+  });
+
+  const suppliersFrame = page.frameLocator('iframe[title="Fornecedores"]');
+  await suppliersFrame.locator("#kpiRow").waitFor({ state: "visible" });
+  await expect.poll(() => suppliersFrame.locator("body").evaluate((body) => body.classList.contains("theme-light"))).toBe(true);
+  await expect.poll(() => suppliersFrame.locator("body").evaluate((body) => getComputedStyle(body).getPropertyValue("--bg-panel").trim())).toBe("#0c2a4e");
+
+  await page.evaluate(() => {
+    state.settings.theme = "white";
+    applyTheme();
+  });
+  await expect.poll(() => suppliersFrame.locator("body").evaluate((body) => body.classList.contains("theme-white"))).toBe(true);
+
+  await page.evaluate(() => {
+    state.settings.theme = "dark";
+    applyTheme();
+  });
+  await expect.poll(() => suppliersFrame.locator("body").evaluate((body) => !body.classList.contains("theme-light") && !body.classList.contains("theme-white"))).toBe(true);
+});
+
 test("nova auditoria mantém todos os controles visíveis sem rolagem interna no desktop", async ({ page }) => {
   await login(page);
   for (const viewport of [{ width: 1920, height: 1080 }, { width: 1600, height: 900 }, { width: 1440, height: 900 }, { width: 1366, height: 768 }, { width: 1280, height: 720 }, { width: 1024, height: 600 }]) {
@@ -143,6 +196,8 @@ test("status escolhido no documento externo substitui o alerta automático de re
     renderModuleDetail("documentos");
   });
   await page.getByRole("button", { name: "Documentos Externos" }).click();
+  await expect(page.locator(".documents-table tbody")).toContainText("Vigente");
+  await expect(page.locator(".documents-table tbody")).not.toContainText("Revisar documento");
   await page.locator('[data-doc-edit="EXT-STATUS"]').click();
   await page.locator('.documents-modal-card select[name="status"]').selectOption("Em Revisão");
   await page.locator('.documents-modal-card button[type="submit"]').click();

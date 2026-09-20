@@ -354,10 +354,10 @@
   .page-content { padding: 0 0 24px; }
 
   body.theme-light {
-    --bg-deep: #eaf4fd; --bg-panel: #f8fcff; --bg-panel-2: #eef7ff; --bg-panel-hover: #e4f1fb;
-    --border-subtle: rgba(15,81,130,.16); --border-strong: rgba(15,81,130,.26);
-    --text-primary: #102a43; --text-secondary: #4a6681; --text-muted: #6f88a3;
-    color-scheme: light;
+    --bg-deep: #071b36; --bg-panel: #0c2a4e; --bg-panel-2: #092442; --bg-panel-hover: #10365f;
+    --border-subtle: rgba(112,190,255,.13); --border-strong: rgba(112,190,255,.28);
+    --text-primary: #f5f7fa; --text-secondary: #a9bdd6; --text-muted: #7895b7;
+    color-scheme: dark;
   }
   body.theme-white {
     --bg-deep: #f4f7fb; --bg-panel: #ffffff; --bg-panel-2: #f7faff; --bg-panel-hover: #f2f7fd;
@@ -366,7 +366,8 @@
     color-scheme: light;
   }
   body.theme-light .modal-overlay, body.theme-white .modal-overlay { background: rgba(7,31,59,.4); }
-  body.theme-light select.input-basic option, body.theme-white select.input-basic option { background: #fff; color: #12233a; }
+  body.theme-light select.input-basic option { background: #0c2a4e; color: #f5f7fa; }
+  body.theme-white select.input-basic option { background: #fff; color: #12233a; }
 </style>
 </head>
 <body>
@@ -1673,6 +1674,9 @@ let _toastTimer=null;
 function showToast(texto){ const t=document.getElementById('toast'); if(!t) return; document.getElementById('toastText').textContent=texto||'Salvo'; t.classList.add('show'); if(_toastTimer) clearTimeout(_toastTimer); _toastTimer=setTimeout(()=>t.classList.remove('show'),2600); }
 
 /* ===================== INIT ===================== */
+const initialFrameTheme = new URLSearchParams(window.location.search).get('theme');
+if(initialFrameTheme==='light') document.body.classList.add('theme-light');
+if(initialFrameTheme==='white') document.body.classList.add('theme-white');
 initData();
 renderTab();
 function reportFrameHeight(){

@@ -1,0 +1,1456 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QualityPro Cloud - Satisfação do Cliente</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+<script src="/vendor/chart.umd.js"></script>
+<script src="/vendor/chartjs-plugin-datalabels.min.js"></script>
+<script src="/frame-selects.js?v=20260919"></script>
+<style>
+
+  :root {
+    /* ===== TEMA AZUL-CLARO (degradê azul-marinho) ===== */
+    --bg-deep: #0a1e3f; --bg-grad-top: #123a6b; --bg-grad-bot: #0a1c38;
+    --bg-sidebar: #0a1a33; --bg-panel: #102a4d; --bg-panel-2: #0e2445; --bg-panel-hover: #143154;
+    --border-subtle: rgba(255,255,255,0.10); --border-strong: rgba(255,255,255,0.18);
+    --text-primary: #eef4fb; --text-secondary: #9fb4d0; --text-muted: #6f87a8;
+    --accent-blue: #2f8ff0; --accent-blue-bright: #4fa3ff; --accent-cyan: #46D9F5; --accent-gold: #F2B705;
+    --accent-green: #34D399; --accent-amber: #FBBF24; --accent-red: #F87171; --accent-orange: #fb923c; --accent-purple: #A78BFA;
+    --accent-gradient: linear-gradient(90deg, #2f8ff0, #4fa3ff); --radius: 14px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; color: var(--text-primary); -webkit-font-smoothing: antialiased; }
+  body { background: linear-gradient(160deg, var(--bg-grad-top) 0%, var(--bg-deep) 42%, var(--bg-grad-bot) 100%); background-attachment: fixed; }
+  svg { display: block; }
+  .icon { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
+  a { text-decoration: none; }
+  .mono { font-family: 'JetBrains Mono', 'SFMono-Regular', Consolas, monospace; }
+  button, textarea, select, input { font-family: inherit; }
+  .app-shell { display: flex; min-height: 100vh; }
+
+  /* SIDEBAR */
+  .sidebar { width: 220px; flex-shrink: 0; background: var(--bg-sidebar); border-right: 1px solid var(--border-subtle); display: flex; flex-direction: column; padding: 20px 12px 18px; position: sticky; top: 0; height: 100vh; }
+  .sb-logo-row { display: flex; align-items: center; padding: 4px 6px 18px; border-bottom: 1px solid var(--border-subtle); margin-bottom: 16px; }
+  .sb-logo-img { width: 100%; max-width: 178px; height: auto; display: block; }
+  .sb-section-label { font-family: 'JetBrains Mono', monospace; font-size: 9.5px; font-weight: 600; letter-spacing: 1.3px; color: var(--text-muted); padding: 0 10px; margin: 4px 0 9px; }
+  .sb-nav { display: flex; flex-direction: column; gap: 2px; flex: 1; }
+  .nav-item { display: flex; align-items: center; gap: 11px; padding: 9px 10px; border-radius: 8px; color: #a7bcda; font-size: 13px; font-weight: 600; cursor: pointer; position: relative; transition: background 0.15s ease, color 0.15s ease; }
+  .nav-item .icon { width: 17px; height: 17px; color: #7d95b8; transition: color 0.15s ease; }
+  .nav-item:hover { background: rgba(255,255,255,0.05); color: var(--text-primary); }
+  .nav-item:hover .icon { color: var(--accent-blue-bright); }
+  .nav-item.active { background: rgba(47,143,240,0.18); color: var(--text-primary); }
+  .nav-item.active .icon { color: var(--accent-cyan); }
+  .nav-item.active::before { content: ""; position: absolute; left: -12px; top: 7px; bottom: 7px; width: 3px; background: var(--accent-cyan); border-radius: 0 3px 3px 0; box-shadow: 0 0 8px rgba(70,217,245,0.7); }
+  .sb-help-card { margin-top: 16px; background: var(--bg-panel); border: 1px solid var(--border-subtle); border-radius: var(--radius); padding: 16px; display: flex; flex-direction: column; gap: 10px; position: relative; overflow: hidden; }
+  .sb-help-card::after { content: ""; position: absolute; top: -30px; right: -30px; width: 90px; height: 90px; border-radius: 50%; background: radial-gradient(circle, rgba(47,143,240,0.28), transparent 70%); }
+  .sb-help-icon { width: 34px; height: 34px; border-radius: 9px; background: transparent; border: 1px solid rgba(70,217,245,0.4); display: flex; align-items: center; justify-content: center; color: var(--accent-cyan); margin-bottom: 2px; position: relative; z-index: 1; }
+  .sb-help-icon .icon { width: 17px; height: 17px; }
+  .sb-help-card .htitle { color: var(--text-primary); font-size: 13.5px; font-weight: 700; position: relative; z-index: 1; }
+  .sb-help-card .hdesc { color: var(--text-secondary); font-size: 12px; line-height: 1.5; position: relative; z-index: 1; }
+  .btn-support { margin-top: 2px; background: transparent; border: 1.5px solid rgba(255,255,255,0.2); color: var(--text-primary); font-size: 12.5px; font-weight: 700; padding: 9px 12px; border-radius: 8px; display: flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; transition: background 0.15s ease, border-color 0.15s ease; position: relative; z-index: 1; }
+  .btn-support:hover { background: rgba(255,255,255,0.07); border-color: var(--accent-blue-bright); }
+  .btn-support .icon { width: 15px; height: 15px; }
+
+  /* MAIN */
+  .main-area { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .topbar { height: 72px; flex-shrink: 0; background: rgba(10,26,51,0.75); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border-subtle); display: flex; align-items: center; justify-content: space-between; padding: 0 28px; position: sticky; top: 0; z-index: 5; gap: 20px; }
+  .topbar-left { display: flex; align-items: center; gap: 16px; }
+  .menu-toggle { width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: var(--text-secondary); cursor: pointer; flex-shrink: 0; }
+  .menu-toggle:hover { background: rgba(255,255,255,0.06); color: var(--text-primary); }
+  .topbar-title { font-size: 17px; font-weight: 800; color: var(--text-primary); line-height: 1.25; }
+  .topbar-subtitle { font-size: 12.5px; color: var(--text-secondary); font-weight: 500; }
+  .topbar-search { flex: 1; max-width: 420px; display: flex; align-items: center; gap: 9px; background: rgba(255,255,255,0.05); border: 1px solid var(--border-subtle); border-radius: 11px; padding: 10px 14px; color: var(--text-muted); }
+  .topbar-search input { flex: 1; background: transparent; border: none; outline: none; color: var(--text-primary); font-size: 13px; }
+  .topbar-search input::placeholder { color: var(--text-muted); }
+  .topbar-search .icon { width: 17px; height: 17px; }
+  .topbar-right { display: flex; align-items: center; gap: 6px; }
+  .tb-icon-btn { position: relative; width: 38px; height: 38px; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: var(--text-secondary); cursor: pointer; flex-shrink: 0; }
+  .tb-icon-btn:hover { background: rgba(255,255,255,0.06); color: var(--text-primary); }
+  .tb-divider { width: 1px; height: 26px; background: var(--border-subtle); margin: 0 10px; }
+  .tb-user { display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 6px 8px 6px 6px; border-radius: 10px; }
+  .tb-user:hover { background: rgba(255,255,255,0.06); }
+  .tb-avatar { width: 36px; height: 36px; border-radius: 50%; background: var(--accent-gradient); color: #fff; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-family: 'JetBrains Mono', monospace; }
+  .tb-user-info { line-height: 1.25; }
+  .tb-user-name { font-size: 13.5px; font-weight: 700; color: var(--text-primary); }
+  .tb-user-role { font-size: 11.5px; color: var(--text-secondary); }
+  .tb-chevron { color: var(--text-muted); width: 16px; height: 16px; margin-left: 2px; }
+
+  .page-content { flex: 1; padding: 24px 28px 40px; position: relative; }
+  .breadcrumb { font-size: 12.5px; color: var(--text-secondary); margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+  .breadcrumb a { color: var(--text-secondary); }
+  .breadcrumb a:hover { color: var(--accent-blue-bright); }
+  .breadcrumb .sep { color: var(--text-muted); }
+  .breadcrumb .cur { color: var(--text-primary); font-weight: 700; }
+  .welcome-eyebrow { font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 600; letter-spacing: 1.5px; color: var(--accent-cyan); margin-bottom: 8px; }
+  .welcome-sub { margin: 0 0 22px; color: var(--text-primary); font-size: 15px; font-weight: 600; }
+
+  /* KPI cards */
+  .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 22px; }
+  .kpi-card { background: var(--bg-panel); border: 1px solid var(--border-subtle); border-radius: var(--radius); padding: 18px; position: relative; overflow: hidden; display: flex; flex-direction: column; gap: 12px; transition: border-color 0.2s ease; }
+  .kpi-card:hover { border-color: var(--border-strong); }
+  .kpi-card.clickable { cursor: pointer; }
+  .kpi-card.clickable:hover { border-color: var(--accent-blue-bright); transform: translateY(-1px); }
+  .kpi-ver { color: var(--accent-blue-bright); font-weight: 700; opacity: 0; transition: opacity 0.15s ease; margin-left: 4px; }
+  .kpi-card.clickable:hover .kpi-ver { opacity: 1; }
+  .kpi-card::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--accent-line, var(--accent-blue)); }
+  .kpi-top { display: flex; align-items: center; gap: 12px; }
+  .kpi-icon { width: 40px; height: 40px; border-radius: 10px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: transparent; border: 1px solid; }
+  .kpi-icon .icon { width: 19px; height: 19px; }
+  .kpi-label { font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.6px; color: var(--text-muted); font-weight: 600; margin-bottom: 3px; text-transform: uppercase; }
+  .kpi-value { font-size: 15px; font-weight: 700; color: var(--text-primary); }
+  .kpi-value.big { font-size: 26px; font-family: 'JetBrains Mono', monospace; }
+  .kpi-caption { font-size: 12px; color: var(--text-secondary); font-weight: 600; }
+
+  /* Tabs */
+  .ctx-tabs { display: flex; flex-wrap: wrap; gap: 6px; border-bottom: 1px solid var(--border-subtle); margin-bottom: 20px; }
+  .ctx-tab { padding: 11px 16px; font-size: 13.5px; font-weight: 700; color: var(--text-secondary); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color 0.15s ease, border-color 0.15s ease; }
+  .ctx-tab:hover { color: var(--text-primary); }
+  .ctx-tab.active { color: var(--accent-cyan); border-color: var(--accent-cyan); }
+
+  /* Section / table */
+  .dcc { background: var(--bg-panel); border: 1px solid var(--border-subtle); border-radius: var(--radius); overflow: hidden; }
+  .dcc-hd { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding: 20px 22px; border-bottom: 1px solid var(--border-subtle); }
+  .dcc-title { font-size: 15.5px; font-weight: 800; margin: 0 0 3px; color: var(--text-primary); }
+  .dcc-sub { font-size: 12.5px; color: var(--text-secondary); margin: 0; }
+  .btn-grad { background: var(--accent-gradient); color: #fff; border: none; border-radius: 10px; padding: 11px 18px; font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 7px; cursor: pointer; transition: filter 0.15s ease; flex-shrink: 0; }
+  .btn-grad:hover { filter: brightness(1.08); }
+  .btn-grad .icon { width: 16px; height: 16px; stroke: #fff; }
+
+  table.ctxtbl { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  .ctxtbl thead th { text-align: left; font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase; color: var(--text-muted); padding: 12px 14px; border-bottom: 1px solid var(--border-subtle); white-space: normal; word-break: keep-all; }
+  .ctxtbl tbody td { padding: 12px 14px; border-bottom: 1px solid var(--border-subtle); font-size: 12.5px; color: var(--text-primary); vertical-align: middle; overflow-wrap: break-word; word-break: break-word; }
+  /* Variante compacta: cabe em 100% da largura sem rolagem lateral */
+  .ctxtbl.compact thead th { padding: 8px 9px; font-size: 9px; letter-spacing: 0.2px; }
+  .ctxtbl.compact tbody td { padding: 6px 9px; font-size: 11px; line-height: 1.3; }
+  .ctxtbl.compact tbody td.mono, .ctxtbl.compact tbody td .mono { font-size: 10.5px; white-space: nowrap; }
+  .ctxtbl.compact .mchip { font-size: 9.5px; padding: 2px 7px; }
+  .ctxtbl.compact .status-pill { font-size: 10px; }
+  .ctxtbl.compact .abtn { width: 25px; height: 25px; }
+  .ctxtbl.compact .abtn .icon { width: 13px; height: 13px; }
+  .ctxtbl.compact .row-actions { flex-direction: row; gap: 3px; }
+  .ctxtbl tbody td.mono, .ctxtbl tbody td .mono { white-space: nowrap; font-size: 12px; }
+  .ctxtbl tbody tr:last-child td { border-bottom: none; }
+  .ctxtbl tbody tr:hover { background: rgba(255,255,255,0.03); }
+  .ctxtbl .desc-cell { color: var(--text-secondary); line-height: 1.4; }
+
+  .mchip { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 7px; font-size: 11px; font-weight: 700; border: 1px solid; white-space: nowrap; }
+  .mchip-blue { color: var(--accent-blue-bright); border-color: rgba(79,163,255,0.45); background: rgba(79,163,255,0.12); }
+  .mchip-cyan { color: var(--accent-cyan); border-color: rgba(70,217,245,0.45); background: rgba(70,217,245,0.12); }
+  .mchip-purple { color: var(--accent-purple); border-color: rgba(167,139,250,0.45); background: rgba(167,139,250,0.12); }
+  .mchip-gray { color: var(--text-secondary); border-color: var(--border-strong); background: rgba(255,255,255,0.04); }
+
+  .status-pill { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 700; white-space: nowrap; }
+  .status-dot2 { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .st-uso .status-dot2 { background: var(--accent-green); box-shadow: 0 0 6px rgba(52,211,153,0.7); } .st-uso { color: var(--accent-green); }
+  .st-calib .status-dot2 { background: var(--accent-amber); box-shadow: 0 0 6px rgba(251,191,36,0.7); } .st-calib { color: var(--accent-amber); }
+  .st-fora .status-dot2 { background: var(--text-secondary); } .st-fora { color: var(--text-secondary); }
+  .st-reprov .status-dot2 { background: var(--accent-red); box-shadow: 0 0 6px rgba(248,113,113,0.7); } .st-reprov { color: var(--accent-red); }
+  .st-distuso .status-dot2 { background: var(--accent-amber); box-shadow: 0 0 6px rgba(251,191,36,0.7); } .st-distuso { color: var(--accent-amber); }
+  .st-devolvido .status-dot2 { background: var(--accent-green); box-shadow: 0 0 6px rgba(52,211,153,0.7); } .st-devolvido { color: var(--accent-green); }
+  .st-atraso .status-dot2 { background: var(--accent-red); box-shadow: 0 0 6px rgba(248,113,113,0.7); } .st-atraso { color: var(--accent-red); }
+
+  .row-actions { display: flex; align-items: center; gap: 2px; white-space: nowrap; }
+  .abtn { width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: var(--text-secondary); cursor: pointer; flex-shrink: 0; background: transparent; border: 1px solid var(--border-subtle); padding: 0; }
+  .abtn .icon { width: 15px; height: 15px; }
+  .abtn:hover { background: rgba(79,163,255,0.12); color: var(--accent-blue-bright); border-color: var(--accent-blue-bright); }
+  .abtn.danger:hover { background: rgba(248,113,113,0.12); color: var(--accent-red); border-color: var(--accent-red); }
+  .empty-state { padding: 48px 22px; text-align: center; color: var(--text-secondary); font-size: 13.5px; }
+  .evid-file { display: inline-flex; align-items: center; gap: 5px; color: var(--accent-blue-bright); font-size: 11.5px; font-family: 'JetBrains Mono', monospace; overflow-wrap: anywhere; }
+
+  /* Filters */
+  .filter-bar { display: grid; grid-template-columns: repeat(4, 1fr) auto; gap: 12px; background: var(--bg-panel); border: 1px solid var(--border-subtle); border-radius: var(--radius); padding: 18px; margin-bottom: 18px; align-items: end; }
+  .filter-bar .fg { display: flex; flex-direction: column; gap: 6px; }
+  .filter-bar .fg label { font-size: 10px; font-weight: 700; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; letter-spacing: 0.4px; text-transform: uppercase; }
+
+  /* Form */
+  .form-card { background: var(--bg-panel); border: 1px solid var(--border-subtle); border-radius: var(--radius); padding: 24px; }
+  .form-section-label { font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase; color: var(--accent-cyan); margin: 6px 0 14px; padding-bottom: 8px; border-bottom: 1px solid var(--border-subtle); }
+  .form-section-label:not(:first-of-type) { margin-top: 24px; }
+  .field { margin-bottom: 15px; }
+  .field label { display: block; font-size: 12.5px; font-weight: 700; margin-bottom: 7px; color: var(--text-primary); }
+  .field-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .field-row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+  .input-basic, select.input-basic, textarea.input-basic { width: 100%; border: 1px solid var(--border-strong); border-radius: 10px; background: rgba(255,255,255,0.04); color: var(--text-primary); font-size: 13.5px; padding: 11px 13px; outline: none; font-family: inherit; transition: border-color 0.15s ease; }
+  textarea.input-basic { resize: vertical; min-height: 70px; }
+  .input-basic:focus { border-color: var(--accent-blue-bright); }
+  select.input-basic option, select.input-basic optgroup { background: #10233f; color: var(--text-primary); }
+  /* Combobox (autocomplete) */
+  .combo-wrap { position: relative; }
+  .combo-list { position: absolute; top: calc(100% + 4px); left: 0; right: 0; background: #10233f; border: 1px solid var(--border-strong); border-radius: 10px; box-shadow: 0 16px 40px rgba(0,0,0,0.5); max-height: 240px; overflow-y: auto; z-index: 20; display: none; }
+  .combo-list.show { display: block; }
+  .combo-item { padding: 10px 13px; font-size: 13px; cursor: pointer; border-bottom: 1px solid var(--border-subtle); display: flex; flex-direction: column; gap: 2px; }
+  .combo-item:last-child { border-bottom: none; }
+  .combo-item:hover, .combo-item.active { background: rgba(47,143,240,0.18); }
+  .combo-item .ci-cod { font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 12px; color: var(--accent-blue-bright); }
+  .combo-item .ci-desc { font-size: 12px; color: var(--text-secondary); }
+  .combo-empty { padding: 12px 13px; font-size: 12.5px; color: var(--text-muted); }
+  .input-basic::placeholder { color: var(--text-muted); }
+  .input-basic.field-erro { border-color: var(--accent-red) !important; box-shadow: 0 0 0 2px rgba(248,113,113,0.18); }
+  .input-readonly { background: rgba(255,255,255,0.02); color: var(--text-secondary); cursor: default; }
+  .upload-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 2px; }
+  .upload-btn { display: inline-flex; align-items: center; gap: 7px; cursor: pointer; padding: 10px 14px; border-radius: 10px; border: 1px solid var(--border-strong); background: rgba(255,255,255,0.04); color: var(--text-primary); font-size: 12.5px; font-weight: 700; flex-shrink: 0; }
+  .upload-btn:hover { background: rgba(255,255,255,0.07); border-color: var(--accent-blue-bright); }
+  .upload-btn input[type="file"] { display: none; }
+  .upload-btn .icon { width: 15px; height: 15px; }
+  .upload-filename { font-size: 12px; color: var(--text-secondary); font-family: 'JetBrains Mono', monospace; overflow-wrap: anywhere; }
+  .form-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px; align-items: center; }
+  .btn-ghost { padding: 11px 18px; border-radius: 10px; border: 1px solid var(--border-strong); background: transparent; color: var(--text-primary); font-size: 13px; font-weight: 700; cursor: pointer; }
+  .btn-ghost:hover { background: rgba(255,255,255,0.06); }
+  .btn-primary { padding: 11px 20px; border-radius: 10px; border: none; background: var(--accent-gradient); color: #fff; font-size: 13px; font-weight: 700; cursor: pointer; }
+  .btn-primary:hover { filter: brightness(1.08); }
+
+  /* Modal */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(4,14,30,0.72); backdrop-filter: blur(3px); display: none; align-items: center; justify-content: center; z-index: 50; padding: 24px; }
+  .modal-overlay.show { display: flex; }
+  .modal-box { width: 720px; max-width: 100%; max-height: 90vh; overflow-y: auto; background: var(--bg-panel); border: 1px solid var(--border-subtle); border-radius: 16px; padding: 28px; box-shadow: 0 24px 70px rgba(0,0,0,0.5); }
+  .modal-box.wide { width: 860px; }
+  .modal-hd { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 20px; }
+  .modal-hd h3 { margin: 0 0 4px; font-size: 17px; font-weight: 800; }
+  .modal-hd p { margin: 0; font-size: 12.5px; color: var(--text-secondary); }
+  .modal-close { color: var(--text-secondary); cursor: pointer; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 8px; flex-shrink: 0; }
+  .modal-close:hover { background: rgba(255,255,255,0.07); color: var(--text-primary); }
+  .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 22px; flex-wrap: wrap; }
+
+  /* Toast */
+  #toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-20px); z-index: 200; display: flex; align-items: center; gap: 10px; background: #0e2a1c; border: 1px solid rgba(52,211,153,0.5); color: var(--accent-green); font-weight: 700; font-size: 13.5px; padding: 12px 18px; border-radius: 12px; box-shadow: 0 12px 40px rgba(0,0,0,0.45); opacity: 0; pointer-events: none; transition: opacity 0.25s ease, transform 0.25s ease; }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  #toast .tick { width: 24px; height: 24px; border-radius: 50%; background: var(--accent-green); color: #06110b; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  #toast .tick svg { width: 15px; height: 15px; stroke: #06110b; stroke-width: 3; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+
+  .app-footer { display: flex; align-items: center; justify-content: space-between; padding: 16px 28px; border-top: 1px solid var(--border-subtle); font-size: 12px; color: var(--text-secondary); }
+  .app-footer .mono { color: var(--text-muted); }
+  .footer-status { display: flex; align-items: center; gap: 6px; }
+  .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent-green); flex-shrink: 0; box-shadow: 0 0 6px rgba(52,211,153,0.8); }
+
+  /* Indicadores */
+  .dash-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 16px; }
+  .dash-solid-card { position: relative; border-radius: var(--radius); padding: 18px 20px; overflow: hidden; color: #06101f; background: var(--card-bg, #4fa3ff); }
+  .dash-solid-card .sc-icon { position: absolute; top: 14px; right: 14px; opacity: 0.28; }
+  .dash-solid-card .sc-icon .icon { width: 30px; height: 30px; stroke: #06101f; stroke-width: 1.7; }
+  .dash-solid-card .sc-label { font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.7px; text-transform: uppercase; font-weight: 700; opacity: 0.75; }
+  .dash-solid-card .sc-value { font-size: 30px; font-weight: 800; font-family: 'JetBrains Mono', monospace; line-height: 1; margin-top: 8px; }
+  .dash-solid-card .sc-caption { font-size: 11.5px; font-weight: 600; opacity: 0.72; margin-top: 8px; }
+  .dash-solid-card.clickable { cursor: pointer; transition: transform 0.15s ease, box-shadow 0.15s ease; }
+  .dash-solid-card.clickable:hover { transform: translateY(-2px); box-shadow: 0 10px 28px rgba(0,0,0,0.35); }
+  .dash-solid-card .sc-ver { font-weight: 800; opacity: 0; transition: opacity 0.15s ease; }
+  .dash-solid-card.clickable:hover .sc-ver { opacity: 0.95; }
+  .chart-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+  .chart-card { background: var(--bg-panel); border: 1px solid var(--border-subtle); border-radius: var(--radius); padding: 18px 20px; display: flex; flex-direction: column; }
+  .chart-card.full { grid-column: 1 / -1; }
+  .chart-card-hd { margin-bottom: 14px; }
+  .chart-card-hd h4 { margin: 0; font-size: 14px; font-weight: 800; }
+  .chart-card-hd .sub { font-size: 11.5px; color: var(--text-secondary); margin-top: 2px; }
+  .chart-holder { position: relative; width: 100%; height: 300px; }
+  @media (max-width: 1000px) { .chart-grid { grid-template-columns: 1fr; } .dash-cards { grid-template-columns: repeat(2,1fr); } }
+
+  @media (max-width: 1200px) { .kpi-row { grid-template-columns: repeat(2, 1fr); } .filter-bar { grid-template-columns: repeat(2,1fr); } }
+  @media (max-width: 900px) {
+    .kpi-row { grid-template-columns: 1fr 1fr; }
+    .topbar-search { display: none; }
+    .ctxtbl thead { display: none; }
+    .ctxtbl, .ctxtbl tbody, .ctxtbl tr, .ctxtbl td { display: block; width: 100%; }
+    .ctxtbl tbody tr { padding: 14px 16px; border-bottom: 1px solid var(--border-subtle); }
+    .ctxtbl tbody td { padding: 4px 0; border-bottom: none; }
+    .field-row2, .field-row3 { grid-template-columns: 1fr; }
+    .filter-bar { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 720px) { .sidebar { display: none; } .kpi-row { grid-template-columns: 1fr; } }
+
+  /* Satisfação — editor de perguntas */
+  .pergunta-item { display:flex; align-items:flex-start; gap:12px; background:rgba(255,255,255,0.03); border:1px solid var(--border-subtle); border-radius:12px; padding:14px 16px; margin-bottom:10px; }
+  .pergunta-item .pi-num { width:26px; height:26px; border-radius:7px; background:var(--accent-gradient); color:#fff; font-size:12px; font-weight:800; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-family:'JetBrains Mono',monospace; }
+  .pergunta-item .pi-body { flex:1; }
+  .pergunta-item input.pi-texto { width:100%; border:1px solid var(--border-strong); border-radius:9px; background:rgba(255,255,255,0.04); color:var(--text-primary); font-size:13.5px; padding:10px 12px; outline:none; font-family:inherit; }
+  .pergunta-item input.pi-texto:focus { border-color:var(--accent-blue-bright); }
+  .pergunta-item .pi-tipo { font-size:10.5px; font-family:'JetBrains Mono',monospace; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.4px; margin-top:6px; display:flex; align-items:center; gap:6px; }
+  .pi-badge { display:inline-block; padding:2px 8px; border-radius:6px; font-size:9.5px; font-weight:700; }
+  .pi-badge.nps { color:var(--accent-purple); background:rgba(167,139,250,0.14); }
+  .pi-badge.escala { color:var(--accent-cyan); background:rgba(70,217,245,0.14); }
+  .pi-badge.texto { color:var(--text-secondary); background:rgba(255,255,255,0.06); }
+  .pergunta-item .pi-actions { display:flex; flex-direction:column; gap:4px; }
+  /* versão / status do formulário */
+  .form-topbar { display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap; margin-bottom:18px; }
+  .form-status-chips { display:flex; gap:10px; flex-wrap:wrap; }
+  .fstatus { display:inline-flex; align-items:center; gap:7px; padding:7px 13px; border-radius:9px; font-size:12.5px; font-weight:700; border:1px solid; }
+  .fstatus.rascunho { color:var(--text-secondary); border-color:var(--border-strong); background:rgba(255,255,255,0.04); }
+  .fstatus.aguardando { color:var(--accent-cyan); border-color:rgba(70,217,245,0.4); background:rgba(70,217,245,0.1); }
+  .fstatus.vigente { color:var(--accent-green); border-color:rgba(52,211,153,0.4); background:rgba(52,211,153,0.1); }
+  .fstatus.obsoleto { color:var(--text-muted); border-color:var(--border-strong); background:rgba(255,255,255,0.03); }
+  .hist-item { padding:10px 0; border-bottom:1px solid var(--border-subtle); font-size:12.5px; color:var(--text-secondary); }
+  .hist-item:last-child { border-bottom:none; }
+  .hist-item .ht { font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-muted); }
+  /* status pesquisa */
+  .st-enviada .status-dot2 { background:var(--accent-cyan); box-shadow:0 0 6px rgba(70,217,245,0.7); } .st-enviada { color:var(--accent-cyan); }
+  .st-respondida .status-dot2 { background:var(--accent-green); box-shadow:0 0 6px rgba(52,211,153,0.7); } .st-respondida { color:var(--accent-green); }
+  .st-atencao .status-dot2 { background:var(--accent-amber); box-shadow:0 0 6px rgba(251,191,36,0.7); } .st-atencao { color:var(--accent-amber); white-space:nowrap; }
+  .status-2linhas { display:flex; flex-direction:column; gap:3px; align-items:flex-start; }
+  .status-2linhas .linha-atencao { font-size:10.5px; font-weight:700; color:var(--accent-amber); white-space:nowrap; }
+  .st-naoresp .status-dot2 { background:var(--accent-red); box-shadow:0 0 6px rgba(248,113,113,0.7); } .st-naoresp { color:var(--accent-red); }
+  .st-mel-def .status-dot2 { background:var(--text-secondary); } .st-mel-def { color:var(--text-secondary); }
+  .st-mel-and .status-dot2 { background:var(--accent-amber); box-shadow:0 0 6px rgba(251,191,36,0.7); } .st-mel-and { color:var(--accent-amber); }
+  .st-mel-conc .status-dot2 { background:var(--accent-green); box-shadow:0 0 6px rgba(52,211,153,0.7); } .st-mel-conc { color:var(--accent-green); }
+  .st-mel-atr .status-dot2 { background:var(--accent-red); box-shadow:0 0 6px rgba(248,113,113,0.7); } .st-mel-atr { color:var(--accent-red); }
+  select.input-basic option { background:#10233f; color:var(--text-primary); }
+
+</style>
+<style>
+  /* Cabeçalho, navegação e rodapé são fornecidos pelo aplicativo principal. */
+  html, body { min-height: 100%; background: transparent; }
+  body { background: transparent; }
+  .sidebar, .topbar, .app-footer, .breadcrumb, .welcome-eyebrow, .welcome-sub { display: none; }
+  .app-shell, .main-area { min-height: 0; display: block; }
+  .page-content { padding: 0 0 24px; }
+
+  body.theme-light {
+    --bg-deep: #071b36; --bg-panel: #0c2a4e; --bg-panel-2: #092442; --bg-panel-hover: #10365f;
+    --border-subtle: rgba(112,190,255,.13); --border-strong: rgba(112,190,255,.28);
+    --text-primary: #f5f7fa; --text-secondary: #a9bdd6; --text-muted: #7895b7;
+    color-scheme: dark;
+  }
+  body.theme-white {
+    --bg-deep: #f4f7fb; --bg-panel: #ffffff; --bg-panel-2: #f7faff; --bg-panel-hover: #f2f7fd;
+    --border-subtle: #dce5f0; --border-strong: #c5d3e3;
+    --text-primary: #12233a; --text-secondary: #5c6f86; --text-muted: #8797aa;
+    color-scheme: light;
+  }
+  body.theme-light .modal-overlay, body.theme-white .modal-overlay { background: rgba(7,31,59,.4); }
+  body.theme-light select.input-basic option { background: #0c2a4e; color: #f5f7fa; }
+  body.theme-white select.input-basic option { background: #fff; color: #12233a; }
+</style>
+</head>
+<body>
+<div class="app-shell">
+
+  <aside class="sidebar">
+    <div class="sb-logo-row"><img class="sb-logo-img" src="data:image/png;base64,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" alt="QualityPro Cloud"></div>
+    <div class="sb-section-label">NAVEGAÇÃO</div>
+    <nav class="sb-nav">
+      <a class="nav-item" href="SGQ_QualityPro_Solutions_dark.html"><svg class="icon" viewBox="0 0 24 24"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M9 20v-6h6v6"/></svg>Página inicial</a>
+      <a class="nav-item active" href="meus-modulos-preview.html"><svg class="icon" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Meus módulos</a>
+      <a class="nav-item" href="empresa-preview.html"><svg class="icon" viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="1"/><line x1="9" y1="8" x2="9" y2="8"/><line x1="15" y1="8" x2="15" y2="8"/><line x1="9" y1="12" x2="9" y2="12"/><line x1="15" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="15" y2="16"/></svg>Minha empresa</a>
+      <a class="nav-item" href="usuarios-preview.html"><svg class="icon" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/><circle cx="10" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Usuários</a>
+      <a class="nav-item" href="#"><svg class="icon" viewBox="0 0 24 24"><line x1="6" y1="20" x2="6" y2="12"/><line x1="12" y1="20" x2="12" y2="6"/><line x1="18" y1="20" x2="18" y2="14"/></svg>Relatórios</a>
+      <a class="nav-item" href="#"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Configurações</a>
+    </nav>
+    <div class="sb-help-card">
+      <div class="sb-help-icon"><svg class="icon" viewBox="0 0 24 24"><path d="M3 11l9-8 9 8"/><path d="M9 22V12h6v10"/></svg></div>
+      <div class="htitle">Precisa de ajuda?</div>
+      <div class="hdesc">Nossa equipe está pronta para te atender.</div>
+      <button class="btn-support"><svg class="icon" viewBox="0 0 24 24"><path d="M3 11l9-8 9 8"/><path d="M12 3v9"/></svg>Abrir suporte</button>
+    </div>
+  </aside>
+
+  <div class="main-area">
+    <header class="topbar">
+      <div class="topbar-left">
+        <div class="menu-toggle"><svg class="icon" viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></div>
+        <div>
+          <div class="topbar-title">Satisfação do Cliente</div>
+          <div class="topbar-subtitle">Pesquisas, indicadores de satisfação e melhoria contínua.</div>
+        </div>
+      </div>
+      <div class="topbar-search"><svg class="icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input placeholder="Buscar módulos, clientes, pesquisas..."></div>
+      <div class="topbar-right">
+        <div class="tb-icon-btn"><svg class="icon" viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></div>
+        <div class="tb-icon-btn"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 5 0c0 1.5-2.5 2-2.5 3.5"/><line x1="12" y1="17" x2="12" y2="17"/></svg></div>
+        <div class="tb-divider"></div>
+        <div class="tb-user">
+          <div class="tb-avatar">HM</div>
+          <div class="tb-user-info"><div class="tb-user-name">Hugo Melo</div><div class="tb-user-role">Administrador</div></div>
+          <svg class="icon tb-chevron" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+      </div>
+    </header>
+
+    <div class="page-content">
+      <div class="breadcrumb"><a href="meus-modulos-preview.html">Meus módulos</a><span class="sep">&rsaquo;</span><span class="cur">Satisfação do Cliente</span></div>
+      <div class="welcome-eyebrow">MONITORAMENTO DA SATISFAÇÃO &middot; 9.1.2</div>
+      <p class="welcome-sub">Formulário de pesquisa (NPS), envio aos clientes e controle das respostas de satisfação.</p>
+
+      <div class="kpi-row" id="kpiRow"></div>
+
+      <div class="ctx-tabs" id="mainTabs">
+        <div class="ctx-tab active" data-tab="formulario" onclick="switchTab('formulario')">Formulário</div>
+        <div class="ctx-tab" data-tab="envio" onclick="switchTab('envio')">Envio de Pesquisa</div>
+        <div class="ctx-tab" data-tab="controle" onclick="switchTab('controle')">Controle</div>
+        <div class="ctx-tab" data-tab="melhoria" onclick="switchTab('melhoria')">Ações de Melhoria</div>
+        <div class="ctx-tab" data-tab="indicadores" onclick="switchTab('indicadores')">Indicadores</div>
+      </div>
+
+      <div id="tabContent"></div>
+    </div>
+
+    <footer class="app-footer">
+      <div>&copy; 2026 QualityPro Solutions. Todos os direitos reservados.</div>
+      <div class="mono">QualityPro Cloud &nbsp;&bull;&nbsp; v2.0</div>
+      <div class="footer-status"><span class="status-dot"></span>Sistema atualizado</div>
+    </footer>
+  </div>
+</div>
+
+<!-- ===================== MODAL: HISTÓRICO DE VERSÕES ===================== -->
+<div class="modal-overlay" id="modalHist">
+  <div class="modal-box">
+    <div class="modal-hd"><div><h3>Histórico de versões do formulário</h3><p>Alterações e aprovações</p></div>
+      <div class="modal-close" onclick="closeModal('modalHist')"><svg class="icon" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></div>
+    </div>
+    <div id="histBody"></div>
+    <div class="modal-actions"><div class="btn-ghost" onclick="closeModal('modalHist')">Fechar</div></div>
+  </div>
+</div>
+
+<!-- ===================== MODAL: DETALHE DA PESQUISA ===================== -->
+<div class="modal-overlay" id="modalPesq">
+  <div class="modal-box">
+    <div class="modal-hd"><div><h3 id="pesqTitle">Pesquisa</h3><p id="pesqSub"></p></div>
+      <div class="modal-close" onclick="closeModal('modalPesq')"><svg class="icon" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></div>
+    </div>
+    <div id="pesqBody"></div>
+    <div class="modal-actions"><div class="btn-ghost" onclick="closeModal('modalPesq')">Fechar</div></div>
+  </div>
+</div>
+
+<!-- ===================== MODAL: CONFIRMAÇÃO DE ENVIO ===================== -->
+<div class="modal-overlay" id="modalEnvio">
+  <div class="modal-box">
+    <div class="modal-hd"><div><h3>Pesquisa enviada</h3><p>Simulação do envio de e-mail ao cliente</p></div>
+      <div class="modal-close" onclick="closeModal('modalEnvio')"><svg class="icon" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></div>
+    </div>
+    <div id="envioBody"></div>
+    <div class="modal-actions">
+      <div class="btn-ghost" onclick="closeModal('modalEnvio')">Fechar</div>
+      <div class="btn-primary" id="envioAbrirBtn">Abrir página de resposta</div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ===================== MODAL: AÇÃO DE MELHORIA ===================== -->
+<div class="modal-overlay" id="modalMelhoria">
+  <div class="modal-box">
+    <div class="modal-hd"><div><h3 id="melModalTitle">Ação de melhoria</h3><p id="melModalSub">A partir de respostas baixas do cliente</p></div>
+      <div class="modal-close" onclick="closeModal('modalMelhoria')"><svg class="icon" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></div>
+    </div>
+    <input type="hidden" id="melEditId">
+    <input type="hidden" id="melPesqId">
+    <div id="melContexto"></div>
+    <div class="field"><label>Descrição da ação de melhoria</label><textarea class="input-basic" id="melDescricao" placeholder="Descreva a ação corretiva / de melhoria a ser tomada"></textarea></div>
+    <div class="field-row2">
+      <div class="field"><label>Responsável</label><select class="input-basic" id="melResponsavel"></select></div>
+      <div class="field"><label>Prazo</label><input class="input-basic" type="date" id="melPrazo"></div>
+    </div>
+    <div class="field"><label>Status</label><select class="input-basic" id="melStatus"><option>A definir</option><option>Em andamento</option><option>Atrasada</option><option>Concluída</option></select></div>
+    <div class="modal-actions">
+      <div class="btn-ghost" onclick="closeModal('modalMelhoria')">Cancelar</div>
+      <div class="btn-primary" onclick="salvarMelhoria()">Salvar ação</div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"><span class="tick"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span><span id="toastText">Salvo</span></div>
+
+<script>
+/* ===================== DATA LAYER ===================== */
+const SAT_STORAGE_KEYS = ['qps_sat_form', 'qps_sat_pesquisas', 'qps_sat_melhorias', 'qps_sat_form_version'];
+const embeddedModule = window.parent !== window;
+let satisfactionHydrated = !embeddedModule;
+let bridgeReady = false;
+let persistTimer = null;
+const satisfactionSnapshot = {};
+const cloneValue = (value) => value === undefined ? undefined : JSON.parse(JSON.stringify(value));
+
+function persistSatisfaction(){
+  if(!embeddedModule || !bridgeReady) return;
+  const satisfaction = Object.fromEntries(SAT_STORAGE_KEYS
+    .filter(key => Object.prototype.hasOwnProperty.call(satisfactionSnapshot, key))
+    .map(key => [key, satisfactionSnapshot[key]]));
+  window.parent.postMessage({ type:'qualitypro:satisfacao:persist', satisfaction }, window.location.origin);
+}
+function queueSatisfactionPersist(){
+  if(!embeddedModule || !bridgeReady) return;
+  clearTimeout(persistTimer);
+  persistTimer = setTimeout(persistSatisfaction, 180);
+}
+const store = {
+  get(k){
+    if(embeddedModule && satisfactionHydrated) return Object.prototype.hasOwnProperty.call(satisfactionSnapshot, k) ? cloneValue(satisfactionSnapshot[k]) : null;
+    try { return JSON.parse(localStorage.getItem(k)); } catch(e){ return null; }
+  },
+  set(k,v){
+    const value = cloneValue(v);
+    localStorage.setItem(k, JSON.stringify(value));
+    if(embeddedModule){ satisfactionSnapshot[k] = value; queueSatisfactionPersist(); }
+  }
+};
+function esc(s){ return (s===undefined||s===null?'':String(s)).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function fmtDate(iso){ if(!iso) return '-'; const [y,m,d]=iso.split('-'); return d&&m&&y?`${d}/${m}/${y}`:iso; }
+function fmtDateTime(iso){ if(!iso) return '-'; const dt=new Date(iso); if(isNaN(dt)) return iso; return dt.toLocaleDateString('pt-BR')+' '+dt.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}); }
+function todayISO(){ return new Date().toISOString().slice(0,10); }
+function addDays(iso, dias){ if(!iso) return ''; const d=new Date(iso); d.setDate(d.getDate()+parseInt(dias)); return d.toISOString().slice(0,10); }
+function uid(prefix, list){ let n = list.length ? Math.max(...list.map(i=>parseInt((i.id||'').split('-').pop())||0))+1 : 1; return prefix+'-'+String(n).padStart(4,'0'); }
+
+const APROVADORES = ['Hugo Melo','Carlos Andrade','Marina Souza'];
+const ROSTER = ['Hugo Melo','Marina Souza','Carlos Andrade','Beatriz Santos','Rafael Costa','João Pereira','Eduardo Lima'];
+
+/* ---- Perguntas-base padrão (escala 0–10) ---- */
+const PERGUNTAS_PADRAO = [
+  {id:'P1', texto:'De 0 a 10, o quanto você recomendaria nossa empresa a um colega ou parceiro?', tipo:'nps'},
+  {id:'P2', texto:'Como você avalia a qualidade do produto/serviço entregue?', tipo:'escala'},
+  {id:'P3', texto:'Como você avalia o cumprimento de prazos e a pontualidade de entrega?', tipo:'escala'},
+  {id:'P4', texto:'Como você avalia o atendimento e a comunicação da nossa equipe?', tipo:'escala'},
+  {id:'P5', texto:'Como você avalia o custo-benefício do que foi contratado?', tipo:'escala'},
+  {id:'P6', texto:'Como você avalia a resolução de problemas e o suporte pós-venda?', tipo:'escala'},
+  {id:'P7', texto:'Deixe um comentário ou sugestão (opcional).', tipo:'texto'}
+];
+
+/* ---- Formulário: versão vigente + versões ---- */
+const FORM_SEED = {
+  versoes: [
+    { versao:'01', status:'Vigente', perguntas: JSON.parse(JSON.stringify(PERGUNTAS_PADRAO)),
+      aprovador:'Hugo Melo', dataAprovacao:'2026-01-10', criadoPor:'Carlos Andrade',
+      historico:[
+        {ts:'2026-01-05T09:00:00', texto:'Formulário criado por <b>Carlos Andrade</b> (rascunho, 7 perguntas).'},
+        {ts:'2026-01-08T14:00:00', texto:'Enviado para aprovação da direção.'},
+        {ts:'2026-01-10T10:30:00', texto:'Aprovado por <b>Hugo Melo</b> — versão 01 tornou-se <b>Vigente</b>.'}
+      ]
+    }
+  ]
+};
+const PESQ_SEED = [
+  {"id": "PSQ-0001", "seq": 1, "empresa": "Calibra Metrologia", "responsavel": "Sandra Vasconcelos", "email": "sandra@calibrametrologia.com.br", "cnpj": "44.555.666/0001-77", "formVersao": "01", "perguntas": [{"id": "P1", "texto": "De 0 a 10, o quanto você recomendaria nossa empresa a um colega ou parceiro?", "tipo": "nps"}, {"id": "P2", "texto": "Como você avalia a qualidade do produto/serviço entregue?", "tipo": "escala"}, {"id": "P3", "texto": "Como você avalia o cumprimento de prazos e a pontualidade de entrega?", "tipo": "escala"}, {"id": "P4", "texto": "Como você avalia o atendimento e a comunicação da nossa equipe?", "tipo": "escala"}, {"id": "P5", "texto": "Como você avalia o custo-benefício do que foi contratado?", "tipo": "escala"}, {"id": "P6", "texto": "Como você avalia a resolução de problemas e o suporte pós-venda?", "tipo": "escala"}, {"id": "P7", "texto": "Deixe um comentário ou sugestão (opcional).", "tipo": "texto"}], "status": "Não respondida", "dataResposta": "", "respostas": null, "reenviado": true, "dataEnvio": "2026-08-11", "prazo": "2026-08-18", "historico": [{"ts": "2026-08-11T09:00:00", "texto": "Pesquisa enviada para <b>Calibra Metrologia</b> (sandra@calibrametrologia.com.br)."}]},
+  {"id": "PSQ-0002", "seq": 2, "empresa": "USIMINAS", "responsavel": "Cláudia Rezende", "email": "claudia.rezende@usiminas.com", "cnpj": "60.894.730/0001-05", "formVersao": "01", "perguntas": [{"id": "P1", "texto": "De 0 a 10, o quanto você recomendaria nossa empresa a um colega ou parceiro?", "tipo": "nps"}, {"id": "P2", "texto": "Como você avalia a qualidade do produto/serviço entregue?", "tipo": "escala"}, {"id": "P3", "texto": "Como você avalia o cumprimento de prazos e a pontualidade de entrega?", "tipo": "escala"}, {"id": "P4", "texto": "Como você avalia o atendimento e a comunicação da nossa equipe?", "tipo": "escala"}, {"id": "P5", "texto": "Como você avalia o custo-benefício do que foi contratado?", "tipo": "escala"}, {"id": "P6", "texto": "Como você avalia a resolução de problemas e o suporte pós-venda?", "tipo": "escala"}, {"id": "P7", "texto": "Deixe um comentário ou sugestão (opcional).", "tipo": "texto"}], "status": "Respondida", "dataResposta": "2026-03-24", "respostas": {"P1": 8, "P2": 8, "P3": 10, "P4": 8, "P5": 9, "P6": 10, "P7": ""}, "reenviado": false, "dataEnvio": "2026-03-20", "prazo": "2026-03-27", "historico": [{"ts": "2026-03-20T09:00:00", "texto": "Pesquisa enviada para <b>USIMINAS</b> (claudia.rezende@usiminas.com)."}]},
+  {"id": "PSQ-0003", "seq": 3, "empresa": "Metalúrgica Andrade Ltda", "responsavel": "Roberto Andrade", "email": "roberto@metalandrade.com.br", "cnpj": "12.345.678/0001-90", "formVersao": "01", "perguntas": [{"id": "P1", "texto": "De 0 a 10, o quanto você recomendaria nossa empresa a um colega ou parceiro?", "tipo": "nps"}, {"id": "P2", "texto": "Como você avalia a qualidade do produto/serviço entregue?", "tipo": "escala"}, {"id": "P3", "texto": "Como você avalia o cumprimento de prazos e a pontualidade de entrega?", "tipo": "escala"}, {"id": "P4", "texto": "Como você avalia o atendimento e a comunicação da nossa equipe?", "tipo": "escala"}, {"id": "P5", "texto": "Como você avalia o custo-benefício do que foi contratado?", "tipo": "escala"}, {"id": "P6", "texto": "Como você avalia a resolução de problemas e o suporte pós-venda?", "tipo": "escala"}, {"id": "P7", "texto": "Deixe um comentário ou sugestão (opcional).", "tipo": "texto"}], "status": "Respondida", "dataResposta": "2026-08-17", "respostas": {"P1": 8, "P2": 8, "P3": 8, "P4": 9, "P5": 8, "P6": 8, "P7": ""}, "reenviado": false, "dataEnvio": "2026-08-10", "prazo": "2026-08-17", "historico": [{"ts": "2026-08-10T09:00:00", "texto": "Pesquisa enviada para <b>Metalúrgica Andrade Ltda</b> (roberto@metalandrade.com.br)."}]},
+  {"id": "PSQ-0004", "seq": 4, "empresa": "Transportadora Rota Sul", "responsavel": "Juliana Prado", "email": "juliana@rotasul.com.br", "cnpj": "55.666.777/0001-33", "formVersao": "01", "perguntas": [{"id": "P1", "texto": "De 0 a 10, o quanto você recomendaria nossa empresa a um colega ou parceiro?", "tipo": "nps"}, {"id": "P2", "texto": "Como você avalia a qualidade do produto/serviço entregue?", "tipo": "escala"}, {"id": "P3", "texto": "Como você avalia o cumprimento de prazos e a pontualidade de entrega?", "tipo": "escala"}, {"id": "P4", "texto": "Como você avalia o atendimento e a comunicação da nossa equipe?", "tipo": "escala"}, {"id": "P5", "texto": "Como você avalia o custo-benefício do que foi contratado?", "tipo": "escala"}, {"id": "P6", "texto": "Como você avalia a resolução de problemas e o suporte pós-venda?", "tipo": "escala"}, {"id": "P7", "texto": "Deixe um comentário ou sugestão (opcional).", "tipo": "texto"}], "status": "Respondida", "dataResposta": "2026-05-19", "respostas": {"P1": 5, "P2": 4, "P3": 5, "P4": 3, "P5": 6, "P6": 4, "P7": "Precisamos de mais agilidade no atendimento."}, "reenviado": false, "dataEnvio": "2026-05-17", "prazo": "2026-05-24", "historico": [{"ts": "2026-05-17T09:00:00", "texto": "Pesquisa enviada para <b>Transportadora Rota Sul</b> (juliana@rotasul.com.br)."}]},
+  {"id": "PSQ-0005", "seq": 5, "empresa": "USIMINAS", "responsavel": "Cláudia Rezende", "email": "claudia.rezende@usiminas.com", "cnpj": "60.894.730/0001-05", "formVersao": "01", "perguntas": [{"id": "P1", "texto": "De 0 a 10, o quanto você recomendaria nossa empresa a um colega ou parceiro?", "tipo": "nps"}, {"id": "P2", "texto": "Como você avalia a qualidade do produto/serviço entregue?", "tipo": "escala"}, {"id": "P3", "texto": "Como você avalia o cumprimento de prazos e a pontualidade de entrega?", "tipo": "escala"}, {"id": "P4", "texto": "Como você avalia o atendimento e a comunicação da nossa equipe?", "tipo": "escala"}, {"id": "P5", "texto": "Como você avalia o custo-benefício do que foi contratado?", "tipo": "escala"}, {"id": "P6", "texto": "Como você avalia a resolução de problemas e o suporte pós-venda?", "tipo": "escala"}, {"id": "P7", "texto": "Deixe um comentário ou sugestão (opcional).", "tipo": "texto"}], "status": "Respondida", "dataResposta": "2026-07-26", "respostas": {"P1": 6, "P2": 7, "P3": 1, "P4": 7, "P5": 5, "P6": 3, "P7": "Precisamos de mais agilidade no atendimento."}, "reenviado": false, "dataEnvio": "2026-07-19", "prazo": "2026-07-26", "historico": [{"ts": "2026-07-19T09:00:00", "texto": "Pesquisa enviada para <b>USIMINAS</b> (claudia.rezende@usiminas.com)."}]},
+  {"id": "PSQ-0006", "seq": 6, "empresa": "Eletro Norte", "responsavel": "Simone Alves", "email": "simone@eletronorte.com.br", "cnpj": "10.203.040/0001-50", "formVersao": "01", "perguntas": [{"id": "P1", "texto": "De 0 a 10, o quanto você recomendaria nossa empresa a um colega ou parceiro?", "tipo": "nps"}, {"id": "P2", "texto": "Como você avalia a qualidade do produto/serviço entregue?", "tipo": "escala"}, {"id": "P3", "texto": "Como você avalia o cumprimento de prazos e a pontualidade de entrega?", "tipo": "escala"}, {"id": "P4", "texto": "Como você avalia o atendimento e a comunicação da nossa equipe?", "tipo": "escala"}, {"id": "P5", "texto": "Como você avalia o custo-benefício do que foi contratado?", "tipo": "escala"}, {"id": "P6", "texto": "Como você avalia a resolução de problemas e o suporte pós-venda?", "tipo": "escala"}, {"id": "P7", "texto": "Deixe um comentário ou sugestão (opcional).", "tipo": "texto"}], "status": "Respondida", "dataResposta": "2026-07-25", "respostas": {"P1": 9, "P2": 10, "P3": 8, "P4": 8, "P5": 9, "P6": 8, "P7": "Muito satisfeitos com a entrega."}, "reenviado": false, "dataEnvio": "2026-07-19", "prazo": "2026-07-26", "historico": [{"ts": "2026-07-19T09:00:00", "texto": "Pesquisa enviada para <b>Eletro Norte</b> (simone@eletronorte.com.br)."}]},
+  {"id": "PSQ-0007", "seq": 7, "empresa": "Transportadora Rota Sul", "responsavel": "Juliana Prado", "email": "juliana@rotasul.com.br", "cnpj": "55.666.777/0001-33", "formVersao": "01", "perguntas": [{"id": "P1", "texto": "De 0 a 10, o quanto você recomendaria nossa empresa a um colega ou parceiro?", "tipo": "nps"}, {"id": "P2", "texto": "Como você avalia a qualidade do produto/serviço entregue?", "tipo": "escala"}, {"id": "P3", "texto": "Como você avalia o cumprimento de prazos e a pontualidade de entrega?", "tipo": "escala"}, {"id": "P4", "texto": "Como você avalia o atendimento e a comunicação da nossa equipe?", "tipo": "escala"}, {"id": "P5", "texto": "Como você avalia o custo-benefício do que foi contratado?", "tipo": "escala"}, {"id": "P6", "texto": "Como você avalia a resolução de problemas e o suporte pós-venda?", "tipo": "escala"}, {"id": "P7", "texto": "Deixe um comentário ou sugestão (opcional).", "tipo": "texto"}], "status": "Não respondida", "dataResposta": "", "respostas": null, "reenviado": true, "dataEnvio": "2026-07-16", "prazo": "2026-07-23", "historico": [{"ts": "2026-07-16T09:00:00", "texto": "Pesquisa enviada para <b>Transportadora Rota Sul</b> (juliana@rotasul.com.br)."}]},
+  {"id": "PSQ-0008", "seq": 8, "empresa": "Metalúrgica Andrade Ltda", "responsavel": "Roberto Andrade", "email": "roberto@metalandrade.com.br", "cnpj": "12.345.678/0001-90", "formVersao": "01", "perguntas": [{"id": "P1", "texto": "De 0 a 10, o quanto você recomendaria nossa empresa a um colega ou parceiro?", "tipo": "nps"}, {"id": "P2", "texto": "Como você avalia a qualidade do produto/serviço entregue?", "tipo": "escala"}, {"id": "P3", "texto": "Como você avalia o cumprimento de prazos e a pontualidade de entrega?", "tipo": "escala"}, {"id": "P4", "texto": "Como você avalia o atendimento e a comunicação da nossa equipe?", "tipo": "escala"}, {"id": "P5", "texto": "Como você avalia o custo-benefício do que foi contratado?", "tipo": "escala"}, {"id": "P6", "texto": "Como você avalia a resolução de problemas e o suporte pós-venda?", "tipo": "escala"}, {"id": "P7", "texto": "Deixe um comentário ou sugestão (opcional).", "tipo": "texto"}], "status": "Respondida", "dataResposta": "2025-11-28", "respostas": {"P1": 8, "P2": 10, "P3": 8, "P4": 8, "P5": 8, "P6": 9, "P7": "Atendimento nota 10."}, "reenviado": false, "dataEnvio": "2025-11-22", "prazo": "2025-11-29", "historico": [{"ts": "2025-11-22T09:00:00", "texto": "Pesquisa enviada para <b>Metalúrgica Andrade Ltda</b> (roberto@metalandrade.com.br)."}]},
+  {"id": "PSQ-0009", "seq": 9, "empresa": "Eletro Norte", "responsavel": "Simone Alves", "email": "simone@eletronorte.com.br", "cnpj": "10.203.040/0001-50", "formVersao": "01", "perguntas": [{"id": "P1", "texto": "De 0 a 10, o quanto você recomendaria nossa empresa a um colega ou parceiro?", "tipo": "nps"}, {"id": "P2", "texto": "Como você avalia a qualidade do produto/serviço entregue?", "tipo": "escala"}, {"id": "P3", "texto": "Como você avalia o cumprimento de prazos e a pontualidade de entrega?", "tipo": "escala"}, {"id": "P4", "texto": "Como você avalia o atendimento e a comunicação da nossa equipe?", "tipo": "escala"}, {"id": "P5", "texto": "Como você avalia o custo-benefício do que foi contratado?", "tipo": "escala"}, {"id": "P6", "texto": "Como você avalia a resolução de problemas e o suporte pós-venda?", "tipo": "escala"}, {"id": "P7", "texto": "Deixe um comentário ou sugestão (opcional).", "tipo": "texto"}], "status": "Respondida", "dataResposta": "2026-06-24", "respostas": {"P1": 10, "P2": 10, "P3": 9, "P4": 9, "P5": 10, "P6": 9, "P7": ""}, "reenviado": false, "dataEnvio": "2026-06-20", "prazo": "2026-06-27", "historico": [{"ts": "2026-06-20T09:00:00", "texto": "Pesquisa enviada para <b>Eletro Norte</b> (simone@eletronorte.com.br)."}]},
+  {"id": "PSQ-0010", "seq": 10, "empresa": "Metalúrgica Andrade Ltda", "responsavel": "Roberto Andrade", "email": "roberto@metalandrade.com.br", "cnpj": "12.345.678/0001-90", "formVersao": "01", "perguntas": [{"id": "P1", "texto": "De 0 a 10, o quanto você recomendaria nossa empresa a um colega ou parceiro?", "tipo": "nps"}, {"id": "P2", "texto": "Como você avalia a qualidade do produto/serviço entregue?", "tipo": "escala"}, {"id": "P3", "texto": "Como você avalia o cumprimento de prazos e a pontualidade de entrega?", "tipo": "escala"}, {"id": "P4", "texto": "Como você avalia o atendimento e a comunicação da nossa equipe?", "tipo": "escala"}, {"id": "P5", "texto": "Como você avalia o custo-benefício do que foi contratado?", "tipo": "escala"}, {"id": "P6", "texto": "Como você avalia a resolução de problemas e o suporte pós-venda?", "tipo": "escala"}, {"id": "P7", "texto": "Deixe um comentário ou sugestão (opcional).", "tipo": "texto"}], "status": "Enviada", "dataResposta": "", "respostas": null, "reenviado": false, "dataEnvio": "2026-09-13", "prazo": "2026-09-20", "historico": [{"ts": "2026-09-13T09:00:00", "texto": "Pesquisa enviada para <b>Metalúrgica Andrade Ltda</b> (roberto@metalandrade.com.br)."}]},
+  {"id": "PSQ-0011", "seq": 11, "empresa": "Transportadora Rota Sul", "responsavel": "Juliana Prado", "email": "juliana@rotasul.com.br", "cnpj": "55.666.777/0001-33", "formVersao": "01", "perguntas": [{"id": "P1", "texto": "De 0 a 10, o quanto você recomendaria nossa empresa a um colega ou parceiro?", "tipo": "nps"}, {"id": "P2", "texto": "Como você avalia a qualidade do produto/serviço entregue?", "tipo": "escala"}, {"id": "P3", "texto": "Como você avalia o cumprimento de prazos e a pontualidade de entrega?", "tipo": "escala"}, {"id": "P4", "texto": "Como você avalia o atendimento e a comunicação da nossa equipe?", "tipo": "escala"}, {"id": "P5", "texto": "Como você avalia o custo-benefício do que foi contratado?", "tipo": "escala"}, {"id": "P6", "texto": "Como você avalia a resolução de problemas e o suporte pós-venda?", "tipo": "escala"}, {"id": "P7", "texto": "Deixe um comentário ou sugestão (opcional).", "tipo": "texto"}], "status": "Respondida", "dataResposta": "2026-07-04", "respostas": {"P1": 5, "P2": 1, "P3": 5, "P4": 6, "P5": 6, "P6": 5, "P7": "Precisamos de mais agilidade no atendimento."}, "reenviado": false, "dataEnvio": "2026-06-27", "prazo": "2026-07-04", "historico": [{"ts": "2026-06-27T09:00:00", "texto": "Pesquisa enviada para <b>Transportadora Rota Sul</b> (juliana@rotasul.com.br)."}]},
+  {"id": "PSQ-0012", "seq": 12, "empresa": "Transportadora Rota Sul", "responsavel": "Juliana Prado", "email": "juliana@rotasul.com.br", "cnpj": "55.666.777/0001-33", "formVersao": "01", "perguntas": [{"id": "P1", "texto": "De 0 a 10, o quanto você recomendaria nossa empresa a um colega ou parceiro?", "tipo": "nps"}, {"id": "P2", "texto": "Como você avalia a qualidade do produto/serviço entregue?", "tipo": "escala"}, {"id": "P3", "texto": "Como você avalia o cumprimento de prazos e a pontualidade de entrega?", "tipo": "escala"}, {"id": "P4", "texto": "Como você avalia o atendimento e a comunicação da nossa equipe?", "tipo": "escala"}, {"id": "P5", "texto": "Como você avalia o custo-benefício do que foi contratado?", "tipo": "escala"}, {"id": "P6", "texto": "Como você avalia a resolução de problemas e o suporte pós-venda?", "tipo": "escala"}, {"id": "P7", "texto": "Deixe um comentário ou sugestão (opcional).", "tipo": "texto"}], "status": "Enviada", "dataResposta": "", "respostas": null, "reenviado": false, "dataEnvio": "2026-09-12", "prazo": "2026-09-19", "historico": [{"ts": "2026-09-12T09:00:00", "texto": "Pesquisa enviada para <b>Transportadora Rota Sul</b> (juliana@rotasul.com.br)."}]},
+  {"id": "PSQ-0013", "seq": 13, "empresa": "Metalúrgica Andrade Ltda", "responsavel": "Roberto Andrade", "email": "roberto@metalandrade.com.br", "cnpj": "12.345.678/0001-90", "formVersao": "01", "perguntas": [{"id": "P1", "texto": "De 0 a 10, o quanto você recomendaria nossa empresa a um colega ou parceiro?", "tipo": "nps"}, {"id": "P2", "texto": "Como você avalia a qualidade do produto/serviço entregue?", "tipo": "escala"}, {"id": "P3", "texto": "Como você avalia o cumprimento de prazos e a pontualidade de entrega?", "tipo": "escala"}, {"id": "P4", "texto": "Como você avalia o atendimento e a comunicação da nossa equipe?", "tipo": "escala"}, {"id": "P5", "texto": "Como você avalia o custo-benefício do que foi contratado?", "tipo": "escala"}, {"id": "P6", "texto": "Como você avalia a resolução de problemas e o suporte pós-venda?", "tipo": "escala"}, {"id": "P7", "texto": "Deixe um comentário ou sugestão (opcional).", "tipo": "texto"}], "status": "Respondida", "dataResposta": "2026-07-01", "respostas": {"P1": 8, "P2": 6, "P3": 8, "P4": 6, "P5": 6, "P6": 7, "P7": ""}, "reenviado": false, "dataEnvio": "2026-06-30", "prazo": "2026-07-07", "historico": [{"ts": "2026-06-30T09:00:00", "texto": "Pesquisa enviada para <b>Metalúrgica Andrade Ltda</b> (roberto@metalandrade.com.br)."}]},
+  {"id": "PSQ-0014", "seq": 14, "empresa": "Hyundai do Brasil", "responsavel": "Paulo Nakamura", "email": "p.nakamura@hyundai.com.br", "cnpj": "23.456.789/0001-55", "formVersao": "01", "perguntas": [{"id": "P1", "texto": "De 0 a 10, o quanto você recomendaria nossa empresa a um colega ou parceiro?", "tipo": "nps"}, {"id": "P2", "texto": "Como você avalia a qualidade do produto/serviço entregue?", "tipo": "escala"}, {"id": "P3", "texto": "Como você avalia o cumprimento de prazos e a pontualidade de entrega?", "tipo": "escala"}, {"id": "P4", "texto": "Como você avalia o atendimento e a comunicação da nossa equipe?", "tipo": "escala"}, {"id": "P5", "texto": "Como você avalia o custo-benefício do que foi contratado?", "tipo": "escala"}, {"id": "P6", "texto": "Como você avalia a resolução de problemas e o suporte pós-venda?", "tipo": "escala"}, {"id": "P7", "texto": "Deixe um comentário ou sugestão (opcional).", "tipo": "texto"}], "status": "Não respondida", "dataResposta": "", "respostas": null, "reenviado": true, "dataEnvio": "2026-06-27", "prazo": "2026-07-04", "historico": [{"ts": "2026-06-27T09:00:00", "texto": "Pesquisa enviada para <b>Hyundai do Brasil</b> (p.nakamura@hyundai.com.br)."}]},
+  {"id": "PSQ-0015", "seq": 15, "empresa": "Transportadora Rota Sul", "responsavel": "Juliana Prado", "email": "juliana@rotasul.com.br", "cnpj": "55.666.777/0001-33", "formVersao": "01", "perguntas": [{"id": "P1", "texto": "De 0 a 10, o quanto você recomendaria nossa empresa a um colega ou parceiro?", "tipo": "nps"}, {"id": "P2", "texto": "Como você avalia a qualidade do produto/serviço entregue?", "tipo": "escala"}, {"id": "P3", "texto": "Como você avalia o cumprimento de prazos e a pontualidade de entrega?", "tipo": "escala"}, {"id": "P4", "texto": "Como você avalia o atendimento e a comunicação da nossa equipe?", "tipo": "escala"}, {"id": "P5", "texto": "Como você avalia o custo-benefício do que foi contratado?", "tipo": "escala"}, {"id": "P6", "texto": "Como você avalia a resolução de problemas e o suporte pós-venda?", "tipo": "escala"}, {"id": "P7", "texto": "Deixe um comentário ou sugestão (opcional).", "tipo": "texto"}], "status": "Respondida", "dataResposta": "2025-11-30", "respostas": {"P1": 8, "P2": 8, "P3": 7, "P4": 6, "P5": 8, "P6": 6, "P7": ""}, "reenviado": false, "dataEnvio": "2025-11-24", "prazo": "2025-12-01", "historico": [{"ts": "2025-11-24T09:00:00", "texto": "Pesquisa enviada para <b>Transportadora Rota Sul</b> (juliana@rotasul.com.br)."}]},
+  {"id": "PSQ-0016", "seq": 16, "empresa": "AgroTech Sementes", "responsavel": "Beatriz Nunes", "email": "beatriz@agrotech.com.br", "cnpj": "22.333.444/0001-66", "formVersao": "01", "perguntas": [{"id": "P1", "texto": "De 0 a 10, o quanto você recomendaria nossa empresa a um colega ou parceiro?", "tipo": "nps"}, {"id": "P2", "texto": "Como você avalia a qualidade do produto/serviço entregue?", "tipo": "escala"}, {"id": "P3", "texto": "Como você avalia o cumprimento de prazos e a pontualidade de entrega?", "tipo": "escala"}, {"id": "P4", "texto": "Como você avalia o atendimento e a comunicação da nossa equipe?", "tipo": "escala"}, {"id": "P5", "texto": "Como você avalia o custo-benefício do que foi contratado?", "tipo": "escala"}, {"id": "P6", "texto": "Como você avalia a resolução de problemas e o suporte pós-venda?", "tipo": "escala"}, {"id": "P7", "texto": "Deixe um comentário ou sugestão (opcional).", "tipo": "texto"}], "status": "Enviada", "dataResposta": "", "respostas": null, "reenviado": false, "dataEnvio": "2026-09-10", "prazo": "2026-09-17", "historico": [{"ts": "2026-09-10T09:00:00", "texto": "Pesquisa enviada para <b>AgroTech Sementes</b> (beatriz@agrotech.com.br)."}]},
+  {"id": "PSQ-0017", "seq": 17, "empresa": "Aços & Cia Distribuidora", "responsavel": "Marcos Teixeira", "email": "marcos@acosecia.com.br", "cnpj": "11.222.333/0001-44", "formVersao": "01", "perguntas": [{"id": "P1", "texto": "De 0 a 10, o quanto você recomendaria nossa empresa a um colega ou parceiro?", "tipo": "nps"}, {"id": "P2", "texto": "Como você avalia a qualidade do produto/serviço entregue?", "tipo": "escala"}, {"id": "P3", "texto": "Como você avalia o cumprimento de prazos e a pontualidade de entrega?", "tipo": "escala"}, {"id": "P4", "texto": "Como você avalia o atendimento e a comunicação da nossa equipe?", "tipo": "escala"}, {"id": "P5", "texto": "Como você avalia o custo-benefício do que foi contratado?", "tipo": "escala"}, {"id": "P6", "texto": "Como você avalia a resolução de problemas e o suporte pós-venda?", "tipo": "escala"}, {"id": "P7", "texto": "Deixe um comentário ou sugestão (opcional).", "tipo": "texto"}], "status": "Enviada", "dataResposta": "", "respostas": null, "reenviado": false, "dataEnvio": "2026-09-08", "prazo": "2026-09-15", "historico": [{"ts": "2026-09-08T09:00:00", "texto": "Pesquisa enviada para <b>Aços & Cia Distribuidora</b> (marcos@acosecia.com.br)."}]},
+  {"id": "PSQ-0018", "seq": 18, "empresa": "Transportadora Rota Sul", "responsavel": "Juliana Prado", "email": "juliana@rotasul.com.br", "cnpj": "55.666.777/0001-33", "formVersao": "01", "perguntas": [{"id": "P1", "texto": "De 0 a 10, o quanto você recomendaria nossa empresa a um colega ou parceiro?", "tipo": "nps"}, {"id": "P2", "texto": "Como você avalia a qualidade do produto/serviço entregue?", "tipo": "escala"}, {"id": "P3", "texto": "Como você avalia o cumprimento de prazos e a pontualidade de entrega?", "tipo": "escala"}, {"id": "P4", "texto": "Como você avalia o atendimento e a comunicação da nossa equipe?", "tipo": "escala"}, {"id": "P5", "texto": "Como você avalia o custo-benefício do que foi contratado?", "tipo": "escala"}, {"id": "P6", "texto": "Como você avalia a resolução de problemas e o suporte pós-venda?", "tipo": "escala"}, {"id": "P7", "texto": "Deixe um comentário ou sugestão (opcional).", "tipo": "texto"}], "status": "Enviada", "dataResposta": "", "respostas": null, "reenviado": false, "dataEnvio": "2026-09-11", "prazo": "2026-09-18", "historico": [{"ts": "2026-09-11T09:00:00", "texto": "Pesquisa enviada para <b>Transportadora Rota Sul</b> (juliana@rotasul.com.br)."}]},
+  {"id": "PSQ-0019", "seq": 19, "empresa": "Hyundai do Brasil", "responsavel": "Paulo Nakamura", "email": "p.nakamura@hyundai.com.br", "cnpj": "23.456.789/0001-55", "formVersao": "01", "perguntas": [{"id": "P1", "texto": "De 0 a 10, o quanto você recomendaria nossa empresa a um colega ou parceiro?", "tipo": "nps"}, {"id": "P2", "texto": "Como você avalia a qualidade do produto/serviço entregue?", "tipo": "escala"}, {"id": "P3", "texto": "Como você avalia o cumprimento de prazos e a pontualidade de entrega?", "tipo": "escala"}, {"id": "P4", "texto": "Como você avalia o atendimento e a comunicação da nossa equipe?", "tipo": "escala"}, {"id": "P5", "texto": "Como você avalia o custo-benefício do que foi contratado?", "tipo": "escala"}, {"id": "P6", "texto": "Como você avalia a resolução de problemas e o suporte pós-venda?", "tipo": "escala"}, {"id": "P7", "texto": "Deixe um comentário ou sugestão (opcional).", "tipo": "texto"}], "status": "Respondida", "dataResposta": "2026-02-28", "respostas": {"P1": 7, "P2": 8, "P3": 6, "P4": 7, "P5": 8, "P6": 7, "P7": ""}, "reenviado": false, "dataEnvio": "2026-02-27", "prazo": "2026-03-06", "historico": [{"ts": "2026-02-27T09:00:00", "texto": "Pesquisa enviada para <b>Hyundai do Brasil</b> (p.nakamura@hyundai.com.br)."}]},
+  {"id": "PSQ-0020", "seq": 20, "empresa": "Hyundai do Brasil", "responsavel": "Paulo Nakamura", "email": "p.nakamura@hyundai.com.br", "cnpj": "23.456.789/0001-55", "formVersao": "01", "perguntas": [{"id": "P1", "texto": "De 0 a 10, o quanto você recomendaria nossa empresa a um colega ou parceiro?", "tipo": "nps"}, {"id": "P2", "texto": "Como você avalia a qualidade do produto/serviço entregue?", "tipo": "escala"}, {"id": "P3", "texto": "Como você avalia o cumprimento de prazos e a pontualidade de entrega?", "tipo": "escala"}, {"id": "P4", "texto": "Como você avalia o atendimento e a comunicação da nossa equipe?", "tipo": "escala"}, {"id": "P5", "texto": "Como você avalia o custo-benefício do que foi contratado?", "tipo": "escala"}, {"id": "P6", "texto": "Como você avalia a resolução de problemas e o suporte pós-venda?", "tipo": "escala"}, {"id": "P7", "texto": "Deixe um comentário ou sugestão (opcional).", "tipo": "texto"}], "status": "Respondida", "dataResposta": "2026-08-22", "respostas": {"P1": 8, "P2": 7, "P3": 6, "P4": 6, "P5": 6, "P6": 7, "P7": "Atende às expectativas."}, "reenviado": false, "dataEnvio": "2026-08-15", "prazo": "2026-08-22", "historico": [{"ts": "2026-08-15T09:00:00", "texto": "Pesquisa enviada para <b>Hyundai do Brasil</b> (p.nakamura@hyundai.com.br)."}]},
+  {"id": "PSQ-0021", "seq": 21, "empresa": "USIMINAS", "responsavel": "Cláudia Rezende", "email": "claudia.rezende@usiminas.com", "cnpj": "60.894.730/0001-05", "formVersao": "01", "perguntas": [{"id": "P1", "texto": "De 0 a 10, o quanto você recomendaria nossa empresa a um colega ou parceiro?", "tipo": "nps"}, {"id": "P2", "texto": "Como você avalia a qualidade do produto/serviço entregue?", "tipo": "escala"}, {"id": "P3", "texto": "Como você avalia o cumprimento de prazos e a pontualidade de entrega?", "tipo": "escala"}, {"id": "P4", "texto": "Como você avalia o atendimento e a comunicação da nossa equipe?", "tipo": "escala"}, {"id": "P5", "texto": "Como você avalia o custo-benefício do que foi contratado?", "tipo": "escala"}, {"id": "P6", "texto": "Como você avalia a resolução de problemas e o suporte pós-venda?", "tipo": "escala"}, {"id": "P7", "texto": "Deixe um comentário ou sugestão (opcional).", "tipo": "texto"}], "status": "Não respondida", "dataResposta": "", "respostas": null, "reenviado": true, "dataEnvio": "2026-07-13", "prazo": "2026-07-20", "historico": [{"ts": "2026-07-13T09:00:00", "texto": "Pesquisa enviada para <b>USIMINAS</b> (claudia.rezende@usiminas.com)."}]},
+  {"id": "PSQ-0022", "seq": 22, "empresa": "Eletro Norte", "responsavel": "Simone Alves", "email": "simone@eletronorte.com.br", "cnpj": "10.203.040/0001-50", "formVersao": "01", "perguntas": [{"id": "P1", "texto": "De 0 a 10, o quanto você recomendaria nossa empresa a um colega ou parceiro?", "tipo": "nps"}, {"id": "P2", "texto": "Como você avalia a qualidade do produto/serviço entregue?", "tipo": "escala"}, {"id": "P3", "texto": "Como você avalia o cumprimento de prazos e a pontualidade de entrega?", "tipo": "escala"}, {"id": "P4", "texto": "Como você avalia o atendimento e a comunicação da nossa equipe?", "tipo": "escala"}, {"id": "P5", "texto": "Como você avalia o custo-benefício do que foi contratado?", "tipo": "escala"}, {"id": "P6", "texto": "Como você avalia a resolução de problemas e o suporte pós-venda?", "tipo": "escala"}, {"id": "P7", "texto": "Deixe um comentário ou sugestão (opcional).", "tipo": "texto"}], "status": "Não respondida", "dataResposta": "", "respostas": null, "reenviado": true, "dataEnvio": "2026-07-28", "prazo": "2026-08-04", "historico": [{"ts": "2026-07-28T09:00:00", "texto": "Pesquisa enviada para <b>Eletro Norte</b> (simone@eletronorte.com.br)."}]},
+  {"id": "PSQ-0023", "seq": 23, "empresa": "Componentes Delta", "responsavel": "Ricardo Moura", "email": "ricardo@compdelta.com.br", "cnpj": "77.888.999/0001-11", "formVersao": "01", "perguntas": [{"id": "P1", "texto": "De 0 a 10, o quanto você recomendaria nossa empresa a um colega ou parceiro?", "tipo": "nps"}, {"id": "P2", "texto": "Como você avalia a qualidade do produto/serviço entregue?", "tipo": "escala"}, {"id": "P3", "texto": "Como você avalia o cumprimento de prazos e a pontualidade de entrega?", "tipo": "escala"}, {"id": "P4", "texto": "Como você avalia o atendimento e a comunicação da nossa equipe?", "tipo": "escala"}, {"id": "P5", "texto": "Como você avalia o custo-benefício do que foi contratado?", "tipo": "escala"}, {"id": "P6", "texto": "Como você avalia a resolução de problemas e o suporte pós-venda?", "tipo": "escala"}, {"id": "P7", "texto": "Deixe um comentário ou sugestão (opcional).", "tipo": "texto"}], "status": "Respondida", "dataResposta": "2026-05-11", "respostas": {"P1": 8, "P2": 8, "P3": 9, "P4": 10, "P5": 9, "P6": 9, "P7": ""}, "reenviado": false, "dataEnvio": "2026-05-04", "prazo": "2026-05-11", "historico": [{"ts": "2026-05-04T09:00:00", "texto": "Pesquisa enviada para <b>Componentes Delta</b> (ricardo@compdelta.com.br)."}]},
+  {"id": "PSQ-0024", "seq": 24, "empresa": "USIMINAS", "responsavel": "Cláudia Rezende", "email": "claudia.rezende@usiminas.com", "cnpj": "60.894.730/0001-05", "formVersao": "01", "perguntas": [{"id": "P1", "texto": "De 0 a 10, o quanto você recomendaria nossa empresa a um colega ou parceiro?", "tipo": "nps"}, {"id": "P2", "texto": "Como você avalia a qualidade do produto/serviço entregue?", "tipo": "escala"}, {"id": "P3", "texto": "Como você avalia o cumprimento de prazos e a pontualidade de entrega?", "tipo": "escala"}, {"id": "P4", "texto": "Como você avalia o atendimento e a comunicação da nossa equipe?", "tipo": "escala"}, {"id": "P5", "texto": "Como você avalia o custo-benefício do que foi contratado?", "tipo": "escala"}, {"id": "P6", "texto": "Como você avalia a resolução de problemas e o suporte pós-venda?", "tipo": "escala"}, {"id": "P7", "texto": "Deixe um comentário ou sugestão (opcional).", "tipo": "texto"}], "status": "Enviada", "dataResposta": "", "respostas": null, "reenviado": false, "dataEnvio": "2026-09-10", "prazo": "2026-09-17", "historico": [{"ts": "2026-09-10T09:00:00", "texto": "Pesquisa enviada para <b>USIMINAS</b> (claudia.rezende@usiminas.com)."}]},
+  {"id": "PSQ-0025", "seq": 25, "empresa": "Eletro Norte", "responsavel": "Simone Alves", "email": "simone@eletronorte.com.br", "cnpj": "10.203.040/0001-50", "formVersao": "01", "perguntas": [{"id": "P1", "texto": "De 0 a 10, o quanto você recomendaria nossa empresa a um colega ou parceiro?", "tipo": "nps"}, {"id": "P2", "texto": "Como você avalia a qualidade do produto/serviço entregue?", "tipo": "escala"}, {"id": "P3", "texto": "Como você avalia o cumprimento de prazos e a pontualidade de entrega?", "tipo": "escala"}, {"id": "P4", "texto": "Como você avalia o atendimento e a comunicação da nossa equipe?", "tipo": "escala"}, {"id": "P5", "texto": "Como você avalia o custo-benefício do que foi contratado?", "tipo": "escala"}, {"id": "P6", "texto": "Como você avalia a resolução de problemas e o suporte pós-venda?", "tipo": "escala"}, {"id": "P7", "texto": "Deixe um comentário ou sugestão (opcional).", "tipo": "texto"}], "status": "Respondida", "dataResposta": "2026-03-05", "respostas": {"P1": 9, "P2": 9, "P3": 10, "P4": 8, "P5": 8, "P6": 8, "P7": "Muito satisfeitos com a entrega."}, "reenviado": false, "dataEnvio": "2026-03-03", "prazo": "2026-03-10", "historico": [{"ts": "2026-03-03T09:00:00", "texto": "Pesquisa enviada para <b>Eletro Norte</b> (simone@eletronorte.com.br)."}]},
+  {"id": "PSQ-0026", "seq": 26, "empresa": "Calibra Metrologia", "responsavel": "Sandra Vasconcelos", "email": "sandra@calibrametrologia.com.br", "cnpj": "44.555.666/0001-77", "formVersao": "01", "perguntas": [{"id": "P1", "texto": "De 0 a 10, o quanto você recomendaria nossa empresa a um colega ou parceiro?", "tipo": "nps"}, {"id": "P2", "texto": "Como você avalia a qualidade do produto/serviço entregue?", "tipo": "escala"}, {"id": "P3", "texto": "Como você avalia o cumprimento de prazos e a pontualidade de entrega?", "tipo": "escala"}, {"id": "P4", "texto": "Como você avalia o atendimento e a comunicação da nossa equipe?", "tipo": "escala"}, {"id": "P5", "texto": "Como você avalia o custo-benefício do que foi contratado?", "tipo": "escala"}, {"id": "P6", "texto": "Como você avalia a resolução de problemas e o suporte pós-venda?", "tipo": "escala"}, {"id": "P7", "texto": "Deixe um comentário ou sugestão (opcional).", "tipo": "texto"}], "status": "Respondida", "dataResposta": "2026-04-12", "respostas": {"P1": 2, "P2": 4, "P3": 3, "P4": 4, "P5": 2, "P6": 6, "P7": "Tivemos problemas com prazos de entrega."}, "reenviado": false, "dataEnvio": "2026-04-06", "prazo": "2026-04-13", "historico": [{"ts": "2026-04-06T09:00:00", "texto": "Pesquisa enviada para <b>Calibra Metrologia</b> (sandra@calibrametrologia.com.br)."}]},
+  {"id": "PSQ-0027", "seq": 27, "empresa": "Transportadora Rota Sul", "responsavel": "Juliana Prado", "email": "juliana@rotasul.com.br", "cnpj": "55.666.777/0001-33", "formVersao": "01", "perguntas": [{"id": "P1", "texto": "De 0 a 10, o quanto você recomendaria nossa empresa a um colega ou parceiro?", "tipo": "nps"}, {"id": "P2", "texto": "Como você avalia a qualidade do produto/serviço entregue?", "tipo": "escala"}, {"id": "P3", "texto": "Como você avalia o cumprimento de prazos e a pontualidade de entrega?", "tipo": "escala"}, {"id": "P4", "texto": "Como você avalia o atendimento e a comunicação da nossa equipe?", "tipo": "escala"}, {"id": "P5", "texto": "Como você avalia o custo-benefício do que foi contratado?", "tipo": "escala"}, {"id": "P6", "texto": "Como você avalia a resolução de problemas e o suporte pós-venda?", "tipo": "escala"}, {"id": "P7", "texto": "Deixe um comentário ou sugestão (opcional).", "tipo": "texto"}], "status": "Não respondida", "dataResposta": "", "respostas": null, "reenviado": true, "dataEnvio": "2026-08-17", "prazo": "2026-08-24", "historico": [{"ts": "2026-08-17T09:00:00", "texto": "Pesquisa enviada para <b>Transportadora Rota Sul</b> (juliana@rotasul.com.br)."}]},
+  {"id": "PSQ-0028", "seq": 28, "empresa": "Aços & Cia Distribuidora", "responsavel": "Marcos Teixeira", "email": "marcos@acosecia.com.br", "cnpj": "11.222.333/0001-44", "formVersao": "01", "perguntas": [{"id": "P1", "texto": "De 0 a 10, o quanto você recomendaria nossa empresa a um colega ou parceiro?", "tipo": "nps"}, {"id": "P2", "texto": "Como você avalia a qualidade do produto/serviço entregue?", "tipo": "escala"}, {"id": "P3", "texto": "Como você avalia o cumprimento de prazos e a pontualidade de entrega?", "tipo": "escala"}, {"id": "P4", "texto": "Como você avalia o atendimento e a comunicação da nossa equipe?", "tipo": "escala"}, {"id": "P5", "texto": "Como você avalia o custo-benefício do que foi contratado?", "tipo": "escala"}, {"id": "P6", "texto": "Como você avalia a resolução de problemas e o suporte pós-venda?", "tipo": "escala"}, {"id": "P7", "texto": "Deixe um comentário ou sugestão (opcional).", "tipo": "texto"}], "status": "Respondida", "dataResposta": "2026-01-13", "respostas": {"P1": 8, "P2": 9, "P3": 9, "P4": 9, "P5": 9, "P6": 9, "P7": "Atendimento nota 10."}, "reenviado": false, "dataEnvio": "2026-01-06", "prazo": "2026-01-13", "historico": [{"ts": "2026-01-06T09:00:00", "texto": "Pesquisa enviada para <b>Aços & Cia Distribuidora</b> (marcos@acosecia.com.br)."}]},
+  {"id": "PSQ-0029", "seq": 29, "empresa": "AgroTech Sementes", "responsavel": "Beatriz Nunes", "email": "beatriz@agrotech.com.br", "cnpj": "22.333.444/0001-66", "formVersao": "01", "perguntas": [{"id": "P1", "texto": "De 0 a 10, o quanto você recomendaria nossa empresa a um colega ou parceiro?", "tipo": "nps"}, {"id": "P2", "texto": "Como você avalia a qualidade do produto/serviço entregue?", "tipo": "escala"}, {"id": "P3", "texto": "Como você avalia o cumprimento de prazos e a pontualidade de entrega?", "tipo": "escala"}, {"id": "P4", "texto": "Como você avalia o atendimento e a comunicação da nossa equipe?", "tipo": "escala"}, {"id": "P5", "texto": "Como você avalia o custo-benefício do que foi contratado?", "tipo": "escala"}, {"id": "P6", "texto": "Como você avalia a resolução de problemas e o suporte pós-venda?", "tipo": "escala"}, {"id": "P7", "texto": "Deixe um comentário ou sugestão (opcional).", "tipo": "texto"}], "status": "Respondida", "dataResposta": "2026-04-05", "respostas": {"P1": 2, "P2": 4, "P3": 7, "P4": 4, "P5": 7, "P6": 2, "P7": "Precisamos de mais agilidade no atendimento."}, "reenviado": false, "dataEnvio": "2026-04-01", "prazo": "2026-04-08", "historico": [{"ts": "2026-04-01T09:00:00", "texto": "Pesquisa enviada para <b>AgroTech Sementes</b> (beatriz@agrotech.com.br)."}]},
+  {"id": "PSQ-0030", "seq": 30, "empresa": "Componentes Delta", "responsavel": "Ricardo Moura", "email": "ricardo@compdelta.com.br", "cnpj": "77.888.999/0001-11", "formVersao": "01", "perguntas": [{"id": "P1", "texto": "De 0 a 10, o quanto você recomendaria nossa empresa a um colega ou parceiro?", "tipo": "nps"}, {"id": "P2", "texto": "Como você avalia a qualidade do produto/serviço entregue?", "tipo": "escala"}, {"id": "P3", "texto": "Como você avalia o cumprimento de prazos e a pontualidade de entrega?", "tipo": "escala"}, {"id": "P4", "texto": "Como você avalia o atendimento e a comunicação da nossa equipe?", "tipo": "escala"}, {"id": "P5", "texto": "Como você avalia o custo-benefício do que foi contratado?", "tipo": "escala"}, {"id": "P6", "texto": "Como você avalia a resolução de problemas e o suporte pós-venda?", "tipo": "escala"}, {"id": "P7", "texto": "Deixe um comentário ou sugestão (opcional).", "tipo": "texto"}], "status": "Respondida", "dataResposta": "2025-12-30", "respostas": {"P1": 8, "P2": 7, "P3": 7, "P4": 7, "P5": 7, "P6": 8, "P7": "Bom, mas há espaço para melhorar."}, "reenviado": false, "dataEnvio": "2025-12-27", "prazo": "2026-01-03", "historico": [{"ts": "2025-12-27T09:00:00", "texto": "Pesquisa enviada para <b>Componentes Delta</b> (ricardo@compdelta.com.br)."}]}
+];
+
+/* ---- Clientes (exemplo — conectar ao módulo de clientes depois) ---- */
+const CLIENTES_SEED = [
+  {id:'CLI-001', nome:'Metalúrgica Andrade Ltda', responsavel:'Roberto Andrade', email:'roberto@metalandrade.com.br', cnpj:'12.345.678/0001-90'},
+  {id:'CLI-002', nome:'Construtora Horizonte S.A.', responsavel:'Fernanda Lima', email:'fernanda.lima@horizonte.com.br', cnpj:'98.765.432/0001-10'},
+  {id:'CLI-003', nome:'Hyundai do Brasil', responsavel:'Paulo Nakamura', email:'p.nakamura@hyundai.com.br', cnpj:'23.456.789/0001-55'},
+  {id:'CLI-004', nome:'USIMINAS', responsavel:'Cláudia Rezende', email:'claudia.rezende@usiminas.com', cnpj:'60.894.730/0001-05'},
+  {id:'CLI-005', nome:'Aços & Cia Distribuidora', responsavel:'Marcos Teixeira', email:'marcos@acosecia.com.br', cnpj:'11.222.333/0001-44'},
+  {id:'CLI-006', nome:'Calibra Metrologia', responsavel:'Sandra Vasconcelos', email:'sandra@calibrametrologia.com.br', cnpj:'44.555.666/0001-77'},
+  {id:'CLI-007', nome:'Integra Medical', responsavel:'Dr. André Farias', email:'andre.farias@integramedical.com.br', cnpj:'33.444.555/0001-22'},
+  {id:'CLI-008', nome:'Transportadora Rota Sul', responsavel:'Juliana Prado', email:'juliana@rotasul.com.br', cnpj:'55.666.777/0001-33'}
+];
+
+const MELHORIA_SEED_BASE = [
+  {
+    "pesqSeq": "004",
+    "cliente": "Transportadora Rota Sul",
+    "descricao": "Implantar SLA de atendimento com resposta em até 4h e treinar equipe em agilidade e comunicação com o cliente.",
+    "responsavel": "Beatriz Santos",
+    "prazo": "2026-10-20",
+    "status": "Em andamento",
+    "dataRegistro": "2026-09-01"
+  },
+  {
+    "pesqSeq": "005",
+    "cliente": "USIMINAS",
+    "descricao": "Revisar o processo de planejamento de entregas e criar rotina de acompanhamento pós-venda proativo (contato em 48h).",
+    "responsavel": "Rafael Costa",
+    "prazo": "2026-08-20",
+    "status": "Em andamento",
+    "dataRegistro": "2026-08-25"
+  },
+  {
+    "pesqSeq": "011",
+    "cliente": "Transportadora Rota Sul",
+    "descricao": "Abrir análise de causa raiz (RNC) para o problema de qualidade apontado e reforçar inspeção final antes da expedição.",
+    "responsavel": "Carlos Andrade",
+    "prazo": "2026-08-15",
+    "status": "Concluída",
+    "dataRegistro": "2026-07-20"
+  },
+  {
+    "pesqSeq": "026",
+    "cliente": "Calibra Metrologia",
+    "descricao": "Plano de recuperação do cliente: reunião de alinhamento com a direção, revisão de escopo/preço e plano de ação para prazos e qualidade.",
+    "responsavel": "Hugo Melo",
+    "prazo": "2026-10-31",
+    "status": "A definir",
+    "dataRegistro": "2026-09-10"
+  },
+  {
+    "pesqSeq": "029",
+    "cliente": "AgroTech Sementes",
+    "descricao": "Designar gerente de conta dedicado, revisar padrão de qualidade do lote e estruturar pós-venda com pesquisa de acompanhamento.",
+    "responsavel": "Marina Souza",
+    "prazo": "2026-11-10",
+    "status": "Em andamento",
+    "dataRegistro": "2026-09-05"
+  }
+];
+function semearMelhorias(){
+  const pesquisas = store.get('qps_sat_pesquisas')||[];
+  const melhorias = MELHORIA_SEED_BASE.map((a,i)=>{
+    const p = pesquisas.find(x=>String(x.seq).padStart(3,'0')===a.pesqSeq);
+    return Object.assign({ id:'MEL-'+String(i+1).padStart(4,'0'), pesqId: p?p.id:'' }, a);
+  });
+  return melhorias;
+}
+
+const SAT_DATA_VERSION = '2026-09-5';
+function initData(){
+  if(store.get('qps_sat_form_version') !== SAT_DATA_VERSION){
+    // versão mudou: recarrega os dados de exemplo (sobrescreve dados antigos em cache)
+    store.set('qps_sat_form', FORM_SEED);
+    store.set('qps_sat_pesquisas', PESQ_SEED);
+    store.set('qps_sat_melhorias', semearMelhorias());
+    store.set('qps_sat_form_version', SAT_DATA_VERSION);
+    return;
+  }
+  if(store.get('qps_sat_form')===null) store.set('qps_sat_form', FORM_SEED);
+  if(store.get('qps_sat_pesquisas')===null) store.set('qps_sat_pesquisas', PESQ_SEED);
+  if(store.get('qps_sat_melhorias')===null) store.set('qps_sat_melhorias', []);
+}
+
+/* ===================== HELPERS ===================== */
+function getForm(){ return store.get('qps_sat_form') || FORM_SEED; }
+function versaoVigente(){ const f=getForm(); return f.versoes.find(v=>v.status==='Vigente') || null; }
+function versaoEmEdicao(){ const f=getForm(); return f.versoes.find(v=>v.status==='Rascunho') || f.versoes.find(v=>v.status==='Aguardando aprovação') || null; }
+function ultimaVersao(){ const f=getForm(); return f.versoes[f.versoes.length-1]; }
+function addHistoricoVersao(v, texto){ v.historico=v.historico||[]; v.historico.push({ts:new Date().toISOString(), texto}); }
+function fstatusClass(s){ return {'Rascunho':'rascunho','Aguardando aprovação':'aguardando','Vigente':'vigente','Obsoleto':'obsoleto'}[s]||'rascunho'; }
+function tipoBadge(t){ const m={nps:['nps','NPS 0–10'],escala:['escala','Escala 0–10'],texto:['texto','Texto']}; const x=m[t]||m.escala; return `<span class="pi-badge ${x[0]}">${x[1]}</span>`; }
+
+/* ===================== TAB SWITCHING ===================== */
+let currentTab = 'formulario';
+function switchTab(t){
+  currentTab = t;
+  document.querySelectorAll('#mainTabs .ctx-tab').forEach(el=>el.classList.toggle('active', el.dataset.tab===t));
+  renderTab();
+}
+function renderTab(){
+  const el = document.getElementById('tabContent');
+  if(currentTab==='formulario') el.innerHTML = formularioHTML();
+  else if(currentTab==='envio'){ el.innerHTML = envioHTML(); initEnvio(); }
+  else if(currentTab==='controle'){ verificarPrazos(); el.innerHTML = controleHTML(); }
+  else if(currentTab==='melhoria') el.innerHTML = melhoriaHTML();
+  else if(currentTab==='indicadores'){ el.innerHTML = indicadoresHTML(); initSatCharts(); }
+  renderKpis();
+}
+function placeholderHTML(t,msg){ return `<div class="dcc"><div class="dcc-hd"><div><div class="dcc-title">${esc(t)}</div><div class="dcc-sub">Em construção</div></div></div><div class="empty-state">${esc(msg)}</div></div>`; }
+
+/* ===================== ABA 1: FORMULÁRIO ===================== */
+let editandoPerguntas = null; // cópia de trabalho em edição
+
+function formularioHTML(){
+  const vig = versaoVigente();
+  const emEd = versaoEmEdicao();
+  const alvo = emEd || vig; // mostra edição se houver, senão a vigente
+  editandoPerguntas = alvo ? JSON.parse(JSON.stringify(alvo.perguntas)) : JSON.parse(JSON.stringify(PERGUNTAS_PADRAO));
+  const podeEditar = alvo && (alvo.status==='Rascunho');
+  const f = getForm();
+
+  const chipsVersoes = f.versoes.slice().reverse().map(v=>`<div class="fstatus ${fstatusClass(v.status)}">Rev. ${esc(v.versao)} · ${esc(v.status)}</div>`).join('');
+
+  const perguntasHTML = editandoPerguntas.map((p,i)=>`
+    <div class="pergunta-item">
+      <div class="pi-num">${i+1}</div>
+      <div class="pi-body">
+        <input class="pi-texto" value="${esc(p.texto)}" ${podeEditar?'':'readonly'} onchange="setPergunta(${i}, this.value)">
+        <div class="pi-tipo">${tipoBadge(p.tipo)}${p.tipo==='nps'?' · pergunta-chave do NPS':(p.tipo==='texto'?' · não entra no cálculo':' · avaliação numérica')}</div>
+      </div>
+      ${ podeEditar ? `<div class="pi-actions">
+        <div class="abtn" onclick="moverPergunta(${i},-1)" title="Subir"><svg class="icon" viewBox="0 0 24 24"><polyline points="18 15 12 9 6 15"/></svg></div>
+        <div class="abtn" onclick="moverPergunta(${i},1)" title="Descer"><svg class="icon" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></div>
+        <div class="abtn danger" onclick="removerPergunta(${i})" title="Remover"><svg class="icon" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></div>
+      </div>` : '' }
+    </div>`).join('');
+
+  // barra de ações conforme status
+  let acoes = '';
+  if(!emEd){
+    // só há vigente -> permite criar nova revisão para editar
+    acoes = `<div class="btn-grad" onclick="novaRevisao()"><svg class="icon" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>Nova revisão (editar)</div>`;
+  } else if(emEd.status==='Rascunho'){
+    acoes = `
+      <div class="btn-ghost" onclick="addPergunta('escala')"><svg class="icon" viewBox="0 0 24 24" style="width:15px;height:15px;"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Adicionar pergunta</div>
+      <div class="btn-ghost" onclick="salvarRascunho()">Salvar rascunho</div>
+      <div class="btn-grad" onclick="enviarAprovacao()"><svg class="icon" viewBox="0 0 24 24" style="width:15px;height:15px;"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>Enviar para aprovação</div>`;
+  } else if(emEd.status==='Aguardando aprovação'){
+    acoes = `
+      <select class="input-basic" id="selAprovador" style="width:auto; padding:9px 12px;">${APROVADORES.map(a=>`<option>${a}</option>`).join('')}</select>
+      <div class="btn-grad" style="background:linear-gradient(90deg,#1a9d63,#34D399); color:#06110b;" onclick="aprovarFormulario()"><svg class="icon" viewBox="0 0 24 24" style="width:15px;height:15px; stroke:#06110b;"><polyline points="20 6 9 17 4 12"/></svg>Aprovar (direção)</div>`;
+  }
+
+  const statusAlvo = emEd ? emEd.status : (vig?vig.status:'—');
+  const infoAprov = vig ? `Rev. ${esc(vig.versao)} vigente · aprovada por <b>${esc(vig.aprovador)}</b> em ${fmtDate(vig.dataAprovacao)}` : 'Nenhuma versão vigente ainda.';
+
+  return `
+  <div class="form-topbar">
+    <div class="form-status-chips">${chipsVersoes}</div>
+    <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+      <div class="btn-ghost" onclick="verHistorico()"><svg class="icon" viewBox="0 0 24 24" style="width:15px;height:15px;"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg>Histórico</div>
+      ${acoes}
+    </div>
+  </div>
+
+  <div class="dcc" style="padding:22px; margin-bottom:16px;">
+    <div style="display:flex; align-items:flex-start; gap:12px;">
+      <div style="width:36px; height:36px; border-radius:9px; border:1px solid rgba(70,217,245,0.4); color:var(--accent-cyan); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/></svg>
+      </div>
+      <div style="font-size:12.5px; color:var(--text-secondary); line-height:1.6;">
+        Este é o <b style="color:var(--text-primary);">formulário padrão de pesquisa de satisfação</b> enviado aos clientes. As perguntas usam escala <b style="color:var(--text-primary);">0–10</b> para permitir cálculo de NPS e indicadores. Toda alteração gera uma nova revisão que precisa da <b style="color:var(--text-primary);">aprovação da direção</b> antes de entrar em vigência. ${infoAprov}
+      </div>
+    </div>
+  </div>
+
+  <div class="dcc">
+    <div class="dcc-hd">
+      <div><div class="dcc-title">Perguntas da pesquisa ${emEd?`— Rev. ${esc(emEd.versao)} (${esc(emEd.status)})`:`— Rev. ${esc(vig?vig.versao:'—')} (Vigente)`}</div><div class="dcc-sub">${editandoPerguntas.length} pergunta(s) · escala 0–10${podeEditar?' · edição habilitada':' · somente leitura'}</div></div>
+    </div>
+    <div style="padding:18px 20px;">${perguntasHTML}</div>
+  </div>`;
+}
+
+function setPergunta(i,val){ if(editandoPerguntas[i]) editandoPerguntas[i].texto=val; }
+function moverPergunta(i,dir){ const j=i+dir; if(j<0||j>=editandoPerguntas.length) return; const t=editandoPerguntas[i]; editandoPerguntas[i]=editandoPerguntas[j]; editandoPerguntas[j]=t; persistRascunhoTemp(); renderTab(); }
+function removerPergunta(i){ editandoPerguntas.splice(i,1); persistRascunhoTemp(); renderTab(); }
+function addPergunta(tipo){ const emEd=versaoEmEdicao(); const nova={id:'P'+Date.now().toString().slice(-5), texto:'', tipo:tipo||'escala'}; editandoPerguntas.push(nova); persistRascunhoTemp(); renderTab(); }
+// grava as perguntas em edição na versão rascunho (mantém entre re-renders)
+function persistRascunhoTemp(){
+  const f=getForm(); const emEd=f.versoes.find(v=>v.status==='Rascunho'); if(!emEd) return;
+  // captura textos atuais dos inputs antes de re-render
+  document.querySelectorAll('.pi-texto').forEach((inp,idx)=>{ if(editandoPerguntas[idx]) editandoPerguntas[idx].texto=inp.value; });
+  emEd.perguntas = JSON.parse(JSON.stringify(editandoPerguntas));
+  store.set('qps_sat_form', f);
+}
+function capturarTextos(){ document.querySelectorAll('.pi-texto').forEach((inp,idx)=>{ if(editandoPerguntas[idx]) editandoPerguntas[idx].texto=inp.value; }); }
+
+function novaRevisao(){
+  const f=getForm();
+  const vig=versaoVigente();
+  const novaVer=String(f.versoes.length+1).padStart(2,'0');
+  const rasc={ versao:novaVer, status:'Rascunho', perguntas: JSON.parse(JSON.stringify(vig?vig.perguntas:PERGUNTAS_PADRAO)), aprovador:'', dataAprovacao:'', criadoPor:'Hugo Melo', historico:[] };
+  addHistoricoVersao(rasc, `Nova revisão <b>${novaVer}</b> criada por <b>Hugo Melo</b> a partir da rev. ${vig?vig.versao:'—'}.`);
+  f.versoes.push(rasc);
+  store.set('qps_sat_form', f);
+  showToast('Nova revisão criada (rascunho)');
+  renderTab();
+}
+function salvarRascunho(){
+  capturarTextos();
+  const f=getForm(); const emEd=f.versoes.find(v=>v.status==='Rascunho'); if(!emEd) return;
+  emEd.perguntas = JSON.parse(JSON.stringify(editandoPerguntas));
+  addHistoricoVersao(emEd, `Rascunho salvo por <b>Hugo Melo</b> (${emEd.perguntas.length} perguntas).`);
+  store.set('qps_sat_form', f);
+  showToast('Rascunho salvo');
+}
+function enviarAprovacao(){
+  capturarTextos();
+  const f=getForm(); const emEd=f.versoes.find(v=>v.status==='Rascunho'); if(!emEd) return;
+  if(editandoPerguntas.some(p=>!p.texto.trim())){ showToast('Preencha o texto de todas as perguntas.'); return; }
+  emEd.perguntas = JSON.parse(JSON.stringify(editandoPerguntas));
+  emEd.status='Aguardando aprovação';
+  addHistoricoVersao(emEd, `Rev. ${emEd.versao} enviada para aprovação da direção por <b>Hugo Melo</b>.`);
+  store.set('qps_sat_form', f);
+  showToast('Formulário enviado para aprovação');
+  renderTab();
+}
+function aprovarFormulario(){
+  const f=getForm(); const emEd=f.versoes.find(v=>v.status==='Aguardando aprovação'); if(!emEd) return;
+  const aprovador = document.getElementById('selAprovador') ? document.getElementById('selAprovador').value : 'Hugo Melo';
+  // versões vigentes viram obsoletas
+  f.versoes.forEach(v=>{ if(v.status==='Vigente'){ v.status='Obsoleto'; addHistoricoVersao(v, `Substituída pela rev. ${emEd.versao} — tornou-se Obsoleta.`); } });
+  emEd.status='Vigente'; emEd.aprovador=aprovador; emEd.dataAprovacao=todayISO();
+  addHistoricoVersao(emEd, `Aprovada por <b>${esc(aprovador)}</b> — rev. ${emEd.versao} tornou-se <b>Vigente</b>.`);
+  store.set('qps_sat_form', f);
+  showToast('Formulário aprovado e vigente');
+  renderTab();
+}
+function verHistorico(){
+  const f=getForm();
+  const todos=[];
+  f.versoes.forEach(v=>{ (v.historico||[]).forEach(h=>todos.push({ver:v.versao, ...h})); });
+  todos.sort((a,b)=>new Date(b.ts)-new Date(a.ts));
+  document.getElementById('histBody').innerHTML = todos.length ? todos.map(h=>`<div class="hist-item"><span class="ht">${fmtDateTime(h.ts)} · Rev. ${esc(h.ver)}</span><br>${h.texto}</div>`).join('') : '<div class="empty-state">Sem histórico.</div>';
+  openModal('modalHist');
+}
+
+
+/* ===================== EMAIL (simulado, preparado p/ Supabase) ===================== */
+function notifyCliente(pesq, reenvio){
+  // TODO(Supabase): enviar e-mail real ao cliente com o link da pesquisa via Edge Function.
+  // await supabase.functions.invoke('notify-survey', { body: { to: pesq.email, link, prazoDias: 7 } })
+  return { to: pesq.email, assunto: reenvio ? 'Lembrete: sua opinião é importante para nós' : 'Pesquisa de Satisfação — QualityPro Solutions' };
+}
+
+/* ===================== ABA 2: ENVIO DE PESQUISA ===================== */
+let envioModoManual = false;
+function envioHTML(){
+  const vig = versaoVigente();
+  const clientes = CLIENTES_SEED;
+  const cliOpts = ['<option value="">Selecione um cliente...</option>']
+    .concat(clientes.map(c=>`<option value="${c.id}">${esc(c.nome)}</option>`))
+    .concat(['<option value="__manual">+ Preencher manualmente</option>']).join('');
+
+  if(!vig){
+    return `<div class="dcc"><div class="dcc-hd"><div><div class="dcc-title">Envio de Pesquisa</div><div class="dcc-sub">Nenhum formulário vigente</div></div></div>
+      <div class="empty-state">É preciso ter um formulário <b>Vigente</b> (aprovado pela direção) antes de enviar pesquisas. Vá até a aba <b>Formulário</b> e aprove uma versão.</div></div>`;
+  }
+
+  return `
+  <div class="form-card">
+    <div class="dcc-title" style="margin-bottom:2px;">Envio de pesquisa de satisfação</div>
+    <div class="dcc-sub" style="margin-bottom:6px;">Selecione o cliente (ou preencha manualmente) e envie o formulário vigente. O cliente recebe um e-mail com o link para responder em até 7 dias.</div>
+
+    <div class="form-section-label">Destinatário</div>
+    <div class="field"><label>Cliente</label>
+      <select class="input-basic" id="envCliente" onchange="onEnvCliente(this.value)">${cliOpts}</select>
+    </div>
+    <div class="field-row2">
+      <div class="field"><label>Responsável (contato)</label><input class="input-basic" id="envResponsavel" placeholder="Nome do responsável"></div>
+      <div class="field"><label>E-mail</label><input class="input-basic" type="email" id="envEmail" placeholder="email@empresa.com.br"></div>
+    </div>
+    <div class="field-row2">
+      <div class="field"><label>CNPJ</label><input class="input-basic" id="envCnpj" placeholder="00.000.000/0000-00"></div>
+      <div class="field"><label>Nome da empresa</label><input class="input-basic" id="envEmpresa" placeholder="Razão social"></div>
+    </div>
+
+    <div class="form-section-label">Envio</div>
+    <div class="field-row2">
+      <div class="field"><label>Data de envio</label><input class="input-basic" type="date" id="envData" value="${todayISO()}"></div>
+      <div class="field"><label>Formulário a enviar</label><input class="input-basic input-readonly" readonly value="Rev. ${esc(vig.versao)} — Vigente (${vig.perguntas.length} perguntas)"></div>
+    </div>
+    <div style="background:rgba(70,217,245,0.06); border:1px solid rgba(70,217,245,0.25); border-radius:10px; padding:12px 14px; font-size:12.5px; color:var(--text-secondary); line-height:1.55; margin-bottom:16px;">
+      <b style="color:var(--text-primary);">Como funciona:</b> ao enviar, o cliente recebe um e-mail executivo com o link da pesquisa. Se não responder em <b>7 dias</b>, o e-mail é reenviado automaticamente. O registro aparece na aba <b>Controle</b> com status "Enviada" e é atualizado quando o cliente responde.
+    </div>
+
+    <div class="form-actions">
+      <div class="btn-ghost" onclick="limparEnvio()">Limpar</div>
+      <div class="btn-primary" onclick="enviarPesquisa()"><svg class="icon" viewBox="0 0 24 24" style="width:15px;height:15px;display:inline;vertical-align:-2px;margin-right:6px; stroke:#fff;"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>Enviar pesquisa</div>
+    </div>
+  </div>`;
+}
+function initEnvio(){ envioModoManual=false; }
+function onEnvCliente(val){
+  if(val==='__manual'){
+    envioModoManual=true;
+    ['envResponsavel','envEmail','envCnpj','envEmpresa'].forEach(id=>{ const el=document.getElementById(id); el.value=''; el.readOnly=false; el.classList.remove('input-readonly'); });
+    document.getElementById('envResponsavel').focus();
+    return;
+  }
+  const c = CLIENTES_SEED.find(x=>x.id===val);
+  if(c){
+    envioModoManual=false;
+    document.getElementById('envResponsavel').value=c.responsavel; document.getElementById('envResponsavel').readOnly=true; document.getElementById('envResponsavel').classList.add('input-readonly');
+    document.getElementById('envEmail').value=c.email; document.getElementById('envEmail').readOnly=true; document.getElementById('envEmail').classList.add('input-readonly');
+    document.getElementById('envCnpj').value=c.cnpj; document.getElementById('envCnpj').readOnly=true; document.getElementById('envCnpj').classList.add('input-readonly');
+    document.getElementById('envEmpresa').value=c.nome; document.getElementById('envEmpresa').readOnly=true; document.getElementById('envEmpresa').classList.add('input-readonly');
+  } else {
+    limparCamposEnv();
+  }
+}
+function limparCamposEnv(){
+  ['envResponsavel','envEmail','envCnpj','envEmpresa'].forEach(id=>{ const el=document.getElementById(id); el.value=''; el.readOnly=false; el.classList.remove('input-readonly'); });
+}
+function limparEnvio(){
+  document.getElementById('envCliente').value='';
+  limparCamposEnv();
+  document.getElementById('envData').value=todayISO();
+}
+function enviarPesquisa(){
+  const vig=versaoVigente(); if(!vig){ showToast('Não há formulário vigente.'); return; }
+  const empresa=document.getElementById('envEmpresa').value.trim();
+  const responsavel=document.getElementById('envResponsavel').value.trim();
+  const email=document.getElementById('envEmail').value.trim();
+  const cnpj=document.getElementById('envCnpj').value.trim();
+  const dataEnvio=document.getElementById('envData').value;
+  if(!empresa){ showToast('Informe o nome da empresa/cliente.'); document.getElementById('envEmpresa').focus(); return; }
+  if(!email){ showToast('Informe o e-mail do destinatário.'); document.getElementById('envEmail').focus(); return; }
+  if(!dataEnvio){ showToast('Informe a data de envio.'); return; }
+
+  const pesquisas = store.get('qps_sat_pesquisas')||[];
+  const seq = pesquisas.length ? Math.max(...pesquisas.map(p=>p.seq||0))+1 : 1;
+  const rec = {
+    id: uid('PSQ', pesquisas), seq,
+    empresa, responsavel, email, cnpj,
+    dataEnvio, dataResposta:'', prazo: addDays(dataEnvio, 7),
+    formVersao: vig.versao, perguntas: JSON.parse(JSON.stringify(vig.perguntas)),
+    respostas: null, status:'Enviada', reenviado:false,
+    historico:[{ts:new Date().toISOString(), texto:`Pesquisa enviada para <b>${esc(empresa)}</b> (${esc(email)}).`}]
+  };
+  const info = notifyCliente(rec, false);
+  rec.historico.push({ts:new Date().toISOString(), texto:`E-mail enviado — assunto: "${esc(info.assunto)}". Prazo de resposta: ${fmtDate(rec.prazo)}.`});
+  pesquisas.push(rec);
+  store.set('qps_sat_pesquisas', pesquisas);
+  renderKpis();
+  showToast('Pesquisa enviada com sucesso');
+  showConfirmacaoEnvio(rec, info);
+  limparEnvio();
+}
+function showConfirmacaoEnvio(rec, info){
+  const link = `satisfacao-responder.html?p=${encodeURIComponent(rec.id)}`;
+  document.getElementById('envioBody').innerHTML = `
+    <div style="font-size:13px; color:var(--text-secondary); line-height:1.6; margin-bottom:16px;">
+      A pesquisa foi enviada para <b>${esc(rec.empresa)}</b> — contato <b>${esc(rec.responsavel)||'—'}</b> (${esc(rec.email)}).<br><br>
+      Um e-mail executivo foi disparado com o link da pesquisa, solicitando resposta em até <b>7 dias</b> (até ${fmtDate(rec.prazo)}). Caso não responda, o e-mail será <b>reenviado automaticamente</b> após esse prazo.
+    </div>
+    <div style="background:rgba(255,255,255,0.03); border:1px solid var(--border-subtle); border-radius:10px; padding:12px 14px; margin-bottom:6px;">
+      <div style="font-size:10px; font-family:'JetBrains Mono',monospace; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">Link da pesquisa (simulação)</div>
+      <div class="mono" style="font-size:12px; color:var(--accent-cyan); overflow-wrap:anywhere;">${esc(link)}</div>
+    </div>`;
+  document.getElementById('envioAbrirBtn').onclick=()=>{ window.open(link,'_blank'); };
+  openModal('modalEnvio');
+}
+/* Verifica prazos: marca "Não respondida" e reenvia após 7 dias (simulado) */
+function verificarPrazos(){
+  const pesquisas = store.get('qps_sat_pesquisas')||[]; let changed=false;
+  pesquisas.forEach(p=>{
+    if(p.status==='Enviada' && p.prazo && p.prazo < todayISO()){
+      p.status='Não respondida';
+      if(!p.reenviado){
+        p.reenviado=true;
+        const info=notifyCliente(p,true);
+        p.historico.push({ts:new Date().toISOString(), texto:`Prazo de 7 dias expirado sem resposta — e-mail reenviado automaticamente ("${esc(info.assunto)}").`});
+      }
+      changed=true;
+    }
+  });
+  if(changed) store.set('qps_sat_pesquisas', pesquisas);
+}
+
+
+/* ===================== ABA 3: CONTROLE ===================== */
+function temNotaRuim(p){
+  if(p.status!=='Respondida' || !p.respostas) return false;
+  return (p.perguntas||[]).some(q=>q.tipo!=='texto' && p.respostas[q.id]!==undefined && p.respostas[q.id]<=4);
+}
+function pesqStatusEfetivo(p){
+  if(p.status==='Respondida' && temNotaRuim(p)) return 'Respondida - requer atenção';
+  return p.status;
+}
+function pesqStatusPill(s){
+  const map={'Enviada':'st-enviada','Respondida':'st-respondida','Não respondida':'st-naoresp','Respondida - requer atenção':'st-atencao'};
+  if(s==='Respondida - requer atenção'){
+    return `<div class="status-2linhas">
+      <span class="status-pill st-respondida"><span class="status-dot2"></span>Respondida</span>
+      <span class="linha-atencao">⚠ Requer atenção</span>
+    </div>`;
+  }
+  return `<span class="status-pill ${map[s]||'st-enviada'}"><span class="status-dot2"></span>${esc(s)}</span>`;
+}
+let ctrlFilters = { status:'', ano:'', cliente:'', busca:'' };
+function controleHTML(){
+  let pesq = (store.get('qps_sat_pesquisas')||[]).slice().sort((a,b)=>(b.seq||0)-(a.seq||0));
+  const anos = Array.from(new Set(pesq.map(p=>(p.dataEnvio||'').slice(0,4)).filter(Boolean))).sort().reverse();
+  const clientes = Array.from(new Set(pesq.map(p=>p.empresa).filter(Boolean))).sort();
+  const opt=(arr,sel)=>['<option value="">Todos</option>'].concat(arr.map(v=>`<option ${sel===v?'selected':''}>${esc(v)}</option>`)).join('');
+
+  const filterBar = `
+  <div class="filter-bar">
+    <div class="fg"><label>Ano</label><select class="input-basic" onchange="setCtrlFilter('ano',this.value)">${opt(anos, ctrlFilters.ano)}</select></div>
+    <div class="fg"><label>Cliente</label><select class="input-basic" onchange="setCtrlFilter('cliente',this.value)">${opt(clientes, ctrlFilters.cliente)}</select></div>
+    <div class="fg"><label>Status</label><select class="input-basic" onchange="setCtrlFilter('status',this.value)">
+      <option value="">Todos</option>
+      <option ${ctrlFilters.status==='Enviada'?'selected':''}>Enviada</option>
+      <option ${ctrlFilters.status==='Respondida'?'selected':''}>Respondida</option>
+      <option ${ctrlFilters.status==='Respondida - requer atenção'?'selected':''}>Respondida - requer atenção</option>
+      <option ${ctrlFilters.status==='Não respondida'?'selected':''}>Não respondida</option>
+    </select></div>
+    <div class="fg"><label>Busca livre</label><input class="input-basic" placeholder="Empresa, e-mail, CNPJ..." value="${esc(ctrlFilters.busca)}" oninput="setCtrlFilter('busca',this.value)"></div>
+    <div class="fg"><label>&nbsp;</label><div class="btn-ghost" style="justify-content:center;" onclick="clearCtrlFilters()">Limpar</div></div>
+  </div>`;
+
+  let filtered = pesq.filter(p=>{
+    if(ctrlFilters.status && pesqStatusEfetivo(p)!==ctrlFilters.status) return false;
+    if(ctrlFilters.ano && (p.dataEnvio||'').slice(0,4)!==ctrlFilters.ano) return false;
+    if(ctrlFilters.cliente && p.empresa!==ctrlFilters.cliente) return false;
+    if(ctrlFilters.busca){ const q=ctrlFilters.busca.toLowerCase(); if(!(`${p.empresa} ${p.responsavel} ${p.email} ${p.cnpj}`.toLowerCase().includes(q))) return false; }
+    return true;
+  });
+
+  const body = filtered.length ? filtered.map(p=>`
+    <tr>
+      <td class="mono" style="font-weight:700;">${String(p.seq).padStart(3,'0')}</td>
+      <td class="desc-cell" style="color:var(--text-primary); font-weight:600;">${esc(p.empresa)}</td>
+      <td class="desc-cell">${esc(p.responsavel)||'—'}</td>
+      <td class="desc-cell">${esc(p.email)}</td>
+      <td class="mono">${esc(p.cnpj)||'—'}</td>
+      <td class="mono">${fmtDate(p.dataEnvio)}</td>
+      <td class="mono">${p.dataResposta?fmtDate(p.dataResposta):'<span style="color:var(--text-muted);">—</span>'}</td>
+      <td>${pesqStatusPill(pesqStatusEfetivo(p))}</td>
+      <td>
+        <div class="row-actions">
+          <div class="abtn" onclick="verPesquisa('${p.id}')" title="Ver detalhes"><svg class="icon" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></div>
+          <div class="abtn danger" onclick="deletePesquisa('${p.id}')" title="Excluir"><svg class="icon" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></div>
+        </div>
+      </td>
+    </tr>`).join('') : `<tr><td colspan="9"><div class="empty-state">Nenhuma pesquisa enviada. Use a aba <b>Envio de Pesquisa</b> para começar.</div></td></tr>`;
+
+  return filterBar + `
+  <div class="dcc">
+    <div class="dcc-hd">
+      <div><div class="dcc-title">Controle de Pesquisas</div><div class="dcc-sub">${filtered.length} pesquisa(s) · registro automático de envios e respostas</div></div>
+      <div class="btn-grad" onclick="switchTab('envio'); document.querySelectorAll('#mainTabs .ctx-tab').forEach(el=>el.classList.toggle('active', el.dataset.tab==='envio'));"><svg class="icon" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Nova pesquisa</div>
+    </div>
+    <table class="ctxtbl compact">
+      <colgroup><col style="width:5%"><col style="width:17%"><col style="width:13%"><col style="width:20%"><col style="width:13%"><col style="width:9%"><col style="width:9%"><col style="width:9%"><col style="width:5%"></colgroup>
+      <thead><tr><th>Nº</th><th>Cliente</th><th>Responsável</th><th>E-mail</th><th>CNPJ</th><th>Envio</th><th>Resposta</th><th>Status</th><th>Ações</th></tr></thead>
+      <tbody>${body}</tbody>
+    </table>
+  </div>`;
+}
+function setCtrlFilter(k,v){ ctrlFilters[k]=v; renderTab(); }
+function clearCtrlFilters(){ ctrlFilters={status:'',ano:'',cliente:'',busca:''}; renderTab(); }
+function deletePesquisa(id){ if(!confirm('Excluir este registro de pesquisa?')) return; let pesq=store.get('qps_sat_pesquisas')||[]; pesq=pesq.filter(x=>x.id!==id); store.set('qps_sat_pesquisas',pesq); renderKpis(); renderTab(); showToast('Registro excluído'); }
+
+function corNota(n){ if(n>=9) return 'var(--accent-green)'; if(n>=7) return 'var(--accent-cyan)'; if(n>=5) return 'var(--accent-amber)'; return 'var(--accent-red)'; }
+function verPesquisa(id){
+  const p=(store.get('qps_sat_pesquisas')||[]).find(x=>x.id===id); if(!p) return;
+  document.getElementById('pesqTitle').textContent=`Pesquisa Nº ${String(p.seq).padStart(3,'0')} — ${p.empresa}`;
+  document.getElementById('pesqSub').textContent=`${p.status} · Rev. ${p.formVersao}`;
+
+  const info = `
+    <div class="detail-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:10px 20px; margin-bottom:16px;">
+      <div><div style="font-size:10px; font-family:'JetBrains Mono',monospace; color:var(--text-muted); text-transform:uppercase; margin-bottom:3px;">Responsável</div><div style="font-size:13px; font-weight:600;">${esc(p.responsavel)||'—'}</div></div>
+      <div><div style="font-size:10px; font-family:'JetBrains Mono',monospace; color:var(--text-muted); text-transform:uppercase; margin-bottom:3px;">E-mail</div><div style="font-size:13px; font-weight:600;">${esc(p.email)}</div></div>
+      <div><div style="font-size:10px; font-family:'JetBrains Mono',monospace; color:var(--text-muted); text-transform:uppercase; margin-bottom:3px;">CNPJ</div><div style="font-size:13px; font-weight:600;">${esc(p.cnpj)||'—'}</div></div>
+      <div><div style="font-size:10px; font-family:'JetBrains Mono',monospace; color:var(--text-muted); text-transform:uppercase; margin-bottom:3px;">Status</div><div>${pesqStatusPill(pesqStatusEfetivo(p))}</div></div>
+      <div><div style="font-size:10px; font-family:'JetBrains Mono',monospace; color:var(--text-muted); text-transform:uppercase; margin-bottom:3px;">Data de envio</div><div style="font-size:13px; font-weight:600;">${fmtDate(p.dataEnvio)}</div></div>
+      <div><div style="font-size:10px; font-family:'JetBrains Mono',monospace; color:var(--text-muted); text-transform:uppercase; margin-bottom:3px;">Data de resposta</div><div style="font-size:13px; font-weight:600;">${p.dataResposta?fmtDate(p.dataResposta):'—'}</div></div>
+    </div>`;
+
+  let respostasHtml = '';
+  if(p.status==='Respondida' && p.respostas){
+    respostasHtml = `<div style="font-size:12px; font-weight:800; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.4px; margin:6px 0 10px;">Respostas</div>` +
+      (p.perguntas||[]).map((q,i)=>{
+        const r = p.respostas[q.id];
+        if(q.tipo==='texto'){
+          return `<div style="padding:10px 0; border-bottom:1px solid var(--border-subtle);"><div style="font-size:12.5px; font-weight:600; margin-bottom:4px;">${i+1}. ${esc(q.texto)}</div><div style="font-size:12.5px; color:var(--text-secondary); font-style:italic;">${r?esc(r):'(sem comentário)'}</div></div>`;
+        }
+        const nota = (r===undefined||r===null)?'—':r;
+        const cor = (r===undefined||r===null)?'var(--text-muted)':corNota(r);
+        return `<div style="display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 0; border-bottom:1px solid var(--border-subtle);">
+          <div style="font-size:12.5px; font-weight:600; flex:1;">${i+1}. ${esc(q.texto)} ${q.tipo==='nps'?'<span style="color:var(--accent-purple); font-size:10px; font-weight:700;">[NPS]</span>':''}</div>
+          <div style="width:38px; height:38px; border-radius:10px; background:${cor}; color:#06110b; font-weight:800; font-size:15px; display:flex; align-items:center; justify-content:center; font-family:'JetBrains Mono',monospace; flex-shrink:0;">${nota}</div>
+        </div>`;
+      }).join('');
+  } else {
+    respostasHtml = `<div class="empty-state" style="padding:24px;">${p.status==='Não respondida'?'O cliente não respondeu dentro do prazo de 7 dias.':'Aguardando resposta do cliente.'}</div>`;
+  }
+
+  // histórico
+  const hist = (p.historico||[]).slice().sort((a,b)=>new Date(a.ts)-new Date(b.ts));
+  const histHtml = hist.length ? `<div style="font-size:12px; font-weight:800; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.4px; margin:16px 0 8px;">Histórico</div>` +
+    hist.map(h=>`<div class="hist-item"><span class="ht">${fmtDateTime(h.ts)}</span><br>${h.texto}</div>`).join('') : '';
+
+  // detecta respostas ruins (nota <= 4) e botão de ações de melhoria
+  let alertaHtml = '';
+  if(p.status==='Respondida' && p.respostas){
+    const ruins = (p.perguntas||[]).filter(q=>q.tipo!=='texto' && p.respostas[q.id]!==undefined && p.respostas[q.id]<=4);
+    if(ruins.length){
+      const jaTem = (store.get('qps_sat_melhorias')||[]).some(m=>m.pesqId===p.id);
+      alertaHtml = `
+        <div style="background:rgba(248,113,113,0.08); border:1px solid rgba(248,113,113,0.35); border-radius:11px; padding:14px 16px; margin-top:16px; display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+          <div style="font-size:12.5px; color:var(--accent-red); line-height:1.5;"><b>⚠ ${ruins.length} avaliação(ões) baixa(s)</b> (nota ≤ 4) identificada(s) nesta pesquisa.${jaTem?' Já existe(m) ação(ões) registrada(s).':''}</div>
+          <div class="btn-primary" style="background:linear-gradient(90deg,#c23b3b,#F87171); flex-shrink:0;" onclick="abrirMelhoria('${p.id}')"><svg class="icon" viewBox="0 0 24 24" style="width:15px;height:15px;display:inline;vertical-align:-2px;margin-right:6px; stroke:#fff;"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>Ações de melhoria</div>
+        </div>`;
+    }
+  }
+
+  document.getElementById('pesqBody').innerHTML = info + respostasHtml + alertaHtml + histHtml;
+  openModal('modalPesq');
+}
+
+
+/* ===================== AÇÕES DE MELHORIA ===================== */
+function melAtrasada(m){ return m.status!=='Concluída' && m.prazo && m.prazo < todayISO(); }
+function melStatusPill(m){
+  const s = melAtrasada(m) ? 'Atrasada' : m.status;
+  const map={'A definir':'st-naoresp','Em andamento':'st-enviada','Concluída':'st-respondida','Atrasada':'st-naoresp'};
+  const cls={'A definir':'st-mel-def','Em andamento':'st-mel-and','Concluída':'st-mel-conc','Atrasada':'st-mel-atr'}[s]||'st-mel-def';
+  return `<span class="status-pill ${cls}"><span class="status-dot2"></span>${esc(s)}</span>`;
+}
+function abrirMelhoria(pesqId, editId){
+  const p=(store.get('qps_sat_pesquisas')||[]).find(x=>x.id===pesqId);
+  closeModal('modalPesq');
+  document.getElementById('melResponsavel').innerHTML = ROSTER.map(n=>`<option>${n}</option>`).join('');
+  const mel = editId ? (store.get('qps_sat_melhorias')||[]).find(m=>m.id===editId) : null;
+  document.getElementById('melEditId').value = editId||'';
+  document.getElementById('melPesqId').value = pesqId||(mel?mel.pesqId:'');
+
+  // contexto: mostra as respostas baixas
+  let ctx='';
+  if(p && p.respostas){
+    const ruins = (p.perguntas||[]).filter(q=>q.tipo!=='texto' && p.respostas[q.id]!==undefined && p.respostas[q.id]<=4);
+    document.getElementById('melModalSub').textContent = `Pesquisa Nº ${String(p.seq).padStart(3,'0')} — ${p.empresa}`;
+    ctx = `<div style="background:rgba(255,255,255,0.03); border:1px solid var(--border-subtle); border-radius:10px; padding:12px 14px; margin-bottom:16px;">
+      <div style="font-size:10px; font-family:'JetBrains Mono',monospace; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;">Pontos de insatisfação (nota ≤ 4)</div>
+      ${ruins.map(q=>`<div style="display:flex; align-items:center; gap:10px; padding:5px 0; font-size:12.5px;"><span style="width:26px; height:26px; border-radius:7px; background:var(--accent-red); color:#06110b; font-weight:800; display:inline-flex; align-items:center; justify-content:center; font-family:'JetBrains Mono',monospace; flex-shrink:0;">${p.respostas[q.id]}</span><span style="color:var(--text-secondary);">${esc(q.texto)}</span></div>`).join('')||'<span style="color:var(--text-muted); font-size:12px;">—</span>'}
+    </div>`;
+  } else if(mel){
+    document.getElementById('melModalSub').textContent = `Pesquisa Nº ${mel.pesqSeq} — ${mel.cliente}`;
+  }
+  document.getElementById('melContexto').innerHTML = ctx;
+
+  document.getElementById('melModalTitle').textContent = editId ? 'Editar ação de melhoria' : 'Nova ação de melhoria';
+  document.getElementById('melDescricao').value = mel?mel.descricao:'';
+  document.getElementById('melResponsavel').value = mel?mel.responsavel:'Hugo Melo';
+  document.getElementById('melPrazo').value = mel?mel.prazo:'';
+  document.getElementById('melStatus').value = mel?mel.status:'A definir';
+  openModal('modalMelhoria');
+}
+function salvarMelhoria(){
+  const desc=document.getElementById('melDescricao').value.trim();
+  if(!desc){ showToast('Descreva a ação de melhoria.'); document.getElementById('melDescricao').focus(); return; }
+  const melhorias=store.get('qps_sat_melhorias')||[];
+  const id=document.getElementById('melEditId').value;
+  const pesqId=document.getElementById('melPesqId').value;
+  const p=(store.get('qps_sat_pesquisas')||[]).find(x=>x.id===pesqId);
+  const base={
+    pesqId,
+    pesqSeq: p?String(p.seq).padStart(3,'0'):'',
+    cliente: p?p.empresa:'',
+    descricao:desc,
+    responsavel:document.getElementById('melResponsavel').value,
+    prazo:document.getElementById('melPrazo').value,
+    status:document.getElementById('melStatus').value,
+    dataRegistro: todayISO()
+  };
+  if(id){
+    const m=melhorias.find(x=>x.id===id); Object.assign(m, base);
+  } else {
+    melhorias.push(Object.assign({id:uid('MEL',melhorias)}, base));
+    // registra no histórico da pesquisa
+    if(p){ p.historico=p.historico||[]; p.historico.push({ts:new Date().toISOString(), texto:`Ação de melhoria registrada por <b>Hugo Melo</b>.`}); store.set('qps_sat_pesquisas', store.get('qps_sat_pesquisas')); }
+  }
+  store.set('qps_sat_melhorias', melhorias);
+  closeModal('modalMelhoria');
+  showToast(id?'Ação atualizada':'Ação de melhoria registrada');
+  renderKpis();
+  if(currentTab==='melhoria') renderTab();
+}
+function deleteMelhoria(id){ if(!confirm('Excluir esta ação de melhoria?')) return; let m=store.get('qps_sat_melhorias')||[]; m=m.filter(x=>x.id!==id); store.set('qps_sat_melhorias',m); renderTab(); showToast('Ação excluída'); }
+
+let melFilters = { status:'', cliente:'', busca:'' };
+function melhoriaHTML(){
+  let mel = (store.get('qps_sat_melhorias')||[]).slice().sort((a,b)=>(b.dataRegistro||'').localeCompare(a.dataRegistro||''));
+  const clientes = Array.from(new Set(mel.map(m=>m.cliente).filter(Boolean))).sort();
+  const opt=(arr,sel)=>['<option value="">Todos</option>'].concat(arr.map(v=>`<option ${sel===v?'selected':''}>${esc(v)}</option>`)).join('');
+
+  const filterBar = `
+  <div class="filter-bar">
+    <div class="fg"><label>Status</label><select class="input-basic" onchange="setMelFilter('status',this.value)">
+      <option value="">Todos</option>
+      <option ${melFilters.status==='A definir'?'selected':''}>A definir</option>
+      <option ${melFilters.status==='Em andamento'?'selected':''}>Em andamento</option>
+      <option ${melFilters.status==='Concluída'?'selected':''}>Concluída</option>
+      <option ${melFilters.status==='Atrasada'?'selected':''}>Atrasada</option>
+    </select></div>
+    <div class="fg"><label>Cliente</label><select class="input-basic" onchange="setMelFilter('cliente',this.value)">${opt(clientes, melFilters.cliente)}</select></div>
+    <div class="fg" style="grid-column:span 2;"><label>Busca livre</label><input class="input-basic" placeholder="Descrição, responsável, cliente..." value="${esc(melFilters.busca)}" oninput="setMelFilter('busca',this.value)"></div>
+    <div class="fg"><label>&nbsp;</label><div class="btn-ghost" style="justify-content:center;" onclick="clearMelFilters()">Limpar</div></div>
+  </div>`;
+
+  let filtered = mel.filter(m=>{
+    const st = melAtrasada(m) ? 'Atrasada' : m.status;
+    if(melFilters.status && st!==melFilters.status) return false;
+    if(melFilters.cliente && m.cliente!==melFilters.cliente) return false;
+    if(melFilters.busca){ const q=melFilters.busca.toLowerCase(); if(!(`${m.descricao} ${m.responsavel} ${m.cliente}`.toLowerCase().includes(q))) return false; }
+    return true;
+  });
+
+  const body = filtered.length ? filtered.map(m=>`
+    <tr>
+      <td class="mono" style="font-weight:700;">${esc(m.pesqSeq)||'—'}</td>
+      <td class="desc-cell" style="color:var(--text-primary); font-weight:600;">${esc(m.cliente)||'—'}</td>
+      <td class="desc-cell">${esc(m.descricao)}</td>
+      <td class="desc-cell">${esc(m.responsavel)||'—'}</td>
+      <td class="mono" ${melAtrasada(m)?'style="color:var(--accent-red); font-weight:700;"':''}>${fmtDate(m.prazo)}</td>
+      <td>${melStatusPill(m)}</td>
+      <td>
+        <div class="row-actions">
+          <div class="abtn" onclick="abrirMelhoria('${m.pesqId}','${m.id}')" title="Editar"><svg class="icon" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></div>
+          <div class="abtn danger" onclick="deleteMelhoria('${m.id}')" title="Excluir"><svg class="icon" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></div>
+        </div>
+      </td>
+    </tr>`).join('') : `<tr><td colspan="7"><div class="empty-state">Nenhuma ação de melhoria registrada. Elas aparecem aqui ao registrar ações a partir de pesquisas com avaliações baixas (aba Controle).</div></td></tr>`;
+
+  return filterBar + `
+  <div class="dcc">
+    <div class="dcc-hd">
+      <div><div class="dcc-title">Ações de Melhoria</div><div class="dcc-sub">${filtered.length} ação(ões) · derivadas das pesquisas de satisfação</div></div>
+    </div>
+    <table class="ctxtbl compact">
+      <colgroup><col style="width:8%"><col style="width:20%"><col style="width:32%"><col style="width:16%"><col style="width:11%"><col style="width:8%"><col style="width:5%"></colgroup>
+      <thead><tr><th>Pesquisa</th><th>Cliente</th><th>Descrição da ação</th><th>Responsável</th><th>Prazo</th><th>Status</th><th>Ações</th></tr></thead>
+      <tbody>${body}</tbody>
+    </table>
+  </div>`;
+}
+function setMelFilter(k,v){ melFilters[k]=v; renderTab(); }
+function clearMelFilters(){ melFilters={status:'',cliente:'',busca:''}; renderTab(); }
+
+
+/* ===================== ABA 5: INDICADORES ===================== */
+const CRITERIOS = [
+  {id:'P2', nome:'Qualidade'},
+  {id:'P3', nome:'Prazo'},
+  {id:'P4', nome:'Atendimento'},
+  {id:'P5', nome:'Custo-benefício'},
+  {id:'P6', nome:'Pós-venda'}
+];
+function computeSatAgg(){
+  const pesq = store.get('qps_sat_pesquisas')||[];
+  const mel = store.get('qps_sat_melhorias')||[];
+  const respondidas = pesq.filter(p=>p.status==='Respondida' && p.respostas);
+
+  // NPS: promotores (9-10), neutros (7-8), detratores (0-6) — pela P1
+  let prom=0, neu=0, det=0;
+  respondidas.forEach(p=>{ const n=p.respostas['P1']; if(n>=9) prom++; else if(n>=7) neu++; else det++; });
+  const totalNps = prom+neu+det;
+  const nps = totalNps ? Math.round(((prom-det)/totalNps)*100) : 0;
+
+  // satisfação média geral e por critério (média das notas numéricas)
+  const medias={}; CRITERIOS.forEach(c=>medias[c.id]=[]);
+  let todasNotas=[];
+  respondidas.forEach(p=>{ CRITERIOS.forEach(c=>{ const n=p.respostas[c.id]; if(typeof n==='number'){ medias[c.id].push(n); todasNotas.push(n); } }); });
+  const mediaPorCriterio = CRITERIOS.map(c=>{ const arr=medias[c.id]; return arr.length ? (arr.reduce((a,b)=>a+b,0)/arr.length) : 0; });
+  const satMediaGeral = todasNotas.length ? (todasNotas.reduce((a,b)=>a+b,0)/todasNotas.length) : 0;
+
+  // status das pesquisas (efetivo)
+  const statusOrder=['Enviada','Respondida','Respondida - requer atenção','Não respondida'];
+  const porStatus={}; statusOrder.forEach(s=>porStatus[s]=0);
+  pesq.forEach(p=>{ const s=pesqStatusEfetivo(p); porStatus[s]=(porStatus[s]||0)+1; });
+
+  // evolução mensal (últimos 12 meses): respondidas por mês + NPS do mês + satisfação média do mês
+  const now=new Date();
+  const meses=[]; for(let i=11;i>=0;i--){ const d=new Date(now.getFullYear(), now.getMonth()-i, 1); meses.push(d.toISOString().slice(0,7)); }
+  const respMes={}, npsMes={}, satMes={};
+  meses.forEach(m=>{ respMes[m]=0; npsMes[m]=null; satMes[m]=null; });
+  const bucket={}; meses.forEach(m=>bucket[m]=[]);
+  respondidas.forEach(p=>{ const mk=(p.dataResposta||'').slice(0,7); if(mk in bucket){ bucket[mk].push(p); respMes[mk]++; } });
+  meses.forEach(m=>{
+    const arr=bucket[m]; if(!arr.length) return;
+    let pp=0,dd=0,tt=0, notas=[];
+    arr.forEach(p=>{ const n=p.respostas['P1']; if(n>=9) pp++; else if(n<=6) dd++; tt++; CRITERIOS.forEach(c=>{ if(typeof p.respostas[c.id]==='number') notas.push(p.respostas[c.id]); }); });
+    npsMes[m]= tt ? Math.round(((pp-dd)/tt)*100) : 0;
+    satMes[m]= notas.length ? +(notas.reduce((a,b)=>a+b,0)/notas.length).toFixed(1) : 0;
+  });
+
+  // ações de melhoria por situação
+  const acOrder=['A definir','Em andamento','Concluída','Atrasada'];
+  const porAcao={}; acOrder.forEach(s=>porAcao[s]=0);
+  mel.forEach(m=>{ const s=melAtrasada(m)?'Atrasada':m.status; porAcao[s]=(porAcao[s]||0)+1; });
+  const acoesAbertas=(porAcao['A definir']||0)+(porAcao['Em andamento']||0)+(porAcao['Atrasada']||0);
+
+  const taxaResp = pesq.length ? Math.round((respondidas.length/pesq.length)*100) : 0;
+
+  return { pesq:pesq.length, respondidas:respondidas.length, taxaResp, nps, prom, neu, det,
+    satMediaGeral, mediaPorCriterio, statusOrder, porStatus, meses, respMes, npsMes, satMes,
+    acOrder, porAcao, acoesAbertas };
+}
+function renderKpisIndicadores(){
+  const a = computeSatAgg();
+  const npsCor = a.nps>=50?'#34D399':(a.nps>=0?'#FBBF24':'#F87171');
+  document.getElementById('kpiRow').innerHTML = `
+    <div class="dash-solid-card" style="--card-bg:${npsCor};">
+      <div class="sc-icon"><svg class="icon" viewBox="0 0 24 24"><path d="M12 2l3 7h7l-5.5 4 2 7-6.5-4.5L5.5 27l2-7L2 9h7z"/></svg></div>
+      <div class="sc-label">NPS geral</div><div class="sc-value">${a.nps>0?'+':''}${a.nps}</div><div class="sc-caption">${a.prom} prom · ${a.neu} neu · ${a.det} det</div>
+    </div>
+    <div class="dash-solid-card" style="--card-bg:#4fa3ff;">
+      <div class="sc-icon"><svg class="icon" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div>
+      <div class="sc-label">Satisfação média</div><div class="sc-value">${a.satMediaGeral.toFixed(1)}</div><div class="sc-caption">de 0 a 10 · todos os critérios</div>
+    </div>
+    <div class="dash-solid-card" style="--card-bg:#34D399;">
+      <div class="sc-icon"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 12l2 2 4-4"/></svg></div>
+      <div class="sc-label">Taxa de resposta</div><div class="sc-value">${a.taxaResp}%</div><div class="sc-caption">${a.respondidas} de ${a.pesq} pesquisas</div>
+    </div>
+    <div class="dash-solid-card" style="--card-bg:#F2B705;">
+      <div class="sc-icon"><svg class="icon" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></div>
+      <div class="sc-label">Ações em aberto</div><div class="sc-value">${a.acoesAbertas}</div><div class="sc-caption">${a.porAcao['Atrasada']||0} atrasada(s)</div>
+    </div>`;
+}
+function indicadoresHTML(){
+  const a = computeSatAgg();
+  return `
+  <div class="chart-grid">
+    <div class="chart-card"><div class="chart-card-hd"><h4>Classificação NPS</h4><div class="sub">Promotores · Neutros · Detratores (rosca)</div></div><div class="chart-holder"><canvas id="satNps"></canvas></div></div>
+    <div class="chart-card"><div class="chart-card-hd"><h4>Satisfação média por critério</h4><div class="sub">Nota média de 0 a 10 (barras)</div></div><div class="chart-holder"><canvas id="satCriterio"></canvas></div></div>
+    <div class="chart-card"><div class="chart-card-hd"><h4>Pesquisas por status</h4><div class="sub">Situação de cada pesquisa (barras)</div></div><div class="chart-holder"><canvas id="satStatus"></canvas></div></div>
+    <div class="chart-card"><div class="chart-card-hd"><h4>Situação das ações de melhoria</h4><div class="sub">A definir · Em andamento · Concluída · Atrasada (rosca)</div></div><div class="chart-holder"><canvas id="satAcoes"></canvas></div></div>
+    <div class="chart-card full"><div class="chart-card-hd"><h4>Evolução mensal — respostas × NPS</h4><div class="sub">Respondidas por mês (barras) + NPS do mês (linha)</div></div><div class="chart-holder"><canvas id="satEvol"></canvas></div></div>
+    <div class="chart-card full"><div class="chart-card-hd"><h4>Satisfação média mensal</h4><div class="sub">Média das notas ao longo dos últimos 12 meses (linha)</div></div><div class="chart-holder"><canvas id="satMedia"></canvas></div></div>
+  </div>`;
+}
+let satCharts = {};
+function initSatCharts(){
+  if(typeof Chart==='undefined') return;
+  if(window.ChartDataLabels && !window._dl){ Chart.register(window.ChartDataLabels); Chart.defaults.set('plugins.datalabels',{display:false}); window._dl=true; }
+  const hasDL=!!window.ChartDataLabels;
+  const C={cyan:'#46D9F5',blue:'#4fa3ff',gold:'#F2B705',green:'#34D399',amber:'#FBBF24',red:'#F87171',orange:'#fb923c',purple:'#A78BFA',gray:'#9fb4d0'};
+  const text='#9fb4d0', grid='rgba(255,255,255,0.08)';
+  Chart.defaults.color=text; Chart.defaults.font.family="'Plus Jakarta Sans', sans-serif"; Chart.defaults.borderColor=grid;
+  const a=computeSatAgg();
+  function mk(id,cfg){ const cv=document.getElementById(id); if(!cv) return; if(satCharts[id]) satCharts[id].destroy(); satCharts[id]=new Chart(cv.getContext('2d'),cfg); }
+  const dlBar=hasDL?{datalabels:{display:(c)=>Number(c.dataset.data[c.dataIndex])>0,anchor:'end',align:'end',offset:2,color:text,font:{weight:'700',size:11},formatter:v=>v}}:{};
+  const dlPie=hasDL?{datalabels:{display:(c)=>Number(c.dataset.data[c.dataIndex])>0,color:'#06101f',font:{weight:'800',size:12},formatter:v=>v}}:{};
+  const legend={position:'bottom',labels:{color:text,boxWidth:12,padding:12,font:{size:11}}};
+  const gs={grid:{color:grid},ticks:{color:text,font:{size:11}}};
+  const mesLbl=(m)=>{ const [y,mm]=m.split('-'); return mm+'/'+y.slice(2); };
+  // gradiente para barras
+  function grad(ctx, cor1, cor2){ const c=document.getElementById(ctx); if(!c) return cor1; const g=c.getContext('2d').createLinearGradient(0,0,0,300); g.addColorStop(0,cor1); g.addColorStop(1,cor2); return g; }
+
+  // 1. NPS (rosca)
+  mk('satNps',{ type:'doughnut',
+    data:{ labels:['Promotores (9–10)','Neutros (7–8)','Detratores (0–6)'], datasets:[{ data:[a.prom,a.neu,a.det], backgroundColor:[C.green,C.amber,C.red], borderColor:'#102a4d', borderWidth:2 }] },
+    options:{ responsive:true, maintainAspectRatio:false, cutout:'62%', plugins:{ legend, ...dlPie } }
+  });
+  // 2. Satisfação por critério (barras) com gradiente + sombra
+  mk('satCriterio',{ type:'bar',
+    data:{ labels:CRITERIOS.map(c=>c.nome), datasets:[{ label:'Nota média', data:a.mediaPorCriterio.map(v=>+v.toFixed(1)), backgroundColor:grad('satCriterio','#5fb2ff','#1f6fe0'), borderRadius:8 }] },
+    options:{ responsive:true, maintainAspectRatio:false, layout:{padding:{top:hasDL?16:0}}, plugins:{ legend:{display:false}, ...(hasDL?{datalabels:{anchor:'end',align:'end',offset:2,color:text,font:{weight:'700',size:11},formatter:v=>v.toFixed(1)}}:{}) }, scales:{ x:{...gs, ticks:{...gs.ticks, font:{size:10}}}, y:{ beginAtZero:true, max:10, ...gs } } }
+  });
+  // 3. Pesquisas por status (barras)
+  mk('satStatus',{ type:'bar',
+    data:{ labels:['Enviada','Respondida','Requer atenção','Não respondida'], datasets:[{ label:'Pesquisas', data:a.statusOrder.map(s=>a.porStatus[s]||0), backgroundColor:[C.cyan,C.green,C.amber,C.red], borderRadius:8 }] },
+    options:{ responsive:true, maintainAspectRatio:false, layout:{padding:{top:hasDL?16:0}}, plugins:{ legend:{display:false}, ...dlBar }, scales:{ x:{...gs, ticks:{...gs.ticks, font:{size:9.5}}}, y:{ beginAtZero:true, ...gs, ticks:{...gs.ticks, precision:0} } } }
+  });
+  // 4. Ações de melhoria (rosca)
+  mk('satAcoes',{ type:'doughnut',
+    data:{ labels:a.acOrder, datasets:[{ data:a.acOrder.map(s=>a.porAcao[s]||0), backgroundColor:[C.gray,C.amber,C.green,C.red], borderColor:'#102a4d', borderWidth:2 }] },
+    options:{ responsive:true, maintainAspectRatio:false, cutout:'62%', plugins:{ legend, ...dlPie } }
+  });
+  // 5. Evolução: respondidas (barras) + NPS (linha)
+  mk('satEvol',{
+    data:{ labels:a.meses.map(mesLbl), datasets:[
+      { type:'bar', label:'Respostas no mês', data:a.meses.map(m=>a.respMes[m]||0), backgroundColor:C.blue, borderRadius:5, order:2, yAxisID:'y', datalabels:(dlBar.datalabels||undefined) },
+      { type:'line', label:'NPS do mês', data:a.meses.map(m=>a.npsMes[m]), borderColor:C.gold, backgroundColor:C.gold, tension:0.3, pointRadius:3, spanGaps:true, order:1, yAxisID:'y1', datalabels: undefined }
+    ]},
+    options:{ responsive:true, maintainAspectRatio:false, layout:{padding:{top:hasDL?16:0}}, plugins:{ legend }, scales:{ x:{...gs}, y:{ beginAtZero:true, position:'left', ...gs, ticks:{...gs.ticks, precision:0}, title:{display:true,text:'Respostas',color:text,font:{size:10}} }, y1:{ position:'right', min:-100, max:100, grid:{drawOnChartArea:false}, ticks:{color:text,font:{size:10}}, title:{display:true,text:'NPS',color:text,font:{size:10}} } } }
+  });
+  // 6. Satisfação média mensal (linha)
+  mk('satMedia',{ type:'line',
+    data:{ labels:a.meses.map(mesLbl), datasets:[{ label:'Satisfação média', data:a.meses.map(m=>a.satMes[m]), borderColor:C.green, backgroundColor:'rgba(52,211,153,0.14)', fill:true, tension:0.35, pointRadius:3, pointBackgroundColor:C.green, spanGaps:true }] },
+    options:{ responsive:true, maintainAspectRatio:false, layout:{padding:{top:hasDL?16:0}}, plugins:{ legend:{display:false}, ...(hasDL?{datalabels:{display:(c)=>c.dataset.data[c.dataIndex]!=null && c.dataset.data[c.dataIndex]>0, anchor:'end',align:'top',offset:4,color:text,font:{weight:'700',size:10},formatter:v=>v}}:{}) }, scales:{ x:{...gs}, y:{ beginAtZero:true, max:10, ...gs } } }
+  });
+}
+
+/* ===================== KPIs ===================== */
+
+
+
+
+function renderKpis(){
+  if(currentTab==='indicadores'){ renderKpisIndicadores(); return; }
+  const vig = versaoVigente();
+  const pesq = store.get('qps_sat_pesquisas')||[];
+  const enviadas = pesq.length;
+  const respondidas = pesq.filter(p=>p.status==='Respondida').length;
+  const taxa = enviadas ? Math.round((respondidas/enviadas)*100) : 0;
+  document.getElementById('kpiRow').innerHTML = `
+    <div class="kpi-card" style="--accent-line:#4fa3ff;">
+      <div class="kpi-top"><div class="kpi-icon" style="border-color:rgba(79,163,255,0.45); color:#4fa3ff;"><svg class="icon" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
+        <div><div class="kpi-label">Formulário vigente</div><div class="kpi-value">Rev. ${vig?esc(vig.versao):'—'}</div></div></div>
+      <div class="kpi-caption">${vig?('aprovado por '+esc(vig.aprovador)):'sem versão vigente'}</div>
+    </div>
+    <div class="kpi-card" style="--accent-line:#46D9F5;">
+      <div class="kpi-top"><div class="kpi-icon" style="border-color:rgba(70,217,245,0.45); color:#46D9F5;"><svg class="icon" viewBox="0 0 24 24"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg></div>
+        <div><div class="kpi-label">Pesquisas enviadas</div><div class="kpi-value big">${enviadas}</div></div></div>
+      <div class="kpi-caption">no total</div>
+    </div>
+    <div class="kpi-card" style="--accent-line:#34D399;">
+      <div class="kpi-top"><div class="kpi-icon" style="border-color:rgba(52,211,153,0.45); color:#34D399;"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 12l2 2 4-4"/></svg></div>
+        <div><div class="kpi-label">Respondidas</div><div class="kpi-value big">${respondidas}</div></div></div>
+      <div class="kpi-caption">${taxa}% de resposta</div>
+    </div>
+    <div class="kpi-card" style="--accent-line:#F2B705;">
+      <div class="kpi-top"><div class="kpi-icon" style="border-color:rgba(242,183,5,0.45); color:#F2B705;"><svg class="icon" viewBox="0 0 24 24"><path d="M12 2l3 7h7l-5.5 4 2 7-6.5-4.5L5.5 27l2-7L2 9h7z"/></svg></div>
+        <div><div class="kpi-label">Taxa de resposta</div><div class="kpi-value big">${taxa}%</div></div></div>
+      <div class="kpi-caption">respondidas / enviadas</div>
+    </div>`;
+}
+
+/* ===================== MODAL / TOAST ===================== */
+function openModal(id){ document.getElementById(id).classList.add('show'); }
+function closeModal(id){ document.getElementById(id).classList.remove('show'); }
+document.querySelectorAll('.modal-overlay').forEach(ov=>{ ov.addEventListener('click', e=>{ if(e.target===ov) ov.classList.remove('show'); }); });
+let _toastTimer=null;
+function showToast(texto){ const t=document.getElementById('toast'); if(!t) return; document.getElementById('toastText').textContent=texto||'Salvo'; t.classList.add('show'); if(_toastTimer) clearTimeout(_toastTimer); _toastTimer=setTimeout(()=>t.classList.remove('show'),2600); }
+
+/* ===================== INTEGRAÇÃO COM O SGQ ===================== */
+function renderSatisfaction(){
+  renderKpis();
+  renderTab();
+  requestAnimationFrame(reportFrameHeight);
+}
+function reportFrameHeight(){
+  if(!embeddedModule) return;
+  const height = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight, 720);
+  window.parent.postMessage({ type:'qualitypro:satisfacao:resize', height }, window.location.origin);
+}
+function applySatisfactionTheme(theme){
+  document.body.classList.remove('theme-light', 'theme-white');
+  if(theme==='light') document.body.classList.add('theme-light');
+  if(theme==='white') document.body.classList.add('theme-white');
+  renderSatisfaction();
+}
+window.addEventListener('message', event=>{
+  if(event.origin !== window.location.origin) return;
+  if(event.data?.type==='qualitypro:satisfacao:theme') applySatisfactionTheme(event.data.theme);
+  if(event.data?.type==='qualitypro:satisfacao:hydrate'){
+    const incoming = event.data.satisfaction && typeof event.data.satisfaction==='object' ? event.data.satisfaction : {};
+    document.body.classList.remove('theme-light', 'theme-white');
+    if(event.data.theme==='light') document.body.classList.add('theme-light');
+    if(event.data.theme==='white') document.body.classList.add('theme-white');
+    Object.keys(satisfactionSnapshot).forEach(key=>delete satisfactionSnapshot[key]);
+    SAT_STORAGE_KEYS.forEach(key=>{
+      if(Object.prototype.hasOwnProperty.call(incoming,key)) satisfactionSnapshot[key]=cloneValue(incoming[key]);
+    });
+    satisfactionHydrated = true;
+    initData();
+    renderSatisfaction();
+    if(!Object.keys(incoming).length) queueSatisfactionPersist();
+  }
+});
+
+if(embeddedModule){
+  const initialFrameTheme = new URLSearchParams(window.location.search).get('theme');
+  if(initialFrameTheme==='light') document.body.classList.add('theme-light');
+  if(initialFrameTheme==='white') document.body.classList.add('theme-white');
+  bridgeReady = true;
+  if(window.ResizeObserver) new ResizeObserver(reportFrameHeight).observe(document.body);
+  window.addEventListener('load', reportFrameHeight);
+  window.parent.postMessage({ type:'qualitypro:satisfacao:ready' }, window.location.origin);
+} else {
+  initData();
+  renderSatisfaction();
+}
+</script>
+
+
+</body>
+</html>

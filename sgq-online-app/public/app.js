@@ -52,7 +52,6 @@ const modules = [
     title: "Satisfação do Cliente",
     accent: "#EC4899",
     desc: "Pesquisas, avaliações, reclamações, indicadores de satisfação e planos de melhoria.",
-    future: true,
   },
   {
     id: "fornecedores",
@@ -184,6 +183,7 @@ const seedState = {
   ],
   equipment: [],
   equipmentDistributions: [],
+  satisfaction: {},
   ncCatalogs: {
     clientes: [
       { id: "CLI-1", nome: "Metalúrgica Andrade Ltda", codigo: "CLI-001" },
@@ -561,7 +561,7 @@ async function loadRemoteData() {
     currentUser = payload.user || null;
     if (currentUser?.isAdmin && currentUser.companyId == null) {
       const settings = JSON.parse(localStorage.getItem(`qualitypro-platform-settings-${currentUser.id}`) || "{}");
-      payload.state = { company: {}, users: [], documents: [], audits: [], ncs: [], equipment: [], notifications: [], settings };
+      payload.state = { company: {}, users: [], documents: [], audits: [], ncs: [], equipment: [], satisfaction: {}, notifications: [], settings };
     }
     state = normalizeState(payload.state, payload.company, payload.user);
     if (["dark", "light", "white"].includes(payload.preferences?.theme)) state.settings.theme = payload.preferences.theme;
@@ -570,6 +570,7 @@ async function loadRemoteData() {
     if (!canViewModule("auditorias")) state.audits = [];
     if (!canViewModule("nao-conformidades")) state.ncs = [];
     if (!canViewModule("equipamentos")) state.equipment = [];
+    if (!canViewModule("satisfacao-clientes")) state.satisfaction = {};
     riskData = canViewModule("riscos")
       ? payload.risk || loadLocalRiskData()
       : { riscos: [], objetivos: [], mudancas: [] };
@@ -1065,6 +1066,7 @@ function applyTheme() {
   });
   syncAuditsFrameTheme();
   syncSuppliersFrameTheme();
+  syncSatisfactionFrameTheme();
 }
 
 function themeDisplayName(theme) {
@@ -1085,6 +1087,15 @@ function syncSuppliersFrameTheme() {
   if (!frame?.contentWindow) return;
   frame.contentWindow.postMessage({
     type: "qualitypro:fornecedores:theme",
+    theme: state.settings.theme || "dark",
+  }, window.location.origin);
+}
+
+function syncSatisfactionFrameTheme() {
+  const frame = pageContent?.querySelector(".satisfaction-module-frame");
+  if (!frame?.contentWindow) return;
+  frame.contentWindow.postMessage({
+    type: "qualitypro:satisfacao:theme",
     theme: state.settings.theme || "dark",
   }, window.location.origin);
 }
@@ -1944,8 +1955,8 @@ function firstName(name) {
 function renderModulos() {
   setTopbar("Meus módulos", "Módulos do QualityPro Cloud contratados pela sua empresa");
   pageContent.classList.add("modules-page-content");
-  const moduleOrder = ["contexto", "lideranca", "riscos", "documentos", "auditorias", "nao-conformidades", "equipamentos", "mudancas-climaticas", "fornecedores"];
-  const futureModuleOrder = ["satisfacao-clientes"];
+  const moduleOrder = ["contexto", "lideranca", "riscos", "documentos", "auditorias", "nao-conformidades", "equipamentos", "satisfacao-clientes", "mudancas-climaticas", "fornecedores"];
+  const futureModuleOrder = [];
   const activeModules = moduleOrder
     .map((id) => modules.find((module) => module.id === id))
     .filter((module) => module && canViewModule(module.id));
@@ -2166,6 +2177,7 @@ function renderModuleDetail(moduleId, options = {}) {
     "equipment-page-content",
     "climate-page-content",
     "suppliers-page-content",
+    "satisfaction-page-content",
   );
   if (!canViewModule(moduleId)) {
     toast("Seu perfil não possui acesso a este módulo.");
@@ -2218,6 +2230,11 @@ function renderModuleDetail(moduleId, options = {}) {
 
   if (moduleId === "fornecedores") {
     renderSuppliersModule();
+    return;
+  }
+
+  if (moduleId === "satisfacao-clientes") {
+    renderSatisfactionModule();
     return;
   }
 
@@ -2293,7 +2310,7 @@ function renderAuditsModule() {
   setTopbar("Auditorias", "Planejamento e acompanhamento de auditorias internas.");
   pageContent.innerHTML = `
     <section class="audits-module-shell" aria-label="Módulo de auditorias">
-      <iframe class="audits-module-frame" title="Auditorias" src="/audits-module-frame.html?v=20260910-audit-plan-attachment"></iframe>
+      <iframe class="audits-module-frame" title="Auditorias" src="/audits-module-frame.html?v=20260920-audit-documents-alignment"></iframe>
     </section>
   `;
   const frame = pageContent.querySelector(".audits-module-frame");
@@ -2403,14 +2420,49 @@ function renderEquipmentModule() {
 
 function renderSuppliersModule() {
   pageContent.classList.add("suppliers-page-content");
+  const frameTheme = encodeURIComponent(state.settings.theme || "dark");
   pageContent.innerHTML = `
     ${moduleHeaderHtml("fornecedores", { actions: false })}
     <section class="suppliers-module-shell" aria-label="Módulo de fornecedores">
-      <iframe class="suppliers-module-frame" title="Fornecedores" src="/fornecedores-module-frame.html?v=20260919" loading="eager"></iframe>
+      <iframe class="suppliers-module-frame" title="Fornecedores" src="/fornecedores-module-frame.html?v=20260920-blue-theme-palette&theme=${frameTheme}" loading="eager"></iframe>
     </section>
   `;
   const frame = pageContent.querySelector(".suppliers-module-frame");
   frame.addEventListener("load", () => syncSuppliersFrameTheme());
+  scrollPageToTop();
+}
+
+function hydrateSatisfactionFrame(frame) {
+  if (!frame?.contentWindow) return;
+  frame.contentWindow.postMessage({
+    type: "qualitypro:satisfacao:hydrate",
+    satisfaction: state.satisfaction && typeof state.satisfaction === "object" ? state.satisfaction : {},
+    theme: state.settings.theme || "dark",
+  }, window.location.origin);
+}
+
+async function persistSatisfactionFromFrame(satisfaction, frame) {
+  if (!satisfaction || typeof satisfaction !== "object") return;
+  const previousSatisfaction = state.satisfaction;
+  state.satisfaction = structuredClone(satisfaction);
+  const saved = await saveRemoteData("state", state, "satisfacao-clientes");
+  if (saved) return;
+  state.satisfaction = previousSatisfaction;
+  hydrateSatisfactionFrame(frame);
+  toast("Não foi possível salvar a satisfação do cliente. Tente novamente.");
+}
+
+function renderSatisfactionModule() {
+  pageContent.classList.add("satisfaction-page-content");
+  const frameTheme = encodeURIComponent(state.settings.theme || "dark");
+  pageContent.innerHTML = `
+    ${moduleHeaderHtml("satisfacao-clientes", { actions: false })}
+    <section class="satisfaction-module-shell" aria-label="Módulo de satisfação do cliente">
+      <iframe class="satisfaction-module-frame" title="Satisfação do Cliente" src="/satisfacao-module-frame.html?v=20260920-blue-theme-palette&theme=${frameTheme}" loading="eager"></iframe>
+    </section>
+  `;
+  const frame = pageContent.querySelector(".satisfaction-module-frame");
+  frame.addEventListener("load", () => hydrateSatisfactionFrame(frame));
   scrollPageToTop();
 }
 
@@ -2444,6 +2496,16 @@ if (!window.__qualityProAuditsFrameBridge) {
     const suppliersFrame = pageContent?.querySelector(".suppliers-module-frame");
     if (suppliersFrame && event.source === suppliersFrame.contentWindow) {
       if (event.data?.type === "qualitypro:fornecedores:ready") syncSuppliersFrameTheme();
+      return;
+    }
+    const satisfactionFrame = pageContent?.querySelector(".satisfaction-module-frame");
+    if (satisfactionFrame && event.source === satisfactionFrame.contentWindow) {
+      if (event.data?.type === "qualitypro:satisfacao:ready") hydrateSatisfactionFrame(satisfactionFrame);
+      if (event.data?.type === "qualitypro:satisfacao:persist") persistSatisfactionFromFrame(event.data.satisfaction, satisfactionFrame);
+      if (event.data?.type === "qualitypro:satisfacao:resize") {
+        const height = Number(event.data.height);
+        if (Number.isFinite(height) && height >= 620) satisfactionFrame.style.height = `${Math.ceil(height)}px`;
+      }
       return;
     }
     const equipmentFrame = pageContent?.querySelector(".equipment-module-frame");

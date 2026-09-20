@@ -135,6 +135,7 @@ const sgqModuleIds = [
   "auditorias",
   "nao-conformidades",
   "equipamentos",
+  "satisfacao-clientes",
 ];
 let bootstrapPromise;
 
@@ -575,6 +576,7 @@ function filterStateForPermissions(savedState, permissions) {
     auditorias: "audits",
     "nao-conformidades": "ncs",
     equipamentos: "equipment",
+    "satisfacao-clientes": "satisfaction",
   };
   Object.entries(stateFields).forEach(([moduleId, field]) => {
     if (!canViewModule(permissions, moduleId)) delete nextState[field];
@@ -1736,6 +1738,18 @@ async function handleRequest(req, res) {
       return;
     }
     serveFile(res, path.join(publicDir, "equipment-module-frame.html"), {
+      "X-Frame-Options": "SAMEORIGIN",
+      "Content-Security-Policy": "frame-ancestors 'self'",
+    });
+    return;
+  }
+
+  if (url.pathname === "/satisfacao-module-frame.html") {
+    if (!session) {
+      send(res, 302, "", { Location: "/login", "Set-Cookie": sessionCookie(req, "", 0) });
+      return;
+    }
+    serveFile(res, path.join(publicDir, "satisfacao-module-frame.html"), {
       "X-Frame-Options": "SAMEORIGIN",
       "Content-Security-Policy": "frame-ancestors 'self'",
     });
@@ -3205,6 +3219,7 @@ async function handleApiRequest(req, res, url, session) {
         auditorias: ["audits"],
         "nao-conformidades": ["ncs", "ncCatalogs", "supplierStateVersion"],
         equipamentos: ["equipment"],
+        "satisfacao-clientes": ["satisfaction"],
       };
       const fields = stateFields[requestedModule];
       if (!fields || !body.value || typeof body.value !== "object") {
@@ -3226,7 +3241,7 @@ async function handleApiRequest(req, res, url, session) {
       try {
         await mutateSupplierData(companyId, (data) => {
           const value = !ownsCompany ? { ...(data.state || {}), ...Object.fromEntries(({
-            documentos: ["documents"], auditorias: ["audits"], "nao-conformidades": ["ncs", "ncCatalogs", "supplierStateVersion"], equipamentos: ["equipment"], "mudancas-climaticas": ["climate"],
+            documentos: ["documents"], auditorias: ["audits"], "nao-conformidades": ["ncs", "ncCatalogs", "supplierStateVersion"], equipamentos: ["equipment"], "satisfacao-clientes": ["satisfaction"], "mudancas-climaticas": ["climate"],
           }[requestedModule] || []).filter((key) => Object.hasOwn(body.value, key)).map((key) => [key, body.value[key]])) } : body.value;
           supplierRnc.prepareState(data, value, requestedModule === "nao-conformidades");
           savedNcs = data.state.ncs;
