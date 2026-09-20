@@ -1365,7 +1365,12 @@ async function handleRequest(req, res) {
 
   if (url.pathname === "/api/health" && req.method === "GET") {
     const health = await getOperationalHealth();
-    sendJson(res, health.ok ? 200 : 503, { ok: health.ok, checkedAt: health.checkedAt });
+    const available = Boolean(health.services?.database?.ok);
+    sendJson(res, available ? 200 : 503, {
+      ok: available,
+      degraded: available && !health.ok,
+      checkedAt: health.checkedAt,
+    });
     return;
   }
 
