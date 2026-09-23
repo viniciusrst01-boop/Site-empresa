@@ -61,6 +61,24 @@ test("fornecedores recebe o tema inicial e acompanha as trocas do aplicativo", a
   await expect.poll(() => suppliersFrame.locator("body").evaluate((body) => !body.classList.contains("theme-light") && !body.classList.contains("theme-white"))).toBe(true);
 });
 
+test("modais em módulos incorporados desfocam a lateral", async ({ page }) => {
+  await login(page);
+
+  for (const [moduleId, frameTitle, modalId] of [
+    ["satisfacao-clientes", "Satisfação do Cliente", "modalHist"],
+    ["fornecedores", "Fornecedores", "modalForn"],
+  ]) {
+    await page.evaluate((target) => renderModuleDetail(target), moduleId);
+    const frame = page.frameLocator(`iframe[title="${frameTitle}"]`);
+    await frame.locator("#kpiRow").waitFor({ state: "visible" });
+    await frame.locator("body").evaluate((body, id) => openModal(id), modalId);
+    await expect(page.locator("body")).toHaveClass(/embedded-module-modal-open/);
+    await expect(frame.locator(`#${modalId}`)).toHaveClass(/show/);
+    await frame.locator("body").evaluate((body, id) => closeModal(id), modalId);
+    await expect(page.locator("body")).not.toHaveClass(/embedded-module-modal-open/);
+  }
+});
+
 test("nova auditoria mantém todos os controles visíveis sem rolagem interna no desktop", async ({ page }) => {
   await login(page);
   for (const viewport of [{ width: 1920, height: 1080 }, { width: 1600, height: 900 }, { width: 1440, height: 900 }, { width: 1366, height: 768 }, { width: 1280, height: 720 }, { width: 1024, height: 600 }]) {
@@ -72,6 +90,20 @@ test("nova auditoria mantém todos os controles visíveis sem rolagem interna no
     await auditsFrame.locator(".page-toolbar .btn-grad").click();
     await expect(auditsFrame.locator("#modalReg")).toBeVisible();
     await expect(page.locator("body")).toHaveClass(/audits-reg-modal-open/);
+
+    const sidebarOverlay = await page.locator(".sidebar").evaluate((sidebar) => {
+      const overlay = getComputedStyle(sidebar, "::after");
+      return {
+        content: overlay.content,
+        position: overlay.position,
+        inset: overlay.inset,
+        backdropFilter: overlay.backdropFilter,
+      };
+    });
+    expect(sidebarOverlay.content).toBe('""');
+    expect(sidebarOverlay.position).toBe("absolute");
+    expect(sidebarOverlay.inset).toBe("0px");
+    expect(sidebarOverlay.backdropFilter).toContain("blur");
 
     const layout = await auditsFrame.locator("#modalReg .modal-box").evaluate((modal) => {
       const viewportHeight = window.innerHeight;

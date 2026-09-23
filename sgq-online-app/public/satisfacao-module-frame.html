@@ -1395,9 +1395,10 @@ function renderKpis(){
 }
 
 /* ===================== MODAL / TOAST ===================== */
-function openModal(id){ document.getElementById(id).classList.add('show'); }
-function closeModal(id){ document.getElementById(id).classList.remove('show'); }
-document.querySelectorAll('.modal-overlay').forEach(ov=>{ ov.addEventListener('click', e=>{ if(e.target===ov) ov.classList.remove('show'); }); });
+function notifyModalState(){ window.parent.postMessage({ type:'qualitypro:satisfacao:modal', open:Boolean(document.querySelector('.modal-overlay.show')) }, window.location.origin); }
+function openModal(id){ document.getElementById(id).classList.add('show'); notifyModalState(); }
+function closeModal(id){ document.getElementById(id).classList.remove('show'); notifyModalState(); }
+document.querySelectorAll('.modal-overlay').forEach(ov=>{ ov.addEventListener('click', e=>{ if(e.target===ov){ ov.classList.remove('show'); notifyModalState(); } }); });
 let _toastTimer=null;
 function showToast(texto){ const t=document.getElementById('toast'); if(!t) return; document.getElementById('toastText').textContent=texto||'Salvo'; t.classList.add('show'); if(_toastTimer) clearTimeout(_toastTimer); _toastTimer=setTimeout(()=>t.classList.remove('show'),2600); }
 

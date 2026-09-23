@@ -2424,7 +2424,7 @@ function renderSuppliersModule() {
   pageContent.innerHTML = `
     ${moduleHeaderHtml("fornecedores", { actions: false })}
     <section class="suppliers-module-shell" aria-label="Módulo de fornecedores">
-      <iframe class="suppliers-module-frame" title="Fornecedores" src="/fornecedores-module-frame.html?v=20260920-blue-theme-palette&theme=${frameTheme}" loading="eager"></iframe>
+      <iframe class="suppliers-module-frame" title="Fornecedores" src="/fornecedores-module-frame.html?v=20260923-sidebar-modal-backdrop&theme=${frameTheme}" loading="eager"></iframe>
     </section>
   `;
   const frame = pageContent.querySelector(".suppliers-module-frame");
@@ -2458,7 +2458,7 @@ function renderSatisfactionModule() {
   pageContent.innerHTML = `
     ${moduleHeaderHtml("satisfacao-clientes", { actions: false })}
     <section class="satisfaction-module-shell" aria-label="Módulo de satisfação do cliente">
-      <iframe class="satisfaction-module-frame" title="Satisfação do Cliente" src="/satisfacao-module-frame.html?v=20260920-blue-theme-palette&theme=${frameTheme}" loading="eager"></iframe>
+      <iframe class="satisfaction-module-frame" title="Satisfação do Cliente" src="/satisfacao-module-frame.html?v=20260923-sidebar-modal-backdrop&theme=${frameTheme}" loading="eager"></iframe>
     </section>
   `;
   const frame = pageContent.querySelector(".satisfaction-module-frame");
@@ -2496,12 +2496,14 @@ if (!window.__qualityProAuditsFrameBridge) {
     const suppliersFrame = pageContent?.querySelector(".suppliers-module-frame");
     if (suppliersFrame && event.source === suppliersFrame.contentWindow) {
       if (event.data?.type === "qualitypro:fornecedores:ready") syncSuppliersFrameTheme();
+      if (event.data?.type === "qualitypro:fornecedores:modal") document.body.classList.toggle("embedded-module-modal-open", Boolean(event.data.open));
       return;
     }
     const satisfactionFrame = pageContent?.querySelector(".satisfaction-module-frame");
     if (satisfactionFrame && event.source === satisfactionFrame.contentWindow) {
       if (event.data?.type === "qualitypro:satisfacao:ready") hydrateSatisfactionFrame(satisfactionFrame);
       if (event.data?.type === "qualitypro:satisfacao:persist") persistSatisfactionFromFrame(event.data.satisfaction, satisfactionFrame);
+      if (event.data?.type === "qualitypro:satisfacao:modal") document.body.classList.toggle("embedded-module-modal-open", Boolean(event.data.open));
       if (event.data?.type === "qualitypro:satisfacao:resize") {
         const height = Number(event.data.height);
         if (Number.isFinite(height) && height >= 620) satisfactionFrame.style.height = `${Math.ceil(height)}px`;
