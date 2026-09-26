@@ -288,6 +288,7 @@
   .crit-item .ci-nome { flex:1; }
   .crit-item input { border:1px solid var(--border-strong); border-radius:9px; background:rgba(255,255,255,0.04); color:var(--text-primary); font-size:13.5px; padding:9px 12px; outline:none; font-family:inherit; width:100%; }
   .crit-item input:focus { border-color:var(--accent-blue-bright); }
+  .crit-item input:disabled { color:var(--text-secondary); background:rgba(255,255,255,0.018); border-color:var(--border-subtle); cursor:not-allowed; opacity:1; }
   .crit-item .ci-peso { width:110px; flex-shrink:0; }
   .peso-total { display:flex; align-items:center; justify-content:space-between; padding:12px 16px; border-radius:10px; font-size:13px; font-weight:700; margin-top:6px; }
   .peso-ok { background:rgba(52,211,153,0.1); border:1px solid rgba(52,211,153,0.35); color:var(--accent-green); }
@@ -634,9 +635,20 @@ const CRITERIOS_PADRAO = [
 ];
 
 /* ---- Faixas de resultado ---- */
+const FAIXAS_RESULTADO_PADRAO = { aprovadoMin:8, restricaoMin:6 };
+function getFaixasResultado(){
+  const faixas=store.get('qps_forn_faixas_resultado');
+  const aprovadoMin=Number(faixas?.aprovadoMin);
+  const restricaoMin=Number(faixas?.restricaoMin);
+  return Number.isFinite(aprovadoMin) && Number.isFinite(restricaoMin) && restricaoMin>=0 && aprovadoMin<=10 && restricaoMin<aprovadoMin
+    ? {aprovadoMin, restricaoMin}
+    : {...FAIXAS_RESULTADO_PADRAO};
+}
+function notaFaixa(n){ return Number(n).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1}); }
 function resultadoDaNota(n){
-  if(n>=8) return 'Aprovado';
-  if(n>=6) return 'Aprovado com restrição';
+  const faixas=getFaixasResultado();
+  if(n>=faixas.aprovadoMin) return 'Aprovado';
+  if(n>=faixas.restricaoMin) return 'Aprovado com restrição';
   return 'Reprovado';
 }
 function corResultado(r){ return {'Aprovado':'var(--accent-green)','Aprovado com restrição':'var(--accent-amber)','Reprovado':'var(--accent-red)'}[r]||'var(--text-muted)'; }
@@ -646,6 +658,7 @@ const FORN_DATA_VERSION = '2026-09-3';
 function initData(){
   if(store.get('qps_forn_version') !== FORN_DATA_VERSION){
     store.set('qps_forn_criterios', CRITERIOS_PADRAO);
+    store.set('qps_forn_faixas_resultado', FAIXAS_RESULTADO_PADRAO);
     store.set('qps_fornecedores', FORN_SEED);
     store.set('qps_forn_avaliacoes', AVAL_SEED);
     store.set('qps_forn_acoes', ACAO_SEED);
@@ -653,6 +666,7 @@ function initData(){
     return;
   }
   if(store.get('qps_forn_criterios')===null) store.set('qps_forn_criterios', CRITERIOS_PADRAO);
+  if(store.get('qps_forn_faixas_resultado')===null) store.set('qps_forn_faixas_resultado', FAIXAS_RESULTADO_PADRAO);
   if(store.get('qps_fornecedores')===null) store.set('qps_fornecedores', FORN_SEED);
   if(store.get('qps_forn_avaliacoes')===null) store.set('qps_forn_avaliacoes', AVAL_SEED);
   if(store.get('qps_forn_acoes')===null) store.set('qps_forn_acoes', ACAO_SEED);
@@ -884,15 +898,19 @@ function verFornecedor(id){
 
 /* ===================== ABA 2: CRITÉRIOS DE AVALIAÇÃO ===================== */
 let critsEdit = null;
+let criteriosEmEdicao = false;
+let faixasEmEdicao = false;
+let faixasEdit = null;
 function criteriosHTML(){
-  critsEdit = JSON.parse(JSON.stringify(getCriterios()));
+  if(!critsEdit || !criteriosEmEdicao) critsEdit = JSON.parse(JSON.stringify(getCriterios()));
+  if(!faixasEdit || !faixasEmEdicao) faixasEdit = {...getFaixasResultado()};
   const total = critsEdit.reduce((s,c)=>s+Number(c.peso||0),0);
   const itens = critsEdit.map((c,i)=>`
     <div class="crit-item">
       <div class="ci-num">${i+1}</div>
-      <div class="ci-nome"><input value="${esc(c.nome)}" onchange="setCritNome(${i}, this.value)" placeholder="Nome do critério"></div>
-      <div class="ci-peso"><input type="number" min="0" max="100" value="${c.peso}" onchange="setCritPeso(${i}, this.value)" placeholder="Peso %"></div>
-      <div class="abtn danger" onclick="removerCriterio(${i})" title="Remover"><svg class="icon" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></div>
+      <div class="ci-nome"><input value="${esc(c.nome)}" onchange="setCritNome(${i}, this.value)" placeholder="Nome do critério" ${criteriosEmEdicao?'':'disabled'}></div>
+      <div class="ci-peso"><input type="number" min="0" max="${100 - total + Number(c.peso || 0)}" value="${c.peso}" onchange="setCritPeso(${i}, this.value)" placeholder="Peso %" ${criteriosEmEdicao?'':'disabled'}></div>
+      ${criteriosEmEdicao ? `<div class="abtn danger" onclick="removerCriterio(${i})" title="Remover"><svg class="icon" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></div>` : ''}
     </div>`).join('');
 
   return `
@@ -911,8 +929,7 @@ function criteriosHTML(){
     <div class="dcc-hd">
       <div><div class="dcc-title">Critérios de Avaliação</div><div class="dcc-sub">${critsEdit.length} critério(s) · nota 0–10 ponderada por peso</div></div>
       <div style="display:flex; gap:10px;">
-        <div class="btn-ghost" onclick="addCriterio()"><svg class="icon" viewBox="0 0 24 24" style="width:15px;height:15px;"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Adicionar critério</div>
-        <div class="btn-grad" onclick="salvarCriterios()">Salvar critérios</div>
+        ${criteriosEmEdicao ? `<div class="btn-ghost" onclick="addCriterio()"><svg class="icon" viewBox="0 0 24 24" style="width:15px;height:15px;"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Adicionar critério</div><div class="btn-grad" onclick="salvarCriterios()">Salvar critérios</div>` : `<div class="btn-ghost" onclick="editarCriterios()"><svg class="icon" viewBox="0 0 24 24" style="width:15px;height:15px;"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>Editar critérios</div>`}
       </div>
     </div>
     <div style="padding:18px 20px;">
@@ -925,25 +942,57 @@ function criteriosHTML(){
   </div>
 
   <div class="dcc" style="margin-top:16px; padding:20px 22px;">
-    <div style="font-size:13px; font-weight:800; margin-bottom:12px;">Faixas de resultado</div>
+    <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px;"><div style="font-size:13px; font-weight:800;">Faixas de resultado</div>${faixasEmEdicao?`<div style="display:flex; gap:8px;"><div class="btn-ghost" onclick="cancelarEdicaoFaixas()">Cancelar</div><div class="btn-grad" onclick="salvarFaixasResultado()">Salvar faixas</div></div>`:`<div class="btn-ghost" onclick="editarFaixasResultado()">Editar faixas</div>`}</div>
     <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:12px;">
-      <div style="padding:14px 16px; border-radius:11px; background:rgba(52,211,153,0.1); border:1px solid rgba(52,211,153,0.35);"><div class="res-aprovado" style="font-size:13px;">Aprovado</div><div style="font-size:12px; color:var(--text-secondary); margin-top:4px;">Nota final ≥ 8,0</div></div>
-      <div style="padding:14px 16px; border-radius:11px; background:rgba(251,191,36,0.1); border:1px solid rgba(251,191,36,0.35);"><div class="res-restricao" style="font-size:13px;">Aprovado com restrição</div><div style="font-size:12px; color:var(--text-secondary); margin-top:4px;">Nota final de 6,0 a 7,9</div></div>
-      <div style="padding:14px 16px; border-radius:11px; background:rgba(248,113,113,0.1); border:1px solid rgba(248,113,113,0.35);"><div class="res-reprovado" style="font-size:13px;">Reprovado</div><div style="font-size:12px; color:var(--text-secondary); margin-top:4px;">Nota final &lt; 6,0 · exige plano de ação</div></div>
+      <div style="padding:14px 16px; border-radius:11px; background:rgba(52,211,153,0.1); border:1px solid rgba(52,211,153,0.35);"><div class="res-aprovado" style="font-size:13px;">Aprovado</div>${faixasEmEdicao?`<label style="display:grid; gap:5px; margin-top:10px; font-size:11px; color:var(--text-secondary);">A partir de<input class="input-basic" style="padding:8px 10px;" id="faixaAprovadoMin" type="number" min="0.1" max="10" step="0.1" value="${faixasEdit.aprovadoMin}" oninput="setFaixaResultado('aprovadoMin',this.value)"></label>`:`<div style="font-size:12px; color:var(--text-secondary); margin-top:4px;">Nota final ≥ ${notaFaixa(faixasEdit.aprovadoMin)}</div>`}</div>
+      <div style="padding:14px 16px; border-radius:11px; background:rgba(251,191,36,0.1); border:1px solid rgba(251,191,36,0.35);"><div class="res-restricao" style="font-size:13px;">Aprovado com restrição</div>${faixasEmEdicao?`<label style="display:grid; gap:5px; margin-top:10px; font-size:11px; color:var(--text-secondary);">A partir de<input class="input-basic" style="padding:8px 10px;" id="faixaRestricaoMin" type="number" min="0" max="9.9" step="0.1" value="${faixasEdit.restricaoMin}" oninput="setFaixaResultado('restricaoMin',this.value)"></label>`:`<div style="font-size:12px; color:var(--text-secondary); margin-top:4px;">Nota final de ${notaFaixa(faixasEdit.restricaoMin)} a ${notaFaixa(faixasEdit.aprovadoMin-0.1)}</div>`}</div>
+      <div style="padding:14px 16px; border-radius:11px; background:rgba(248,113,113,0.1); border:1px solid rgba(248,113,113,0.35);"><div class="res-reprovado" style="font-size:13px;">Reprovado</div><div style="font-size:12px; color:var(--text-secondary); margin-top:4px;">Nota final &lt; ${notaFaixa(faixasEdit.restricaoMin)} · exige plano de ação</div></div>
     </div>
   </div>`;
 }
 function setCritNome(i,v){ if(critsEdit[i]) critsEdit[i].nome=v; }
-function setCritPeso(i,v){ if(critsEdit[i]){ critsEdit[i].peso=Number(v)||0; renderTab(); } }
-function addCriterio(){ critsEdit.push({id:'C'+Date.now().toString().slice(-5), nome:'', peso:0}); store.set('qps_forn_criterios', critsEdit); renderTab(); }
-function removerCriterio(i){ critsEdit.splice(i,1); store.set('qps_forn_criterios', critsEdit); renderTab(); }
+function setCritPeso(i,v){
+  if(!criteriosEmEdicao || !critsEdit[i]) return;
+  const peso = Number(v) || 0;
+  const totalOutros = critsEdit.reduce((s, criterio, indice) => indice === i ? s : s + Number(criterio.peso || 0), 0);
+  if(totalOutros + peso > 100){
+    showToast('O valor desejado excedeu a soma de 100%.');
+    renderTab();
+    return;
+  }
+  critsEdit[i].peso = peso;
+  renderTab();
+}
+function editarCriterios(){
+  critsEdit = JSON.parse(JSON.stringify(getCriterios()));
+  criteriosEmEdicao = true;
+  renderTab();
+}
+function addCriterio(){ if(!criteriosEmEdicao) return; critsEdit.push({id:'C'+Date.now().toString().slice(-5), nome:'', peso:0}); renderTab(); }
+function removerCriterio(i){ if(!criteriosEmEdicao) return; critsEdit.splice(i,1); renderTab(); }
 function salvarCriterios(){
+  if(!criteriosEmEdicao) return;
   document.querySelectorAll('.crit-item .ci-nome input').forEach((inp,i)=>{ if(critsEdit[i]) critsEdit[i].nome=inp.value; });
   const total=critsEdit.reduce((s,c)=>s+Number(c.peso||0),0);
   if(total!==100){ showToast('A soma dos pesos deve ser exatamente 100%.'); return; }
   if(critsEdit.some(c=>!c.nome.trim())){ showToast('Preencha o nome de todos os critérios.'); return; }
   store.set('qps_forn_criterios', critsEdit);
+  criteriosEmEdicao = false;
+  critsEdit = null;
   showToast('Critérios salvos');
+  renderTab();
+}
+function editarFaixasResultado(){ faixasEdit={...getFaixasResultado()}; faixasEmEdicao=true; renderTab(); }
+function cancelarEdicaoFaixas(){ faixasEmEdicao=false; faixasEdit=null; renderTab(); }
+function setFaixaResultado(campo,valor){ if(faixasEdit) faixasEdit[campo]=Number(valor); }
+function salvarFaixasResultado(){
+  const aprovadoMin=Number(document.getElementById('faixaAprovadoMin')?.value);
+  const restricaoMin=Number(document.getElementById('faixaRestricaoMin')?.value);
+  if(!Number.isFinite(aprovadoMin)||!Number.isFinite(restricaoMin)||restricaoMin<0||aprovadoMin>10||restricaoMin>=aprovadoMin){ showToast('Defina faixas entre 0 e 10, com a restrição abaixo da aprovação.'); return; }
+  store.set('qps_forn_faixas_resultado',{aprovadoMin,restricaoMin});
+  faixasEmEdicao=false;
+  faixasEdit=null;
+  showToast('Faixas de resultado salvas. Elas valem para as próximas avaliações.');
   renderTab();
 }
 

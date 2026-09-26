@@ -103,6 +103,8 @@ const {
   meetingInvitationEmail,
   operationalAlertEmail,
   passwordResetEmail,
+  satisfactionApprovalDecisionEmail,
+  satisfactionApprovalRequestEmail,
   sendEmail,
 } = require("./mailer");
 
@@ -126,6 +128,8 @@ const publicAppUrl = String(
 ).replace(/\/$/, "");
 const { createSupplierRnc } = require("./supplier-rnc");
 const supplierRnc = createSupplierRnc({ secret: sessionSecret, appUrl: publicAppUrl });
+const { createSatisfactionApproval } = require("./satisfaction-approval");
+const satisfactionApproval = createSatisfactionApproval({ secret: sessionSecret, appUrl: publicAppUrl });
 const sgqModuleIds = [
   "mudancas-climaticas",
   "contexto",
@@ -471,6 +475,18 @@ async function listLeadershipParticipantUsers(companyId) {
       return { ...user, cargo: user.cargo || savedUser?.cargo || "", contactEmail: isEmail(email) ? email : "" };
     })
     .filter((user) => user.contactEmail);
+}
+
+async function listSatisfactionApprovers(companyId) {
+  const contacts = await listLeadershipParticipantUsers(companyId);
+  const isLeadership = (user) => /administrador|gestor|diretor|dire[cç][aã]o|presidente|s[oó]cio/i.test(`${user.role || ""} ${user.cargo || ""}`);
+  const leadership = contacts.filter(isLeadership);
+  return (leadership.length ? leadership : contacts).slice(0, 50).map((user) => ({
+    id: user.id,
+    name: user.displayName || user.username,
+    email: user.contactEmail,
+    role: user.cargo || user.role || "Alta Direção",
+  }));
 }
 
 async function saveCompanyUserSettings(companyId, userId, values) {
@@ -1334,6 +1350,12 @@ async function handleRequest(req, res) {
     serveFile(res, path.join(publicDir, url.pathname === "/supplier-rnc" ? "supplier-rnc.html" : url.pathname.slice(1)));
     return;
   }
+  if (["/satisfaction-approval", "/satisfaction-approval.js", "/satisfaction-approval.css"].includes(url.pathname) && req.method === "GET") {
+    res.setHeader("Referrer-Policy", "no-referrer");
+    res.setHeader("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
+    serveFile(res, path.join(publicDir, url.pathname === "/satisfaction-approval" ? "satisfaction-approval.html" : url.pathname.slice(1)));
+    return;
+  }
   if (url.pathname === "/api/supplier-rnc" || url.pathname.startsWith("/api/supplier-rnc/")) {
     res.setHeader("Referrer-Policy", "no-referrer");
     const token = String(req.headers.authorization || "").replace(/^Bearer /, "");
@@ -1362,6 +1384,46 @@ async function handleRequest(req, res) {
         sendJson(res, 200, await supplierRnc.remove(token, url.pathname.split("/").pop()));
       } else sendJson(res, 404, { error: "not_found" });
     } catch (error) { sendJson(res, error.status || (error instanceof SyntaxError ? 400 : 500), { error: error.status ? error.message : "supplier_request_failed" }); }
+    return;
+  }
+  if (url.pathname === "/api/satisfaction-approval") {
+    res.setHeader("Referrer-Policy", "no-referrer");
+    const token = String(req.headers.authorization || "").replace(/^Bearer /, "");
+    try {
+      if (req.method === "GET") {
+        sendJson(res, 200, await satisfactionApproval.read(token));
+      } else if (req.method === "POST") {
+        const result = await satisfactionApproval.decide(token, await readJsonBody(req));
+        const company = await getCompany(result.companyId);
+        let delivery = { status: "not_configured" };
+        if (publicAppUrl && isEmail(result.requester?.email)) {
+          delivery = await sendEmail({
+            to: result.requester.email,
+            subject: `Formulário ${result.record.status === "Aprovado" ? "aprovado" : "contestado"} - ${company?.name || "QualityPro Cloud"}`,
+            html: satisfactionApprovalDecisionEmail({
+              requesterName: result.requester.name,
+              companyName: company?.name || "sua empresa",
+              version: `Rev. ${result.record.version}`,
+              approverName: result.approver.name,
+              approved: result.record.status === "Aprovado",
+              considerations: result.record.considerations,
+            }),
+            tag: "satisfaction_approval_decision",
+            idempotencyKey: `satisfaction-decision:${result.companyId}:${result.record.version}:${result.record.status}`,
+          }).catch(() => ({ status: "failed" }));
+        }
+        await recordAuditLog({
+          companyId: result.companyId,
+          username: result.approver?.email || "",
+          eventType: result.record.status === "Aprovado" ? "satisfaction_form_approved" : "satisfaction_form_contested",
+          outcome: "success",
+          ipAddress: requestIp(req),
+          userAgent: requestUserAgent(req),
+          metadata: { version: result.record.version, requester: result.requester?.email || "", decisionEmail: delivery.status },
+        });
+        sendJson(res, 200, { ...result.record, delivery: delivery.status });
+      } else sendJson(res, 404, { error: "not_found" });
+    } catch (error) { sendJson(res, error.status || (error instanceof SyntaxError ? 400 : 500), { error: error.status ? error.message : "satisfaction_approval_failed" }); }
     return;
   }
 
@@ -2465,6 +2527,68 @@ async function handleApiRequest(req, res, url, session) {
         ? users
         : users.filter((user) => Number(user.id) === Number(session.userId)),
     });
+    return;
+  }
+
+  if (url.pathname === "/api/satisfaction/approvers" && req.method === "GET") {
+    const permissions = await getSessionPermissions(session);
+    if (!canViewModule(permissions, "satisfacao-clientes")) {
+      sendJson(res, 403, { error: "forbidden" });
+      return;
+    }
+    sendJson(res, 200, { users: await listSatisfactionApprovers(companyId) });
+    return;
+  }
+
+  if (url.pathname === "/api/satisfaction-approvals" && req.method === "POST") {
+    const permissions = await getSessionPermissions(session);
+    if (!canEditModule(permissions, "satisfacao-clientes")) {
+      sendJson(res, 403, { error: "forbidden" });
+      return;
+    }
+    const body = await readJsonBody(req);
+    const approvers = await listSatisfactionApprovers(companyId);
+    const approver = approvers.find((user) => String(user.id) === String(body?.approverId || ""));
+    const contacts = await listLeadershipParticipantUsers(companyId);
+    const requesterUser = contacts.find((user) => Number(user.id) === Number(session.userId));
+    const requesterEmail = requesterUser?.contactEmail || (isEmail(session.username) ? session.username : "");
+    if (!approver) { sendJson(res, 400, { error: "invalid_approver" }); return; }
+    if (!requesterEmail) { sendJson(res, 400, { error: "requester_email_required" }); return; }
+    let result;
+    try {
+      result = await satisfactionApproval.request(companyId, {
+        version: body?.version,
+        approver,
+        requester: { id: session.userId, name: session.displayName || session.username, email: requesterEmail },
+      });
+    } catch (error) {
+      sendJson(res, error.status || 500, { error: error.status ? error.message : "satisfaction_approval_failed" });
+      return;
+    }
+    const company = await getCompany(companyId);
+    const delivery = publicAppUrl
+      ? await sendEmail({
+        to: approver.email,
+        subject: `Aprovação solicitada - formulário de satisfação - ${company?.name || "QualityPro Cloud"}`,
+        html: satisfactionApprovalRequestEmail({
+          recipientName: approver.name,
+          companyName: company?.name || "sua empresa",
+          requesterName: session.displayName || session.username,
+          version: `Rev. ${body.version}`,
+          link: result.link,
+        }),
+        tag: "satisfaction_approval_request",
+        idempotencyKey: `satisfaction-request:${companyId}:${body.version}:${result.approval.nonce}`,
+      }).catch(() => ({ status: "failed" }))
+      : { status: "not_configured" };
+    const satisfaction = await satisfactionApproval.markDelivery(companyId, String(body.version), result.approval.nonce, delivery.status);
+    await auditRequest(req, session, "satisfaction_approval_requested", delivery.status === "sent" ? "success" : "failed", {
+      version: body.version,
+      approverId: approver.id,
+      approverEmail: approver.email,
+      emailDelivery: delivery.status,
+    });
+    sendJson(res, 200, { ok: true, satisfaction, delivery: delivery.status, approver: { id: approver.id, name: approver.name } });
     return;
   }
 

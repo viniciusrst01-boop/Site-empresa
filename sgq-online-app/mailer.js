@@ -88,6 +88,25 @@ function meetingInvitationEmail({ recipientName, companyName, organizerName, mee
   );
 }
 
+function satisfactionApprovalRequestEmail({ recipientName, companyName, requesterName, version, link }) {
+  return emailShell(
+    `Aprovação solicitada - ${companyName}`,
+    `<p>Olá, <strong>${escapeHtml(recipientName)}</strong>.</p>
+     <p><strong>${escapeHtml(requesterName)}</strong> enviou a revisão <strong>${escapeHtml(version)}</strong> do formulário de satisfação do cliente para sua aprovação.</p>
+     <p style="margin:22px 0">${button("Analisar e decidir", link)}</p>
+     <p style="color:#aebbd0">No link, você poderá aprovar a revisão ou contestá-la com suas considerações. O acesso expira em 30 dias.</p>`,
+  );
+}
+
+function satisfactionApprovalDecisionEmail({ requesterName, companyName, version, approverName, approved, considerations }) {
+  return emailShell(
+    approved ? `Formulário aprovado - ${companyName}` : `Formulário contestado - ${companyName}`,
+    `<p>Olá, <strong>${escapeHtml(requesterName)}</strong>.</p>
+     <p>A revisão <strong>${escapeHtml(version)}</strong> do formulário de satisfação foi <strong>${approved ? "aprovada" : "contestada"}</strong> por <strong>${escapeHtml(approverName)}</strong>.</p>
+     ${approved ? `<p>A revisão já está vigente no módulo de Satisfação do Cliente.</p>` : `<p><strong>Considerações:</strong><br>${escapeHtml(considerations)}</p>`}`,
+  );
+}
+
 function deadlineAlertEmail({ companyName, items }) {
   const rows = items
     .slice(0, 20)
@@ -118,5 +137,7 @@ module.exports = {
   meetingInvitationEmail,
   operationalAlertEmail,
   passwordResetEmail,
+  satisfactionApprovalDecisionEmail,
+  satisfactionApprovalRequestEmail,
   sendEmail,
 };

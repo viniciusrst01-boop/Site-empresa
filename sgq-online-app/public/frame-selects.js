@@ -96,12 +96,27 @@
     wrapper.append(trigger);
     document.body.append(menu);
     select.addEventListener("change", sync);
+    select.__qualityProSelect = { wrapper, menu, sync };
     sync();
+  }
+
+  function refresh(select) {
+    const current = select?.__qualityProSelect;
+    if (!current) return enhance(select);
+    if (openMenu?.menu === current.menu) close();
+    select.removeEventListener("change", current.sync);
+    current.menu.remove();
+    current.wrapper.parentNode?.insertBefore(select, current.wrapper);
+    current.wrapper.remove();
+    delete select.__qualityProSelect;
+    enhance(select);
   }
 
   function enhanceAll(root = document) {
     root.querySelectorAll?.("select.input-basic").forEach(enhance);
   }
+
+  window.qualityProRefreshFrameSelect = refresh;
 
   const start = () => {
     if (!document.querySelector("style[data-frame-selects]")) {

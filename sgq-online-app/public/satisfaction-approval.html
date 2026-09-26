@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>Aprovação de formulário | QualityPro Cloud</title>
+  <link rel="stylesheet" href="/satisfaction-approval.css">
+  <script src="/satisfaction-approval.js" defer></script>
+</head>
+<body>
+  <header><div><p class="brand">QUALITYPRO CLOUD</p><h1>Aprovação de formulário</h1><p id="subtitle">Carregando solicitação...</p></div><label class="theme-control">Tema<select id="theme" aria-label="Tema"><option value="white">Claro</option><option value="light">Claro azul</option><option value="dark">Escuro</option></select></label></header>
+  <main>
+    <p id="feedback" role="status" aria-live="polite">Validando link de aprovação...</p>
+    <section id="approval" hidden>
+      <div class="context"><p class="eyebrow">PESQUISA DE SATISFAÇÃO</p><h2 id="version"></h2><dl><div><dt>Solicitado por</dt><dd id="requested-by"></dd></div><div><dt>Enviado em</dt><dd id="requested-at"></dd></div></dl></div>
+      <div class="decision"><h2>Você aprova esta revisão?</h2><p>Ao aprovar, a revisão passará a ser o formulário vigente da pesquisa de satisfação.</p><div class="actions"><button class="approve" id="approve" type="button">Aprovar</button><button id="contest" type="button">Contestar</button></div></div>
+    </section>
+    <section id="contest-panel" hidden><h2>Contestar aprovação</h2><p>Informe as considerações para que o responsável possa revisar o formulário.</p><label>Considerações<textarea id="considerations" maxlength="4000" rows="6" placeholder="Descreva o que precisa ser ajustado"></textarea></label><div class="actions"><button id="cancel" type="button">Voltar</button><button class="contest-send" id="send-contest" type="button">Enviar contestação</button></div></section>
+    <section id="confirmation" class="confirmation" hidden><div class="confirmation-icon">✓</div><h2 id="confirmation-title"></h2><p id="confirmation-text"></p><dl><div><dt>Revisão</dt><dd id="confirmed-version"></dd></div><div><dt>Decisão registrada em</dt><dd id="confirmed-at"></dd></div></dl></section>
+  </main>
+</body>
+</html>

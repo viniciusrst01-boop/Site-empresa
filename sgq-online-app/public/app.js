@@ -2438,18 +2438,65 @@ function hydrateSatisfactionFrame(frame) {
     type: "qualitypro:satisfacao:hydrate",
     satisfaction: state.satisfaction && typeof state.satisfaction === "object" ? state.satisfaction : {},
     theme: state.settings.theme || "dark",
+    approvers: satisfactionApprovers,
   }, window.location.origin);
 }
 
 async function persistSatisfactionFromFrame(satisfaction, frame) {
-  if (!satisfaction || typeof satisfaction !== "object") return;
+  if (!satisfaction || typeof satisfaction !== "object") return false;
   const previousSatisfaction = state.satisfaction;
   state.satisfaction = structuredClone(satisfaction);
   const saved = await saveRemoteData("state", state, "satisfacao-clientes");
-  if (saved) return;
+  if (saved) return true;
   state.satisfaction = previousSatisfaction;
   hydrateSatisfactionFrame(frame);
   toast("Não foi possível salvar a satisfação do cliente. Tente novamente.");
+  return false;
+}
+
+let satisfactionApprovers = [];
+let satisfactionApproversPromise = null;
+async function loadSatisfactionApprovers() {
+  if (satisfactionApproversPromise) return satisfactionApproversPromise;
+  satisfactionApproversPromise = fetch("/api/satisfaction/approvers")
+    .then(async (response) => response.ok ? response.json() : { users: [] })
+    .then((payload) => {
+      satisfactionApprovers = Array.isArray(payload.users) ? payload.users : [];
+      return satisfactionApprovers;
+    })
+    .catch(() => [])
+    .finally(() => { satisfactionApproversPromise = null; });
+  return satisfactionApproversPromise;
+}
+
+async function requestSatisfactionApproval(data, frame) {
+  const saved = await persistSatisfactionFromFrame(data.satisfaction, frame);
+  if (!saved) {
+    frame.contentWindow?.postMessage({ type: "qualitypro:satisfacao:approval-error", message: "Não foi possível salvar o rascunho antes do envio." }, window.location.origin);
+    return;
+  }
+  try {
+    const response = await fetch("/api/satisfaction-approvals", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ version: data.version, approverId: data.approverId }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const messages = { invalid_approver: "Selecione uma pessoa da Alta Direção.", requester_email_required: "Seu usuário não possui e-mail configurado para receber a resposta.", approval_not_available: "Esta revisão não está mais disponível para envio." };
+      throw new Error(messages[payload.error] || "Não foi possível enviar a solicitação de aprovação.");
+    }
+    state.satisfaction = payload.satisfaction || state.satisfaction;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    hydrateSatisfactionFrame(frame);
+    const message = payload.delivery === "sent"
+      ? `Solicitação enviada para ${payload.approver?.name || "a Alta Direção"}.`
+      : "Solicitação registrada, mas o envio de e-mail não está configurado no ambiente.";
+    frame.contentWindow?.postMessage({ type: "qualitypro:satisfacao:approval-success", message }, window.location.origin);
+    toast(message);
+  } catch (error) {
+    frame.contentWindow?.postMessage({ type: "qualitypro:satisfacao:approval-error", message: error.message }, window.location.origin);
+  }
 }
 
 function renderSatisfactionModule() {
@@ -2458,11 +2505,12 @@ function renderSatisfactionModule() {
   pageContent.innerHTML = `
     ${moduleHeaderHtml("satisfacao-clientes", { actions: false })}
     <section class="satisfaction-module-shell" aria-label="Módulo de satisfação do cliente">
-      <iframe class="satisfaction-module-frame" title="Satisfação do Cliente" src="/satisfacao-module-frame.html?v=20260923-sidebar-modal-backdrop&theme=${frameTheme}" loading="eager"></iframe>
+      <iframe class="satisfaction-module-frame" title="Satisfação do Cliente" src="/satisfacao-module-frame.html?v=20260926-external-approval&theme=${frameTheme}" loading="eager"></iframe>
     </section>
   `;
   const frame = pageContent.querySelector(".satisfaction-module-frame");
   frame.addEventListener("load", () => hydrateSatisfactionFrame(frame));
+  loadSatisfactionApprovers().then(() => hydrateSatisfactionFrame(frame));
   scrollPageToTop();
 }
 
@@ -2503,10 +2551,14 @@ if (!window.__qualityProAuditsFrameBridge) {
     if (satisfactionFrame && event.source === satisfactionFrame.contentWindow) {
       if (event.data?.type === "qualitypro:satisfacao:ready") hydrateSatisfactionFrame(satisfactionFrame);
       if (event.data?.type === "qualitypro:satisfacao:persist") persistSatisfactionFromFrame(event.data.satisfaction, satisfactionFrame);
+      if (event.data?.type === "qualitypro:satisfacao:request-approval") requestSatisfactionApproval(event.data, satisfactionFrame);
       if (event.data?.type === "qualitypro:satisfacao:modal") document.body.classList.toggle("embedded-module-modal-open", Boolean(event.data.open));
       if (event.data?.type === "qualitypro:satisfacao:resize") {
         const height = Number(event.data.height);
-        if (Number.isFinite(height) && height >= 620) satisfactionFrame.style.height = `${Math.ceil(height)}px`;
+        if (Number.isFinite(height) && height >= 620) {
+          const nextHeight = Math.ceil(height);
+          if (Math.abs(satisfactionFrame.getBoundingClientRect().height - nextHeight) > 1) satisfactionFrame.style.height = `${nextHeight}px`;
+        }
       }
       return;
     }

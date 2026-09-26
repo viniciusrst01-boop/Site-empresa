@@ -35,6 +35,185 @@ test("satisfação do cliente é integrada com abas, dados demonstrativos e tema
   await expect.poll(() => satisfactionFrame.locator("body").evaluate((body) => body.classList.contains("theme-white"))).toBe(true);
 });
 
+test("critérios de fornecedores só podem ser alterados no modo de edição", async ({ page }) => {
+  await login(page);
+  await page.evaluate(() => renderModuleDetail("fornecedores"));
+
+  const frame = page.frameLocator('iframe[title="Fornecedores"]');
+  await frame.locator('[data-tab="criterios"]').click();
+
+  const firstName = frame.locator('.crit-item .ci-nome input').first();
+  const firstWeight = frame.locator('.crit-item .ci-peso input').first();
+  await expect(firstName).toBeDisabled();
+  await expect(firstWeight).toBeDisabled();
+  await expect(frame.getByText('Editar critérios', { exact: true })).toBeVisible();
+
+  await frame.getByText('Editar critérios', { exact: true }).click();
+  await expect(firstName).toBeEnabled();
+  await expect(firstWeight).toBeEnabled();
+  await firstName.fill('Qualidade validada');
+  await frame.getByText('Salvar critérios', { exact: true }).click();
+
+  await expect(firstName).toBeDisabled();
+  await expect(firstName).toHaveValue('Qualidade validada');
+  await expect(frame.getByText('Editar critérios', { exact: true })).toBeVisible();
+
+  await frame.getByText('Editar critérios', { exact: true }).click();
+  await firstWeight.fill('31');
+  await firstWeight.press('Tab');
+  await expect(frame.locator('#toastText')).toHaveText('O valor desejado excedeu a soma de 100%.');
+  await expect(firstWeight).toHaveValue('30');
+});
+
+test("envio manual de satisfação exige todos os dados do cliente", async ({ page }) => {
+  await login(page);
+  await page.evaluate(() => renderModuleDetail("satisfacao-clientes"));
+
+  const frame = page.frameLocator('iframe[title="Satisfação do Cliente"]');
+  await frame.locator('[data-tab="envio"]').click();
+  await frame.locator('#envCliente').selectOption('__manual');
+  await frame.locator('#envEmpresa').fill('Empresa Exemplo Ltda.');
+  await frame.locator('#envEmail').fill('contato@exemplo.com.br');
+  await frame.getByText('Enviar pesquisa', { exact: true }).click();
+
+  const alert = frame.locator('#envValidationAlert');
+  await expect(alert).toBeVisible();
+  await expect(alert).toContainText('Responsável (contato)');
+  await expect(alert).toContainText('CNPJ');
+  await expect(frame.locator('#modalEnvio')).not.toHaveClass(/show/);
+
+  await frame.locator('#envResponsavel').fill('Maria da Silva');
+  await frame.locator('#envCnpj').fill('12.345.678/0001-90');
+  await frame.getByText('Enviar pesquisa', { exact: true }).click();
+  await expect(frame.locator('#modalEnvio')).toHaveClass(/show/);
+});
+
+test("ações de melhoria exibem os responsáveis na lista suspensa", async ({ page }) => {
+  await login(page);
+  await page.evaluate(() => renderModuleDetail("satisfacao-clientes"));
+
+  const frame = page.frameLocator('iframe[title="Satisfação do Cliente"]');
+  await frame.locator("#kpiRow").waitFor({ state: "visible" });
+
+  await frame.locator("body").evaluate(() => abrirMelhoria("PSQ-0001"));
+  await expect(frame.locator("#modalMelhoria")).toHaveClass(/show/);
+  await expect(frame.locator("#melResponsavel option")).toHaveCount(7);
+
+  await frame.locator("#melResponsavel").locator("xpath=..")
+    .locator(".qp-select-trigger").evaluate((trigger) => trigger.click());
+  const menu = frame.locator(".qp-select-menu.is-open");
+  await expect(menu).toContainText("Hugo Melo");
+  await expect(menu).toContainText("Marina Souza");
+
+  const savedResponsavel = await frame.locator("body").evaluate(() => {
+    const action = (store.get("qps_sat_melhorias") || [])[0];
+    abrirMelhoria(action.pesqId, action.id);
+    return action.responsavel;
+  });
+  await expect(frame.locator("#melResponsavel")).toHaveValue(savedResponsavel);
+});
+
+test("satisfação do cliente preserva o conteúdo abaixo da viewport sem rolagem lateral", async ({ page }) => {
+  await login(page);
+  for (const viewport of [{ width: 1366, height: 768 }, { width: 1024, height: 600 }]) {
+    await page.setViewportSize(viewport);
+    await page.evaluate(() => renderModuleDetail("satisfacao-clientes"));
+
+    const satisfactionFrame = page.frameLocator('iframe[title="Satisfação do Cliente"]');
+    await satisfactionFrame.locator(".pergunta-item").last().waitFor({ state: "visible" });
+
+    const dimensions = await satisfactionFrame.locator("body").evaluate((body) => ({
+      contentHeight: Math.max(body.scrollHeight, document.documentElement.scrollHeight),
+      contentWidth: Math.max(body.scrollWidth, document.documentElement.scrollWidth),
+      viewportWidth: window.innerWidth,
+    }));
+    const frameHeight = await page.locator(".satisfaction-module-frame").evaluate((frame) => frame.getBoundingClientRect().height);
+    const pageSize = await page.evaluate(() => ({ width: document.documentElement.scrollWidth, height: document.documentElement.scrollHeight }));
+
+    expect(frameHeight).toBeGreaterThanOrEqual(dimensions.contentHeight);
+    expect(dimensions.contentWidth).toBeLessThanOrEqual(dimensions.viewportWidth);
+    expect(pageSize.width).toBeLessThanOrEqual(viewport.width);
+    expect(pageSize.height).toBeGreaterThan(viewport.height);
+
+    await satisfactionFrame.locator(".pergunta-item").last().scrollIntoViewIfNeeded();
+    await expect(satisfactionFrame.locator(".pergunta-item").last()).toBeVisible();
+  }
+});
+
+test("indicadores de satisfação se recuperam após redimensionar a página", async ({ page }) => {
+  await login(page);
+  await page.setViewportSize({ width: 920, height: 760 });
+  await page.evaluate(() => renderModuleDetail("satisfacao-clientes"));
+
+  const frame = page.frameLocator('iframe[title="Satisfação do Cliente"]');
+  await frame.locator('[data-tab="indicadores"]').click();
+  await expect(frame.locator("#satNps")).toBeVisible();
+  await expect(frame.locator("#satMedia")).toBeVisible();
+  await page.waitForTimeout(120);
+  const compactHeight = await page.locator(".satisfaction-module-frame").evaluate((element) => element.getBoundingClientRect().height);
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.waitForTimeout(180);
+  const layout = await frame.locator("body").evaluate(() => ({
+    scrollWidth: document.documentElement.scrollWidth,
+    viewportWidth: window.innerWidth,
+    scrollHeight: document.documentElement.scrollHeight,
+    viewportHeight: window.innerHeight,
+    chartSizes: ["satNps", "satCriterio", "satStatus", "satAcoes", "satEvol", "satMedia"].map((id) => {
+      const chart = Chart.getChart(id);
+      return { id, width: chart?.width || 0, height: chart?.height || 0 };
+    }),
+  }));
+  const wideHeight = await page.locator(".satisfaction-module-frame").evaluate((element) => element.getBoundingClientRect().height);
+
+  expect(layout.scrollWidth).toBeLessThanOrEqual(layout.viewportWidth);
+  expect(layout.scrollHeight).toBeLessThanOrEqual(layout.viewportHeight + 1);
+  expect(layout.chartSizes.every((chart) => chart.width > 0 && chart.height > 0)).toBe(true);
+  expect(wideHeight).toBeLessThan(compactHeight);
+});
+
+test("satisfação do cliente mostra no máximo cinco revisões recentes", async ({ page }) => {
+  await login(page);
+  await page.evaluate(() => renderModuleDetail("satisfacao-clientes"));
+
+  const satisfactionFrame = page.frameLocator('iframe[title="Satisfação do Cliente"]');
+  await satisfactionFrame.locator("#kpiRow").waitFor({ state: "visible" });
+  await satisfactionFrame.locator("body").evaluate(() => {
+    const form = getForm();
+    const sourceVersion = form.versoes[0];
+    form.versoes = Array.from({ length: 6 }, (_, index) => ({
+      ...structuredClone(sourceVersion),
+      versao: String(index + 1).padStart(2, "0"),
+      status: index === 5 ? "Vigente" : "Obsoleto",
+    }));
+    store.set("qps_sat_form", form);
+    renderSatisfaction();
+  });
+
+  const revisionChips = satisfactionFrame.locator(".form-status-chips .fstatus");
+  await expect(revisionChips).toHaveCount(5);
+  await expect(revisionChips.first()).toContainText("Rev. 06");
+  await expect(revisionChips.last()).toContainText("Rev. 02");
+  await expect(satisfactionFrame.getByText("Rev. 01 · Obsoleto", { exact: true })).toHaveCount(0);
+});
+
+test("satisfação do cliente seleciona a Alta Direção antes de enviar a aprovação", async ({ page }) => {
+  await login(page);
+  await page.evaluate(() => renderModuleDetail("satisfacao-clientes"));
+  const frame = page.frameLocator('iframe[title="Satisfação do Cliente"]');
+  await frame.locator("#kpiRow").waitFor({ state: "visible" });
+  await frame.locator("body").evaluate(() => {
+    const form = getForm();
+    form.versoes.push({ versao: "02", status: "Rascunho", perguntas: structuredClone(form.versoes[0].perguntas), aprovador: "", dataAprovacao: "", historico: [] });
+    approvalApprovers = [{ id: 42, name: "Hugo Melo", email: "hugo@example.test", role: "Administrador" }];
+    store.set("qps_sat_form", form);
+    renderSatisfaction();
+  });
+  await expect(frame.getByLabel("Responsável da Alta Direção")).toBeVisible();
+  await expect(frame.getByLabel("Responsável da Alta Direção")).toHaveText(/Hugo Melo/);
+  await expect(frame.locator(".btn-grad", { hasText: "Enviar para aprovação" })).toBeVisible();
+});
+
 test("fornecedores recebe o tema inicial e acompanha as trocas do aplicativo", async ({ page }) => {
   await login(page);
   await page.evaluate(() => {
@@ -59,6 +238,21 @@ test("fornecedores recebe o tema inicial e acompanha as trocas do aplicativo", a
     applyTheme();
   });
   await expect.poll(() => suppliersFrame.locator("body").evaluate((body) => !body.classList.contains("theme-light") && !body.classList.contains("theme-white"))).toBe(true);
+});
+
+test("fornecedores permite editar as faixas de resultado das próximas avaliações", async ({ page }) => {
+  await login(page);
+  await page.evaluate(() => renderModuleDetail("fornecedores"));
+  const frame = page.frameLocator('iframe[title="Fornecedores"]');
+  await frame.locator("#kpiRow").waitFor({ state: "visible" });
+  await frame.locator('[data-tab="criterios"]').click();
+  await frame.getByText("Editar faixas", { exact: true }).click();
+  await frame.locator("#faixaAprovadoMin").fill("8.5");
+  await frame.locator("#faixaRestricaoMin").fill("6.5");
+  await frame.getByText("Salvar faixas", { exact: true }).click();
+  await expect(frame.getByText("Nota final ≥ 8,5", { exact: true })).toBeVisible();
+  await expect(frame.getByText("Nota final de 6,5 a 8,4", { exact: true })).toBeVisible();
+  await expect.poll(() => frame.locator("body").evaluate(() => resultadoDaNota(8.2))).toBe("Aprovado com restrição");
 });
 
 test("modais em módulos incorporados desfocam a lateral", async ({ page }) => {
