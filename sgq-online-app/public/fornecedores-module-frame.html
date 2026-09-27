@@ -369,7 +369,18 @@
   body.theme-light .modal-overlay, body.theme-white .modal-overlay { background: rgba(7,31,59,.4); }
   body.theme-light select.input-basic option { background: #0c2a4e; color: #f5f7fa; }
   body.theme-white select.input-basic option { background: #fff; color: #12233a; }
+
+  /* Mantém a rolagem do iframe integrada aos três temas do aplicativo. */
+  :root { --scrollbar-track: #080d16; --scrollbar-thumb: #495565; --scrollbar-thumb-hover: #718093; --scrollbar-edge: #141c28; }
+  html:has(body.theme-light), body.theme-light { --scrollbar-track: #0a294c; --scrollbar-thumb: #5b9fc7; --scrollbar-thumb-hover: #83c2e7; --scrollbar-edge: #071f3b; }
+  html:has(body.theme-white), body.theme-white { --scrollbar-track: #e7eef5; --scrollbar-thumb: #7fa5bf; --scrollbar-thumb-hover: #5e8cab; --scrollbar-edge: #d8e3ee; }
+  html, body, body * { scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track); scrollbar-width: thin; }
+  html::-webkit-scrollbar, body::-webkit-scrollbar, body *::-webkit-scrollbar { width: 14px; height: 14px; }
+  html::-webkit-scrollbar-track, body::-webkit-scrollbar-track, body *::-webkit-scrollbar-track { background: var(--scrollbar-track); border: 1px solid var(--scrollbar-edge); border-radius: 999px; }
+  html::-webkit-scrollbar-thumb, body::-webkit-scrollbar-thumb, body *::-webkit-scrollbar-thumb { min-height: 42px; border: 3px solid var(--scrollbar-track); border-radius: 999px; background: var(--scrollbar-thumb); box-shadow: inset 0 0 0 1px rgba(255,255,255,.2); }
+  html::-webkit-scrollbar-thumb:hover, body::-webkit-scrollbar-thumb:hover, body *::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-thumb-hover); }
 </style>
+<script src="/frame-workspace.js?v=20260926"></script>
 </head>
 <body>
 <div class="app-shell">

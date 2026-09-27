@@ -10,6 +10,19 @@
   background: transparent;
 }
 
+@media (min-width: 981px) {
+  .equipment-page-content .equipment-module-shell {
+    display: flex;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  .equipment-page-content .equipment-module-frame {
+    height: 100% !important;
+    min-height: 0;
+  }
+}
+
 @media (max-width: 900px) {
   .equipment-module-frame {
     min-height: 0;

@@ -10,6 +10,19 @@
   background: transparent;
 }
 
+@media (min-width: 981px) {
+  .page-content:has(> .audits-module-shell) .audits-module-shell {
+    display: flex;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  .page-content:has(> .audits-module-shell) .audits-module-frame {
+    height: 100% !important;
+    min-height: 0;
+  }
+}
+
 body.audits-reg-modal-open {
   overflow: hidden;
 }

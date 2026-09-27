@@ -12,6 +12,19 @@
   background: transparent;
 }
 
+@media (min-width: 981px) {
+  .suppliers-page-content .suppliers-module-shell {
+    flex: 1 1 auto;
+    height: auto;
+    min-height: 0;
+  }
+
+  .suppliers-page-content .suppliers-module-frame {
+    height: 100%;
+    min-height: 0;
+  }
+}
+
 @media (max-width: 720px) {
   .suppliers-page-content .suppliers-module-shell {
     height: calc(100vh - 150px);

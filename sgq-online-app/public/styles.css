@@ -5868,6 +5868,122 @@ body .module-summary-toolbar .welcome-sub {
 .leadership-page-content .leadership-kpi-detail > .icon:last-child { width: 20px; height: 20px; color: var(--text-secondary); }
 .leadership-page-content .leadership-kpi-detail .kpi-caption { margin: 0; padding: 0; border: 0; color: var(--text-primary); font-size: 12px; }
 
+/* Área de trabalho uniforme nos módulos: cabeçalho e abas estáveis, conteúdo rolável. */
+@media (min-width: 981px) {
+  body.module-detail-view:has(.context-page-content, .risk-page-content, .leadership-page-content, .climate-page-content, .documents-module, .audits-module-shell, .equipment-module-shell, .suppliers-module-shell, .satisfaction-module-shell) {
+    overflow: hidden;
+  }
+
+  body.module-detail-view:has(.context-page-content, .risk-page-content, .leadership-page-content, .climate-page-content, .documents-module, .audits-module-shell, .equipment-module-shell, .suppliers-module-shell, .satisfaction-module-shell) .app-shell,
+  body.module-detail-view:has(.context-page-content, .risk-page-content, .leadership-page-content, .climate-page-content, .documents-module, .audits-module-shell, .equipment-module-shell, .suppliers-module-shell, .satisfaction-module-shell) .main-area {
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  body.module-detail-view .page-content:has(> .context-kpi-row, > .risk-kpi-row, > .leadership-fixed-nav, > .climate-kpis, > .documents-module, > .audits-module-shell, > .equipment-module-shell, > .suppliers-module-shell, > .satisfaction-module-shell) {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+    padding-bottom: 16px;
+  }
+
+  .context-page-content > .module-breadcrumb,
+  .context-page-content > .module-summary-toolbar,
+  .context-page-content > .context-kpi-row,
+  .context-page-content > .ctx-tabs,
+  .risk-page-content > .module-breadcrumb,
+  .risk-page-content > .module-summary-toolbar,
+  .risk-page-content > .risk-kpi-row,
+  .risk-page-content > .ctx-tabs,
+  .climate-page-content > .module-breadcrumb,
+  .climate-page-content > .module-summary-toolbar,
+  .climate-page-content > .climate-kpis,
+  .climate-page-content > .ctx-tabs,
+  .page-content:has(> .documents-module) > .module-breadcrumb,
+  .page-content:has(> .documents-module) > .module-summary-toolbar,
+  .page-content:has(> .suppliers-module-shell) > .module-breadcrumb,
+  .page-content:has(> .suppliers-module-shell) > .module-summary-toolbar,
+  .page-content:has(> .satisfaction-module-shell) > .module-breadcrumb,
+  .page-content:has(> .satisfaction-module-shell) > .module-summary-toolbar {
+    flex: 0 0 auto;
+  }
+
+  .context-page-content > #contextTabContent,
+  .risk-page-content > #riskTabContent,
+  .climate-page-content > #climateTabContent {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+    overscroll-behavior: contain;
+    padding-right: 4px;
+  }
+
+  .page-content:has(> .documents-module) > .documents-module {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .documents-module .documents-kpis,
+  .documents-module .documents-tabs {
+    flex: 0 0 auto;
+  }
+
+  .documents-module [data-doc-content] {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+    overscroll-behavior: contain;
+    padding-right: 4px;
+  }
+}
+
+/* A navegação da Liderança permanece visível; somente os registros abaixo dela rolam. */
+@media (min-width: 761px) {
+  body:has(.leadership-page-content) .main-area {
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  body:has(.leadership-page-content) .page-content {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+    padding-bottom: 16px;
+  }
+
+  .leadership-page-content > .module-breadcrumb,
+  .leadership-page-content > .module-summary-toolbar,
+  .leadership-page-content > .context-kpi-row,
+  .leadership-page-content > .leadership-fixed-nav {
+    flex: 0 0 auto;
+  }
+
+  .leadership-page-content .leadership-fixed-nav {
+    position: relative;
+    z-index: 2;
+  }
+
+  .leadership-page-content .leadership-scroll-region {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+    overscroll-behavior: contain;
+    padding-right: 4px;
+  }
+
+  .leadership-page-content .leadership-scroll-region > #leadershipTabContent {
+    min-height: 100%;
+  }
+}
+
 /* Shared module KPI structure, based on the Riscos e Oportunidades cards. */
 .module-detail-view :is(.risk-kpi-row, .context-kpi-row, .kpi-row:not(.users-kpi-row)) .kpi-card {
   min-height: 122px;

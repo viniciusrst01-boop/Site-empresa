@@ -2400,7 +2400,7 @@ function renderEquipmentModule() {
       actions: false,
     })}
     <section class="equipment-module-shell" aria-label="Módulo de equipamentos de medição">
-      <iframe class="equipment-module-frame" title="Equipamentos de Medição" src="/equipment-module-frame.html?v=20260912-treemap&embedded=1"></iframe>
+      <iframe class="equipment-module-frame" title="Equipamentos de Medição" src="/equipment-module-frame.html?v=20260926-workspace-scroll&embedded=1"></iframe>
     </section>
   `;
   const frame = pageContent.querySelector(".equipment-module-frame");
@@ -2424,7 +2424,7 @@ function renderSuppliersModule() {
   pageContent.innerHTML = `
     ${moduleHeaderHtml("fornecedores", { actions: false })}
     <section class="suppliers-module-shell" aria-label="Módulo de fornecedores">
-      <iframe class="suppliers-module-frame" title="Fornecedores" src="/fornecedores-module-frame.html?v=20260923-sidebar-modal-backdrop&theme=${frameTheme}" loading="eager"></iframe>
+      <iframe class="suppliers-module-frame" title="Fornecedores" src="/fornecedores-module-frame.html?v=20260926-themed-scrollbar&theme=${frameTheme}" loading="eager"></iframe>
     </section>
   `;
   const frame = pageContent.querySelector(".suppliers-module-frame");
@@ -2524,7 +2524,7 @@ if (!window.__qualityProAuditsFrameBridge) {
       if (event.data?.type === "qualitypro:audits:persist") persistAuditsFromFrame(event.data.audits, auditFrame);
       if (event.data?.type === "qualitypro:audits:resize") {
         const height = Number(event.data.height);
-        if (!document.body.classList.contains("audits-reg-modal-open") && Number.isFinite(height) && height >= 680) {
+        if (window.innerWidth < 981 && !document.body.classList.contains("audits-reg-modal-open") && Number.isFinite(height) && height >= 680) {
           auditFrame.style.height = `${Math.ceil(height)}px`;
         }
       }
@@ -2533,10 +2533,12 @@ if (!window.__qualityProAuditsFrameBridge) {
         document.body.classList.toggle("audits-reg-modal-open", open);
         if (open) {
           auditFrame.style.removeProperty("height");
-        } else {
+        } else if (window.innerWidth < 981) {
           const frameDocument = auditFrame.contentDocument;
           const height = frameDocument ? Math.max(frameDocument.body.scrollHeight, frameDocument.documentElement.scrollHeight, 680) : 680;
           auditFrame.style.height = `${Math.ceil(height)}px`;
+        } else {
+          auditFrame.style.removeProperty("height");
         }
       }
       return;
@@ -2555,7 +2557,7 @@ if (!window.__qualityProAuditsFrameBridge) {
       if (event.data?.type === "qualitypro:satisfacao:modal") document.body.classList.toggle("embedded-module-modal-open", Boolean(event.data.open));
       if (event.data?.type === "qualitypro:satisfacao:resize") {
         const height = Number(event.data.height);
-        if (Number.isFinite(height) && height >= 620) {
+        if (window.innerWidth < 981 && Number.isFinite(height) && height >= 620) {
           const nextHeight = Math.ceil(height);
           if (Math.abs(satisfactionFrame.getBoundingClientRect().height - nextHeight) > 1) satisfactionFrame.style.height = `${nextHeight}px`;
         }
@@ -2570,7 +2572,9 @@ if (!window.__qualityProAuditsFrameBridge) {
     }
     if (event.data?.type === "qualitypro:equipment:resize") {
       const height = Number(event.data.height);
-      if (Number.isFinite(height) && height >= 620) equipmentFrame.style.height = `${Math.ceil(height)}px`;
+      if (window.innerWidth < 981 && Number.isFinite(height) && height >= 620) {
+        equipmentFrame.style.height = `${Math.ceil(height)}px`;
+      }
     }
   });
 }
@@ -2806,13 +2810,15 @@ function renderLeadershipModule() {
 
     <div class="context-kpi-row" id="leadershipKpis"></div>
 
-    <div class="ctx-tabs" id="leadershipMainTabs">
-      <button class="ctx-tab active" data-leadership-main="lideranca" type="button">Comprometimento da Direção</button>
-      <button class="ctx-tab" data-leadership-main="politica" type="button">Política da Qualidade</button>
-      <button class="ctx-tab" data-leadership-main="papeis" type="button">Papéis e Responsabilidades</button>
+    <div class="leadership-fixed-nav">
+      <div class="ctx-tabs" id="leadershipMainTabs">
+        <button class="ctx-tab active" data-leadership-main="lideranca" type="button">Comprometimento da Direção</button>
+        <button class="ctx-tab" data-leadership-main="politica" type="button">Política da Qualidade</button>
+        <button class="ctx-tab" data-leadership-main="papeis" type="button">Papéis e Responsabilidades</button>
+      </div>
+      <div class="leadership-subnav"><div class="subfilter-row" id="leadershipSubTabs"></div><div class="module-tabs-actions toolbar-actions">${moduleHistoryControlsHtml("lideranca")}</div></div>
     </div>
-    <div class="leadership-subnav"><div class="subfilter-row" id="leadershipSubTabs"></div><div class="module-tabs-actions toolbar-actions">${moduleHistoryControlsHtml("lideranca")}</div></div>
-    <div id="leadershipTabContent"></div>
+    <div class="leadership-scroll-region"><div id="leadershipTabContent"></div></div>
     <div id="leadershipModalMount"></div>
   `;
   bindViewTargetButtons();

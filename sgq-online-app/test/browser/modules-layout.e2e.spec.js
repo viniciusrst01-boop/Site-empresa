@@ -113,7 +113,7 @@ test("ações de melhoria exibem os responsáveis na lista suspensa", async ({ p
   await expect(frame.locator("#melResponsavel")).toHaveValue(savedResponsavel);
 });
 
-test("satisfação do cliente preserva o conteúdo abaixo da viewport sem rolagem lateral", async ({ page }) => {
+test("satisfação do cliente mantém a rolagem na área de trabalho sem rolagem lateral", async ({ page }) => {
   await login(page);
   for (const viewport of [{ width: 1366, height: 768 }, { width: 1024, height: 600 }]) {
     await page.setViewportSize(viewport);
@@ -123,17 +123,19 @@ test("satisfação do cliente preserva o conteúdo abaixo da viewport sem rolage
     await satisfactionFrame.locator(".pergunta-item").last().waitFor({ state: "visible" });
 
     const dimensions = await satisfactionFrame.locator("body").evaluate((body) => ({
-      contentHeight: Math.max(body.scrollHeight, document.documentElement.scrollHeight),
+      contentHeight: document.querySelector("#tabContent").scrollHeight,
       contentWidth: Math.max(body.scrollWidth, document.documentElement.scrollWidth),
       viewportWidth: window.innerWidth,
+      viewportHeight: document.querySelector("#tabContent").clientHeight,
     }));
     const frameHeight = await page.locator(".satisfaction-module-frame").evaluate((frame) => frame.getBoundingClientRect().height);
     const pageSize = await page.evaluate(() => ({ width: document.documentElement.scrollWidth, height: document.documentElement.scrollHeight }));
 
-    expect(frameHeight).toBeGreaterThanOrEqual(dimensions.contentHeight);
+    expect(frameHeight).toBeLessThanOrEqual(viewport.height);
+    expect(dimensions.contentHeight).toBeGreaterThan(dimensions.viewportHeight);
     expect(dimensions.contentWidth).toBeLessThanOrEqual(dimensions.viewportWidth);
     expect(pageSize.width).toBeLessThanOrEqual(viewport.width);
-    expect(pageSize.height).toBeGreaterThan(viewport.height);
+    expect(pageSize.height).toBeLessThanOrEqual(viewport.height);
 
     await satisfactionFrame.locator(".pergunta-item").last().scrollIntoViewIfNeeded();
     await expect(satisfactionFrame.locator(".pergunta-item").last()).toBeVisible();
@@ -170,6 +172,26 @@ test("indicadores de satisfação se recuperam após redimensionar a página", a
   expect(layout.scrollHeight).toBeLessThanOrEqual(layout.viewportHeight + 1);
   expect(layout.chartSizes.every((chart) => chart.width > 0 && chart.height > 0)).toBe(true);
   expect(wideHeight).toBeLessThan(compactHeight);
+});
+
+test("equipamentos mantém os itens acessíveis pela rolagem da área de trabalho", async ({ page }) => {
+  await login(page);
+  await page.setViewportSize({ width: 1366, height: 768 });
+  await page.evaluate(() => renderModuleDetail("equipamentos"));
+
+  const equipmentFrame = page.frameLocator('iframe[title="Equipamentos de Medição"]');
+  await equipmentFrame.locator('[data-tab="controle"]').click();
+  const rows = equipmentFrame.locator(".ctxtbl tbody tr");
+  await expect(rows).toHaveCount(30);
+
+  const scrollable = await equipmentFrame.locator("#tabContent").evaluate((content) => ({
+    scrollHeight: content.scrollHeight,
+    clientHeight: content.clientHeight,
+  }));
+  expect(scrollable.scrollHeight).toBeGreaterThan(scrollable.clientHeight);
+
+  await rows.last().scrollIntoViewIfNeeded();
+  await expect(rows.last()).toBeVisible();
 });
 
 test("satisfação do cliente mostra no máximo cinco revisões recentes", async ({ page }) => {

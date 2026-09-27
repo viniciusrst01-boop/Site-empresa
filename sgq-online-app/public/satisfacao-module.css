@@ -19,6 +19,19 @@
   overflow-y: visible;
 }
 
+@media (min-width: 981px) {
+  .satisfaction-page-content .satisfaction-module-shell {
+    display: flex;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  .satisfaction-page-content .satisfaction-module-frame {
+    height: 100% !important;
+    min-height: 0;
+  }
+}
+
 @media (min-width: 721px) and (max-width: 1440px) {
   body:has(.satisfaction-page-content) .topbar {
     gap: 12px;
