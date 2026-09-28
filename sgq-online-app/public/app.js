@@ -1251,6 +1251,20 @@ function renderInicio() {
   mountSGQHealth();
 }
 
+function recentModuleIds() {
+  try {
+    const value = JSON.parse(localStorage.getItem(`qualitypro-recent-modules-${currentUser?.companyId}-${currentUser?.id}`) || "[]");
+    return Array.isArray(value) ? [...new Set(value.filter(id => typeof id === "string"))].slice(0, 6) : [];
+  } catch { return []; }
+}
+
+function rememberRecentModule(moduleId) {
+  if (!accessibleModules().some(module => module.id === moduleId && !module.future)) return;
+  try {
+    localStorage.setItem(`qualitypro-recent-modules-${currentUser?.companyId}-${currentUser?.id}`, JSON.stringify([moduleId, ...recentModuleIds().filter(id => id !== moduleId)].slice(0, 6)));
+  } catch { /* Navigation remains available when browser storage is disabled. */ }
+}
+
 function renderDashboardHtml() {
   const summary = dashboardSummary();
   const moduleCards = accessibleModules()
@@ -1308,7 +1322,8 @@ function renderDashboardHtml() {
           <div><h2>Meus módulos</h2><p>Acesse e gerencie os principais módulos do seu SGQ.</p></div>
           <button type="button" data-view-target="modulos">Ver todos os módulos ${moduleIcon("arrow")}</button>
         </div>
-        <div class="home-v2-module-grid">${moduleCards}</div>
+        <div class="home-v2-module-grid home-desktop-modules">${moduleCards}</div>
+        <div class="home-v2-module-grid home-mobile-recents" aria-label="Módulos acessados recentemente">${recentModuleIds().map(id => accessibleModules().find(module => module.id === id && !module.future)).filter(Boolean).map(module => dashboardCompactModuleCard(module, summary.modules[module.id])).join("")}</div>
       </section>
 
       <div class="home-v2-bottom-grid">
@@ -2161,6 +2176,7 @@ function moduleHeaderHtml(moduleId, options = {}) {
 
 function renderModuleDetail(moduleId, options = {}) {
   if (currentUser?.isAdmin) return render("gerenciamento");
+  rememberRecentModule(moduleId);
   document.body.classList.remove("home-dashboard");
   document.body.classList.add("module-detail-view");
   activeView = "modulos";

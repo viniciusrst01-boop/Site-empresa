@@ -1,0 +1,159 @@
+.mobile-workspace-nav, .mobile-menu-backdrop { display: none; }
+.mobile-search-toggle { display: none; }
+body.home-dashboard .home-mobile-recents { display: none; }
+
+@media (max-width: 760px) {
+  body { --mobile-nav-height: 68px; height: auto !important; overflow-y: auto !important; }
+  .app-shell, .main-area { height: auto !important; min-height: 100dvh; overflow: visible !important; }
+  .main-area { margin-left: 0 !important; width: 100%; min-width: 0; }
+  .page-content, body.home-dashboard .page-content {
+    padding: 16px 14px calc(var(--mobile-nav-height) + env(safe-area-inset-bottom) + 24px) !important;
+    overflow: visible !important; min-width: 0; height: auto !important;
+  }
+  .topbar, body.home-dashboard .topbar { position: sticky; top: 0; z-index: 40; min-height: 64px; height: auto; padding: 10px 14px; gap: 8px; background: var(--bg-card, #0b2746); }
+  .topbar-left { min-width: 0; flex: 1; }
+  .topbar-left > div:last-child, body.home-dashboard .topbar-left > div:last-child { display: block; min-width: 0; }
+  .topbar-title, body.home-dashboard .topbar-title { font-size: 15px; white-space: normal; line-height: 1.35; }
+  .topbar-subtitle, .topbar-search-wrap, .topbar .menu-toggle, .tb-user-info, .tb-chevron, .tb-divider, .topbar-right > .tb-icon-btn, .topbar-right > form { display: none !important; }
+  .topbar-right { gap: 8px; }
+  .tb-avatar { width: 34px; height: 34px; }
+  .app-footer { display: none !important; }
+  .mobile-workspace-nav { position: fixed; z-index: 100; bottom: 0; left: 0; right: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); min-height: var(--mobile-nav-height); padding: 6px 10px calc(6px + env(safe-area-inset-bottom)); background: var(--bg-card, #0b2746); border-top: 1px solid var(--border-subtle, #365371); }
+  .mobile-workspace-nav button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 52px; border: 0; border-radius: 8px; background: transparent; color: var(--text-secondary); font: inherit; font-size: 11px; cursor: pointer; }
+  .mobile-workspace-nav .icon { width: 21px; height: 21px; }
+  .mobile-workspace-nav [aria-current], .mobile-workspace-nav [aria-expanded="true"] { background: var(--bg-hover, #173e60); color: var(--accent-cyan, #00caff); }
+  .sidebar { display: none !important; }
+  .mobile-menu-open .sidebar { display: flex !important; position: fixed; z-index: 99; inset: 0 auto calc(var(--mobile-nav-height) + env(safe-area-inset-bottom)) 0; width: min(300px, 85%); height: auto; transform: none; overflow-y: auto; }
+  .mobile-menu-open .mobile-menu-backdrop { display: block; position: fixed; inset: 0; z-index: 98; border: 0; background: #0008; }
+  body.home-dashboard .home-v2 { display: flex; flex-direction: column; gap: 22px; height: auto; overflow: visible; }
+  body.home-dashboard .home-v2-summary { height: auto; min-height: 0; overflow: visible; }
+  body.home-dashboard .home-v2-kpi:nth-child(n) { display: block; height: auto; min-height: 110px; }
+  body.home-dashboard .home-v2-core-grid { display: contents; }
+  body.home-dashboard .home-v2-health { order: -3; display: flex; flex-direction: column; border: 0; padding: 0; background: transparent; box-shadow: none; }
+  body.home-dashboard .home-v2-modules { order: -2; }
+  body.home-dashboard .home-v2-tasks { order: -1; }
+  body.home-dashboard .home-v2-panel { min-width: 0; height: auto; max-height: none; min-height: 0; }
+  body.home-dashboard .sgq-health-title h2 { font-size: 19px; }
+  body.home-dashboard .sgq-health-title p { display: none; }
+  body.home-dashboard .sgq-health-layout { display: flex; flex-direction: column; gap: 12px; }
+  body.home-dashboard .sgq-health-plot { flex: none; border: 0; padding: 0; }
+  body.home-dashboard .sgq-health-message { bottom: auto; height: 192px; }
+  body.home-dashboard .sgq-health-canvas { height: 200px; min-height: 200px; }
+  body.home-dashboard .sgq-health-legend { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; padding: 0; }
+  body.home-dashboard .sgq-health-legend button { min-height: 36px; text-align: left; white-space: normal; font-size: 10px; }
+  body.home-dashboard .sgq-health-indicators { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(68px, auto)); gap: 8px; }
+  body.home-dashboard .sgq-health-indicators button { min-width: 0; padding: 8px; }
+  body.home-dashboard .home-v2-module-grid, body.home-dashboard .home-v2-kpis { display: grid; height: auto; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: none; grid-auto-rows: auto; gap: 8px; }
+  body.home-dashboard .home-v2-module { min-width: 0; min-height: 112px; height: auto; padding: 12px; }
+  body.home-dashboard .home-v2-module-foot { display: none; }
+  body.home-dashboard .home-v2-heading { flex-wrap: wrap; gap: 8px; }
+  body.home-dashboard .home-v2-heading h2 { font-size: 17px; }
+  body.home-dashboard .home-v2-bottom-grid { display: grid; grid-template-columns: 1fr; height: auto; }
+  body.home-dashboard .home-v2-modules, body.home-dashboard .home-v2-tasks { border: 0; padding: 0; background: transparent; }
+  body.home-dashboard .home-v2-list { max-height: none; overflow: visible; }
+  body.theme-white .topbar, body.theme-light .topbar,
+  body.theme-white .mobile-workspace-nav, body.theme-light .mobile-workspace-nav { background: #f7fafc; color: #17354e; }
+  body.theme-white .mobile-workspace-nav button, body.theme-light .mobile-workspace-nav button { color: #476078; }
+  body.theme-white .mobile-workspace-nav [aria-current], body.theme-light .mobile-workspace-nav [aria-current],
+  body.theme-white .mobile-workspace-nav [aria-expanded="true"], body.theme-light .mobile-workspace-nav [aria-expanded="true"] { background: #dceefa; color: #006b9b; }
+  body.theme-white.home-dashboard .home-v2-module,
+  body.theme-white.home-dashboard .home-v2-kpi,
+  body.theme-white.home-dashboard .sgq-health-indicator,
+  body.theme-white.home-dashboard .home-v2-alerts > button { background: #f1f5f9; }
+
+  /* The phone home uses the reference's light surfaces in every desktop theme. */
+  body.home-dashboard {
+    --home-copy: #20252c;
+    --home-muted: #626b76;
+    --home-surface: #f7f7f7;
+    --home-tile: #fff;
+    --home-soft: #e7f2ff;
+    --home-line: #e1e4e8;
+    background: #f7f7f7;
+  }
+  body.home-dashboard .main-area,
+  body.home-dashboard .page-content,
+  body.home-dashboard .home-v2 { background: #f7f7f7 !important; background-image: none !important; }
+  body.home-dashboard .page-decor { display: none; }
+  body.home-dashboard .topbar { background: #1688ed; border: 0; }
+  body.home-dashboard .topbar-title { color: #fff; }
+  body.home-dashboard .tb-avatar { background: #fff; color: #0874cd; }
+  body.home-dashboard .home-v2-modules > .home-v2-heading { display: none; }
+  body.home-dashboard .home-v2-module-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+  body.home-dashboard .home-v2-module {
+    display: flex; flex-direction: column; justify-content: center; align-items: center;
+    min-height: 108px; padding: 12px 6px; gap: 10px; text-align: center;
+    background: #fff; border: 1px solid #e5e5e5; border-radius: 8px; box-shadow: none;
+  }
+  body.home-dashboard .home-v2-module-icon { background: transparent; color: #1688ed; }
+  body.home-dashboard .home-v2-module-copy h3 { color: #20252c; font-size: 11px; line-height: 1.4; }
+  body.home-dashboard .home-v2-module-copy p { display: none; }
+  body.home-dashboard .home-v2-kpi:nth-child(n),
+  body.home-dashboard .sgq-health-indicators button,
+  body.home-dashboard .home-v2-activity,
+  body.home-dashboard .home-v2-alert-panel { background: #fff; border-color: #e1e4e8; box-shadow: none; }
+  body.home-dashboard .home-v2-list button,
+  body.home-dashboard .home-v2-alerts > button { background: #fff; color: #20252c; border-color: #e1e4e8; }
+  body.home-dashboard .home-v2-heading h2,
+  body.home-dashboard .home-v2-kpi { color: #20252c; }
+  body.home-dashboard .home-v2-heading button { color: #0874cd; }
+  body .mobile-workspace-nav {
+    left: 10px; right: 10px; bottom: max(10px, env(safe-area-inset-bottom));
+    min-height: 62px; padding: 5px; background: #fff; border: 1px solid #e5e5e5;
+    border-radius: 32px; box-shadow: 0 3px 16px #0000000a;
+  }
+  body .mobile-workspace-nav button { color: #737983; border-radius: 26px; }
+  body .mobile-workspace-nav [aria-current],
+  body .mobile-workspace-nav [aria-expanded="true"] { color: #0874cd; background: #e1efff; }
+  body.theme-white .mobile-workspace-nav, body.theme-light .mobile-workspace-nav { background: #fff; }
+  body.home-dashboard .home-desktop-modules { display: none; }
+  body.home-dashboard .home-mobile-recents { display: grid; }
+  body.home-dashboard .home-v2-modules:has(.home-mobile-recents:empty) { display: none; }
+
+  body .mobile-workspace-nav { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  body.home-dashboard .page-content { padding-top: 0 !important; padding-inline: 0 !important; }
+  body.home-dashboard .topbar { background: #3953fe; padding-left: 62px; }
+  body.home-dashboard .tb-user { position: absolute; left: 16px; top: 15px; }
+  body.home-dashboard .topbar-title { font-size: 14px; }
+  .topbar-right > button[data-view-target="notificacoes"],
+  .topbar-right > .mobile-search-toggle { display: inline-flex !important; align-items: center; justify-content: center; width: 34px; height: 40px; }
+  .topbar-right > button[data-view-target="notificacoes"] { order: -1; }
+  body.home-dashboard .topbar-right > button { color: #fff; background: transparent; border: 0; }
+  body.mobile-search-open .topbar-search-wrap { display: block !important; position: absolute; top: 100%; left: 12px; right: 12px; z-index: 50; }
+  body.mobile-search-open .topbar-search { display: flex; width: 100%; background: #fff; color: #17354e; }
+  body.mobile-search-open .topbar-search input { color: #17354e; }
+  body.home-dashboard .home-v2 { gap: 0; }
+  body.home-dashboard .home-v2-health {
+    --home-copy: #fff; --home-muted: #e4f1ff; --home-surface: #3953fe;
+    --home-tile: #3953fe; --home-line: #ffffff55;
+    background: #3953fe; padding: 8px 16px 40px; gap: 8px; border-radius: 0;
+  }
+  body.home-dashboard .sgq-health-title h2 { color: #fff; font-size: 16px; }
+  body.home-dashboard .sgq-health-period { background: transparent; color: #fff; box-shadow: none; border-color: #ffffff55; }
+  body.home-dashboard .sgq-health-period select { color: #fff; }
+  body.home-dashboard .sgq-health-canvas { height: 158px; min-height: 158px; }
+  body.home-dashboard .sgq-health-message { height: 150px; }
+  body.home-dashboard .sgq-health-legend { color: #fff; }
+  body.home-dashboard .sgq-health-legend button { min-height: 28px; }
+  body.home-dashboard .sgq-health-indicators { display: none; }
+  body.home-dashboard .home-v2-modules {
+    position: relative; margin: -20px 0 0; padding: 24px 16px 12px;
+    border-radius: 20px 20px 0 0; background: #f7f7f7;
+  }
+  body.home-dashboard .home-v2-module { background: transparent; border: 0; border-radius: 0; min-height: 82px; padding: 8px 4px; box-shadow: none; }
+  body.home-dashboard .home-v2-module-icon { background: transparent; color: #3953fe; border: 0; box-shadow: none; }
+  body.home-dashboard .home-v2-module-copy h3 { color: #20252c; }
+  body.home-dashboard .home-v2-tasks,
+  body.home-dashboard .home-v2-summary,
+  body.home-dashboard .home-v2-bottom-grid { margin: 16px; }
+  body.home-dashboard .home-v2:not(:has(.home-mobile-recents > *)) .home-v2-tasks { position: relative; margin: -20px 0 16px; padding: 24px 16px 0; border-radius: 20px 20px 0 0; background: #f7f7f7; }
+  body.home-dashboard .home-v2-list button span { color: #20252c; }
+  body.home-dashboard .home-v2-kpi .home-v2-kpi-top small,
+  body.home-dashboard .home-v2-kpi .home-v2-kpi-top strong,
+  body.home-dashboard .home-v2-kpi p,
+  body.home-dashboard .home-v2-activity-list strong,
+  body.home-dashboard .home-v2-activity-list p,
+  body.home-dashboard .home-v2-alerts p { color: #111; }
+  body.home-dashboard .home-v2-status-kpi .home-v2-kpi-top strong { color: var(--home-accent); }
+  body.home-dashboard .home-v2-modules:has(.home-mobile-recents:empty) + .home-v2-bottom-grid { border-radius: 20px 20px 0 0; }
+}
