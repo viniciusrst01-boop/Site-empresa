@@ -2924,16 +2924,16 @@ function renderLeadershipKpis() {
   const target = document.querySelector("#leadershipKpis");
   if (!target) return;
   target.innerHTML = `
-    ${leadershipKpi("Comprometimento da direção", data.acoes.length, `${completeActions} concluídas`, "#F2B705", "lideranca", "calendar")}
+    ${leadershipKpi("Comprometimento da direção", data.acoes.length, `${completeActions} concluídas`, "#F2B705", "lideranca", "calendar", data.acoes.length ? completeActions / data.acoes.length : 0)}
     ${leadershipKpi("Política da qualidade", `Rev. ${data.politica.revisao || "-"}`, data.politica.status || "-", "#46D9F5", "documentos", "check-circle")}
     ${leadershipKpi("Comunicações da política", data.comunicacao.length, `${reachedPeople} pessoas alcançadas`, "#34D399", "contexto", "users")}
-    ${leadershipKpi("Cargos mapeados", data.cargos.length, `${activeRoles} ativos`, "#A78BFA", "modulos", "org-chart")}
+    ${leadershipKpi("Cargos mapeados", data.cargos.length, `${activeRoles} ativos`, "#A78BFA", "modulos", "org-chart", data.cargos.length ? activeRoles / data.cargos.length : 0)}
   `;
 }
 
-function leadershipKpi(label, value, caption, color, icon, detailIcon = "bar-chart") {
+function leadershipKpi(label, value, caption, color, icon, detailIcon = "bar-chart", ratio = null) {
   return `
-    <article class="kpi-card" style="--accent-line:${color};">
+    <article class="kpi-card" ${ratio === null ? '' : `data-kpi-progress="${ratio}"`} style="--accent-line:${color};">
       <div class="kpi-top">
         <div class="kpi-icon" style="border-color:${hexToRgba(color, 0.4)}; color:${color};">${moduleIcon(icon)}</div>
         <div><div class="kpi-label">${escapeHtml(label)}</div><div class="kpi-value big">${escapeHtml(value)}</div></div>
@@ -4135,6 +4135,8 @@ function renderRiskKpis() {
   setText("#riskKpiHigh", high);
   setText("#riskKpiGoals", objetivos.length);
   setText("#riskKpiChanges", changesRunning);
+  document.querySelector('#riskKpiHigh')?.closest('.kpi-card')?.setAttribute('data-kpi-progress', riscos.length ? high / riscos.length : 0);
+  document.querySelector('#riskKpiChanges')?.closest('.kpi-card')?.setAttribute('data-kpi-progress', mudancas.length ? changesRunning / mudancas.length : 0);
 }
 
 function setText(selector, value) {
@@ -4384,6 +4386,7 @@ function renderContextKpis() {
   setText("#ctxKpiSwotCaption", `${pendingPlans} planos abertos · ${highPriority} alta prioridade`);
   setText("#ctxKpiPartes", partes.length);
   setText("#ctxKpiPartesCaption", `${monitoredPartes} com monitoramento definido`);
+  document.querySelector('#ctxKpiPartes')?.closest('.kpi-card')?.setAttribute('data-kpi-progress', partes.length ? monitoredPartes / partes.length : 0);
   setText("#ctxKpiEscopo", escopoFilled ? escopo.statusAprovacao || "-" : "-");
   setText("#ctxKpiEscopoCaption", escopoFilled ? `atualizado em ${formatDate(escopo.dataAtualizacao)}` : "sem escopo cadastrado");
   setText("#ctxKpiProcessos", processos.length);
@@ -5738,23 +5741,32 @@ function renderNonConformityModule() {
   scrollPageToTop();
 }
 
+let ncKpiResizeObserver;
 function renderNcKpis() {
   const open = state.ncs.filter((row) => row.status !== "Encerrado").length;
-  const awaiting = state.ncs.filter((row) => row.status === "Aguardando análise").length;
   const actions = state.ncs.flatMap((row) => row.acoes || []);
   const running = actions.filter((row) => row.status !== "Concluída").length;
   const late = actions.filter((row) => row.status !== "Concluída" && row.prazo && row.prazo < ncToday()).length;
   const closed = state.ncs.filter((row) => row.status === "Encerrado").length;
-  pageContent.querySelector("#ncKpis").innerHTML = `<div class="kpi-row">
-    ${ncKpi("RNCs em aberto", open, `${awaiting} aguardando análise`, "#F87171", "nao-conformidades", "documentos")}
-    ${ncKpi("Ações em andamento", running, "ações corretivas não concluídas", "#FBBF24", "plano", "bar-chart")}
-    ${ncKpi("Ações atrasadas", late, "prazo vencido", "#fb923c", "notificacoes", "calendar-clock")}
-    ${ncKpi("Encerradas", closed, "eficácia comprovada", "#34D399", "auditorias", "check-circle")}
+  pageContent.querySelector("#ncKpis").innerHTML = `<div class="nc-progress-kpis">
+    ${ncKpi("RNCs em aberto", open, state.ncs.length, "em aberto", "#F87171", "nao-conformidades")}
+    ${ncKpi("Ações em andamento", running, actions.length, "em andamento", "#FBBF24", "plano")}
+    ${ncKpi("Ações atrasadas", late, actions.length, "com prazo vencido", "#fb923c", "notificacoes")}
+    ${ncKpi("Encerradas", closed, state.ncs.length, "encerradas", "#34D399", "auditorias")}
   </div>`;
+  ncKpiResizeObserver?.disconnect();
+  ncKpiResizeObserver = new ResizeObserver(entries => entries.forEach(({ target }) => {
+    const icon = target.querySelector('.nc-progress-icon');
+    const bounds = target.getBoundingClientRect();
+    const ratio = Number(target.dataset.progress);
+    target.classList.toggle('icon-on-fill', ratio > 0 && bounds.left + bounds.width * ratio >= icon.getBoundingClientRect().left);
+  }));
+  pageContent.querySelectorAll('.nc-progress-card').forEach(card => ncKpiResizeObserver.observe(card));
 }
 
-function ncKpi(label, value, caption, color, icon, detailIcon) {
-  return `<article class="kpi-card" style="--accent-line:${color}"><div class="kpi-top"><div class="kpi-icon" style="border-color:${hexToRgba(color, .4)};color:${color}">${moduleIcon(icon)}</div><div><div class="kpi-label">${label}</div><div class="kpi-value big">${value}</div></div></div><div class="module-kpi-detail">${moduleIcon(detailIcon)}<div class="kpi-caption">${caption}</div>${moduleIcon("arrow-right")}</div></article>`;
+function ncKpi(label, value, total, caption, color, icon) {
+  const ratio = total ? Math.min(1, Math.max(0, value / total)) : 0;
+  return `<article class="nc-progress-card" data-progress="${ratio}" style="--nc-fill:${color};--nc-progress:${ratio * 100}%"><div class="nc-progress-label">${label}</div><div class="nc-progress-line"><strong>${value}</strong><span>de ${total} ${caption}</span></div><span class="nc-progress-icon">${moduleIcon(icon)}</span></article>`;
 }
 
 function renderNcTab() {
@@ -5811,7 +5823,7 @@ function ncControlHtml() {
     ${ncFilterSelect("processo", "Processo", values("processos"))}${ncFilterSelect("setor", "Setor", values("setores"))}
     ${ncFilterSelect("gravidade", "Gravidade", ["Menor", "Média", "Maior"])}${ncFilterSelect("status", "Status", ["Aguardando análise", "Ações em andamento", "Aguardando eficácia", "Encerrado"])}
     <label class="fg search">Busca livre<input class="input-basic" data-nc-filter="busca" value="${escapeHtml(ncFilters.busca)}" placeholder="Número, item, descrição..."></label><div class="filter-clear"><button data-nc-clear-filters type="button">Limpar filtros</button></div></div>
-    <section class="dcc"><div class="dcc-hd"><div><h2 class="dcc-title">Controle de RNCs</h2><p class="dcc-sub">${filtered.length} registro(s) · clique no número para abrir</p></div>${canEditModule("nao-conformidades") ? `<button class="btn-grad" data-nc-go-register type="button">${moduleIcon("plus")} Registrar NC</button>` : ""}</div><div class="nc-table-wrap"><table class="ctxtbl nc-control-table"><thead><tr><th>Número</th><th>Data</th><th>Origem</th><th>Qual?</th><th>Setor</th><th>Status</th><th>Concluídas</th><th>Atrasadas</th><th>Ações</th></tr></thead><tbody>${filtered.length ? filtered.map((row) => { const count = ncActionCounts(row); return `<tr><td><button class="rnc-link" data-nc-open="${row.id}" type="button">${escapeHtml(row.id)}</button></td><td class="mono">${ncDate(row.dataOrigem)}</td><td><span class="mchip ${row.origem === "Cliente" ? "mchip-blue" : row.origem === "Fornecedor" ? "mchip-purple" : "mchip-gray"}">${escapeHtml(row.origem)}</span></td><td class="desc-cell">${escapeHtml(row.origemRef || "Problema interno")}</td><td>${escapeHtml(row.setor)}</td><td>${ncStatusHtml(row.status)}</td><td class="mono">${count.done}/${count.total}</td><td><span class="atrasadas-badge ${count.late ? "atrasadas-n" : "atrasadas-0"}">${count.late}</span></td><td>${canEditModule("nao-conformidades") ? `<div class="row-actions nc-row-actions"><button class="abtn" data-nc-edit="${row.id}" type="button" title="Editar RNC" aria-label="Editar ${escapeHtml(row.id)}">${moduleIcon("edit")}</button><button class="abtn danger" data-nc-delete="${row.id}" type="button" title="Excluir RNC" aria-label="Excluir ${escapeHtml(row.id)}">${moduleIcon("trash")}</button></div>` : "-"}</td></tr>`; }).join("") : `<tr><td colspan="9"><div class="empty-state">Nenhum RNC encontrado.</div></td></tr>`}</tbody></table></div></section>`;
+    <section class="dcc"><div class="dcc-hd"><div><h2 class="dcc-title">Controle de RNCs</h2><p class="dcc-sub">${filtered.length} registro(s) · clique no número para abrir</p></div></div><div class="nc-table-wrap"><table class="ctxtbl nc-control-table"><thead><tr><th>Número</th><th>Data</th><th>Origem</th><th>Qual?</th><th>Setor</th><th>Status</th><th>Concluídas</th><th>Atrasadas</th><th>Ações</th></tr></thead><tbody>${filtered.length ? filtered.map((row) => { const count = ncActionCounts(row); return `<tr><td><button class="rnc-link" data-nc-open="${row.id}" type="button">${escapeHtml(row.id)}</button></td><td class="mono">${ncDate(row.dataOrigem)}</td><td><span class="mchip ${row.origem === "Cliente" ? "mchip-blue" : row.origem === "Fornecedor" ? "mchip-purple" : "mchip-gray"}">${escapeHtml(row.origem)}</span></td><td class="desc-cell">${escapeHtml(row.origemRef || "Problema interno")}</td><td>${escapeHtml(row.setor)}</td><td>${ncStatusHtml(row.status)}</td><td class="mono">${count.done}/${count.total}</td><td><span class="atrasadas-badge ${count.late ? "atrasadas-n" : "atrasadas-0"}">${count.late}</span></td><td>${canEditModule("nao-conformidades") ? `<div class="row-actions nc-row-actions"><button class="abtn" data-nc-edit="${row.id}" type="button" title="Editar RNC" aria-label="Editar ${escapeHtml(row.id)}">${moduleIcon("edit")}</button><button class="abtn danger" data-nc-delete="${row.id}" type="button" title="Excluir RNC" aria-label="Excluir ${escapeHtml(row.id)}">${moduleIcon("trash")}</button></div>` : "-"}</td></tr>`; }).join("") : `<tr><td colspan="9"><div class="empty-state">Nenhum RNC encontrado.</div></td></tr>`}</tbody></table></div></section>`;
 }
 
 function ncFilterSelect(key, label, items) {
@@ -5896,7 +5908,6 @@ function bindNcTabActions() {
   bindNcAttachmentEditor(pageContent.querySelector("#ncEvidence"), pageContent.querySelector("#ncEvidenceList"));
   pageContent.querySelectorAll("[data-nc-filter]").forEach((field) => field.addEventListener(field.tagName === "INPUT" ? "input" : "change", () => { ncFilters[field.dataset.ncFilter] = field.value; renderNcTab(); }));
   pageContent.querySelector("[data-nc-clear-filters]")?.addEventListener("click", () => { ncFilters = { origem: "", referencia: "", processo: "", setor: "", gravidade: "", status: "", busca: "" }; renderNcTab(); });
-  pageContent.querySelector("[data-nc-go-register]")?.addEventListener("click", () => { ncMainTab = "registrar"; renderNonConformityModule(); });
   pageContent.querySelectorAll("[data-nc-open]").forEach((button) => button.addEventListener("click", () => openNcDetail(button.dataset.ncOpen)));
   pageContent.querySelectorAll("[data-nc-edit]").forEach((button) => button.addEventListener("click", () => openNcEdit(button.dataset.ncEdit)));
   pageContent.querySelectorAll("[data-nc-delete]").forEach((button) => button.addEventListener("click", () => deleteNc(button.dataset.ncDelete)));

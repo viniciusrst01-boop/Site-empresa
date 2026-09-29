@@ -22,6 +22,10 @@
   ],
   "routes": [
     {
+      "src": "/compact-module-cards\\.(css|js)",
+      "dest": "/public/compact-module-cards.$1"
+    },
+    {
       "src": "/assets/(.*)",
       "dest": "/public/assets/$1"
     },

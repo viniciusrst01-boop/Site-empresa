@@ -59,7 +59,7 @@ function renderClimateModule() {
       ${climateKpi(moduleIcon("documentos"), "Determinação", data.determination.relevant === "Sim" ? "Relevante" : "Não relevante", `${data.determination.status} · ${data.determination.owner}`, "#34D399", "check-circle")}
       ${climateKpi(moduleIcon("riscos"), "Questões avaliadas", issues.length, `${relevant} relevante(s) · ${issues.filter((item) => item.relevant === "Parcial").length} parcial(is)`, "#4fa3ff", "bar-chart")}
       ${climateKpi(moduleIcon("check-circle"), "Questões tratadas", `${complete}/${issues.length}`, `${issues.length ? Math.round((complete / issues.length) * 100) : 0}% concluídas`, "#FBBF24", "documentos")}
-      ${climateKpi(moduleIcon("nao-conformidades"), "Questões atrasadas", late, late ? "Prazo vencido" : "Nenhum prazo vencido", "#F87171", "calendar-clock")}
+      ${climateKpi(moduleIcon("nao-conformidades"), "Questões atrasadas", late, late ? "Prazo vencido" : "Nenhum prazo vencido", "#F87171", "calendar-clock", issues.length ? late / issues.length : 0)}
     </div>
     <div class="ctx-tabs climate-tabs">
       <button type="button" class="ctx-tab${climateTab === "determination" ? " active" : ""}" data-climate-tab="determination">Determinação da empresa</button>
@@ -80,7 +80,7 @@ function renderClimateModule() {
   scrollPageToTop();
 }
 
-function climateKpi(icon, label, value, caption, color, detailIcon) { return `<article class="kpi-card climate-kpi" style="--accent-line:${color}"><div class="kpi-top"><div class="kpi-icon" style="color:${color};border-color:${color}66">${icon}</div><div><div class="kpi-label">${label}</div><div class="kpi-value big">${escapeHtml(value)}</div></div></div><div class="module-kpi-detail">${moduleIcon(detailIcon)}<div class="kpi-caption">${escapeHtml(caption)}</div>${moduleIcon("arrow-right")}</div></article>`; }
+function climateKpi(icon, label, value, caption, color, detailIcon, ratio = null) { return `<article class="kpi-card climate-kpi" ${ratio === null ? '' : `data-kpi-progress="${ratio}"`} style="--accent-line:${color}"><div class="kpi-top"><div class="kpi-icon" style="color:${color};border-color:${color}66">${icon}</div><div><div class="kpi-label">${label}</div><div class="kpi-value big">${escapeHtml(value)}</div></div></div><div class="module-kpi-detail">${moduleIcon(detailIcon)}<div class="kpi-caption">${escapeHtml(caption)}</div>${moduleIcon("arrow-right")}</div></article>`; }
 function renderClimateTab() { const target = document.querySelector("#climateTabContent"); if (!target) return; if (climateTab === "issues") target.innerHTML = climateIssuesHtml(); else if (climateTab === "indicators") { target.innerHTML = climateIndicatorsHtml(); climateRenderCharts(); } else target.innerHTML = climateDeterminationHtml(); climateBindActions(); }
 
 function climateDeterminationHtml() {

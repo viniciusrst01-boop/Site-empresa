@@ -1582,15 +1582,15 @@ function renderKpisIndicadores(){
     </div>
     <div class="dash-solid-card" style="--card-bg:${notaCor};">
       <div class="sc-icon"><svg class="icon" viewBox="0 0 24 24"><path d="M12 2l3 7h7l-5.5 4 2 7-6.5-4.5L5.5 20l2-7L2 9h7z"/></svg></div>
-      <div class="sc-label">Nota média</div><div class="sc-value">${a.notaMediaGeral.toFixed(1)}</div><div class="sc-caption">última avaliação de cada um</div>
+      <div class="sc-label">Nota média</div><div class="sc-value" data-kpi-fraction="${a.notaMediaGeral / 10}">${a.notaMediaGeral.toFixed(1)}</div><div class="sc-caption">última avaliação de cada um</div>
     </div>
     <div class="dash-solid-card" style="--card-bg:#F87171;">
       <div class="sc-icon"><svg class="icon" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/></svg></div>
-      <div class="sc-label">Críticos</div><div class="sc-value">${a.criticos}</div><div class="sc-caption">${a.pctCriticos}% da base</div>
+      <div class="sc-label">Críticos</div><div class="sc-value" data-kpi-fraction="${a.total ? a.criticos / a.total : 0}">${a.criticos}</div><div class="sc-caption">${a.pctCriticos}% da base</div>
     </div>
     <div class="dash-solid-card" style="--card-bg:#F2B705;">
       <div class="sc-icon"><svg class="icon" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></div>
-      <div class="sc-label">Ações em aberto</div><div class="sc-value">${a.acoesAbertas}</div><div class="sc-caption">${a.porAcao['Atrasada']||0} atrasada(s)</div>
+      <div class="sc-label">Ações em aberto</div><div class="sc-value" data-kpi-fraction="${Object.values(a.porAcao).reduce((sum, n) => sum + n, 0) ? a.acoesAbertas / Object.values(a.porAcao).reduce((sum, n) => sum + n, 0) : 0}">${a.acoesAbertas}</div><div class="sc-caption">${a.porAcao['Atrasada']||0} atrasada(s)</div>
     </div>`;
 }
 function indicadoresHTML(){
@@ -1670,21 +1670,21 @@ function renderKpis(){
       <div class="ks-icon"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 12l2 2 4-4"/></svg></div>
       <div class="ks-label">Homologados</div>
       <div class="ks-value">${homologados}</div>
-      <div class="ks-caption"><span class="ks-dot"></span>${homologados} de ${total} homologados</div>
+      <div class="ks-caption">de ${total} homologados</div>
       <div class="ks-bar"><span style="width:${pct(homologados)}%;"></span></div>
     </div>
     <div class="kpi-solid" style="--kc:#F87171;" onclick="verCategoriaForn('criticos')">
       <div class="ks-icon"><svg class="icon" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/></svg></div>
       <div class="ks-label">Críticos</div>
       <div class="ks-value">${criticos}</div>
-      <div class="ks-caption"><span class="ks-dot"></span>${criticos} de ${total} críticos</div>
+      <div class="ks-caption">de ${total} críticos</div>
       <div class="ks-bar"><span style="width:${pct(criticos)}%;"></span></div>
     </div>
     <div class="kpi-solid" style="--kc:#F2B705;" onclick="verCategoriaForn('alertas')">
       <div class="ks-icon"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg></div>
       <div class="ks-label">Alertas</div>
       <div class="ks-value">${alertas}</div>
-      <div class="ks-caption"><span class="ks-dot"></span>${alertas} de ${total} com alerta</div>
+      <div class="ks-caption">de ${total} com alerta</div>
       <div class="ks-bar"><span style="width:${pct(alertas)}%;"></span></div>
     </div>`;
 }
@@ -1760,5 +1760,6 @@ window.parent.postMessage({ type:'qualitypro:fornecedores:ready' }, window.locat
 </script>
 
 
+<script src="/compact-module-cards.js?v=20260928"></script>
 </body>
 </html>

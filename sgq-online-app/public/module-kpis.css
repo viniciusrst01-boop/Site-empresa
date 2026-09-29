@@ -1,4 +1,16 @@
 /* Shared dimensions for module summary cards, including embedded modules. */
+.nc-progress-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 20px; margin-bottom: 28px; }
+.nc-progress-card { position: relative; isolation: isolate; box-sizing: border-box; min-width: 0; min-height: 92px; padding: 12px 26px 16px; border-radius: 12px; overflow: hidden; color: #06101f; background: color-mix(in srgb, var(--nc-fill) 38%, white); }
+.nc-progress-card::before { content: ""; position: absolute; inset: 0 auto 0 0; width: var(--nc-progress); background: var(--nc-fill); border-radius: inherit; z-index: -1; }
+.nc-progress-label { padding-right: 42px; font: 700 10px/1.4 'JetBrains Mono', monospace; text-transform: uppercase; }
+.nc-progress-line { display: flex; align-items: baseline; gap: 10px; padding-right: 42px; margin-top: 4px; }
+.nc-progress-line strong { font: 800 28px/1 'JetBrains Mono', monospace; }
+.nc-progress-line span { font-size: 14px; font-weight: 500; line-height: 1.4; }
+.nc-progress-icon { position: absolute; top: 24px; right: 26px; color: color-mix(in srgb, var(--nc-fill) 70%, #06101f); }
+.nc-progress-icon .icon { width: 32px; height: 32px; }
+.nc-progress-card.icon-on-fill .nc-progress-icon { color: #06101f; }
+@media (max-width: 1200px) { .nc-progress-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 640px) { .nc-progress-kpis { grid-template-columns: minmax(0, 1fr); } }
 :is(body.module-detail-view, body.module-frame-kpis) :is(.risk-kpi-row, .context-kpi-row, .kpi-row:not(.users-kpi-row), .climate-kpis, .documents-kpis) {
   display: grid !important;
   grid-template-columns: repeat(4, minmax(0, 1fr)) !important;

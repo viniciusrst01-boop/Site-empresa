@@ -100,7 +100,7 @@ function documentsKpisHtml() {
     ["Aguardando aprovação", internal.filter((row) => documentEffectiveStatus(row) === "Aguardando Aprovação").length, "pendentes do aprovador", "#46d9f5", "clock"],
     ["A revisar / vencidos", all.filter(documentIsLate).length, "revisões e verificações vencidas", "#fbbf24", "alert"],
   ];
-  return `<section class="documents-kpis">${values.map(([label, value, caption, color, icon]) => `<article class="documents-kpi" style="--doc-kpi-color:${color}"><div class="documents-kpi-top"><span class="documents-kpi-icon">${moduleIcon(icon)}</span><div><div class="documents-kpi-label">${label}</div><div class="documents-kpi-value">${value}</div></div></div><div class="documents-kpi-caption">${caption}</div></article>`).join("")}</section>`;
+  return `<section class="documents-kpis">${values.map(([label, value, caption, color, icon], index) => `<article class="documents-kpi" ${index ? `data-kpi-progress="${(index === 2 ? internal.length : all.length) ? value / (index === 2 ? internal.length : all.length) : 0}"` : ''} style="--doc-kpi-color:${color}"><div class="documents-kpi-top"><span class="documents-kpi-icon">${moduleIcon(icon)}</span><div><div class="documents-kpi-label">${label}</div><div class="documents-kpi-value">${value}</div></div></div><div class="documents-kpi-caption">${caption}</div></article>`).join("")}</section>`;
 }
 
 function renderDocumentsTab(focus = null) {
