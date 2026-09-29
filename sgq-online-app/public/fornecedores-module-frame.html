@@ -1293,9 +1293,9 @@ function onAcForn(){
 }
 function renderAcAnexos(){
   const el=document.getElementById('acAnexosList');
-  el.innerHTML = acAnexos.length ? acAnexos.map((n,i)=>`<div style="display:flex; align-items:center; gap:8px;"><span class="evid-file"><svg class="icon" viewBox="0 0 24 24" style="width:14px;height:14px;"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>${esc(n)}</span><span class="abtn danger" style="width:22px;height:22px;" onclick="removeAcAnexo(${i})" title="Remover"><svg class="icon" viewBox="0 0 24 24" style="width:12px;height:12px;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span></div>`).join('') : '<span style="font-size:11.5px; color:var(--text-muted);">Nenhum anexo adicionado</span>';
+  el.innerHTML = acAnexos.length ? acAnexos.map((n,i)=>`<div style="display:flex; align-items:center; gap:8px;"><span class="evid-file"><svg class="icon" viewBox="0 0 24 24" style="width:14px;height:14px;"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>${esc(n.name || n)}</span><span class="abtn danger" style="width:22px;height:22px;" onclick="removeAcAnexo(${i})" title="Remover"><svg class="icon" viewBox="0 0 24 24" style="width:12px;height:12px;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span></div>`).join('') : '<span style="font-size:11.5px; color:var(--text-muted);">Nenhum anexo adicionado</span>';
 }
-function addAcAnexo(e){ const f=e.target.files[0]; if(!f) return; if(f.size>5*1024*1024){alert('Arquivo muito grande (máx. 5MB).'); e.target.value=''; return;} acAnexos.push(f.name); e.target.value=''; renderAcAnexos(); }
+async function addAcAnexo(e){ const f=e.target.files[0]; if(!f) return; if(acAnexos.length >= 5 || f.size + acAnexos.reduce((sum, a) => sum + (a.size || 0), 0) > 2*1024*1024){showToast('Limite de cinco anexos e 2 MB no total.'); e.target.value=''; return;} try { acAnexos.push(await feedbackFile(f)); renderAcAnexos(); } catch(error){ showToast(error.message); } e.target.value=''; }
 function removeAcAnexo(i){ acAnexos.splice(i,1); renderAcAnexos(); }
 
 function abrirAcao(fornId, avalId, editId){
@@ -1332,13 +1332,10 @@ function abrirAcao(fornId, avalId, editId){
   closeModal('modalDetForn');
   openModal('modalAcao');
 }
-/* Envio simulado de e-mail ao fornecedor (preparado p/ Supabase) */
-function notifyFornecedor(ac){
-  // TODO(Supabase): enviar e-mail real ao fornecedor via Edge Function, anexando as evidências e o link da página de resposta.
-  // await supabase.functions.invoke('notify-fornecedor', { body: { to: ac.email, anexos: ac.anexos, link } })
-  return { to: ac.email, assunto: 'Avaliação de Desempenho de Fornecedor — QualityPro Solutions' };
-}
-function enviarAcao(){
+let actionSending = false;
+let pendingAction = null;
+async function enviarAcao(){
+  if (actionSending) return;
   const desc=document.getElementById('acDescricao').value.trim();
   const email=document.getElementById('acEmail').value.trim();
   if(!email){ showToast('Informe o e-mail do fornecedor.'); document.getElementById('acEmail').focus(); return; }
@@ -1359,24 +1356,34 @@ function enviarAcao(){
   };
   let rec;
   if(id){ rec=acs.find(x=>x.id===id); Object.assign(rec, base); }
-  else { rec=Object.assign({id:uid('ACF',acs), dataRegistro:todayISO()}, base); acs.push(rec); }
-  store.set('qps_forn_acoes', acs);
-  const info=notifyFornecedor(rec);
-  closeModal('modalAcao'); renderTab();
-  showToast('Comunicado enviado ao fornecedor');
-  mostrarConfirmacaoEnvioAcao(rec, info);
+  else {
+    const fingerprint=JSON.stringify(base);
+    if(pendingAction?.fingerprint!==fingerprint) pendingAction={fingerprint,id:'ACF-'+crypto.randomUUID()};
+    rec=Object.assign({id:pendingAction.id, dataRegistro:todayISO()}, base); acs.push(rec);
+  }
+  actionSending = true;
+  try {
+    const info = await feedbackRequest('supplier', rec);
+    pendingAction = null;
+    Object.assign(rec, info.record, { responseLink: info.link });
+    store.set('qps_forn_acoes', acs);
+    closeModal('modalAcao'); renderTab();
+    if (info.delivery === 'sent') { showToast('Comunicado enviado ao fornecedor'); mostrarConfirmacaoEnvioAcao(rec, info); }
+    else showToast('Comunicado salvo, mas o e-mail não foi enviado. Será tentado novamente automaticamente.');
+  } catch (error) { showToast(error.message); }
+  finally { actionSending = false; }
 }
 function mostrarConfirmacaoEnvioAcao(rec, info){
-  const link=`fornecedor-acao.html?a=${encodeURIComponent(rec.id)}`;
+  const link=info.link;
   document.getElementById('respAcId').value=rec.id;
   document.getElementById('respTitle').textContent='Comunicado enviado';
   document.getElementById('respSub').textContent=`${rec.fornNome} · ${rec.email}`;
   document.getElementById('respBody').innerHTML=`
     <div style="font-size:13px; color:var(--text-secondary); line-height:1.6; margin-bottom:16px;">
-      Um e-mail formal foi enviado a <b>${esc(rec.fornNome)}</b> (${esc(rec.email)}) com o resultado da avaliação e ${rec.anexos.length} anexo(s) de evidência. O fornecedor deve responder com as ações tomadas até <b>${fmtDate(rec.prazo)}</b>.
+      Um e-mail formal foi enviado a <b>${esc(rec.fornNome)}</b> (${esc(rec.email)}) com um link para consultar o comunicado e ${rec.anexos.length} anexo(s) de evidência. O fornecedor deve responder com as ações tomadas até <b>${fmtDate(rec.prazo)}</b>.
     </div>
     <div style="background:rgba(255,255,255,0.03); border:1px solid var(--border-subtle); border-radius:10px; padding:12px 14px;">
-      <div style="font-size:10px; font-family:'JetBrains Mono',monospace; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">Link de resposta do fornecedor (simulação)</div>
+      <div style="font-size:10px; font-family:'JetBrains Mono',monospace; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">Link de resposta do fornecedor</div>
       <div class="mono" style="font-size:12px; color:var(--accent-cyan); overflow-wrap:anywhere;">${esc(link)}</div>
     </div>`;
   document.getElementById('respActions').innerHTML=`
@@ -1389,7 +1396,7 @@ function verResposta(id){
   document.getElementById('respAcId').value=id;
   document.getElementById('respTitle').textContent='Tratativa — '+ac.fornNome;
   document.getElementById('respSub').textContent=`${ac.origem} · enviado em ${fmtDate(ac.dataEnvio)}`;
-  const anexosEmpresa = (ac.anexos||[]).length ? (ac.anexos||[]).map(n=>`<span class="evid-file" style="margin-right:10px;"><svg class="icon" viewBox="0 0 24 24" style="width:13px;height:13px;"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>${esc(n)}</span>`).join('') : '<span style="color:var(--text-muted); font-size:12px;">Sem anexos</span>';
+  const anexosEmpresa = (ac.anexos||[]).length ? (ac.anexos||[]).map(n=>`<span class="evid-file" style="margin-right:10px;"><svg class="icon" viewBox="0 0 24 24" style="width:13px;height:13px;"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>${esc(n.name || n)}</span>`).join('') : '<span style="color:var(--text-muted); font-size:12px;">Sem anexos</span>';
   let body=`
     <div style="background:rgba(255,255,255,0.03); border:1px solid var(--border-subtle); border-radius:10px; padding:14px 16px; margin-bottom:16px;">
       <div style="font-size:10px; font-family:'JetBrains Mono',monospace; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">Comunicado enviado ao fornecedor</div>
@@ -1397,7 +1404,7 @@ function verResposta(id){
       <div>${anexosEmpresa}</div>
     </div>`;
   if(ac.resposta){
-    const anx=(ac.resposta.anexos||[]).length?(ac.resposta.anexos||[]).map(n=>`<span class="evid-file" style="margin-right:10px;"><svg class="icon" viewBox="0 0 24 24" style="width:13px;height:13px;"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>${esc(n)}</span>`).join(''):'<span style="color:var(--text-muted); font-size:12px;">Sem anexos</span>';
+    const anx=(ac.resposta.anexos||[]).length?(ac.resposta.anexos||[]).map(n=>`<span class="evid-file" style="margin-right:10px;"><svg class="icon" viewBox="0 0 24 24" style="width:13px;height:13px;"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>${esc(n.name || n)}</span>`).join(''):'<span style="color:var(--text-muted); font-size:12px;">Sem anexos</span>';
     body+=`
     <div style="background:rgba(70,217,245,0.06); border:1px solid rgba(70,217,245,0.3); border-radius:10px; padding:14px 16px; margin-bottom:16px;">
       <div style="font-size:10px; font-family:'JetBrains Mono',monospace; color:var(--accent-cyan); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">Resposta do fornecedor · ${fmtDate(ac.resposta.data)}</div>
@@ -1411,6 +1418,17 @@ function verResposta(id){
     body+=`<div class="empty-state" style="padding:22px;">Aguardando a resposta do fornecedor. ${acaoAtrasada(ac)?'<b style="color:var(--accent-red);">Prazo vencido.</b>':''}</div>`;
   }
   document.getElementById('respBody').innerHTML=body;
+  const files=[...(ac.anexos||[]), ...(ac.resposta?.anexos||[])];
+  document.querySelectorAll('#respBody .evid-file').forEach((element,index)=>{
+    if(!files[index]?.content) return;
+    const button=document.createElement('button');
+    button.type='button'; button.className=element.className;
+    button.style.cssText=element.style.cssText+'background:transparent;border:0;color:inherit;cursor:pointer';
+    button.innerHTML=element.innerHTML;
+    button.title='Baixar '+files[index].name;
+    button.onclick=()=>feedbackDownload(files[index]);
+    element.replaceWith(button);
+  });
 
   // ações do rodapé conforme estado
   let acts='<div class="btn-ghost" onclick="closeModal(\'modalResposta\')">Fechar</div>';
@@ -1422,15 +1440,19 @@ function verResposta(id){
     acts=`<div class="btn-ghost" onclick="closeModal('modalResposta')">Fechar</div>
       <div class="btn-primary" onclick="reavaliarDeAcao('${ac.fornId}')"><svg class="icon" viewBox="0 0 24 24" style="width:15px;height:15px;display:inline;vertical-align:-2px;margin-right:6px; stroke:#fff;"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>Reavaliar fornecedor</div>`;
   } else if(!ac.resposta){
-    const link=`fornecedor-acao.html?a=${encodeURIComponent(id)}`;
+    const link=ac.responseLink;
     acts=`<div class="btn-ghost" onclick="closeModal('modalResposta')">Fechar</div>
-      <div class="btn-ghost" onclick="window.open('${link}','_blank')">Abrir página do fornecedor</div>`;
+      ${link ? `<div class="btn-ghost" onclick="window.open('${esc(link)}','_blank')">Abrir página do fornecedor</div>` : ''}`;
   }
   document.getElementById('respActions').innerHTML=acts;
   openModal('modalResposta');
 }
-function julgarAcao(id, veredito){
+async function julgarAcao(id, veredito){
   const acs=store.get('qps_forn_acoes')||[]; const ac=acs.find(x=>x.id===id); if(!ac) return;
+  if(ac.responseLink) {
+    try { await feedbackRequest('supplier', {id, verdict:veredito}, 'PATCH'); }
+    catch(error){ showToast(error.message); return; }
+  }
   ac.statusRetorno=veredito;
   store.set('qps_forn_acoes', acs);
   closeModal('modalResposta'); renderTab();
@@ -1442,7 +1464,15 @@ function reavaliarDeAcao(fornId){
   document.querySelectorAll('#mainTabs .ctx-tab').forEach(el=>el.classList.toggle('active', el.dataset.tab==='avaliacao'));
   setTimeout(()=>{ if(typeof avaliarFornecedor==='function') avaliarFornecedor(fornId); }, 60);
 }
-function deleteAcao(id){ if(!confirm('Excluir esta tratativa?')) return; let a=(store.get('qps_forn_acoes')||[]).filter(x=>x.id!==id); store.set('qps_forn_acoes',a); renderTab(); showToast('Tratativa excluída'); }
+async function deleteAcao(id){
+  if(!confirm('Excluir esta tratativa?')) return;
+  const rows=store.get('qps_forn_acoes')||[];
+  if(rows.find(x=>x.id===id)?.responseLink){
+    try { await feedbackRequest('supplier', {id}, 'DELETE'); }
+    catch(error){ showToast(error.message); return; }
+  }
+  store.set('qps_forn_acoes',rows.filter(x=>x.id!==id)); renderTab(); showToast('Tratativa excluída');
+}
 
 
 /* ===================== ABA 5: ALERTAS ===================== */
@@ -1761,5 +1791,6 @@ window.parent.postMessage({ type:'qualitypro:fornecedores:ready' }, window.locat
 
 
 <script src="/compact-module-cards.js?v=20260928"></script>
+<script src="/external-feedback-client.js?v=20260929"></script>
 </body>
 </html>

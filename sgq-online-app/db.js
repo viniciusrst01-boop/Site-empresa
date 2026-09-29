@@ -2666,7 +2666,7 @@ function setLocalHealthObservation(database, companyId, observation) {
 // Serializes portal responses and internal state saves for the same company.
 async function mutateSupplierData(companyId, mutate) {
   await ensureInitialized();
-  const keys = ["state", "supplierRncPrivate"];
+  const keys = ["state", "supplierRncPrivate", "externalFeedbackPrivate"];
   if (usePostgres) {
     const client = await getPool().connect();
     try {

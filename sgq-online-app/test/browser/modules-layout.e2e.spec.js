@@ -84,8 +84,14 @@ test("envio manual de satisfação exige todos os dados do cliente", async ({ pa
 
   await frame.locator('#envResponsavel').fill('Maria da Silva');
   await frame.locator('#envCnpj').fill('12.345.678/0001-90');
+  const bootstrap = await (await page.request.get('/api/bootstrap')).json();
+  const form = await frame.locator('body').evaluate(() => store.get('qps_sat_form'));
+  await page.request.post('/api/data', { headers: { 'X-CSRF-Token': bootstrap.csrfToken }, data: {
+    key: 'state', value: { ...(bootstrap.state || {}), satisfaction: { ...(bootstrap.state?.satisfaction || {}), qps_sat_form: form } },
+  } });
   await frame.getByText('Enviar pesquisa', { exact: true }).click();
-  await expect(frame.locator('#modalEnvio')).toHaveClass(/show/);
+  await expect(frame.getByText('Pesquisa salva, mas o e-mail não foi enviado.', { exact: false })).toBeVisible();
+  await expect(frame.locator('#modalEnvio')).not.toHaveClass(/show/);
 });
 
 test("ações de melhoria exibem os responsáveis na lista suspensa", async ({ page }) => {

@@ -37,6 +37,9 @@ module.exports = defineConfig({
       SGQ_EXTRA_LOGINS: "",
       SGQ_EXPOSE_TEST_TOKENS: "true",
       SESSION_SECRET: "segredo-browser-com-tamanho-suficiente-123456",
+      RESEND_API_KEY: "",
+      EMAIL_FROM: "",
+      PUBLIC_APP_URL: `http://127.0.0.1:${port}`,
     },
   },
 });

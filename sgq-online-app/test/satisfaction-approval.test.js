@@ -21,6 +21,30 @@ const { createSatisfactionApproval } = require("../satisfaction-approval");
 
 const version = (number, status) => ({ versao: number, status, perguntas: [{ id: "P1", texto: "Como foi sua experiência?", tipo: "escala" }], aprovador: "", dataAprovacao: "", historico: [] });
 
+test('approval emails retry failed requests and decision returns without duplicates', async () => {
+  const company = await db.createCompany({ name: 'Approval retry test' });
+  await db.mutateSupplierData(company.id, data => { data.state = { satisfaction: { qps_sat_form: { versoes: [version('01', 'Rascunho')] } } }; });
+  let status = 'failed';
+  const messages = [];
+  const service = createSatisfactionApproval({ secret: 'test-secret', appUrl: 'https://example.test', sendEmail: async message => { messages.push(message); return { status }; } });
+  const person = { id: 1, name: 'Tester', email: 'test@example.test' };
+  const request = await service.request(company.id, { version: '01', approver: person, requester: person });
+  await service.deliver(company.id);
+  status = 'sent';
+  await Promise.all([service.deliver(company.id), service.deliver(company.id)]);
+  assert.equal(messages.length, 2);
+  await service.deliver(company.id);
+  assert.equal(messages.length, 2);
+  await service.decide(new URL(request.link).hash.slice(1), { decision: 'approved' });
+  status = 'failed';
+  await service.deliver(company.id);
+  status = 'sent';
+  await service.deliver(company.id);
+  await service.deliver(company.id);
+  assert.equal(messages.length, 4);
+  assert.equal(messages[2].idempotencyKey, messages[3].idempotencyKey);
+});
+
 test("aprovação externa de satisfação aprova ou contesta uma revisão sem expor o estado da empresa", async () => {
   let time = Date.now();
   const service = createSatisfactionApproval({ secret: process.env.SESSION_SECRET, appUrl: "https://sgq.example.test", now: () => time });

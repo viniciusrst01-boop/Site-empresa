@@ -1,0 +1,16 @@
+:root { font-family: Arial, sans-serif; color: #152f45; background: #eef3f7; }
+* { box-sizing: border-box; }
+body { margin: 0; }
+main { width: min(760px, 100%); margin: 0 auto; padding: 28px 20px 48px; }
+header { border-bottom: 1px solid #cedbe6; margin-bottom: 20px; }
+header img { width: 160px; background: #0c2945; border-radius: 6px; padding: 10px; }
+h1 { font-size: 24px; }
+p { white-space: pre-wrap; line-height: 1.5; }
+label { display: grid; gap: 8px; margin: 20px 0; line-height: 1.4; }
+select, textarea, input { max-width: 100%; font: inherit; padding: 12px; border: 1px solid #a8bfce; background: white; border-radius: 6px; }
+textarea { min-height: 110px; resize: vertical; }
+button { padding: 12px 18px; font: inherit; border: 0; border-radius: 6px; background: #087bd5; color: white; cursor: pointer; }
+button:disabled { opacity: .5; cursor: wait; }
+#files button { display: block; margin: 8px 0; background: #deebf6; color: #174566; }
+:focus-visible { outline: 3px solid #e49b00; outline-offset: 2px; }
+[hidden] { display: none; }

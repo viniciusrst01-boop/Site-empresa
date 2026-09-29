@@ -1,11 +1,12 @@
 const crypto = require("node:crypto");
 const db = require("./db");
+const mailer = require("./mailer");
 
 const DAY = 86400000;
 const error = (message, status = 400) => Object.assign(new Error(message), { status });
 const escape = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
 
-function createSatisfactionApproval({ secret, appUrl, now = () => Date.now() }) {
+function createSatisfactionApproval({ secret, appUrl, now = () => Date.now(), sendEmail = mailer.sendEmail }) {
   const sign = (payload) => crypto.createHmac("sha256", secret).update(`satisfaction-approval:${payload}`).digest("base64url");
   const makeToken = (companyId, version, nonce) => {
     const payload = Buffer.from(JSON.stringify([companyId, version, nonce])).toString("base64url");
@@ -106,6 +107,7 @@ function createSatisfactionApproval({ secret, appUrl, now = () => Date.now() }) 
       const decidedAt = new Date(now()).toISOString();
       approval.status = decision === "approved" ? "Aprovado" : "Contestado";
       approval.decidedAt = decidedAt;
+      approval.decisionDeliveryStatus = 'pending';
       approval.considerations = decision === "contested" ? considerations : "";
       if (decision === "approved") {
         form.versoes.forEach((item) => {
@@ -127,7 +129,55 @@ function createSatisfactionApproval({ secret, appUrl, now = () => Date.now() }) 
     });
   }
 
-  return { request, markDelivery, read, decide };
+  async function deliver(companyId, onlyVersion) {
+    const state = await db.getCompanyData(companyId, 'state');
+    const company = await db.getCompany(companyId);
+    const results = [];
+    for (const item of state?.satisfaction?.qps_sat_form?.versoes || []) {
+      if (onlyVersion && item.versao !== onlyVersion) continue;
+      const job = await db.mutateSupplierData(companyId, data => {
+        const version = data.state?.satisfaction?.qps_sat_form?.versoes?.find(v => v.versao === item.versao);
+        const approval = version?.aprovacaoExterna;
+        if (!approval || approval.expiresAt <= now() || approval.leaseUntil > now()) return null;
+        const type = approval.status === 'Pendente' ? 'request' : 'decision';
+        if ((type === 'request' ? approval.deliveryStatus : approval.decisionDeliveryStatus) === 'sent') return null;
+        // Only decisions created after this feature are eligible for automatic retry.
+        if (type === 'decision' && !approval.decisionDeliveryStatus) return null;
+        approval.leaseUntil = now() + 60000;
+        return { approval: structuredClone(approval), type };
+      });
+      if (!job) continue;
+      const { approval, type } = job;
+      const decision = type === 'decision';
+      const message = decision ? {
+        to: approval.requester.email,
+        subject: `Formulário ${approval.status === 'Aprovado' ? 'aprovado' : 'contestado'} - ${company.name}`,
+        html: mailer.satisfactionApprovalDecisionEmail({ requesterName: approval.requester.name, companyName: company.name, version: `Rev. ${item.versao}`, approverName: approval.approver.name, approved: approval.status === 'Aprovado', considerations: approval.considerations }),
+      } : {
+        to: approval.approver.email,
+        subject: `Aprovação solicitada - formulário de satisfação - ${company.name}`,
+        html: mailer.satisfactionApprovalRequestEmail({ recipientName: approval.approver.name, companyName: company.name, requesterName: approval.requester.name, version: `Rev. ${item.versao}`, link: `${appUrl}/satisfaction-approval#${makeToken(companyId, item.versao, approval.nonce)}` }),
+      };
+      let result;
+      try { result = appUrl ? await sendEmail({ ...message, tag: `satisfaction_approval_${type}`, idempotencyKey: `satisfaction-${type}:${companyId}:${item.versao}:${approval.nonce}` }) : { status: 'not_configured' }; }
+      catch { result = { status: 'failed' }; }
+      await db.mutateSupplierData(companyId, data => {
+        const current = data.state?.satisfaction?.qps_sat_form?.versoes?.find(v => v.versao === item.versao)?.aprovacaoExterna;
+        if (current?.nonce !== approval.nonce) return;
+        current.leaseUntil = 0;
+        current[decision ? 'decisionDeliveryStatus' : 'deliveryStatus'] = result.status;
+        if (result.id) current[decision ? 'decisionMessageId' : 'requestMessageId'] = result.id;
+      });
+      results.push({ version: item.versao, type, ...result });
+    }
+    return results;
+  }
+  async function runNotifications() {
+    const results = [];
+    for (const target of await db.listNotificationTargets(true)) results.push(...await deliver(target.company.id));
+    return results;
+  }
+  return { request, markDelivery, read, decide, deliver, runNotifications };
 }
 
 module.exports = { createSatisfactionApproval };

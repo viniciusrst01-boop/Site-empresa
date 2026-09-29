@@ -103,8 +103,6 @@ const {
   meetingInvitationEmail,
   operationalAlertEmail,
   passwordResetEmail,
-  satisfactionApprovalDecisionEmail,
-  satisfactionApprovalRequestEmail,
   sendEmail,
 } = require("./mailer");
 
@@ -130,6 +128,8 @@ const { createSupplierRnc } = require("./supplier-rnc");
 const supplierRnc = createSupplierRnc({ secret: sessionSecret, appUrl: publicAppUrl });
 const { createSatisfactionApproval } = require("./satisfaction-approval");
 const satisfactionApproval = createSatisfactionApproval({ secret: sessionSecret, appUrl: publicAppUrl });
+const { createExternalFeedback } = require('./external-feedback');
+const externalFeedback = createExternalFeedback({ secret: sessionSecret, appUrl: publicAppUrl });
 const sgqModuleIds = [
   "mudancas-climaticas",
   "contexto",
@@ -139,6 +139,7 @@ const sgqModuleIds = [
   "auditorias",
   "nao-conformidades",
   "equipamentos",
+  "fornecedores",
   "satisfacao-clientes",
 ];
 let bootstrapPromise;
@@ -619,7 +620,7 @@ async function buildCompanyReport(companyId) {
     listUsersWithCompanySettings(companyId),
     listCompanyData(companyId),
   ]);
-  const modules = Object.fromEntries(dataRows.filter((row) => row.key !== "supplierRncPrivate" && !row.key.startsWith("ncAttachment:") && !row.key.startsWith(HEALTH_PREFIX)).map((row) => [row.key, row.value]));
+  const modules = Object.fromEntries(dataRows.filter((row) => !["supplierRncPrivate", "externalFeedbackPrivate"].includes(row.key) && !row.key.startsWith("ncAttachment:") && !row.key.startsWith(HEALTH_PREFIX)).map((row) => [row.key, row.value]));
   return {
     generatedAt: new Date().toISOString(),
     company,
@@ -1386,6 +1387,26 @@ async function handleRequest(req, res) {
     } catch (error) { sendJson(res, error.status || (error instanceof SyntaxError ? 400 : 500), { error: error.status ? error.message : "supplier_request_failed" }); }
     return;
   }
+  if (['/external-feedback', '/external-feedback.js', '/external-feedback.css'].includes(url.pathname) && req.method === 'GET') {
+    res.setHeader('Referrer-Policy', 'no-referrer');
+    serveFile(res, path.join(publicDir, url.pathname === '/external-feedback' ? 'external-feedback.html' : url.pathname.slice(1)));
+    return;
+  }
+  if (url.pathname === '/api/external-feedback') {
+    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('Referrer-Policy', 'no-referrer');
+    const token = String(req.headers.authorization || '').replace(/^Bearer /, '');
+    try {
+      if (req.method === 'GET' && url.searchParams.has('file')) {
+        const file = await externalFeedback.download(token, Number(url.searchParams.get('file')));
+        res.writeHead(200, { 'Content-Type': 'application/octet-stream', 'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(file.name)}`, 'X-Content-Type-Options': 'nosniff' });
+        res.end(Buffer.from(file.content, 'base64'));
+      } else if (req.method === 'GET') sendJson(res, 200, await externalFeedback.read(token));
+      else if (req.method === 'POST') sendJson(res, 200, await externalFeedback.respond(token, await readJsonBody(req, 3200000)));
+      else sendJson(res, 405, { error: 'Método não permitido.' });
+    } catch (error) { sendJson(res, error.status || 500, { error: error.status ? error.message : 'Não foi possível processar a resposta.' }); }
+    return;
+  }
   if (url.pathname === "/api/satisfaction-approval") {
     res.setHeader("Referrer-Policy", "no-referrer");
     const token = String(req.headers.authorization || "").replace(/^Bearer /, "");
@@ -1394,24 +1415,7 @@ async function handleRequest(req, res) {
         sendJson(res, 200, await satisfactionApproval.read(token));
       } else if (req.method === "POST") {
         const result = await satisfactionApproval.decide(token, await readJsonBody(req));
-        const company = await getCompany(result.companyId);
-        let delivery = { status: "not_configured" };
-        if (publicAppUrl && isEmail(result.requester?.email)) {
-          delivery = await sendEmail({
-            to: result.requester.email,
-            subject: `Formulário ${result.record.status === "Aprovado" ? "aprovado" : "contestado"} - ${company?.name || "QualityPro Cloud"}`,
-            html: satisfactionApprovalDecisionEmail({
-              requesterName: result.requester.name,
-              companyName: company?.name || "sua empresa",
-              version: `Rev. ${result.record.version}`,
-              approverName: result.approver.name,
-              approved: result.record.status === "Aprovado",
-              considerations: result.record.considerations,
-            }),
-            tag: "satisfaction_approval_decision",
-            idempotencyKey: `satisfaction-decision:${result.companyId}:${result.record.version}:${result.record.status}`,
-          }).catch(() => ({ status: "failed" }));
-        }
+        const delivery = (await satisfactionApproval.deliver(result.companyId, result.record.version))[0] || { status: 'pending' };
         await recordAuditLog({
           companyId: result.companyId,
           username: result.approver?.email || "",
@@ -1463,7 +1467,7 @@ async function handleRequest(req, res) {
       sendJson(res, 401, { error: "invalid_cron_secret" });
       return;
     }
-    sendJson(res, 200, { ok: true, ...(await runDeadlineAlerts(req)), suppliers: await supplierRnc.runNotifications() });
+    sendJson(res, 200, { ok: true, ...(await runDeadlineAlerts(req)), suppliers: await supplierRnc.runNotifications(), feedback: await externalFeedback.runNotifications(), approvals: await satisfactionApproval.runNotifications() });
     return;
   }
 
@@ -2540,6 +2544,32 @@ async function handleApiRequest(req, res, url, session) {
     return;
   }
 
+  if (url.pathname === '/api/external-feedback-requests') {
+    res.setHeader('Cache-Control', 'no-store');
+    const kind = url.searchParams.get('kind');
+    const moduleId = kind === 'survey' ? 'satisfacao-clientes' : kind === 'supplier' ? 'fornecedores' : '';
+    const permissions = await getSessionPermissions(session);
+    const owner = await isCompanyOwnerSession(session);
+    if (!moduleId || (!owner && !(req.method === 'GET' ? canViewModule(permissions, moduleId) : canEditModule(permissions, moduleId)))) {
+      sendJson(res, 403, { error: 'Acesso não permitido.' }); return;
+    }
+    try {
+      if (req.method === 'GET') sendJson(res, 200, { records: await externalFeedback.list(companyId, kind) });
+      else if (req.method === 'POST') {
+        const contacts = await listLeadershipParticipantUsers(companyId);
+        const user = contacts.find(user => Number(user.id) === Number(session.userId));
+        const requester = { name: session.displayName || session.username, email: user?.contactEmail || (isEmail(session.username) ? session.username : '') };
+        const result = await externalFeedback.request(companyId, kind, await readJsonBody(req, 3200000), requester);
+        await auditRequest(req, session, 'external_feedback_requested', result.delivery === 'sent' ? 'success' : 'failed', { kind, id: result.record.id, delivery: result.delivery });
+        sendJson(res, 200, result);
+      } else if (req.method === 'DELETE' || (kind === 'supplier' && req.method === 'PATCH')) {
+        const result = await externalFeedback.update(companyId, kind, await readJsonBody(req), req.method === 'DELETE');
+        await auditRequest(req, session, 'external_feedback_updated', 'success', { kind, method: req.method });
+        sendJson(res, 200, result);
+      } else sendJson(res, 405, { error: 'Método não permitido.' });
+    } catch (error) { sendJson(res, error.status || 500, { error: error.status ? error.message : 'Não foi possível registrar o envio.' }); }
+    return;
+  }
   if (url.pathname === "/api/satisfaction-approvals" && req.method === "POST") {
     const permissions = await getSessionPermissions(session);
     if (!canEditModule(permissions, "satisfacao-clientes")) {
@@ -2565,22 +2595,7 @@ async function handleApiRequest(req, res, url, session) {
       sendJson(res, error.status || 500, { error: error.status ? error.message : "satisfaction_approval_failed" });
       return;
     }
-    const company = await getCompany(companyId);
-    const delivery = publicAppUrl
-      ? await sendEmail({
-        to: approver.email,
-        subject: `Aprovação solicitada - formulário de satisfação - ${company?.name || "QualityPro Cloud"}`,
-        html: satisfactionApprovalRequestEmail({
-          recipientName: approver.name,
-          companyName: company?.name || "sua empresa",
-          requesterName: session.displayName || session.username,
-          version: `Rev. ${body.version}`,
-          link: result.link,
-        }),
-        tag: "satisfaction_approval_request",
-        idempotencyKey: `satisfaction-request:${companyId}:${body.version}:${result.approval.nonce}`,
-      }).catch(() => ({ status: "failed" }))
-      : { status: "not_configured" };
+    const delivery = (await satisfactionApproval.deliver(companyId, String(body.version)))[0] || { status: 'pending' };
     const satisfaction = await satisfactionApproval.markDelivery(companyId, String(body.version), result.approval.nonce, delivery.status);
     await auditRequest(req, session, "satisfaction_approval_requested", delivery.status === "sent" ? "success" : "failed", {
       version: body.version,
@@ -3368,6 +3383,7 @@ async function handleApiRequest(req, res, url, session) {
             documentos: ["documents"], auditorias: ["audits"], "nao-conformidades": ["ncs", "ncCatalogs", "supplierStateVersion"], equipamentos: ["equipment"], "satisfacao-clientes": ["satisfaction"], "mudancas-climaticas": ["climate"],
           }[requestedModule] || []).filter((key) => Object.hasOwn(body.value, key)).map((key) => [key, body.value[key]])) } : body.value;
           supplierRnc.prepareState(data, value, requestedModule === "nao-conformidades");
+          externalFeedback.mergeSurveys(data);
           savedNcs = data.state.ncs;
           supplierStateVersion = data.state.supplierStateVersion;
         });

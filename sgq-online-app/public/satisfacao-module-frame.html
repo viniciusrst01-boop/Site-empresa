@@ -819,12 +819,9 @@ function verHistorico(){
 }
 
 
-/* ===================== EMAIL (simulado, preparado p/ Supabase) ===================== */
-function notifyCliente(pesq, reenvio){
-  // TODO(Supabase): enviar e-mail real ao cliente com o link da pesquisa via Edge Function.
-  // await supabase.functions.invoke('notify-survey', { body: { to: pesq.email, link, prazoDias: 7 } })
-  return { to: pesq.email, assunto: reenvio ? 'Lembrete: sua opinião é importante para nós' : 'Pesquisa de Satisfação — QualityPro Solutions' };
-}
+/* Delivery and reminders are recorded by the server. */
+let surveySending = false;
+let pendingSurvey = null;
 
 /* ===================== ABA 2: ENVIO DE PESQUISA ===================== */
 let envioModoManual = false;
@@ -934,7 +931,8 @@ function limparEnvio(){
   limparCamposEnv();
   document.getElementById('envData').value=todayISO();
 }
-function enviarPesquisa(){
+async function enviarPesquisa(){
+  if (surveySending) return;
   const vig=versaoVigente(); if(!vig){ showToast('Não há formulário vigente.'); return; }
   const empresa=document.getElementById('envEmpresa').value.trim();
   const responsavel=document.getElementById('envResponsavel').value.trim();
@@ -945,53 +943,43 @@ function enviarPesquisa(){
 
   const pesquisas = store.get('qps_sat_pesquisas')||[];
   const seq = pesquisas.length ? Math.max(...pesquisas.map(p=>p.seq||0))+1 : 1;
+  const fingerprint = JSON.stringify([empresa,responsavel,email,cnpj,vig.versao]);
+  if (pendingSurvey?.fingerprint !== fingerprint) pendingSurvey = { fingerprint, id:'PSQ-'+crypto.randomUUID() };
   const rec = {
-    id: uid('PSQ', pesquisas), seq,
+    id: pendingSurvey.id, seq,
     empresa, responsavel, email, cnpj,
     dataEnvio, dataResposta:'', prazo: addDays(dataEnvio, 7),
     formVersao: vig.versao, perguntas: JSON.parse(JSON.stringify(vig.perguntas)),
     respostas: null, status:'Enviada', reenviado:false,
     historico:[{ts:new Date().toISOString(), texto:`Pesquisa enviada para <b>${esc(empresa)}</b> (${esc(email)}).`}]
   };
-  const info = notifyCliente(rec, false);
-  rec.historico.push({ts:new Date().toISOString(), texto:`E-mail enviado — assunto: "${esc(info.assunto)}". Prazo de resposta: ${fmtDate(rec.prazo)}.`});
-  pesquisas.push(rec);
-  store.set('qps_sat_pesquisas', pesquisas);
-  renderKpis();
-  showToast('Pesquisa enviada com sucesso');
-  showConfirmacaoEnvio(rec, info);
-  limparEnvio();
+  surveySending = true;
+  try {
+    const info = await feedbackRequest('survey', rec);
+    pendingSurvey = null;
+    pesquisas.push(info.record);
+    store.set('qps_sat_pesquisas', pesquisas);
+    renderKpis();
+    if (info.delivery === 'sent') { showToast('Pesquisa enviada com sucesso'); showConfirmacaoEnvio(info.record, info); limparEnvio(); }
+    else { limparEnvio(); showToast('Pesquisa salva, mas o e-mail não foi enviado. O envio será tentado novamente automaticamente.'); }
+  } catch (error) { showToast(error.message); }
+  finally { surveySending = false; }
 }
 function showConfirmacaoEnvio(rec, info){
-  const link = `satisfacao-responder.html?p=${encodeURIComponent(rec.id)}`;
+  const link = info.link;
   document.getElementById('envioBody').innerHTML = `
     <div style="font-size:13px; color:var(--text-secondary); line-height:1.6; margin-bottom:16px;">
       A pesquisa foi enviada para <b>${esc(rec.empresa)}</b> — contato <b>${esc(rec.responsavel)||'—'}</b> (${esc(rec.email)}).<br><br>
       Um e-mail executivo foi disparado com o link da pesquisa, solicitando resposta em até <b>7 dias</b> (até ${fmtDate(rec.prazo)}). Caso não responda, o e-mail será <b>reenviado automaticamente</b> após esse prazo.
     </div>
     <div style="background:rgba(255,255,255,0.03); border:1px solid var(--border-subtle); border-radius:10px; padding:12px 14px; margin-bottom:6px;">
-      <div style="font-size:10px; font-family:'JetBrains Mono',monospace; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">Link da pesquisa (simulação)</div>
+      <div style="font-size:10px; font-family:'JetBrains Mono',monospace; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">Link da pesquisa</div>
       <div class="mono" style="font-size:12px; color:var(--accent-cyan); overflow-wrap:anywhere;">${esc(link)}</div>
     </div>`;
   document.getElementById('envioAbrirBtn').onclick=()=>{ window.open(link,'_blank'); };
   openModal('modalEnvio');
 }
-/* Verifica prazos: marca "Não respondida" e reenvia após 7 dias (simulado) */
-function verificarPrazos(){
-  const pesquisas = store.get('qps_sat_pesquisas')||[]; let changed=false;
-  pesquisas.forEach(p=>{
-    if(p.status==='Enviada' && p.prazo && p.prazo < todayISO()){
-      p.status='Não respondida';
-      if(!p.reenviado){
-        p.reenviado=true;
-        const info=notifyCliente(p,true);
-        p.historico.push({ts:new Date().toISOString(), texto:`Prazo de 7 dias expirado sem resposta — e-mail reenviado automaticamente ("${esc(info.assunto)}").`});
-      }
-      changed=true;
-    }
-  });
-  if(changed) store.set('qps_sat_pesquisas', pesquisas);
-}
+function verificarPrazos(){} // Scheduled server job owns delivery and deadline updates.
 
 
 /* ===================== ABA 3: CONTROLE ===================== */
@@ -1076,7 +1064,15 @@ function controleHTML(){
 }
 function setCtrlFilter(k,v){ ctrlFilters[k]=v; renderTab(); }
 function clearCtrlFilters(){ ctrlFilters={status:'',ano:'',cliente:'',busca:''}; renderTab(); }
-function deletePesquisa(id){ if(!confirm('Excluir este registro de pesquisa?')) return; let pesq=store.get('qps_sat_pesquisas')||[]; pesq=pesq.filter(x=>x.id!==id); store.set('qps_sat_pesquisas',pesq); renderKpis(); renderTab(); showToast('Registro excluído'); }
+async function deletePesquisa(id){
+  if(!confirm('Excluir este registro de pesquisa?')) return;
+  const rows=store.get('qps_sat_pesquisas')||[];
+  if(rows.find(x=>x.id===id)?.emailDelivery){
+    try { await feedbackRequest('survey', {id}, 'DELETE'); }
+    catch(error){ showToast(error.message); return; }
+  }
+  store.set('qps_sat_pesquisas',rows.filter(x=>x.id!==id)); renderKpis(); renderTab(); showToast('Registro excluído');
+}
 
 function corNota(n){ if(n>=9) return 'var(--accent-green)'; if(n>=7) return 'var(--accent-cyan)'; if(n>=5) return 'var(--accent-amber)'; return 'var(--accent-red)'; }
 function verPesquisa(id){
@@ -1521,5 +1517,6 @@ if(embeddedModule){
 
 
 <script src="/compact-module-cards.js?v=20260928"></script>
+<script src="/external-feedback-client.js?v=20260929"></script>
 </body>
 </html>
