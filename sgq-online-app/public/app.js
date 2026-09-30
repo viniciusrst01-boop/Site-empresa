@@ -4611,8 +4611,10 @@ function contextProcessArchitectureHtml(rows) {
 
 function contextProcessArchitectureLane(category, description, rows, isFlow = false) {
   const className = category.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const action = canEditModule("contexto") ? "edit-processo" : "view-processo";
+  const actionLabel = canEditModule("contexto") ? "Editar processo" : "Ver detalhes do processo";
   const cards = rows.length
-    ? rows.map((item) => `<button class="process-architecture-node" data-context-action="view-processo" data-id="${escapeHtml(item.id)}" type="button"><span class="process-architecture-code">${escapeHtml(item.codigo || "-")}</span><strong>${escapeHtml(item.nome)}</strong><small>${escapeHtml(item.saidas?.[0] || item.objetivo || "Processo mapeado")}</small></button>`).join("")
+    ? rows.map((item) => `<button class="process-architecture-node" data-context-action="${action}" data-id="${escapeHtml(item.id)}" type="button" title="${actionLabel}"><span class="process-architecture-code">${escapeHtml(item.codigo || "-")}</span><strong>${escapeHtml(item.nome)}</strong><small>${escapeHtml(item.saidas?.[0] || item.objetivo || "Processo mapeado")}</small></button>`).join("")
     : `<div class="process-architecture-empty">Nenhum processo cadastrado nesta categoria.</div>`;
   return `
     <div class="process-architecture-lane ${className}${isFlow ? " operational-flow" : ""}">

@@ -1001,5 +1001,7 @@ test("processos exibem a arquitetura de interação sem os quadros de resumo ant
   await page.screenshot({ path: testInfo.outputPath("context-process-architecture.png"), fullPage: true });
 
   await page.locator('.process-architecture-node[data-id="alta_direcao"]').click();
-  await expect(page.getByRole("heading", { name: "E01 - Alta Direção" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Editar processo" })).toBeVisible();
+  await expect(page.locator("#contextProcessoCodigo")).toHaveValue("E01");
+  await expect(page.locator("#contextProcessoNome")).toHaveValue("Alta Direção");
 });
