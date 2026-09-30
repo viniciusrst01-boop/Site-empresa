@@ -4235,7 +4235,7 @@ table.ctxtbl {
 
 .process-architecture-nodes { display: flex; align-items: stretch; gap: 8px; min-width: 0; overflow-x: auto; padding-bottom: 2px; }
 .process-architecture-node { position: relative; flex: 1 0 145px; min-height: 76px; padding: 10px; border: 1px solid var(--border-subtle); border-radius: 8px; background: color-mix(in srgb, var(--surface-card) 94%, var(--text-primary) 6%); color: var(--text-primary); text-align: left; cursor: pointer; transition: transform .15s ease, border-color .15s ease, box-shadow .15s ease, background-color .15s ease; }
-.process-architecture-node:hover { transform: translateY(-1px); border-color: var(--accent-blue-bright); background: color-mix(in srgb, var(--surface-card) 86%, var(--accent-blue-bright) 14%); box-shadow: 0 8px 16px rgba(28, 163, 255, .13); }
+.process-architecture-node:hover { border-color: var(--accent-blue-bright); background: color-mix(in srgb, var(--surface-card) 86%, var(--accent-blue-bright) 14%); box-shadow: 0 8px 16px rgba(28, 163, 255, .13); }
 .process-architecture-node:focus-visible { outline: 2px solid var(--accent-blue-bright); outline-offset: 2px; }
 .process-architecture-node:active { transform: scale(.98); }
 .process-architecture-code { display: block; margin-bottom: 5px; color: var(--text-muted); font-family: "JetBrains Mono", monospace; font-size: 9px; font-weight: 800; letter-spacing: .6px; }

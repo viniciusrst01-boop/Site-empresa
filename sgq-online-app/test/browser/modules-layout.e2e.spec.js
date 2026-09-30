@@ -985,13 +985,14 @@ test("calendário da alta direção usa as reuniões cadastradas e abre o resumo
   await page.screenshot({ path: testInfo.outputPath("leadership-meeting-summary.png") });
 });
 
-test("processos exibem a arquitetura de interação sem os quadros de resumo anteriores", async ({ page }, testInfo) => {
+test("mapa de processos exibe a arquitetura separada do cadastro", async ({ page }, testInfo) => {
   await login(page);
   await page.evaluate(() => {
-    currentContextTab = "processos";
+    currentContextTab = "mapa-processos";
     renderModuleDetail("contexto");
   });
 
+  await expect(page.getByRole("button", { name: "Mapa de Processos" })).toHaveClass(/active/);
   await expect(page.getByRole("heading", { name: "Interação entre processos" })).toBeVisible();
   await expect(page.locator(".process-architecture-lane")).toHaveCount(3);
   await expect(page.locator(".process-architecture-lane.estrategico")).toContainText("2 processos");
@@ -1004,4 +1005,10 @@ test("processos exibem a arquitetura de interação sem os quadros de resumo ant
   await expect(page.getByRole("heading", { name: "Editar processo" })).toBeVisible();
   await expect(page.locator("#contextProcessoCodigo")).toHaveValue("E01");
   await expect(page.locator("#contextProcessoNome")).toHaveValue("Alta Direção");
+  await page.locator("#contextProcessoModal .modal-close").click();
+
+  await page.getByRole("button", { name: "Processos", exact: true }).click();
+  await expect(page.locator(".process-architecture")).toHaveCount(0);
+  await expect(page.locator(".dcc-title")).toHaveText("Processos");
+  await expect(page.locator(".ctxtbl")).toBeVisible();
 });

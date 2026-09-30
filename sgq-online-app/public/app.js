@@ -4317,6 +4317,7 @@ function renderContextModule() {
       <button class="ctx-tab${currentContextTab === "partes" ? " active" : ""}" data-context-tab="partes" type="button">Partes Interessadas</button>
       <button class="ctx-tab${currentContextTab === "escopo" ? " active" : ""}" data-context-tab="escopo" type="button">Escopo</button>
       <button class="ctx-tab${currentContextTab === "processos" ? " active" : ""}" data-context-tab="processos" type="button">Processos</button>
+      <button class="ctx-tab${currentContextTab === "mapa-processos" ? " active" : ""}" data-context-tab="mapa-processos" type="button">Mapa de Processos</button>
       <div class="module-tabs-actions toolbar-actions">${moduleHistoryControlsHtml("contexto")}</div>
     </div>
 
@@ -4385,6 +4386,7 @@ function renderContextTab() {
   if (currentContextTab === "partes") target.innerHTML = contextPartesHtml();
   else if (currentContextTab === "escopo") target.innerHTML = contextEscopoHtml();
   else if (currentContextTab === "processos") target.innerHTML = contextProcessosHtml();
+  else if (currentContextTab === "mapa-processos") target.innerHTML = contextMapaProcessosHtml();
   else target.innerHTML = contextSwotHtml();
   bindContextActions();
   if (currentContextTab === "escopo") bindAutomaticCargo("#ctxEscopo-aprovador", "#ctxEscopo-aprovadorCargo");
@@ -4571,9 +4573,8 @@ function contextProcessosHtml() {
     </tr>`).join("") : `<tr><td colspan="6"><div class="empty-state">Nenhum processo mapeado.</div></td></tr>`;
   return `
     <section class="dcc">
-      ${contextProcessArchitectureHtml(rows)}
       <div class="dcc-hd">
-        <div><div class="dcc-title">Mapa de Processos</div><div class="dcc-sub">Processos estratégicos, operacionais e de suporte · cláusula 4.4</div></div>
+        <div><div class="dcc-title">Processos</div><div class="dcc-sub">Cadastre e mantenha os processos estratégicos, operacionais e de suporte · cláusula 4.4</div></div>
         ${canEditModule("contexto") ? `<button class="btn-grad" data-context-action="new-processo" type="button">${moduleIcon("plus")}Novo processo</button>` : ""}
       </div>
       <div class="risk-table-wrap">
@@ -4584,6 +4585,10 @@ function contextProcessosHtml() {
         </table>
       </div>
     </section>`;
+}
+
+function contextMapaProcessosHtml() {
+  return contextProcessArchitectureHtml(contextGet("processos"));
 }
 
 function contextProcessArchitectureHtml(rows) {
@@ -4614,7 +4619,7 @@ function contextProcessArchitectureLane(category, description, rows, isFlow = fa
   const action = canEditModule("contexto") ? "edit-processo" : "view-processo";
   const actionLabel = canEditModule("contexto") ? "Editar processo" : "Ver detalhes do processo";
   const cards = rows.length
-    ? rows.map((item) => `<button class="process-architecture-node" data-context-action="${action}" data-id="${escapeHtml(item.id)}" type="button" title="${actionLabel}"><span class="process-architecture-code">${escapeHtml(item.codigo || "-")}</span><strong>${escapeHtml(item.nome)}</strong><small>${escapeHtml(item.saidas?.[0] || item.objetivo || "Processo mapeado")}</small></button>`).join("")
+    ? rows.map((item) => `<button class="process-architecture-node" data-context-action="${action}" data-id="${escapeHtml(item.id)}" type="button" aria-label="${escapeHtml(actionLabel)}: ${escapeHtml(item.nome)}"><span class="process-architecture-code">${escapeHtml(item.codigo || "-")}</span><strong>${escapeHtml(item.nome)}</strong><small>${escapeHtml(item.saidas?.[0] || item.objetivo || "Processo mapeado")}</small></button>`).join("")
     : `<div class="process-architecture-empty">Nenhum processo cadastrado nesta categoria.</div>`;
   return `
     <div class="process-architecture-lane ${className}${isFlow ? " operational-flow" : ""}">
@@ -4709,7 +4714,7 @@ function contextModalsHtml() {
     <div class="modal-overlay" id="contextProcessoModal">
       <div class="modal-box wide">
         <div class="modal-hd">
-          <div><h3 id="contextProcessoTitle">Novo processo</h3><p>Mapa de Processos · cláusula 4.4</p></div>
+          <div><h3 id="contextProcessoTitle">Novo processo</h3><p>Processos · cláusula 4.4</p></div>
           <button class="modal-close" data-context-close="contextProcessoModal" type="button">${moduleIcon("close")}</button>
         </div>
         <input type="hidden" id="contextProcessoId">
@@ -9969,6 +9974,7 @@ function globalSearchEntries() {
     searchEntry("Partes interessadas", "Contexto da Organização · Necessidades e expectativas", { moduleId: "contexto", tab: "partes", icon: "contexto" }),
     searchEntry("Escopo", "Contexto da Organização · Escopo do SGQ", { moduleId: "contexto", tab: "escopo", icon: "contexto" }),
     searchEntry("Processos", "Contexto da Organização · Mapeamento de processos", { moduleId: "contexto", tab: "processos", icon: "contexto" }),
+    searchEntry("Mapa de Processos", "Contexto da Organização · Interação entre processos", { moduleId: "contexto", tab: "mapa-processos", icon: "contexto" }),
     searchEntry("Matriz de riscos", "Riscos e Oportunidades · Identificação e tratamento", { moduleId: "riscos", tab: "riscos", icon: "riscos" }),
     searchEntry("Objetivos da Qualidade", "Riscos e Oportunidades · Planejamento", { moduleId: "riscos", tab: "objetivos", icon: "riscos" }),
     searchEntry("Planejamento de Mudanças", "Riscos e Oportunidades · Gestão de mudanças", { moduleId: "riscos", tab: "mudancas", icon: "riscos" }),
