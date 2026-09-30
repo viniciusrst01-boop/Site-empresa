@@ -309,7 +309,7 @@ test("nova auditoria mantém todos os controles visíveis sem rolagem interna no
 
     const auditsFrame = page.frameLocator('iframe[title="Auditorias"]');
     await auditsFrame.locator("#kpiRow").waitFor({ state: "visible" });
-    await auditsFrame.locator(".page-toolbar .btn-grad").click();
+    await auditsFrame.getByRole("button", { name: "Nova auditoria" }).click();
     await expect(auditsFrame.locator("#modalReg")).toBeVisible();
     await expect(page.locator("body")).toHaveClass(/audits-reg-modal-open/);
 
@@ -738,10 +738,13 @@ test("módulos exibem setas de voltar e avançar ação no lugar de desfazer", a
   await page.getByRole("button", { name: "Avançar ação" }).click();
   await expect(page.getByText("Teste de histórico")).toBeVisible();
 
-  for (const moduleId of ["lideranca", "riscos", "nao-conformidades", "documentos", "auditorias", "equipamentos"]) {
+  for (const moduleId of ["lideranca", "riscos", "nao-conformidades", "equipamentos"]) {
     await page.evaluate((id) => renderModuleDetail(id), moduleId);
-    await expect(page.getByRole("button", { name: "Voltar ação" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Avançar ação" })).toBeVisible();
+    const historyRoot = moduleId === "equipamentos"
+      ? page.frameLocator('iframe[title="Equipamentos de Medição"]')
+      : page;
+    await expect(historyRoot.getByRole("button", { name: "Voltar ação" })).toBeVisible();
+    await expect(historyRoot.getByRole("button", { name: "Avançar ação" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Desfazer" })).toHaveCount(0);
   }
 });
@@ -980,4 +983,23 @@ test("calendário da alta direção usa as reuniões cadastradas e abre o resumo
   await expect(page.locator(".meeting-summary-grid")).toContainText("Participantes");
   await expect(page.locator(".meeting-summary-grid")).toContainText("Responsável");
   await page.screenshot({ path: testInfo.outputPath("leadership-meeting-summary.png") });
+});
+
+test("processos exibem a arquitetura de interação sem os quadros de resumo anteriores", async ({ page }, testInfo) => {
+  await login(page);
+  await page.evaluate(() => {
+    currentContextTab = "processos";
+    renderModuleDetail("contexto");
+  });
+
+  await expect(page.getByRole("heading", { name: "Interação entre processos" })).toBeVisible();
+  await expect(page.locator(".process-architecture-lane")).toHaveCount(3);
+  await expect(page.locator(".process-architecture-lane.estrategico")).toContainText("2 processos");
+  await expect(page.locator(".process-architecture-lane.operacional")).toContainText("6 processos");
+  await expect(page.locator(".process-architecture-lane.suporte")).toContainText("5 processos");
+  await expect(page.locator(".proc-summary")).toHaveCount(0);
+  await page.screenshot({ path: testInfo.outputPath("context-process-architecture.png"), fullPage: true });
+
+  await page.locator('.process-architecture-node[data-id="alta_direcao"]').click();
+  await expect(page.getByRole("heading", { name: "E01 - Alta Direção" })).toBeVisible();
 });

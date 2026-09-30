@@ -281,6 +281,7 @@
   .dash-solid-card.has-progress.icon-on-fill .sc-icon .icon { stroke: #06101f; }
   .dash-solid-card.has-progress .sc-icon { opacity: 1; }
   .dash-solid-card.has-progress .sc-label { opacity: 1; }
+  .equipment-warning-card { border: 1px solid #D7A62B; }
   .sc-progress-line { display: flex; align-items: baseline; gap: 10px; padding-right: 42px; margin-top: 5px; }
   .sc-progress-line .sc-value { flex-shrink: 0; margin-top: 0 !important; }
   .sc-progress-line .sc-caption { font-size: 15px; font-weight: 500; opacity: 1; margin-top: 0; line-height: 1.25; }
@@ -378,10 +379,13 @@
     body.embedded .equipment-attachment-section { padding-right: 12px; }
     body.embedded .equipment-attachment-section .form-actions { position: static; justify-content: flex-end; margin-top: 8px; }
   }
-  .equipment-history-actions { margin-left: auto; display: flex; gap: 10px; align-items: center; }
-  .equipment-history-actions button { width: 38px; height: 38px; padding: 10px; border: 1px solid var(--border-subtle); border-radius: 10px; background: transparent; color: var(--text-secondary); cursor: pointer; }
-  .equipment-history-actions button:disabled { opacity: .45; cursor: default; }
-  .equipment-history-actions .icon { width: 16px; height: 16px; }
+  .equipment-history-actions { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+  .equipment-history-actions button { width: 32px; height: 32px; padding: 8px; border: 1px solid var(--border-strong); border-radius: 8px; background: color-mix(in srgb, var(--bg-panel) 92%, var(--text-primary) 8%); color: var(--text-primary); box-shadow: 0 3px 10px rgba(5,27,56,.12); cursor: pointer; transition: transform .15s ease, background-color .15s ease, border-color .15s ease, box-shadow .15s ease, opacity .15s ease; }
+  .equipment-history-actions button:not(:disabled):hover { transform: translateY(-1px); border-color: var(--accent-blue-bright); background: color-mix(in srgb, var(--bg-panel) 84%, var(--accent-blue-bright) 16%); box-shadow: 0 7px 16px rgba(28,163,255,.16); }
+  .equipment-history-actions button:not(:disabled):active { transform: translateY(0) scale(.96); box-shadow: 0 2px 6px rgba(5,27,56,.16); }
+  .equipment-history-actions button:focus-visible { outline: 2px solid color-mix(in srgb, var(--accent-blue-bright) 65%, transparent); outline-offset: 2px; }
+  .equipment-history-actions button:disabled { opacity: .42; cursor: not-allowed; box-shadow: none; }
+  .equipment-history-actions .icon { width: 14px; height: 14px; }
   :root { --scrollbar-track: #080d16; --scrollbar-thumb: #495565; --scrollbar-thumb-hover: #718093; --scrollbar-edge: #141c28; }
   html[data-theme="light"] { --scrollbar-track: #0a294c; --scrollbar-thumb: #5b9fc7; --scrollbar-thumb-hover: #83c2e7; --scrollbar-edge: #071f3b; }
   html[data-theme="white"] { --scrollbar-track: #e7eef5; --scrollbar-thumb: #7fa5bf; --scrollbar-thumb-hover: #5e8cab; --scrollbar-edge: #d8e3ee; }
@@ -1144,7 +1148,7 @@ function equipmentSummaryCardsHTML(includeWrapper = true){
       <div class="sc-icon"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 12l2 2 4-4"/></svg></div>
       <div class="sc-label">Em uso</div>${progressDetail(a.emUso, "em uso")}
     </div>
-    <div class="dash-solid-card clickable has-progress" style="--card-bg:#FBBF24;--progress-value:${percent(a.prestes)}%;--progress-fill:#ffd84d;--progress-track:#805600;" onclick="verCategoria('prestes')">
+    <div class="dash-solid-card equipment-warning-card clickable has-progress" style="--card-bg:#C58E1F;--progress-value:${percent(a.prestes)}%;--progress-fill:#D9AA35;--progress-track:#837D58;" onclick="verCategoria('prestes')">
       <div class="sc-icon"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg></div>
       <div class="sc-label">Prestes a vencer</div>${progressDetail(a.prestes, "prestes a vencer")}
     </div>

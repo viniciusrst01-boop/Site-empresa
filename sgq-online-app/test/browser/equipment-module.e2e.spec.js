@@ -5,7 +5,8 @@ async function login(page) {
   await page.getByLabel("Usuário").fill("browser.owner@example.com");
   await page.getByLabel("Senha").fill("Browser-Teste-123");
   await page.getByRole("button", { name: "Entrar no sistema" }).click();
-  await expect(page).toHaveURL(/\/app$/);
+  await expect(page).toHaveURL(/\/app(?:\?.*)?$/);
+  await expect(page.locator("body")).not.toHaveClass(/app-loading/);
 }
 
 test("equipamentos carrega a base demonstrativa para empresa sem cadastros", async ({ page }) => {
@@ -54,7 +55,7 @@ test("equipamentos usa dados da empresa e persiste cadastro e distribuição", a
   await page.evaluate(() => {
     state.equipment = [];
     state.equipmentDistributions = [];
-    state.equipmentDemoVersion = 3;
+    state.equipmentDemoVersion = 4;
     renderModuleDetail("equipamentos");
   });
 
@@ -91,4 +92,36 @@ test("equipamentos usa dados da empresa e persiste cadastro e distribuição", a
     registered: Boolean(Chart.registry.controllers.get("treemap")),
   }));
   expect(treeType).toEqual({ chartType: "treemap", charts: ["eqCombo", "eqSetor", "eqModelo", "eqDist", "eqRadar", "eqTree"], registered: true });
+});
+
+test("equipamentos permite desfazer e refazer uma alteração", async ({ page }) => {
+  await login(page);
+  await page.evaluate(() => {
+    state.equipment = [];
+    state.equipmentDistributions = [];
+    state.equipmentDemoVersion = 3;
+    renderModuleDetail("equipamentos");
+  });
+
+  const frame = page.frameLocator('iframe[title="Equipamentos de Medição"]');
+  await expect(frame.locator("#fCodigo")).toBeVisible();
+  const initialCount = await page.evaluate(() => state.equipment.length);
+  await frame.locator("#fCodigo").fill("EQ-HISTORICO-001");
+  await frame.locator("#fDescricao").fill("Equipamento para histórico");
+  await frame.locator("#fSetor").fill("Qualidade");
+  await frame.getByText("Salvar equipamento", { exact: true }).click();
+  await expect.poll(() => page.evaluate(() => state.equipment.length)).toBe(initialCount + 1);
+  await frame.locator('[data-tab="controle"]').click();
+  await expect(frame.locator('[data-tab="controle"]')).toHaveClass(/active/);
+
+  const undo = frame.getByRole("button", { name: "Voltar ação" });
+  const redo = frame.getByRole("button", { name: "Avançar ação" });
+  await expect(undo).toBeEnabled();
+  await undo.click();
+  await expect.poll(() => page.evaluate(() => state.equipment.length)).toBe(initialCount);
+  await expect(frame.locator('[data-tab="controle"]')).toHaveClass(/active/);
+  await expect(redo).toBeEnabled();
+  await redo.click();
+  await expect.poll(() => page.evaluate(() => state.equipment.length)).toBe(initialCount + 1);
+  await expect(frame.locator('[data-tab="controle"]')).toHaveClass(/active/);
 });

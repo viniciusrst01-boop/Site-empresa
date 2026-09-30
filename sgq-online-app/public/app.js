@@ -2384,6 +2384,7 @@ function hydrateEquipmentFrame(frame) {
 
 async function persistEquipmentFromFrame(equipment, distributions, frame) {
   if (!Array.isArray(equipment) || !Array.isArray(distributions)) return;
+  recordModuleSnapshot("equipamentos");
   const previousEquipment = state.equipment;
   const previousDistributions = state.equipmentDistributions;
   state.equipment = equipment;
@@ -2635,12 +2636,15 @@ function recordModuleSnapshot(moduleId) {
 
 function updateModuleHistoryButtons(moduleId) {
   const history = moduleHistoryState(moduleId);
-  document.querySelectorAll(`[data-module-id="${CSS.escape(moduleId)}"][data-module-history-action="undo"]`).forEach((button) => {
-    button.disabled = history.undo.length === 0;
-  });
-  document.querySelectorAll(`[data-module-id="${CSS.escape(moduleId)}"][data-module-history-action="redo"]`).forEach((button) => {
-    button.disabled = history.redo.length === 0;
-  });
+  const selector = `[data-module-id="${CSS.escape(moduleId)}"][data-module-history-action]`;
+  const roots = [document];
+  if (moduleId === "equipamentos") {
+    const frameDocument = pageContent?.querySelector(".equipment-module-frame")?.contentDocument;
+    if (frameDocument) roots.push(frameDocument);
+  }
+  roots.forEach((root) => root.querySelectorAll(selector).forEach((button) => {
+    button.disabled = button.dataset.moduleHistoryAction === "undo" ? history.undo.length === 0 : history.redo.length === 0;
+  }));
 }
 
 function getModuleSnapshot(moduleId) {
@@ -2659,6 +2663,12 @@ function getModuleSnapshot(moduleId) {
   if (moduleId === "nao-conformidades") {
     ensureNcData();
     return { ncs: structuredClone(state.ncs), ncCatalogs: structuredClone(state.ncCatalogs) };
+  }
+  if (moduleId === "equipamentos") {
+    return {
+      equipment: structuredClone(state.equipment || []),
+      equipmentDistributions: structuredClone(state.equipmentDistributions || []),
+    };
   }
   return null;
 }
@@ -2683,6 +2693,11 @@ function applyModuleSnapshot(moduleId, snapshot) {
       state.ncCatalogs = structuredClone(snapshot.ncCatalogs || seedState.ncCatalogs);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
       saveRemoteData("state", state, "nao-conformidades");
+    } else if (moduleId === "equipamentos") {
+      state.equipment = structuredClone(snapshot.equipment || []);
+      state.equipmentDistributions = structuredClone(snapshot.equipmentDistributions || []);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      saveRemoteData("state", state, "equipamentos");
     }
   } finally {
     moduleHistoryApplying = false;
@@ -2715,6 +2730,11 @@ function rerenderModuleAfterHistory(moduleId, message) {
   else if (moduleId === "lideranca") renderLeadershipModule();
   else if (moduleId === "riscos") renderRiskOpportunityModule();
   else if (moduleId === "nao-conformidades") renderNonConformityModule();
+  else if (moduleId === "equipamentos") {
+    const frame = pageContent?.querySelector(".equipment-module-frame");
+    if (frame?.contentWindow) hydrateEquipmentFrame(frame);
+    else renderEquipmentModule();
+  }
   toast(message);
 }
 
@@ -4525,10 +4545,11 @@ function contextEscopoHtml() {
           </div>
         </div>
       </div>
-      <div class="escopo-save-row" ${canEditModule("contexto") ? "" : "hidden"}>
-        <div class="escopo-saved-msg" id="ctxEscopoSavedMsg">Alterações salvas</div>
-        <button class="btn-ghost danger-text" data-context-action="clear-escopo" type="button">Limpar escopo</button>
-        <button class="btn-primary" data-context-action="save-escopo" type="button">Salvar alterações</button>
+      <div class="escopo-save-row">
+        <div class="escopo-saved-msg" id="ctxEscopoSavedMsg" ${canEditModule("contexto") ? "" : "hidden"}>Alterações salvas</div>
+        <button class="btn-ghost btn-clear" data-context-action="print-escopo" type="button">${moduleIcon("download")} Gerar PDF</button>
+        ${canEditModule("contexto") ? `<button class="btn-ghost danger-text" data-context-action="clear-escopo" type="button">Limpar escopo</button>
+        <button class="btn-primary" data-context-action="save-escopo" type="button">Salvar alterações</button>` : ""}
       </div>
       <div class="context-revision-history">
         <h4>Histórico de revisões</h4>
@@ -4550,11 +4571,7 @@ function contextProcessosHtml() {
     </tr>`).join("") : `<tr><td colspan="6"><div class="empty-state">Nenhum processo mapeado.</div></td></tr>`;
   return `
     <section class="dcc">
-      <div class="proc-summary">
-        ${contextProcessBadge(rows, "Estratégico", "Processos estratégicos", "Planejar e direcionar")}
-        ${contextProcessBadge(rows, "Operacional", "Processos operacionais", "Gerar valor para o cliente")}
-        ${contextProcessBadge(rows, "Suporte", "Processos de suporte", "Apoiar e sustentar")}
-      </div>
+      ${contextProcessArchitectureHtml(rows)}
       <div class="dcc-hd">
         <div><div class="dcc-title">Mapa de Processos</div><div class="dcc-sub">Processos estratégicos, operacionais e de suporte · cláusula 4.4</div></div>
         ${canEditModule("contexto") ? `<button class="btn-grad" data-context-action="new-processo" type="button">${moduleIcon("plus")}Novo processo</button>` : ""}
@@ -4569,6 +4586,41 @@ function contextProcessosHtml() {
     </section>`;
 }
 
+function contextProcessArchitectureHtml(rows) {
+  const strategic = rows.filter((item) => item.categoria === "Estratégico");
+  const operational = rows.filter((item) => item.categoria === "Operacional");
+  const support = rows.filter((item) => item.categoria === "Suporte");
+  return `
+    <section class="process-architecture" aria-labelledby="processArchitectureTitle">
+      <div class="process-architecture-head">
+        <div><h3 id="processArchitectureTitle">Interação entre processos</h3><p>Sequência e interação dos processos que compõem o SGQ.</p></div>
+        <span class="process-architecture-ref">ISO 9001:2015 · 4.4.1(c)</span>
+      </div>
+      <div class="process-architecture-body">
+        ${contextProcessArchitectureLane("Estratégico", "Direciona a organização", strategic)}
+        <div class="process-architecture-connector strategic-to-operational" aria-hidden="true"><span>Direcionamento, objetivos e recursos</span></div>
+        <div class="process-customer-flow" aria-label="Fluxo de valor para o cliente">
+          <span>Necessidades do cliente</span><i aria-hidden="true"></i><span>Satisfação do cliente</span>
+        </div>
+        ${contextProcessArchitectureLane("Operacional", "Transforma requisitos em valor", operational, true)}
+        <div class="process-architecture-connector support-to-operational" aria-hidden="true"><span>Recursos, controles e melhoria</span></div>
+        ${contextProcessArchitectureLane("Suporte", "Sustenta todos os processos", support)}
+      </div>
+    </section>`;
+}
+
+function contextProcessArchitectureLane(category, description, rows, isFlow = false) {
+  const className = category.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const cards = rows.length
+    ? rows.map((item) => `<button class="process-architecture-node" data-context-action="view-processo" data-id="${escapeHtml(item.id)}" type="button"><span class="process-architecture-code">${escapeHtml(item.codigo || "-")}</span><strong>${escapeHtml(item.nome)}</strong><small>${escapeHtml(item.saidas?.[0] || item.objetivo || "Processo mapeado")}</small></button>`).join("")
+    : `<div class="process-architecture-empty">Nenhum processo cadastrado nesta categoria.</div>`;
+  return `
+    <div class="process-architecture-lane ${className}${isFlow ? " operational-flow" : ""}">
+      <div class="process-architecture-lane-head"><span>${escapeHtml(category)}</span><strong>${rows.length} processo${rows.length === 1 ? "" : "s"}</strong><small>${escapeHtml(description)}</small></div>
+      <div class="process-architecture-nodes">${cards}</div>
+    </div>`;
+}
+
 function quadranteChip(quadrante) {
   const classes = { Força: "mchip-green", Fraqueza: "mchip-red", Oportunidade: "mchip-blue", Ameaça: "mchip-amber" };
   return chip(quadrante, classes[quadrante] || "mchip-blue");
@@ -4578,16 +4630,6 @@ function contextCategoryClass(category) {
   if (category === "Estratégico") return "mchip-purple";
   if (category === "Operacional") return "mchip-blue";
   return "mchip-green";
-}
-
-function contextProcessBadge(rows, category, label, description) {
-  const count = rows.filter((item) => item.categoria === category).length;
-  return `
-    <div class="proc-cat-badge ${category.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")}">
-      <div class="n">${count}</div>
-      <div class="l">${escapeHtml(label)}</div>
-      <div class="d">${escapeHtml(description)}</div>
-    </div>`;
 }
 
 function contextRowActions(type, id, canView) {
@@ -4723,7 +4765,7 @@ function bindContextOverlayClose() {
 }
 
 function handleContextAction(action, id) {
-  if (!canEditModule("contexto") && !action.startsWith("view-")) {
+  if (!canEditModule("contexto") && !action.startsWith("view-") && action !== "print-escopo") {
     toast("Você tem acesso somente para visualizar.");
     return;
   }
@@ -4737,6 +4779,7 @@ function handleContextAction(action, id) {
     "edit-parte": () => openContextParte(id),
     "delete-parte": () => deleteContextParte(id),
     "save-parte": () => saveContextParte(),
+    "print-escopo": () => printContextEscopo(),
     "save-escopo": () => saveContextEscopo(),
     "edit-escopo": () => document.querySelector("#ctxEscopo-aprovador")?.focus(),
     "clear-escopo": () => clearContextEscopo(),
@@ -4906,6 +4949,95 @@ function saveContextEscopo() {
     window.setTimeout(() => message.classList.remove("show"), 2200);
   }
   toast("Escopo salvo.");
+}
+
+function printContextEscopo() {
+  const data = contextGet("escopo");
+  const companyName = state.company?.name || "Organização";
+  const fields = [
+    ["Unidades", data.unidades],
+    ["Produtos", data.produtos],
+    ["Serviços", data.servicos],
+    ["Exclusões", data.exclusoes],
+    ["Justificativas", data.justificativas],
+  ];
+  const history = Array.isArray(data.historico) ? data.historico.slice().reverse() : [];
+  const printWindow = window.open("", "_blank", "width=920,height=720");
+
+  if (!printWindow) {
+    toast("Não foi possível abrir a impressão. Verifique se o navegador bloqueou a janela.");
+    return;
+  }
+
+  printWindow.addEventListener("load", () => {
+    printWindow.focus();
+    printWindow.print();
+  }, { once: true });
+
+  const details = fields.map(([label, value]) => `
+    <section class="field-block">
+      <h2>${escapeHtml(label)}</h2>
+      <p>${escapeHtml(value || "Não informado.")}</p>
+    </section>`).join("");
+  const revisions = history.length
+    ? history.map((item) => `<li><strong>Rev. ${escapeHtml(item.revisao || "-")}</strong> · ${escapeHtml(formatDate(item.data))} · ${escapeHtml(item.aprovador || "Sem aprovador")} · ${escapeHtml(item.descricao || "Atualização do escopo.")}</li>`).join("")
+    : "<li>Nenhuma revisão registrada.</li>";
+  const printedAt = formatDate(new Date().toISOString().slice(0, 10));
+
+  printWindow.document.write(`<!doctype html>
+    <html lang="pt-BR">
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Escopo do SGQ - ${escapeHtml(companyName)}</title>
+        <style>
+          @page { size: A4; margin: 16mm; }
+          * { box-sizing: border-box; }
+          body { margin: 0; color: #101828; background: #fff; font-family: Arial, Helvetica, sans-serif; font-size: 11pt; line-height: 1.5; }
+          .document { max-width: 178mm; margin: 0 auto; }
+          header { border-bottom: 2px solid #0b75c9; padding-bottom: 14px; margin-bottom: 22px; }
+          .eyebrow { color: #0b75c9; font-size: 8.5pt; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+          h1 { margin: 5px 0 4px; font-size: 20pt; line-height: 1.18; }
+          .company { margin: 0; color: #475467; font-size: 11pt; }
+          .meta { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin: 0 0 18px; }
+          .meta-item { border: 1px solid #d0d5dd; border-radius: 6px; padding: 8px 10px; }
+          .meta-label { display: block; color: #667085; font-size: 8.5pt; font-weight: 700; text-transform: uppercase; }
+          .meta-value { display: block; margin-top: 2px; font-weight: 700; }
+          .field-block { break-inside: avoid; border: 1px solid #d0d5dd; border-radius: 6px; padding: 12px 14px; margin: 0 0 10px; }
+          h2 { margin: 0 0 6px; color: #0b75c9; font-size: 11pt; }
+          .field-block p { margin: 0; white-space: pre-wrap; }
+          h3 { margin: 22px 0 8px; font-size: 12pt; }
+          ul { margin: 0; padding-left: 20px; }
+          li { margin: 0 0 6px; }
+          footer { border-top: 1px solid #d0d5dd; color: #667085; font-size: 8.5pt; margin-top: 24px; padding-top: 10px; }
+          @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+        </style>
+      </head>
+      <body>
+        <main class="document">
+          <header>
+            <div class="eyebrow">Informação documentada · ISO 9001 · Cláusula 4.3</div>
+            <h1>Escopo do Sistema de Gestão da Qualidade</h1>
+            <p class="company">${escapeHtml(companyName)}</p>
+          </header>
+          <section class="meta">
+            <div class="meta-item"><span class="meta-label">Revisão</span><span class="meta-value">${escapeHtml(data.revisao || "00")}</span></div>
+            <div class="meta-item"><span class="meta-label">Status de aprovação</span><span class="meta-value">${escapeHtml(data.statusAprovacao || "Pendente")}</span></div>
+            <div class="meta-item"><span class="meta-label">Aprovador</span><span class="meta-value">${escapeHtml(data.aprovador || "Não informado")}</span></div>
+            <div class="meta-item"><span class="meta-label">Cargo</span><span class="meta-value">${escapeHtml(data.aprovadorCargo || "Não informado")}</span></div>
+            <div class="meta-item"><span class="meta-label">Data de aprovação</span><span class="meta-value">${escapeHtml(data.dataAprovacao ? formatDate(data.dataAprovacao) : "Não informada")}</span></div>
+            <div class="meta-item"><span class="meta-label">Última atualização</span><span class="meta-value">${escapeHtml(data.dataAtualizacao ? formatDate(data.dataAtualizacao) : "Não informada")}</span></div>
+          </section>
+          ${details}
+          <section>
+            <h3>Histórico de revisões</h3>
+            <ul>${revisions}</ul>
+          </section>
+          <footer>Documento emitido pelo SGQ Online em ${escapeHtml(printedAt)}. Para gerar o arquivo, selecione “Salvar como PDF” na janela de impressão.</footer>
+        </main>
+      </body>
+    </html>`);
+  printWindow.document.close();
 }
 
 function clearContextEscopo() {
