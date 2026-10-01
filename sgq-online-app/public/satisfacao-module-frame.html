@@ -1360,7 +1360,7 @@ function renderKpisIndicadores(){
   const npsCor = a.nps>=50?'#34D399':(a.nps>=0?'#FBBF24':'#F87171');
   document.getElementById('kpiRow').innerHTML = `
     <div class="dash-solid-card" style="--card-bg:${npsCor};">
-      <div class="sc-icon"><svg class="icon" viewBox="0 0 24 24"><path d="M12 2l3 7h7l-5.5 4 2 7-6.5-4.5L5.5 27l2-7L2 9h7z"/></svg></div>
+      <div class="sc-icon"><svg class="icon" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></div>
       <div class="sc-label">NPS geral</div><div class="sc-value">${a.nps>0?'+':''}${a.nps}</div><div class="sc-caption">${a.prom} prom · ${a.neu} neu · ${a.det} det</div>
     </div>
     <div class="dash-solid-card" style="--card-bg:#4fa3ff;">
@@ -1470,7 +1470,7 @@ function renderKpis(){
       <div class="kpi-caption">${taxa}% de resposta</div>
     </div>
     <div class="kpi-card" style="--accent-line:#F2B705;">
-      <div class="kpi-top"><div class="kpi-icon" style="border-color:rgba(242,183,5,0.45); color:#F2B705;"><svg class="icon" viewBox="0 0 24 24"><path d="M12 2l3 7h7l-5.5 4 2 7-6.5-4.5L5.5 27l2-7L2 9h7z"/></svg></div>
+      <div class="kpi-top"><div class="kpi-icon" style="border-color:rgba(242,183,5,0.45); color:#F2B705;"><svg class="icon" viewBox="0 0 24 24"><g transform="rotate(180 12 12)"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></g></svg></div>
         <div><div class="kpi-label">Taxa de resposta</div><div class="kpi-value big">${taxa}%</div></div></div>
       <div class="kpi-caption">respondidas / enviadas</div>
     </div>`;
