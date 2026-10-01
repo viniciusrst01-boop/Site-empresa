@@ -2508,7 +2508,9 @@ async function requestSatisfactionApproval(data, frame) {
     hydrateSatisfactionFrame(frame);
     const message = payload.delivery === "sent"
       ? `Solicitação enviada para ${payload.approver?.name || "a Alta Direção"}.`
-      : "Solicitação registrada, mas o envio de e-mail não está configurado no ambiente.";
+      : payload.delivery === "not_configured"
+      ? "Solicitação registrada, mas o envio de e-mail não está configurado no ambiente."
+      : "Solicitação registrada. O envio do e-mail está pendente e será tentado novamente.";
     frame.contentWindow?.postMessage({ type: "qualitypro:satisfacao:approval-success", message }, window.location.origin);
     toast(message);
   } catch (error) {

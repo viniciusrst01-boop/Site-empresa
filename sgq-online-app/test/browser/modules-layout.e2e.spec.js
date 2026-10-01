@@ -119,6 +119,37 @@ test("ações de melhoria exibem os responsáveis na lista suspensa", async ({ p
   await expect(frame.locator("#melResponsavel")).toHaveValue(savedResponsavel);
 });
 
+test("controle de satisfação acompanha o ciclo das ações de melhoria", async ({ page }) => {
+  await login(page);
+  await page.evaluate(() => renderModuleDetail("satisfacao-clientes"));
+
+  const frame = page.frameLocator('iframe[title="Satisfação do Cliente"]');
+  await frame.locator("#kpiRow").waitFor({ state: "visible" });
+  const statuses = await frame.locator("body").evaluate(() => {
+    const survey = {
+      id: "SAT-STATUS-001", seq: 901, empresa: "Cliente de teste", status: "Respondida",
+      dataEnvio: "2026-10-01", perguntas: [{ id: "P1", tipo: "escala" }], respostas: { P1: 4 },
+    };
+    store.set("qps_sat_pesquisas", [survey]);
+    store.set("qps_sat_melhorias", []);
+    const requiresAttention = pesqStatusEfetivo(survey);
+    store.set("qps_sat_melhorias", [{ id: "MEL-STATUS-001", pesqId: survey.id, status: "Em andamento" }]);
+    const inProgress = pesqStatusEfetivo(survey);
+    store.set("qps_sat_melhorias", [{ id: "MEL-STATUS-001", pesqId: survey.id, status: "Concluída" }]);
+    const completed = pesqStatusEfetivo(survey);
+    currentTab = "controle";
+    renderTab();
+    return { requiresAttention, inProgress, completed };
+  });
+
+  expect(statuses).toEqual({
+    requiresAttention: "Respondida - requer atenção",
+    inProgress: "Respondida - ações em andamento",
+    completed: "Respondida - ações concluídas",
+  });
+  await expect(frame.locator(".status-2linhas")).toContainText("Ações concluídas");
+});
+
 test("satisfação do cliente mantém a rolagem na área de trabalho sem rolagem lateral", async ({ page }) => {
   await login(page);
   for (const viewport of [{ width: 1366, height: 768 }, { width: 1024, height: 600 }]) {

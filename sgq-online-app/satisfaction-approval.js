@@ -60,7 +60,10 @@ function createSatisfactionApproval({ secret, appUrl, now = () => Date.now(), se
     const result = await db.mutateSupplierData(companyId, (data) => {
       const form = data.state?.satisfaction?.qps_sat_form;
       const version = form?.versoes?.find((item) => item?.versao === versionId);
-      if (!version || version.status !== "Rascunho") throw error("approval_not_available", 409);
+      const previous = version?.aprovacaoExterna;
+      const recoverable = version?.status === "Aguardando aprovação" &&
+        (!previous || (previous.status === "Pendente" && previous.expiresAt <= now()));
+      if (!version || (version.status !== "Rascunho" && !recoverable)) throw error("approval_not_available", 409);
       const nonce = crypto.randomBytes(32).toString("base64url");
       const approval = {
         nonce,

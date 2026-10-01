@@ -21,6 +21,24 @@ const { createSatisfactionApproval } = require("../satisfaction-approval");
 
 const version = (number, status) => ({ versao: number, status, perguntas: [{ id: "P1", texto: "Como foi sua experiência?", tipo: "escala" }], aprovador: "", dataAprovacao: "", historico: [] });
 
+test('recovers legacy and expired pending requests without replacing an active link', async () => {
+  const company = await db.createCompany({ name: 'Approval recovery test' });
+  let time = Date.now();
+  const service = createSatisfactionApproval({ secret: 'recovery-test', appUrl: 'https://example.test', now: () => time });
+  const person = { id: 1, name: 'Director', email: 'director@example.test' };
+  await db.mutateSupplierData(company.id, data => {
+    data.state = { satisfaction: { qps_sat_form: { versoes: [version('01', 'Aguardando aprovação')] } } };
+  });
+  const first = await service.request(company.id, { version: '01', approver: person, requester: person });
+  const token = new URL(first.link).hash.slice(1);
+  assert.equal((await service.read(token)).status, 'Pendente');
+  await assert.rejects(service.request(company.id, { version: '01', approver: person, requester: person }), { message: 'approval_not_available' });
+  time += 31 * 86400000;
+  const renewed = await service.request(company.id, { version: '01', approver: person, requester: person });
+  await assert.rejects(service.read(token), { message: 'approval_link_unavailable' });
+  assert.equal((await service.read(new URL(renewed.link).hash.slice(1))).status, 'Pendente');
+});
+
 test('approval emails retry failed requests and decision returns without duplicates', async () => {
   const company = await db.createCompany({ name: 'Approval retry test' });
   await db.mutateSupplierData(company.id, data => { data.state = { satisfaction: { qps_sat_form: { versoes: [version('01', 'Rascunho')] } } }; });

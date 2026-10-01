@@ -297,7 +297,9 @@
   .st-respondida .status-dot2 { background:var(--accent-green); box-shadow:0 0 6px rgba(52,211,153,0.7); } .st-respondida { color:var(--accent-green); }
   .st-atencao .status-dot2 { background:var(--accent-amber); box-shadow:0 0 6px rgba(251,191,36,0.7); } .st-atencao { color:var(--accent-amber); white-space:nowrap; }
   .status-2linhas { display:flex; flex-direction:column; gap:3px; align-items:flex-start; }
-  .status-2linhas .linha-atencao { font-size:10.5px; font-weight:700; color:var(--accent-amber); white-space:nowrap; }
+  .status-2linhas .linha-atencao, .status-2linhas .linha-melhoria { font-size:10.5px; font-weight:700; white-space:nowrap; }
+  .status-2linhas .linha-atencao, .status-2linhas .linha-melhoria.andamento { color:var(--accent-amber); }
+  .status-2linhas .linha-melhoria.concluida { color:var(--accent-green); }
   .st-naoresp .status-dot2 { background:var(--accent-red); box-shadow:0 0 6px rgba(248,113,113,0.7); } .st-naoresp { color:var(--accent-red); }
   .st-mel-def .status-dot2 { background:var(--text-secondary); } .st-mel-def { color:var(--text-secondary); }
   .st-mel-and .status-dot2 { background:var(--accent-amber); box-shadow:0 0 6px rgba(251,191,36,0.7); } .st-mel-and { color:var(--accent-amber); }
@@ -329,6 +331,16 @@
   body.theme-light .modal-overlay, body.theme-white .modal-overlay { background: rgba(7,31,59,.4); }
   body.theme-light select.input-basic option { background: #0c2a4e; color: #f5f7fa; }
   body.theme-white select.input-basic option { background: #fff; color: #12233a; }
+
+  /* Mesmo padrão de rolagem aplicado aos demais módulos incorporados. */
+  :root { --scrollbar-track: #080d16; --scrollbar-thumb: #495565; --scrollbar-thumb-hover: #718093; --scrollbar-edge: #141c28; }
+  html:has(body.theme-light), body.theme-light { --scrollbar-track: #0a294c; --scrollbar-thumb: #5b9fc7; --scrollbar-thumb-hover: #83c2e7; --scrollbar-edge: #071f3b; }
+  html:has(body.theme-white), body.theme-white { --scrollbar-track: #e7eef5; --scrollbar-thumb: #7fa5bf; --scrollbar-thumb-hover: #5e8cab; --scrollbar-edge: #d8e3ee; }
+  html, body, body * { scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track); scrollbar-width: thin; }
+  html::-webkit-scrollbar, body::-webkit-scrollbar, body *::-webkit-scrollbar { width: 14px; height: 14px; }
+  html::-webkit-scrollbar-track, body::-webkit-scrollbar-track, body *::-webkit-scrollbar-track { background: var(--scrollbar-track); border: 1px solid var(--scrollbar-edge); border-radius: 999px; }
+  html::-webkit-scrollbar-thumb, body::-webkit-scrollbar-thumb, body *::-webkit-scrollbar-thumb { min-height: 42px; border: 3px solid var(--scrollbar-track); border-radius: 999px; background: var(--scrollbar-thumb); box-shadow: inset 0 0 0 1px rgba(255,255,255,.2); }
+  html::-webkit-scrollbar-thumb:hover, body::-webkit-scrollbar-thumb:hover, body *::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-thumb-hover); }
 </style>
 <script src="/frame-workspace.js?v=20260926"></script>
 </head>
@@ -711,18 +723,21 @@ function formularioHTML(){
   if(!emEd){
     // só há vigente -> permite criar nova revisão para editar
     acoes = `<div class="btn-grad" onclick="novaRevisao()"><svg class="icon" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>Nova revisão (editar)</div>`;
-  } else if(emEd.status==='Rascunho'){
+  } else if(emEd.status==='Rascunho' || !emEd.aprovacaoExterna || emEd.aprovacaoExterna.expiresAt <= Date.now()){
     const approverOptions = approvalApprovers.length
       ? approvalApprovers.map(a=>`<option value="${esc(a.id)}">${esc(a.name)}${a.role ? ` · ${esc(a.role)}` : ''}</option>`).join('')
       : '<option value="">Nenhuma pessoa disponível</option>';
     acoes = `
-      <div class="btn-ghost" onclick="addPergunta('escala')"><svg class="icon" viewBox="0 0 24 24" style="width:15px;height:15px;"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Adicionar pergunta</div>
-      <div class="btn-ghost" onclick="salvarRascunho()">Salvar rascunho</div>
+      ${emEd.status==='Rascunho' ? `<div class="btn-ghost" onclick="addPergunta('escala')"><svg class="icon" viewBox="0 0 24 24" style="width:15px;height:15px;"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Adicionar pergunta</div>
+      <div class="btn-ghost" onclick="salvarRascunho()">Salvar rascunho</div>` : ''}
       <select class="input-basic approval-select" id="selAprovador" aria-label="Responsável da Alta Direção" ${approvalApprovers.length?'':'disabled'}><option value="">Alta Direção: selecionar</option>${approverOptions}</select>
       <div class="btn-grad" onclick="enviarAprovacao()"><svg class="icon" viewBox="0 0 24 24" style="width:15px;height:15px;"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>Enviar para aprovação</div>`;
   } else if(emEd.status==='Aguardando aprovação'){
     const approval = emEd.aprovacaoExterna || {};
-    acoes = `<div class="approval-pending">Aguardando aprovação de ${esc(approval.approver?.name || 'Alta Direção')}</div>`;
+    const deliveryText = approval.deliveryStatus === 'sent'
+      ? 'Aguardando aprovação de'
+      : 'Envio de e-mail pendente para';
+    acoes = `<div class="approval-pending">${deliveryText} ${esc(approval.approver?.name || 'Alta Direção')}</div>`;
   }
 
   const statusAlvo = emEd ? emEd.status : (vig?vig.status:'—');
@@ -793,7 +808,7 @@ function salvarRascunho(){
 }
 function enviarAprovacao(){
   capturarTextos();
-  const f=getForm(); const emEd=f.versoes.find(v=>v.status==='Rascunho'); if(!emEd) return;
+  const f=getForm(); const emEd=f.versoes.find(v=>v.status==='Rascunho') || f.versoes.find(v=>v.status==='Aguardando aprovação'); if(!emEd) return;
   if(editandoPerguntas.some(p=>!p.texto.trim())){ showToast('Preencha o texto de todas as perguntas.'); return; }
   const approverId = document.getElementById('selAprovador')?.value || '';
   if(!approverId){ showToast('Selecione a pessoa responsável pela aprovação.'); return; }
@@ -987,8 +1002,16 @@ function temNotaRuim(p){
   if(p.status!=='Respondida' || !p.respostas) return false;
   return (p.perguntas||[]).some(q=>q.tipo!=='texto' && p.respostas[q.id]!==undefined && p.respostas[q.id]<=4);
 }
+function statusMelhoriasPesquisa(p){
+  const melhorias=(store.get('qps_sat_melhorias')||[]).filter(m=>m.pesqId===p.id);
+  if(!melhorias.length) return 'Requer atenção';
+  return melhorias.every(m=>m.status==='Concluída') ? 'Ações concluídas' : 'Ações em andamento';
+}
 function pesqStatusEfetivo(p){
-  if(p.status==='Respondida' && temNotaRuim(p)) return 'Respondida - requer atenção';
+  if(p.status==='Respondida' && temNotaRuim(p)){
+    const statusMelhoria=statusMelhoriasPesquisa(p);
+    return statusMelhoria==='Requer atenção' ? 'Respondida - requer atenção' : `Respondida - ${statusMelhoria.toLowerCase()}`;
+  }
   return p.status;
 }
 function pesqStatusPill(s){
@@ -997,6 +1020,13 @@ function pesqStatusPill(s){
     return `<div class="status-2linhas">
       <span class="status-pill st-respondida"><span class="status-dot2"></span>Respondida</span>
       <span class="linha-atencao">⚠ Requer atenção</span>
+    </div>`;
+  }
+  if(s==='Respondida - ações em andamento' || s==='Respondida - ações concluídas'){
+    const concluida=s==='Respondida - ações concluídas';
+    return `<div class="status-2linhas">
+      <span class="status-pill st-respondida"><span class="status-dot2"></span>Respondida</span>
+      <span class="linha-melhoria ${concluida?'concluida':'andamento'}">${concluida?'Ações concluídas':'Ações em andamento'}</span>
     </div>`;
   }
   return `<span class="status-pill ${map[s]||'st-enviada'}"><span class="status-dot2"></span>${esc(s)}</span>`;
@@ -1017,6 +1047,8 @@ function controleHTML(){
       <option ${ctrlFilters.status==='Enviada'?'selected':''}>Enviada</option>
       <option ${ctrlFilters.status==='Respondida'?'selected':''}>Respondida</option>
       <option ${ctrlFilters.status==='Respondida - requer atenção'?'selected':''}>Respondida - requer atenção</option>
+      <option ${ctrlFilters.status==='Respondida - ações em andamento'?'selected':''}>Respondida - ações em andamento</option>
+      <option ${ctrlFilters.status==='Respondida - ações concluídas'?'selected':''}>Respondida - ações concluídas</option>
       <option ${ctrlFilters.status==='Não respondida'?'selected':''}>Não respondida</option>
     </select></div>
     <div class="fg"><label>Busca livre</label><input class="input-basic" placeholder="Empresa, e-mail, CNPJ..." value="${esc(ctrlFilters.busca)}" oninput="setCtrlFilter('busca',this.value)"></div>
@@ -1292,7 +1324,7 @@ function computeSatAgg(){
   const satMediaGeral = todasNotas.length ? (todasNotas.reduce((a,b)=>a+b,0)/todasNotas.length) : 0;
 
   // status das pesquisas (efetivo)
-  const statusOrder=['Enviada','Respondida','Respondida - requer atenção','Não respondida'];
+  const statusOrder=['Enviada','Respondida','Respondida - requer atenção','Respondida - ações em andamento','Respondida - ações concluídas','Não respondida'];
   const porStatus={}; statusOrder.forEach(s=>porStatus[s]=0);
   pesq.forEach(p=>{ const s=pesqStatusEfetivo(p); porStatus[s]=(porStatus[s]||0)+1; });
 
@@ -1386,7 +1418,7 @@ function initSatCharts(){
   });
   // 3. Pesquisas por status (barras)
   mk('satStatus',{ type:'bar',
-    data:{ labels:['Enviada','Respondida','Requer atenção','Não respondida'], datasets:[{ label:'Pesquisas', data:a.statusOrder.map(s=>a.porStatus[s]||0), backgroundColor:[C.cyan,C.green,C.amber,C.red], borderRadius:8 }] },
+    data:{ labels:['Enviada','Respondida','Requer atenção','Ações em andamento','Ações concluídas','Não respondida'], datasets:[{ label:'Pesquisas', data:a.statusOrder.map(s=>a.porStatus[s]||0), backgroundColor:[C.cyan,C.green,C.amber,C.amber,C.green,C.red], borderRadius:8 }] },
     options:{ responsive:true, maintainAspectRatio:false, layout:{padding:{top:hasDL?16:0}}, plugins:{ legend:{display:false}, ...dlBar }, scales:{ x:{...gs, ticks:{...gs.ticks, font:{size:9.5}}}, y:{ beginAtZero:true, ...gs, ticks:{...gs.ticks, precision:0} } } }
   });
   // 4. Ações de melhoria (rosca)
