@@ -8,6 +8,10 @@ const pendingRecord = {
   requestedAt: "2026-09-26T16:00:00.000Z",
   decidedAt: null,
   considerations: "",
+  questions: [
+    { number: 1, text: "Como você avalia a qualidade do atendimento?", type: "escala" },
+    { number: 2, text: "Você recomendaria nossa empresa?", type: "escala" },
+  ],
 };
 
 test("página pública de aprovação permite contestar e confirma o envio", async ({ page }) => {
@@ -26,6 +30,9 @@ test("página pública de aprovação permite contestar e confirma o envio", asy
 
   await page.goto("/satisfaction-approval#approval-browser-test-token");
   await expect(page.getByRole("heading", { name: "Formulário de satisfação — Rev. 03" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Perguntas do formulário" })).toBeVisible();
+  await expect(page.getByText("Como você avalia a qualidade do atendimento?")).toBeVisible();
+  await expect(page.getByText("Você recomendaria nossa empresa?")).toBeVisible();
   await page.getByRole("button", { name: "Contestar" }).click();
   await page.getByLabel("Considerações").fill("Ajustar a pergunta de prazo antes da publicação.");
   await page.getByRole("button", { name: "Enviar contestação" }).click();

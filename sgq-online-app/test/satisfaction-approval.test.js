@@ -81,6 +81,7 @@ test("aprovação externa de satisfação aprova ou contesta uma revisão sem ex
   assert.deepEqual(publicRecord, {
     version: "02", status: "Pendente", approver: approver.name, requestedBy: requester.name,
     requestedAt: publicRecord.requestedAt, decidedAt: null, considerations: "",
+    questions: [{ number: 1, text: "Como foi sua experiência?", type: "escala" }],
   });
   assert.equal(publicRecord.versoes, undefined);
   assert.equal((await db.getCompanyData(companyId, "state")).satisfaction.qps_sat_form.versoes[1].status, "Aguardando aprovação");

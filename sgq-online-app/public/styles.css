@@ -4252,6 +4252,60 @@ table.ctxtbl {
 .process-customer-flow i { width: 76px; height: 1px; background: var(--accent-blue-bright); position: relative; }
 .process-customer-flow i::after { position: absolute; top: -4px; right: 0; width: 7px; height: 7px; border-top: 1px solid var(--accent-blue-bright); border-right: 1px solid var(--accent-blue-bright); content: ""; transform: rotate(45deg); }
 
+/* Category branches are generated from the registered processes. */
+.process-architecture-neon { background: #041c34; color: #eef3ff; border-color: #12486b; }
+.process-architecture-neon .process-architecture-head { border: 0; padding: 22px 26px 8px; }
+.process-architecture-neon .process-architecture-head h3 { font-size: 20px; }
+.process-architecture-neon .process-architecture-head p { color: #afc3e8; font-size: 13px; }
+.process-architecture-neon .process-architecture-body { gap: 0; padding: 12px 26px 24px; }
+.process-architecture-neon .process-architecture-lane { --process-neon: #957aff; display: flex; flex-direction: column; gap: 0; border: 0; padding: 0; min-width: 0; }
+.process-architecture-neon .process-architecture-lane.operacional { --process-neon: #35ceff; }
+.process-architecture-neon .process-architecture-lane.suporte { --process-neon: #00dfcd; }
+.process-architecture-neon .process-architecture-lane-head { display: flex; flex-direction: row; justify-content: flex-start; align-items: center; align-self: center; width: min(100%, 350px); min-height: 80px; gap: 16px; padding: 10px 18px; border: 1px solid var(--process-neon); background: color-mix(in srgb, var(--process-neon) 10%, #041c34); box-shadow: inset 0 -2px 15px color-mix(in srgb, var(--process-neon) 18%, transparent), 0 0 15px color-mix(in srgb, var(--process-neon) 17%, transparent); border-radius: 8px; }
+.process-architecture-neon .process-neon-copy { display: block; min-width: 0; overflow-wrap: anywhere; }
+.process-architecture-neon .process-architecture-lane-head span { display: block; color: var(--process-neon); font-size: 18px; }
+.process-architecture-neon .process-architecture-lane-head strong { display: block; margin: 4px 0; font-family: inherit; font-size: 20px; }
+.process-architecture-neon .process-architecture-lane-head small { color: #afc3e8; font-size: 12px; }
+.process-architecture-neon .process-neon-icon { flex: 0 0 50px; width: 50px; height: 52px; display: grid; place-items: center; color: var(--process-neon); border: 1px solid color-mix(in srgb, var(--process-neon) 35%, transparent); border-radius: 8px; background: color-mix(in srgb, var(--process-neon) 15%, #042039); }
+.process-architecture-neon .process-neon-icon .icon { width: 28px; height: 28px; }
+.process-architecture-neon .process-architecture-lane-head .process-neon-icon { flex-basis: 50px; width: 50px; height: 50px; }
+.process-architecture-neon .process-architecture-lane-head .icon { width: 30px; height: 30px; }
+.process-architecture-neon .process-architecture-nodes { display: grid; overflow: visible; gap: 0; padding: 0; }
+.process-neon-row { position: relative; display: grid; grid-template-columns: repeat(var(--process-columns), minmax(0, 1fr)); gap: 14px; padding-top: 34px; width: 100%; max-width: calc(var(--process-columns) * 340px); justify-self: center; }
+.process-neon-branches { position: absolute; top: 0; left: 0; width: 100%; height: 34px; overflow: visible; pointer-events: none; fill: none; stroke: var(--process-neon); stroke-width: 1.6; filter: drop-shadow(0 0 4px var(--process-neon)); }
+.process-neon-branches path { vector-effect: non-scaling-stroke; }
+.process-architecture-neon .process-architecture-node { display: flex; gap: 12px; align-items: center; min-width: 0; min-height: 78px; padding: 10px 12px; border-color: color-mix(in srgb, var(--process-neon) 64%, #163753); background: #072440; color: #f0f4ff; }
+.process-architecture-neon .process-architecture-node::before { content: ""; position: absolute; top: -4px; left: calc(50% - 3px); width: 6px; height: 6px; border-radius: 50%; background: #e5ffff; box-shadow: 0 0 8px 2px var(--process-neon); }
+.process-architecture-neon .process-architecture-node:hover { border-color: var(--process-neon); background: color-mix(in srgb, var(--process-neon) 12%, #072440); box-shadow: 0 0 15px color-mix(in srgb, var(--process-neon) 22%, transparent); }
+.process-architecture-neon .process-architecture-node:focus-visible { outline-color: var(--process-neon); }
+.process-architecture-neon .process-architecture-code { color: #a8c0e5; letter-spacing: 0; font-size: 10px; }
+.process-architecture-neon .process-architecture-node strong { font-size: 13px; }
+.process-architecture-neon .process-architecture-node small { color: #afc3e8; font-size: 11px; }
+.process-architecture-neon .process-architecture-connector { position: relative; min-height: 50px; color: #b9a9ff; font-size: 12px; }
+.process-architecture-neon .process-architecture-connector::before { position: absolute; left: 50%; top: 0; height: 100%; width: 1px; border: 0; background: currentColor; box-shadow: 0 0 8px currentColor; }
+.process-architecture-neon .process-architecture-connector::after { display: none; }
+.process-architecture-neon .process-architecture-connector span { z-index: 1; padding: 6px 18px; border: 1px solid currentColor; border-radius: 20px; background: #041c34; text-align: center; }
+.process-architecture-neon .support-to-operational { color: #00dfcd; }
+.process-architecture-neon .process-customer-flow { justify-content: space-between; color: #b7c9eb; font-size: 12px; padding-bottom: 18px; gap: 20px; }
+.process-architecture-neon .process-customer-flow i { flex: 1; background: repeating-linear-gradient(90deg, #168ecb 0 4px, transparent 4px 9px); }
+.process-architecture-neon .process-architecture-empty { justify-content: center; padding: 18px; color: #afc3e8; }
+@media (max-width: 1100px) {
+  .process-architecture-neon .process-architecture-node { gap: 8px; padding: 10px; }
+  .process-architecture-neon .process-architecture-node .process-neon-icon { flex-basis: 30px; width: 30px; height: 38px; }
+  .process-architecture-neon .process-architecture-node .icon { width: 22px; height: 22px; }
+  .process-neon-row { gap: 10px; }
+}
+@media (max-width: 700px) {
+  .process-architecture-neon .process-architecture-head { padding: 18px 14px; }
+  .process-architecture-neon .process-architecture-body { padding: 0 14px 18px; }
+  .process-neon-row { grid-template-columns: 1fr; padding: 20px 0 0 14px; gap: 14px; border-left: 1px solid var(--process-neon); }
+  .process-neon-branches { display: none; }
+  .process-architecture-neon .process-architecture-node::before { top: 50%; left: -15px; height: 1px; width: 14px; border-radius: 0; }
+  .process-architecture-neon .process-architecture-lane-head { gap: 12px; padding: 14px; }
+  .process-architecture-neon .process-customer-flow { font-size: 10px; gap: 8px; }
+  .process-architecture-neon .process-architecture-connector { min-height: 62px; font-size: 11px; }
+}
+
 @media (max-width: 760px) {
   .process-architecture { margin: 14px 14px 0; }
   .process-architecture-head { align-items: flex-start; flex-direction: column; gap: 6px; }

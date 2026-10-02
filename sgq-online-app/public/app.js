@@ -4598,7 +4598,7 @@ function contextProcessArchitectureHtml(rows) {
   const operational = rows.filter((item) => item.categoria === "Operacional");
   const support = rows.filter((item) => item.categoria === "Suporte");
   return `
-    <section class="process-architecture" aria-labelledby="processArchitectureTitle">
+    <section class="process-architecture process-architecture-neon" aria-labelledby="processArchitectureTitle">
       <div class="process-architecture-head">
         <div><h3 id="processArchitectureTitle">Interação entre processos</h3><p>Sequência e interação dos processos que compõem o SGQ.</p></div>
         <span class="process-architecture-ref">ISO 9001:2015 · 4.4.1(c)</span>
@@ -4620,12 +4620,20 @@ function contextProcessArchitectureLane(category, description, rows, isFlow = fa
   const className = category.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   const action = canEditModule("contexto") ? "edit-processo" : "view-processo";
   const actionLabel = canEditModule("contexto") ? "Editar processo" : "Ver detalhes do processo";
+  const categoryIcon = { "Estratégico": "riscos", "Operacional": "gear", "Suporte": "database" }[category];
   const cards = rows.length
-    ? rows.map((item) => `<button class="process-architecture-node" data-context-action="${action}" data-id="${escapeHtml(item.id)}" type="button" aria-label="${escapeHtml(actionLabel)}: ${escapeHtml(item.nome)}"><span class="process-architecture-code">${escapeHtml(item.codigo || "-")}</span><strong>${escapeHtml(item.nome)}</strong><small>${escapeHtml(item.saidas?.[0] || item.objetivo || "Processo mapeado")}</small></button>`).join("")
+    ? Array.from({ length: Math.ceil(rows.length / 5) }, (_, groupIndex) => {
+      const group = rows.slice(groupIndex * 5, groupIndex * 5 + 5);
+      const connections = group.map((_, index) => {
+        const x = (index + 0.5) * 1000 / group.length;
+        return `<path d="M500 0 C500 28 ${x} 18 ${x} 48"/>`;
+      }).join("");
+      return `<div class="process-neon-row" style="--process-columns:${group.length}"><svg class="process-neon-branches" viewBox="0 0 1000 48" preserveAspectRatio="none" aria-hidden="true">${connections}</svg>${group.map((item) => `<button class="process-architecture-node" data-context-action="${action}" data-id="${escapeHtml(item.id)}" type="button" aria-label="${escapeHtml(actionLabel)}: ${escapeHtml(item.nome)}"><span class="process-neon-icon" aria-hidden="true">${moduleIcon("documentos")}</span><span class="process-neon-copy"><span class="process-architecture-code">${escapeHtml(item.codigo || "-")}</span><strong>${escapeHtml(item.nome)}</strong><small>${escapeHtml(item.saidas?.[0] || item.objetivo || "Processo mapeado")}</small></span></button>`).join("")}</div>`;
+    }).join("")
     : `<div class="process-architecture-empty">Nenhum processo cadastrado nesta categoria.</div>`;
   return `
     <div class="process-architecture-lane ${className}${isFlow ? " operational-flow" : ""}">
-      <div class="process-architecture-lane-head"><span>${escapeHtml(category)}</span><strong>${rows.length} processo${rows.length === 1 ? "" : "s"}</strong><small>${escapeHtml(description)}</small></div>
+      <div class="process-architecture-lane-head"><div class="process-neon-icon" aria-hidden="true">${moduleIcon(categoryIcon)}</div><div class="process-neon-copy"><span>${escapeHtml(category)}</span><strong>${rows.length} processo${rows.length === 1 ? "" : "s"}</strong><small>${escapeHtml(description)}</small></div></div>
       <div class="process-architecture-nodes">${cards}</div>
     </div>`;
 }

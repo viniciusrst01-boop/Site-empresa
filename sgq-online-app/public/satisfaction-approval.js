@@ -14,6 +14,29 @@ const messages = { invalid_approval_link: "Link inválido. Solicite um novo link
 let record; let busy = false;
 function notify(message, failed = false) { feedback.textContent = message; feedback.classList.toggle("error", failed); }
 function formatDate(value) { return value ? new Date(value).toLocaleString("pt-BR", { dateStyle:"medium", timeStyle:"short" }) : "-"; }
+function renderQuestions(questions) {
+  const list = document.querySelector("#questions");
+  list.replaceChildren();
+  const items = Array.isArray(questions) ? questions : [];
+  if (!items.length) {
+    const empty = document.createElement("li");
+    empty.className = "questions-empty";
+    empty.textContent = "Nenhuma pergunta foi encontrada nesta revisão.";
+    list.append(empty);
+    return;
+  }
+  items.forEach((question, index) => {
+    const item = document.createElement("li");
+    const number = document.createElement("span");
+    number.className = "question-number";
+    number.textContent = String(question?.number || index + 1);
+    const text = document.createElement("span");
+    text.className = "question-text";
+    text.textContent = String(question?.text || "Pergunta sem descrição");
+    item.append(number, text);
+    list.append(item);
+  });
+}
 async function request(options = {}) { const response = await fetch("/api/satisfaction-approval", { ...options, credentials:"omit", headers:{ Authorization:`Bearer ${token}`, ...(options.body ? { "Content-Type":"application/json" } : {}) } }); if (!response.ok) { const data = await response.json().catch(() => ({})); throw new Error(messages[data.error] || "Não foi possível concluir. Tente novamente."); } return response.json(); }
 function lock(value) { busy = value; document.querySelectorAll("button, textarea, select").forEach((node) => { node.disabled = value; }); }
 function showConfirmation(item) {
@@ -25,7 +48,7 @@ function showConfirmation(item) {
   document.querySelector("#confirmed-at").textContent = formatDate(item.decidedAt);
   notify(item.delivery && item.delivery !== 'sent' ? 'Decisão registrada. O aviso por e-mail está pendente e será tentado novamente.' : approved ? "Aprovação registrada com sucesso." : "Contestação registrada com sucesso.");
 }
-function render(item) { record = item; document.querySelector("#subtitle").textContent = `Revisão ${item.version} enviada para ${item.approver}.`; document.querySelector("#version").textContent = `Formulário de satisfação — Rev. ${item.version}`; document.querySelector("#requested-by").textContent = item.requestedBy || "Não informado"; document.querySelector("#requested-at").textContent = formatDate(item.requestedAt); if (item.status !== "Pendente") { showConfirmation(item); return; } approvalPanel.hidden = false; notify("Analise a solicitação e registre sua decisão."); }
+function render(item) { record = item; document.querySelector("#subtitle").textContent = `Revisão ${item.version} enviada para ${item.approver}.`; document.querySelector("#version").textContent = `Formulário de satisfação — Rev. ${item.version}`; document.querySelector("#requested-by").textContent = item.requestedBy || "Não informado"; document.querySelector("#requested-at").textContent = formatDate(item.requestedAt); renderQuestions(item.questions); if (item.status !== "Pendente") { showConfirmation(item); return; } approvalPanel.hidden = false; notify("Analise as perguntas da revisão e registre sua decisão."); }
 document.querySelector("#approve").onclick = async () => { if (busy || !confirm("Confirmar aprovação desta revisão?")) return; lock(true); try { showConfirmation(await request({ method:"POST", body:JSON.stringify({ decision:"approved" }) })); } catch (error) { notify(error.message, true); } finally { lock(false); } };
 document.querySelector("#contest").onclick = () => { approvalPanel.hidden = true; contestPanel.hidden = false; document.querySelector("#considerations").focus(); };
 document.querySelector("#cancel").onclick = () => { contestPanel.hidden = true; approvalPanel.hidden = false; };

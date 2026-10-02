@@ -49,6 +49,13 @@ function createSatisfactionApproval({ secret, appUrl, now = () => Date.now(), se
       requestedAt: approval.requestedAt,
       decidedAt: approval.decidedAt || null,
       considerations: approval.considerations || "",
+      questions: Array.isArray(version.perguntas)
+        ? version.perguntas.map((question, index) => ({
+          number: index + 1,
+          text: String(question?.texto || "Pergunta sem descrição").slice(0, 2000),
+          type: String(question?.tipo || "escala").slice(0, 80),
+        }))
+        : [],
     };
   }
 
