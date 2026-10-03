@@ -12,6 +12,11 @@ document.body.classList.toggle("tv-theme-white", theme === "white");
 
 const colors = ["#46d9f5", "#4fa3ff", "#34d399", "#fbbf24", "#f87171", "#fb923c", "#a78bfa"];
 const $ = (selector) => document.querySelector(selector);
+function updateTransmitLink() {
+  const link = $('#tvTransmit');
+  link.hidden = !embedded;
+  link.href = `/nc-tv?${new URLSearchParams({ ano: selectedYear, dim: selectedDimension, theme })}`;
+}
 const escapeHtml = (value) => String(value ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
 function today() {
@@ -329,6 +334,7 @@ function updateYears() {
   $("#tvYear").innerHTML = `<option value="todos">Todos</option>${years.map((year) => `<option value="${year}">${year}</option>`).join("")}`;
   $("#tvYear").value = years.includes(selectedYear) ? selectedYear : "todos";
   selectedYear = $("#tvYear").value;
+  updateTransmitLink();
 }
 
 async function refreshFromServer() {
@@ -359,9 +365,9 @@ function updateClock() {
   $("#tvDate").textContent = now.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long", year: "numeric" });
 }
 
-$("#tvYear").addEventListener("change", (event) => { selectedYear = event.target.value; renderDashboard(); });
+$("#tvYear").addEventListener("change", (event) => { selectedYear = event.target.value; updateTransmitLink(); renderDashboard(); });
 $("#tvDimension").value = ["processo", "setor", "origem", "gravidade", "referencia"].includes(selectedDimension) ? selectedDimension : "processo";
-$("#tvDimension").addEventListener("change", (event) => { selectedDimension = event.target.value; renderDashboard(); });
+$("#tvDimension").addEventListener("change", (event) => { selectedDimension = event.target.value; updateTransmitLink(); renderDashboard(); });
 $("#tvFullscreen").addEventListener("click", () => document.documentElement.requestFullscreen?.());
 window.addEventListener("storage", (event) => {
   if (event.key !== STORAGE_KEY || !event.newValue) return;
@@ -373,6 +379,7 @@ window.addEventListener("storage", (event) => {
   } catch {}
 });
 
+updateTransmitLink();
 updateClock();
 refreshFromServer();
 setInterval(updateClock, 1000);

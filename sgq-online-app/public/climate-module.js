@@ -54,12 +54,15 @@ function renderClimateModule() {
   const complete = issues.filter((item) => item.status === "Concluída").length;
   const late = issues.filter(climateIsLate).length;
   pageContent.innerHTML = `
+    <div class="climate-summary-header"><div class="climate-summary-heading">
     ${moduleHeaderHtml("mudancas-climaticas", { category: "", description: "ISO 9001:2015 · EMENDA 2024", actions: false })}
+    </div>
     <div class="climate-kpis">
-      ${climateKpi(moduleIcon("documentos"), "Determinação", data.determination.relevant === "Sim" ? "Relevante" : "Não relevante", `${data.determination.status} · ${data.determination.owner}`, "#34D399", "check-circle")}
+      ${climateKpi(moduleIcon("documentos"), "Determinação", data.determination.relevant === "Sim" ? "Relevante" : "Não relevante", data.determination.status, "#34D399", "check-circle")}
       ${climateKpi(moduleIcon("riscos"), "Questões avaliadas", issues.length, `${relevant} relevante(s) · ${issues.filter((item) => item.relevant === "Parcial").length} parcial(is)`, "#4fa3ff", "bar-chart")}
-      ${climateKpi(moduleIcon("check-circle"), "Questões tratadas", `${complete}/${issues.length}`, `${issues.length ? Math.round((complete / issues.length) * 100) : 0}% concluídas`, "#FBBF24", "documentos")}
-      ${climateKpi(moduleIcon("nao-conformidades"), "Questões atrasadas", late, late ? "Prazo vencido" : "Nenhum prazo vencido", "#F87171", "calendar-clock", issues.length ? late / issues.length : 0)}
+      ${climateKpi(moduleIcon("check-circle"), "Questões tratadas", complete, `de ${issues.length} concluídas`, "#FBBF24", "documentos", issues.length ? complete / issues.length : 0)}
+      ${climateKpi(moduleIcon("nao-conformidades"), "Questões atrasadas", late, late ? "com prazo vencido" : "Nenhum prazo vencido", "#F87171", "calendar-clock", issues.length ? late / issues.length : 0)}
+    </div>
     </div>
     <div class="ctx-tabs climate-tabs">
       <button type="button" class="ctx-tab${climateTab === "determination" ? " active" : ""}" data-climate-tab="determination">Determinação da empresa</button>

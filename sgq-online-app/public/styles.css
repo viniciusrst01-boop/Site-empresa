@@ -6008,7 +6008,7 @@ body .module-summary-toolbar .welcome-sub {
     overflow: hidden;
   }
 
-  body.module-detail-view .page-content:has(> .context-kpi-row, > .risk-kpi-row, > .leadership-fixed-nav, > .climate-kpis, > .documents-module, > .audits-module-shell, > .equipment-module-shell, > .suppliers-module-shell, > .satisfaction-module-shell) {
+  body.module-detail-view .page-content:has(> .compact-summary-header, > .context-kpi-row, > .risk-kpi-row, > .leadership-fixed-nav, > .climate-summary-header, > .documents-module, > .audits-module-shell, > .equipment-module-shell, > .suppliers-module-shell, > .satisfaction-module-shell) {
     display: flex;
     flex: 1 1 auto;
     flex-direction: column;

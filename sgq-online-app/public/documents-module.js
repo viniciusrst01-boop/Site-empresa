@@ -96,9 +96,9 @@ function documentsKpisHtml() {
   const internal = documentsInternal(); const external = documentsExternal(); const all = [...internal, ...external];
   const values = [
     ["Total de documentos", all.length, `${internal.length} internos · ${external.length} externos`, "#4fa3ff", "documentos"],
-    ["Vigentes", all.filter((row) => documentEffectiveStatus(row) === "Vigente").length, "documentos em vigência", "#34d399", "check-circle"],
-    ["Aguardando aprovação", internal.filter((row) => documentEffectiveStatus(row) === "Aguardando Aprovação").length, "pendentes do aprovador", "#46d9f5", "clock"],
-    ["A revisar / vencidos", all.filter(documentIsLate).length, "revisões e verificações vencidas", "#fbbf24", "alert"],
+    ["Vigentes", all.filter((row) => documentEffectiveStatus(row) === "Vigente").length, `de ${all.length} vigentes`, "#34d399", "check-circle"],
+    ["Aguardando aprovação", internal.filter((row) => documentEffectiveStatus(row) === "Aguardando Aprovação").length, `de ${internal.length} pendentes`, "#46d9f5", "clock"],
+    ["A revisar / vencidos", all.filter(documentIsLate).length, `de ${all.length} vencidos`, "#fbbf24", "alert"],
   ];
   return `<section class="documents-kpis">${values.map(([label, value, caption, color, icon], index) => `<article class="documents-kpi" ${index ? `data-kpi-progress="${(index === 2 ? internal.length : all.length) ? value / (index === 2 ? internal.length : all.length) : 0}"` : ''} style="--doc-kpi-color:${color}"><div class="documents-kpi-top"><span class="documents-kpi-icon">${moduleIcon(icon)}</span><div><div class="documents-kpi-label">${label}</div><div class="documents-kpi-value">${value}</div></div></div><div class="documents-kpi-caption">${caption}</div></article>`).join("")}</section>`;
 }

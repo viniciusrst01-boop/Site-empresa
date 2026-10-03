@@ -2946,16 +2946,16 @@ function renderLeadershipKpis() {
   const target = document.querySelector("#leadershipKpis");
   if (!target) return;
   target.innerHTML = `
-    ${leadershipKpi("Comprometimento da direção", data.acoes.length, `${completeActions} concluídas`, "#F2B705", "lideranca", "calendar", data.acoes.length ? completeActions / data.acoes.length : 0)}
     ${leadershipKpi("Política da qualidade", `Rev. ${data.politica.revisao || "-"}`, data.politica.status || "-", "#46D9F5", "documentos", "check-circle")}
-    ${leadershipKpi("Comunicações da política", data.comunicacao.length, `${reachedPeople} pessoas alcançadas`, "#34D399", "contexto", "users")}
-    ${leadershipKpi("Cargos mapeados", data.cargos.length, `${activeRoles} ativos`, "#A78BFA", "modulos", "org-chart", data.cargos.length ? activeRoles / data.cargos.length : 0)}
+    ${leadershipKpi("Comprometimento da direção", completeActions, `de ${data.acoes.length} concluídas`, "#F2B705", "lideranca", "calendar", data.acoes.length ? completeActions / data.acoes.length : 0)}
+    ${leadershipKpi("Comunicações da política", data.comunicacao.length, `${reachedPeople} pessoas alcançadas`, "#34D399", "contexto", "users", null, `${data.comunicacao.length} comunicações · ${reachedPeople} pessoas alcançadas`)}
+    ${leadershipKpi("Cargos mapeados", activeRoles, `de ${data.cargos.length} ativos`, "#A78BFA", "modulos", "org-chart", data.cargos.length ? activeRoles / data.cargos.length : 0)}
   `;
 }
 
-function leadershipKpi(label, value, caption, color, icon, detailIcon = "bar-chart", ratio = null) {
+function leadershipKpi(label, value, caption, color, icon, detailIcon = "bar-chart", ratio = null, tooltip = "") {
   return `
-    <article class="kpi-card" ${ratio === null ? '' : `data-kpi-progress="${ratio}"`} style="--accent-line:${color};">
+    <article class="kpi-card" ${tooltip ? `title="${escapeHtml(tooltip)}"` : ''} ${ratio === null ? '' : `data-kpi-progress="${ratio}"`} style="--accent-line:${color};">
       <div class="kpi-top">
         <div class="kpi-icon" style="border-color:${hexToRgba(color, 0.4)}; color:${color};">${moduleIcon(icon)}</div>
         <div><div class="kpi-label">${escapeHtml(label)}</div><div class="kpi-value big">${escapeHtml(value)}</div></div>
@@ -4047,21 +4047,21 @@ function renderRiskOpportunityModule() {
           <div class="kpi-icon" style="border-color:rgba(251,146,60,0.4); color:#fb923c;">${moduleIcon("minus")}</div>
           <div><div class="kpi-label">Críticos/Altos</div><div class="kpi-value big" id="riskKpiHigh">-</div></div>
         </div>
-        <div class="module-kpi-detail">${moduleIcon("bar-chart")}<div class="kpi-caption">Ações de alta prioridade<br>em andamento</div>${moduleIcon("arrow-right")}</div>
+        <div class="module-kpi-detail">${moduleIcon("bar-chart")}<div class="kpi-caption" id="riskKpiHighCaption"></div>${moduleIcon("arrow-right")}</div>
       </article>
       <article class="kpi-card" style="--accent-line:#34D399;">
         <div class="kpi-top">
           <div class="kpi-icon" style="border-color:rgba(52,211,153,0.4); color:#34D399;">${moduleIcon("check-circle")}</div>
           <div><div class="kpi-label">Objetivos da qualidade</div><div class="kpi-value big" id="riskKpiGoals">-</div></div>
         </div>
-        <div class="module-kpi-detail">${moduleIcon("gear")}<div class="kpi-caption">Riscos mitigados ou<br>sob controle</div>${moduleIcon("arrow-right")}</div>
+        <div class="module-kpi-detail">${moduleIcon("gear")}<div class="kpi-caption" id="riskKpiGoalsCaption"></div>${moduleIcon("arrow-right")}</div>
       </article>
       <article class="kpi-card" style="--accent-line:#4fa3ff;">
         <div class="kpi-top">
           <div class="kpi-icon" style="border-color:rgba(47,143,240,0.4); color:#4fa3ff;">${moduleIcon("edit")}</div>
           <div><div class="kpi-label">Mudanças em execução</div><div class="kpi-value big" id="riskKpiChanges">-</div></div>
         </div>
-        <div class="module-kpi-detail">${moduleIcon("users")}<div class="kpi-caption">Planos de ação em execução<br>com acompanhamento</div>${moduleIcon("arrow-right")}</div>
+        <div class="module-kpi-detail">${moduleIcon("users")}<div class="kpi-caption" id="riskKpiChangesCaption"></div>${moduleIcon("arrow-right")}</div>
       </article>
     </div>
 
@@ -4155,8 +4155,12 @@ function renderRiskKpis() {
   setText("#riskKpiTotal", riscos.length);
   setText("#riskKpiTotalCaption", `${riskCount} riscos · ${opportunityCount} oportunidades`);
   setText("#riskKpiHigh", high);
-  setText("#riskKpiGoals", objetivos.length);
+  setText("#riskKpiHighCaption", `de ${riscos.length} críticos/altos`);
+  setText("#riskKpiGoals", goalsDone);
+  setText("#riskKpiGoalsCaption", `de ${objetivos.length} atingidos`);
+  document.querySelector('#riskKpiGoals')?.closest('.kpi-card')?.setAttribute('data-kpi-progress', objetivos.length ? goalsDone / objetivos.length : 0);
   setText("#riskKpiChanges", changesRunning);
+  setText("#riskKpiChangesCaption", `de ${mudancas.length} em execução`);
   document.querySelector('#riskKpiHigh')?.closest('.kpi-card')?.setAttribute('data-kpi-progress', riscos.length ? high / riscos.length : 0);
   document.querySelector('#riskKpiChanges')?.closest('.kpi-card')?.setAttribute('data-kpi-progress', mudancas.length ? changesRunning / mudancas.length : 0);
 }
@@ -4284,6 +4288,13 @@ function renderContextModule() {
     })}
 
     <div class="context-kpi-row">
+      <article class="kpi-card" style="--accent-line:#34D399;">
+        <div class="kpi-top">
+          <div class="kpi-icon context-reference-icon">${moduleIcon("shield")}</div>
+          <div><div class="kpi-label">Escopo do SGQ</div><div class="kpi-value" id="ctxKpiEscopo">-</div></div>
+        </div>
+        <div class="module-kpi-detail">${moduleIcon("calendar-clock")}<div class="kpi-caption" id="ctxKpiEscopoCaption">-</div>${moduleIcon("arrow-right")}</div>
+      </article>
       <article class="kpi-card" style="--accent-line:#A78BFA;">
         <div class="kpi-top">
           <div class="kpi-icon context-reference-icon">${moduleIcon("modulos")}</div>
@@ -4297,13 +4308,6 @@ function renderContextModule() {
           <div><div class="kpi-label">Partes interessadas</div><div class="kpi-value big" id="ctxKpiPartes">-</div></div>
         </div>
         <div class="module-kpi-detail">${moduleIcon("eye-bars")}<div class="kpi-caption" id="ctxKpiPartesCaption">mapeadas e monitoradas</div>${moduleIcon("arrow-right")}</div>
-      </article>
-      <article class="kpi-card" style="--accent-line:#34D399;">
-        <div class="kpi-top">
-          <div class="kpi-icon context-reference-icon">${moduleIcon("shield")}</div>
-          <div><div class="kpi-label">Escopo do SGQ</div><div class="kpi-value" id="ctxKpiEscopo">-</div></div>
-        </div>
-        <div class="module-kpi-detail">${moduleIcon("calendar-clock")}<div class="kpi-caption" id="ctxKpiEscopoCaption">-</div>${moduleIcon("arrow-right")}</div>
       </article>
       <article class="kpi-card" style="--accent-line:#F2B705;">
         <div class="kpi-top">
@@ -4407,14 +4411,17 @@ function renderContextKpis() {
   const supportProcesses = processos.filter((item) => item.categoria === "Suporte").length;
   const escopoFilled = hasEscopoData(escopo);
   setText("#ctxKpiSwot", swot.length);
-  setText("#ctxKpiSwotCaption", `${pendingPlans} planos abertos · ${highPriority} alta prioridade`);
-  setText("#ctxKpiPartes", partes.length);
-  setText("#ctxKpiPartesCaption", `${monitoredPartes} com monitoramento definido`);
+  setText("#ctxKpiSwotCaption", `${pendingPlans} planos · ${highPriority} priorit.`);
+  document.querySelector("#ctxKpiSwotCaption")?.setAttribute("title", `${pendingPlans} planos abertos · ${highPriority} itens de alta prioridade`);
+  setText("#ctxKpiPartes", monitoredPartes);
+  setText("#ctxKpiPartesCaption", `de ${partes.length} monitoradas`);
   document.querySelector('#ctxKpiPartes')?.closest('.kpi-card')?.setAttribute('data-kpi-progress', partes.length ? monitoredPartes / partes.length : 0);
   setText("#ctxKpiEscopo", escopoFilled ? escopo.statusAprovacao || "-" : "-");
-  setText("#ctxKpiEscopoCaption", escopoFilled ? `atualizado em ${formatDate(escopo.dataAtualizacao)}` : "sem escopo cadastrado");
+  setText("#ctxKpiEscopoCaption", escopoFilled ? formatDate(escopo.dataAtualizacao) : "Não cadastrado");
+  document.querySelector("#ctxKpiEscopoCaption")?.setAttribute("title", escopoFilled ? `Atualizado em ${formatDate(escopo.dataAtualizacao)}` : "Sem escopo cadastrado");
   setText("#ctxKpiProcessos", processos.length);
-  setText("#ctxKpiProcessosCaption", `${strategicProcesses} estratégicos · ${operationalProcesses} operacionais · ${supportProcesses} suporte`);
+  setText("#ctxKpiProcessosCaption", `${strategicProcesses} est. · ${operationalProcesses} op. · ${supportProcesses} sup.`);
+  document.querySelector("#ctxKpiProcessosCaption")?.setAttribute("title", `${strategicProcesses} estratégicos · ${operationalProcesses} operacionais · ${supportProcesses} suporte`);
 }
 
 function blankContextEscopo() {
@@ -5871,7 +5878,7 @@ function renderNonConformityModule() {
   pageContent.classList.add("nc-page-content");
   pageContent.innerHTML = `
     ${moduleHeaderHtml("nao-conformidades", {
-      actions: `<div class="toolbar-actions"><a class="btn-transmit" data-nc-tv href="${ncTvUrl()}" target="_blank" rel="noopener"><span class="live-dot"></span>${moduleIcon("external")} Transmitir</a></div>`,
+      actions: false,
     })}
     <div id="ncKpis"></div>
     <div class="ctx-tabs" id="ncMainTabs">
