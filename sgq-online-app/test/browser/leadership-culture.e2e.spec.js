@@ -1,0 +1,42 @@
+const { test, expect } = require('@playwright/test');
+
+test('cultura mantém revisões, documento oficial e modelo sugerido', async ({ page }, testInfo) => {
+  await page.goto('/login');
+  await page.getByLabel('Usuário').fill('browser.owner@example.com');
+  await page.getByLabel('Senha').fill('Browser-Teste-123');
+  await page.getByRole('button', { name: 'Entrar no sistema' }).click();
+  await expect(page).toHaveURL(/\/app$/);
+  const open = async () => {
+    await page.evaluate(() => { renderModuleDetail('lideranca'); currentLeadershipSubTab = 'posicionamento'; renderLeadershipTabContent(); });
+    await expect(page.locator('#lcCultureText')).toBeVisible();
+  };
+  await open();
+  await page.locator('#lcCultureText').fill('Qualidade, integridade e transparência.');
+  await page.locator('#lcCultureReason').fill('Emissão inicial');
+  await page.locator('#lcCultureFile').setInputFiles({ name: 'conduta.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4\n%%EOF') });
+  await page.getByRole('button', { name: 'Salvar revisão', exact: true }).click();
+  await expect(page.locator('.leadership-culture summary')).toHaveCount(1);
+  const link = page.locator('.leadership-culture-files').getByRole('link', { name: 'conduta.pdf' });
+  const url = await link.getAttribute('href');
+  expect((await page.request.get(url)).status()).toBe(200);
+  const model = await page.request.get('/assets/modelo-codigo-conduta-cultura-qualidade.docx');
+  expect(model.status()).toBe(200);
+  expect((await model.body()).subarray(0, 2).toString()).toBe('PK');
+  await page.locator('#lcCultureText').fill('Qualidade, integridade, transparência e respeito.');
+  await page.locator('#lcCultureReason').fill('Inclusão de respeito');
+  await page.getByRole('button', { name: 'Salvar revisão', exact: true }).click();
+  await expect(page.locator('.leadership-culture summary')).toHaveCount(2);
+  await page.locator('[data-lc-action="save-position"]').click();
+  await page.reload();
+  await open();
+  await expect(page.locator('.leadership-culture summary')).toHaveCount(2);
+  await expect(page.locator('#lcCultureText')).toHaveValue('Qualidade, integridade, transparência e respeito.');
+  await page.locator('.leadership-culture summary').last().click();
+  await expect(page.locator('.leadership-culture-snapshot').last()).toHaveText('Qualidade, integridade e transparência.');
+  await page.locator('.leadership-culture').scrollIntoViewIfNeeded();
+  await page.screenshot({ path: testInfo.outputPath('culture-desktop.png') });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.locator('.leadership-culture').scrollIntoViewIfNeeded();
+  expect(await page.locator('.leadership-culture').evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath('culture-mobile.png') });
+});

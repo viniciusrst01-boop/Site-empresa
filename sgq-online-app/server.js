@@ -3270,7 +3270,8 @@ async function handleApiRequest(req, res, url, session) {
       sendJson(res, 200, { ok: true }); return;
     }
     const leadership = await getCompanyData(companyId, "leadership");
-    const referenced = ["acoes", "comunicacao"].some((collection) => (leadership?.[collection] || []).some((record) => record?.evidenciaArquivo?.id === id || (record.evidenciaArquivos || []).some((file) => file.id === id)));
+    const culture = leadership?.posicionamento?.culturaQualidade;
+    const referenced = culture?.documento?.id === id || (culture?.revisoes || []).some((revision) => revision.documento?.id === id) || ["acoes", "comunicacao"].some((collection) => (leadership?.[collection] || []).some((record) => record?.evidenciaArquivo?.id === id || (record.evidenciaArquivos || []).some((file) => file.id === id)));
     if (req.method === "GET") {
       const file = referenced && await getCompanyData(companyId, `leadershipAttachment:${id}`);
       if (!file?.base64) { sendJson(res, 404, { error: "attachment_not_found" }); return; }

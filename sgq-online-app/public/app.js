@@ -1970,7 +1970,8 @@ function firstName(name) {
 function renderModulos() {
   setTopbar("Meus módulos", "Módulos do QualityPro Cloud contratados pela sua empresa");
   pageContent.classList.add("modules-page-content");
-  const moduleOrder = ["contexto", "lideranca", "riscos", "documentos", "auditorias", "nao-conformidades", "equipamentos", "satisfacao-clientes", "mudancas-climaticas", "fornecedores"];
+  // Sequence follows each module's first ISO item; climate complements context.
+  const moduleOrder = ["contexto", "mudancas-climaticas", "lideranca", "riscos", "equipamentos", "documentos", "fornecedores", "satisfacao-clientes", "auditorias", "nao-conformidades"];
   const futureModuleOrder = [];
   const activeModules = moduleOrder
     .map((id) => modules.find((module) => module.id === id))
@@ -3115,7 +3116,54 @@ function leadershipPositionHtml() {
           </div>
         </div>
       </div>
-    </section>`;
+    </section>${leadershipCultureHtml(item, editable)}`;
+}
+
+function leadershipCultureHtml(position, editable) {
+  const culture = position.culturaQualidade || {};
+  const revisions = culture.revisoes || [];
+  const fileLink = file => file?.id ? `<a class="btn-secondary" href="/api/leadership-attachments?id=${encodeURIComponent(file.id)}" target="_blank" rel="noopener">${moduleIcon("documentos")}${escapeHtml(file.name)}</a>` : "";
+  return `<section class="leadership-culture">
+    <header><h3>Cultura da Qualidade e Comportamento Ético</h3><span class="mono">${revisions.length ? `Rev. ${String(culture.revisao).padStart(2, "0")}` : "Não registrado"}</span></header>
+    <label for="lcCultureText">Posicionamento da Alta Direção quanto aos comportamentos esperados</label>
+    <textarea class="input-basic" id="lcCultureText" rows="5" maxlength="1000" ${editable ? "" : "readonly"}>${escapeHtml(culture.texto || "")}</textarea>
+    <div class="leadership-culture-files">${fileLink(culture.documento)}<a class="btn-secondary" href="/assets/modelo-codigo-conduta-cultura-qualidade.docx" download>${moduleIcon("download")}Modelo sugerido</a></div>
+    ${editable ? `<label for="lcCultureFile">Documento oficial (PDF, até 2 MB)</label><input id="lcCultureFile" type="file" accept=".pdf,application/pdf">
+    <label for="lcCultureReason">Motivo da revisão</label><input class="input-basic" id="lcCultureReason" maxlength="300" placeholder="Descreva a inclusão ou alteração">
+    <div><button class="btn-grad" type="button" data-lc-action="save-culture">${moduleIcon("save")}Salvar revisão</button></div>` : ""}
+    <h4>Histórico de revisões</h4>
+    ${revisions.length ? [...revisions].reverse().map(revision => `<details><summary>Rev. ${String(revision.revisao).padStart(2, "0")} · ${escapeHtml(formatDateTime(revision.data))} · ${escapeHtml(revision.autor)}</summary><p>${escapeHtml(revision.motivo)}</p><p class="leadership-culture-snapshot">${escapeHtml(revision.texto)}</p>${fileLink(revision.documento)}</details>`).join("") : '<p>Nenhuma revisão registrada.</p>'}
+    <p id="lcCultureStatus" role="status"></p>
+  </section>`;
+}
+
+async function saveLeadershipCulture() {
+  if (!canEditModule("lideranca")) return;
+  const button = document.querySelector('[data-lc-action="save-culture"]');
+  if (!button || button.disabled) return;
+  const status = document.querySelector("#lcCultureStatus");
+  const texto = inputValue("lcCultureText").trim();
+  const motivo = inputValue("lcCultureReason").trim();
+  const file = document.querySelector("#lcCultureFile")?.files?.[0];
+  const position = leadershipGet("posicionamento");
+  const previous = position.culturaQualidade || {};
+  if (!texto || !motivo) { status.textContent = "Preencha o posicionamento e o motivo da revisão."; return; }
+  if (texto === previous.texto && !file) { status.textContent = "Não há alterações para registrar."; return; }
+  if (file && !/\.pdf$/i.test(file.name)) { status.textContent = "Selecione um documento oficial em PDF."; return; }
+  button.disabled = true;
+  try {
+    const documento = file ? await uploadLeadershipAttachment(file) : previous.documento || null;
+    const revisoes = previous.revisoes || [];
+    const revision = { revisao: revisoes.length ? Number(previous.revisao) + 1 : 0, texto, documento, motivo, data: new Date().toISOString(), autor: currentUser?.name || currentUser?.email || "Usuário" };
+    const saved = await leadershipSet("posicionamento", { ...position, missao: inputValue("lcPosMissao"), visao: inputValue("lcPosVisao"), valores: [...document.querySelectorAll("[data-position-value]")].map(element => element.dataset.positionValue), culturaQualidade: { ...revision, revisoes: [...revisoes, revision] } });
+    if (!saved) {
+      leadershipData.posicionamento = position;
+      localStorage.setItem(leadershipStorageKey, JSON.stringify(leadershipData));
+      throw new Error("Não foi possível confirmar a gravação. Seus campos foram mantidos; tente novamente.");
+    }
+    refreshLeadershipScreen("Revisão da cultura da qualidade salva.");
+  } catch (error) { status.textContent = error.message; }
+  finally { button.disabled = false; }
 }
 
 function leadershipPositionTextRow(icon, label, help, id, value, placeholder, readonly) {
@@ -3515,7 +3563,10 @@ function handleLeadershipAction(action, id) {
     return;
   }
   if (action === "save-position") {
+    const culture = leadershipGet("posicionamento").culturaQualidade || {};
+    if (inputValue("lcCultureText").trim() !== (culture.texto || "") || document.querySelector("#lcCultureFile")?.files?.length) { void saveLeadershipCulture(); return; }
     leadershipSet("posicionamento", {
+      ...leadershipGet("posicionamento"),
       missao: inputValue("lcPosMissao"),
       visao: inputValue("lcPosVisao"),
       valores: [...document.querySelectorAll("[data-position-value]")].map((element) => element.dataset.positionValue),
@@ -3525,6 +3576,7 @@ function handleLeadershipAction(action, id) {
     refreshLeadershipScreen("Posicionamento salvo.");
     return;
   }
+  if (action === "save-culture") { void saveLeadershipCulture(); return; }
   if (action === "add-position-value" || action === "suggest-position-value") {
     addLeadershipPositionValue(action === "suggest-position-value" ? id : "");
     return;

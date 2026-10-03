@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>QualityPro Cloud - Satisfação do Cliente</title>
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&family=Roboto+Mono:wght@500;600&display=swap" rel="stylesheet">
 <script src="/vendor/chart.umd.js"></script>
 <script src="/vendor/chartjs-plugin-datalabels.min.js"></script>
 <script src="/frame-selects.js?v=20260926-refresh-dynamic-options"></script>
@@ -1457,7 +1457,7 @@ function renderKpis(){
     <div class="kpi-card" style="--accent-line:#4fa3ff;">
       <div class="kpi-top"><div class="kpi-icon" style="border-color:rgba(79,163,255,0.45); color:#4fa3ff;"><svg class="icon" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
         <div><div class="kpi-label">Formulário vigente</div><div class="kpi-value">Rev. ${vig?esc(vig.versao):'—'}</div></div></div>
-      <div class="kpi-caption">${vig?('aprovado por '+esc(vig.aprovador)):'sem versão vigente'}</div>
+      <div class="kpi-caption" title="${vig?('Aprovado por '+esc(vig.aprovador)):'Sem versão vigente'}">${vig?'Aprovado':'Sem vigente'}</div>
     </div>
     <div class="kpi-card" style="--accent-line:#46D9F5;">
       <div class="kpi-top"><div class="kpi-icon" style="border-color:rgba(70,217,245,0.45); color:#46D9F5;"><svg class="icon" viewBox="0 0 24 24"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg></div>
