@@ -368,7 +368,6 @@ function updateClock() {
 $("#tvYear").addEventListener("change", (event) => { selectedYear = event.target.value; updateTransmitLink(); renderDashboard(); });
 $("#tvDimension").value = ["processo", "setor", "origem", "gravidade", "referencia"].includes(selectedDimension) ? selectedDimension : "processo";
 $("#tvDimension").addEventListener("change", (event) => { selectedDimension = event.target.value; updateTransmitLink(); renderDashboard(); });
-$("#tvFullscreen").addEventListener("click", () => document.documentElement.requestFullscreen?.());
 window.addEventListener("storage", (event) => {
   if (event.key !== STORAGE_KEY || !event.newValue) return;
   try {
