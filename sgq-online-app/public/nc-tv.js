@@ -12,6 +12,17 @@ document.body.classList.toggle("tv-theme-white", theme === "white");
 
 const colors = ["#46d9f5", "#4fa3ff", "#34d399", "#fbbf24", "#f87171", "#fb923c", "#a78bfa"];
 const $ = (selector) => document.querySelector(selector);
+$('#tvBack').hidden = embedded;
+$('#tvBack').addEventListener('click', () => {
+  try {
+    let tabs;
+    try { tabs = JSON.parse(localStorage.getItem('qualitypro-module-tabs-v1') || '{}'); } catch { tabs = {}; }
+    if (!tabs || typeof tabs !== 'object' || Array.isArray(tabs)) tabs = {};
+    tabs['nao-conformidades'] = { main: 'dashboards', sub: 'rncs' };
+    localStorage.setItem('qualitypro-module-tabs-v1', JSON.stringify(tabs));
+    localStorage.setItem('qualitypro-last-view-v1', 'module:nao-conformidades');
+  } catch { /* The /app link remains available when storage is blocked. */ }
+});
 function updateTransmitLink() {
   const link = $('#tvTransmit');
   link.hidden = !embedded;

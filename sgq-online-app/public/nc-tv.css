@@ -34,6 +34,10 @@ button, select { font: inherit; }
 #tvTransmit:hover { background: color-mix(in srgb, var(--green) 12%, transparent); box-shadow: 0 0 10px color-mix(in srgb, var(--green) 20%, transparent); }
 #tvTransmit:hover svg { transform: translate(1px, -1px); }
 #tvTransmit[hidden] { display: none; }
+#tvBack { display: inline-flex; align-items: center; gap: 7px; height: 36px; padding: 0 12px; border: 1px solid var(--border); border-radius: 7px; color: var(--text); text-decoration: none; font-size: 12px; font-weight: 700; }
+#tvBack[hidden] { display: none; }
+#tvBack { position: relative; z-index: 100; }
+#tvBack:hover, #tvBack:focus-visible { border-color: var(--cyan); color: var(--cyan); }
 #tvTransmit svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; transition: transform .18s ease; }
 #tvTransmit:active svg { transform: none; }
 @media (prefers-reduced-motion: reduce) { #tvTransmit, #tvTransmit svg { transition: none; } #tvTransmit:hover svg { transform: none; } }

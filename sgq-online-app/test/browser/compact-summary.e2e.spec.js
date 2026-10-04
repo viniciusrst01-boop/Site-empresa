@@ -74,4 +74,9 @@ test('transmitir fica nos indicadores e acompanha os filtros', async ({ page }) 
   await panel.locator('#tvDimension').selectOption('setor');
   await expect(link).toHaveAttribute('href', /dim=setor/);
   await expect(link).toHaveAttribute('target', '_blank');
+  await expect(panel.locator('#tvBack')).toBeHidden();
+  await page.goto(await link.getAttribute('href'));
+  await page.getByRole('link', { name: 'Voltar aos indicadores de Não Conformidades' }).click();
+  await expect(page).toHaveURL(/\/app$/);
+  await expect(page.locator('[data-nc-tab="dashboards"]')).toHaveClass(/active/);
 });
