@@ -16,6 +16,7 @@ test('todos os módulos exibem resumos compactos e conteúdo acessível', async 
     const surface = await frame.count() ? frame.contentFrame() : page;
     const header = surface.locator('.compact-summary-header, .climate-summary-header').first();
     await expect(header).toBeVisible();
+    if (id === 'auditorias') await expect(header.locator('.module-iso-eyebrow')).toHaveText('PLANEJAMENTO E ACOMPANHAMENTO DE AUDITORIAS · 9.2');
     const tabs = surface.locator('.ctx-tabs > .ctx-tab, .documents-tabs > .documents-tab');
     await expect(tabs.first()).toBeVisible();
     expect(await tabs.evaluateAll(nodes => nodes.every(node => {
@@ -41,6 +42,7 @@ test('todos os módulos exibem resumos compactos e conteúdo acessível', async 
       return { textX: breadcrumb.x - rect.x, textY: breadcrumb.y - rect.y, subtitleY: eyebrow.y - rect.y, cardsX: el.lastElementChild.getBoundingClientRect().x - rect.x };
     }) });
     const heights = await cards.evaluateAll(nodes => nodes.map(node => node.getBoundingClientRect().height));
+    if (id === 'equipamentos') expect(heights).toEqual([52, 52, 52, 52]);
     expect(await header.evaluate(el => el.getBoundingClientRect().height), `${id}: altura do cabeçalho`).toBe(52);
     expect(Math.max(...heights), id).toBeLessThan(90);
     await page.screenshot({ path: testInfo.outputPath(`${id}-desktop.png`) });

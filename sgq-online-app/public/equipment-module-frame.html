@@ -1142,7 +1142,7 @@ function equipmentSummaryCardsHTML(includeWrapper = true){
   const cards = `
     <div class="dash-solid-card clickable" style="--card-bg:#4fa3ff;" onclick="verCategoria('total')">
       <div class="sc-icon"><svg class="icon" viewBox="0 0 24 24"><path d="M2 12h4l3 8 4-16 3 8h6"/></svg></div>
-      <div class="sc-label">Total de equipamentos</div><div class="sc-progress-line"><div class="sc-value">${a.total}</div><div class="sc-caption">instrumentos cadastrados <span class="sc-ver">ver lista ›</span></div></div>
+      <div class="sc-label">Total de equipamentos</div><div class="sc-progress-line"><div class="sc-value">${a.total}</div><div class="sc-caption">cadastrados <span class="sc-ver">ver lista ›</span></div></div>
     </div>
     <div class="dash-solid-card clickable has-progress" style="--card-bg:#34D399;--progress-value:${percent(a.emUso)}%;--progress-fill:#43e7bd;--progress-track:#075c47;" onclick="verCategoria('emuso')">
       <div class="sc-icon"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 12l2 2 4-4"/></svg></div>
@@ -1150,11 +1150,11 @@ function equipmentSummaryCardsHTML(includeWrapper = true){
     </div>
     <div class="dash-solid-card equipment-warning-card clickable has-progress" style="--card-bg:#C58E1F;--progress-value:${percent(a.prestes)}%;--progress-fill:#D9AA35;--progress-track:#837D58;" onclick="verCategoria('prestes')">
       <div class="sc-icon"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg></div>
-      <div class="sc-label">Prestes a vencer</div>${progressDetail(a.prestes, "prestes a vencer")}
+      <div class="sc-label">Prestes a vencer</div>${progressDetail(a.prestes, "a vencer")}
     </div>
     <div class="dash-solid-card clickable has-progress" style="--card-bg:#E96860;--progress-value:${percent(a.vencidas)}%;--progress-fill:#E96860;--progress-track:#F2B3A9;" onclick="verCategoria('vencida')">
       <div class="sc-icon"><svg class="icon" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/></svg></div>
-      <div class="sc-label">Calibração vencida</div>${progressDetail(a.vencidas, "com calibração vencida")}
+      <div class="sc-label">Calibração vencida</div>${progressDetail(a.vencidas, "vencidos")}
     </div>`;
   return includeWrapper ? `<div class="dash-cards">${cards}</div>` : cards;
 }
@@ -1381,7 +1381,61 @@ function verCategoria(cat){
   categoryListItems = itens;
   categoryListPage = 1;
   renderCategoryPage();
-  openModal('modalCategoria');
+  if (window.parent === window) openModal('modalCategoria');
+  else openCategoryAppDialog();
+}
+
+function openCategoryAppDialog(){
+  const doc = window.parent.document;
+  if (doc.getElementById('equipment-category-dialog')) return;
+  const source = document.getElementById('modalCategoria');
+  const trigger = document.activeElement;
+  const dialog = doc.createElement('dialog');
+  dialog.id = 'equipment-category-dialog';
+  dialog.className = 'equipment-category-dialog';
+  dialog.setAttribute('aria-label', document.getElementById('catTitle').textContent);
+  // Isolate the existing table styles while the parent dialog blurs the entire app.
+  const host = doc.createElement('div');
+  const shadow = host.attachShadow({ mode: 'open' });
+  document.querySelectorAll('style').forEach(style => shadow.append(style.cloneNode(true)));
+  const theme = getComputedStyle(document.body);
+  for (const name of theme) if (name.startsWith('--')) host.style.setProperty(name, theme.getPropertyValue(name));
+  host.style.fontFamily = theme.fontFamily;
+  host.style.color = theme.color;
+  const wrapper = doc.createElement('div');
+  wrapper.id = 'modalCategoria';
+  const layout = doc.createElement('style');
+  layout.textContent = '#modalCategoria .modal-box { width:100%; max-height:calc(100dvh - 40px); display:flex; flex-direction:column; overflow:hidden; } #catBody { min-height:0; overflow:auto; } .modal-hd,.category-footer { flex-shrink:0; }';
+  shadow.append(layout, wrapper);
+  function draw(){
+    wrapper.replaceChildren(source.firstElementChild.cloneNode(true));
+    wrapper.querySelectorAll('[onclick]').forEach(el => el.removeAttribute('onclick'));
+    wrapper.querySelectorAll('.modal-close, .category-footer > .btn-ghost').forEach(el => {
+      el.tabIndex = 0;
+      el.setAttribute('role', 'button');
+      el.setAttribute('aria-label', 'Fechar');
+      el.onclick = () => dialog.close();
+      el.onkeydown = event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); dialog.close(); } };
+    });
+    wrapper.querySelectorAll('.category-page-btn').forEach((el, index) => {
+      el.onclick = () => {
+        changeCategoryPage(index === 0 ? -1 : 1);
+        draw();
+        const buttons = wrapper.querySelectorAll('.category-page-btn');
+        (buttons[index].disabled ? buttons[1 - index] : buttons[index]).focus();
+      };
+    });
+  }
+  let outsidePressed = false;
+  dialog.addEventListener('pointerdown', event => { outsidePressed = event.target === dialog; });
+  dialog.addEventListener('click', event => { if (outsidePressed && event.target === dialog) dialog.close(); outsidePressed = false; });
+  const cleanup = () => { dialog.remove(); window.removeEventListener('pagehide', cleanup); };
+  dialog.addEventListener('close', () => { cleanup(); if (trigger?.isConnected) trigger.focus(); }, { once:true });
+  window.addEventListener('pagehide', cleanup, { once:true });
+  dialog.append(host);
+  doc.body.append(dialog);
+  draw();
+  dialog.showModal();
 }
 
 /* ===================== TOAST ===================== */

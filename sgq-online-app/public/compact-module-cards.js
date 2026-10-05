@@ -6,6 +6,132 @@
   const selector = '.module-detail-view .context-kpi-row > .kpi-card, .module-detail-view .risk-kpi-row > .kpi-card, .module-detail-view .climate-kpis > .kpi-card, .module-detail-view .documents-kpis > .documents-kpi, #kpiRow > .kpi-card, #kpiRow > .kpi-solid, #kpiRow > .dash-solid-card';
   const resize = new ResizeObserver(entries => entries.forEach(({ target }) => target.matches('.compact-summary-header, .climate-summary-header') ? alignSummary(target) : contrast(target)));
   const observed = new Set();
+  // Each provider uses the same records and predicates as its summary counter.
+  function listFor(card) {
+    let index = [...card.parentElement.children].indexOf(card);
+    if (card.closest('.context-kpi-row') && document.querySelector('.context-page-content')) index = ['ctxKpiSwot', 'ctxKpiPartes', 'ctxKpiEscopo', 'ctxKpiProcessos'].findIndex(id => card.querySelector(`#${id}`));
+    const pick = (rows, columns) => ({ rows, columns });
+    const standard = [['Código', 'id'], ['Descrição', 'descricao'], ['Responsável', 'responsavel'], ['Situação', 'status']];
+    if (card.closest('.equipment-summary-row')) return null;
+    if (window.parent !== window) {
+      if (location.pathname.includes('audits-module')) {
+        const rows = store.get('qps_aud') || [];
+        return pick(index === 0 ? rows.filter(r => (audInicio(r) || '').startsWith(String(calYear))) : rows.filter(r => r.status === ['','Agendada','Em andamento','Concluída'][index]), [['Código','id'], ['Descrição','descricao'], ['Tipo','tipo'], ['Início',r => audInicio(r)], ['Situação','status']]);
+      }
+      if (location.pathname.includes('fornecedores-module') && currentTab !== 'indicadores') {
+        const rows = getFornecedores();
+        return pick(rows.filter(r => index === 0 || index === 1 && r.status === 'Homologado' || index === 2 && r.criticidade === 'Crítico' || index === 3 && temAlerta(r)), [['Código','id'], ['Fornecedor','razao'], ['Criticidade','criticidade'], ['Situação','status']]);
+      }
+      if (location.pathname.includes('satisfacao-module') && currentTab !== 'indicadores' && (index === 1 || index === 2)) {
+        const rows = store.get('qps_sat_pesquisas') || [];
+        return pick(rows.filter(r => index === 1 || r.status === 'Respondida'), [['Código','id'], ['Cliente','empresa'], ['E-mail','email'], ['Situação','status']]);
+      }
+      return null;
+    }
+    if (card.closest('.context-kpi-row') && document.querySelector('.context-page-content')) {
+      if (index === 0) return pick(contextGet('swot'), [['Código','id'], ['Descrição','descricao'], ['Categoria','quadrante'], ['Prioridade','prioridade'], ['Situação','status']]);
+      if (index === 1) return pick(contextGet('partes').filter(r => r.monitoramento?.trim()), [['Código','id'], ['Parte interessada','parte'], ['Monitoramento','monitoramento'], ['Frequência','frequencia']]);
+      if (index === 3) return pick(contextGet('processos'), [['Código',r => r.codigo || r.id], ['Processo','nome'], ['Categoria','categoria'], ['Responsável','responsavel'], ['Situação','status']]);
+    }
+    if (card.closest('#leadershipKpis')) {
+      if (index === 1) return pick(leadershipGet('acoes').filter(r => r.status === 'Concluída'), standard);
+      if (index === 2) return pick(leadershipGet('comunicacao'), [['Código','id'], ['Data','data'], ['Forma','forma'], ['Setor','setor'], ['Pessoas alcançadas','qtdPessoas']]);
+      if (index === 3) return pick(leadershipGet('cargos').filter(r => r.status === 'Ativo'), [['Código','id'], ['Nome','nome'], ['Cargo','cargo'], ['Departamento','departamento'], ['Situação','status']]);
+    }
+    if (card.closest('.risk-kpi-row')) {
+      if (index < 2) return pick(riskGet('riscos').filter(r => index === 0 || Number(r.probabilidade) * Number(r.impacto) >= 10), [['Código','id'], ['Descrição','texto'], ['Tipo','tipo'], ['Responsável','responsavel'], ['Situação','status']]);
+      if (index === 2) return pick(riskGet('objetivos').filter(r => r.status === 'Atingido'), [['Código','id'], ['Objetivo',r => r.objetivo || r.descricao], ['Responsável','responsavel'], ['Situação','status']]);
+      if (index === 3) return pick(riskGet('mudancas').filter(r => r.status === 'Em execução'), [['Código','id'], ['Mudança','mudanca'], ['Responsável','responsavel'], ['Situação','status']]);
+    }
+    if (card.closest('.documents-kpis')) {
+      const internal = documentsInternal(), all = [...internal, ...documentsExternal()];
+      const rows = index === 0 ? all : index === 1 ? all.filter(r => documentEffectiveStatus(r) === 'Vigente') : index === 2 ? internal.filter(r => documentEffectiveStatus(r) === 'Aguardando Aprovação') : all.filter(documentIsLate);
+      return pick(rows, [['Código',r => r.codigo || r.id], ['Documento',r => r.titulo || r.nome], ['Revisão','revisao'], ['Situação',r => documentEffectiveStatus(r)]]);
+    }
+    if (card.closest('.climate-kpis') && index > 0) return pick(climateData().issues.filter(r => index === 1 || index === 2 && r.status === 'Concluída' || index === 3 && climateIsLate(r)), [['Código','id'], ['Descrição','description'], ['Responsável','owner'], ['Prazo','due'], ['Situação','status']]);
+    if (card.closest('.nc-progress-kpis')) {
+      if (index === 0 || index === 3) return pick(state.ncs.filter(r => index === 0 ? r.status !== 'Encerrado' : r.status === 'Encerrado'), [['Código',r => r.numero || r.id], ['Descrição','descricao'], ['Processo','processo'], ['Situação','status']]);
+      return pick(state.ncs.flatMap(r => (r.acoes || []).map(a => ({ ...a, origem: r.numero || r.id }))).filter(r => r.status !== 'Concluída' && (index === 1 || r.prazo && r.prazo < ncToday())), [['RNC','origem'], ['Ação',r => r.descricao || r.acao], ['Responsável','responsavel'], ['Prazo','prazo'], ['Situação','status']]);
+    }
+    return null;
+  }
+
+  function showList(card, data) {
+    const doc = window.parent !== window ? window.parent.document : document;
+    if (doc.querySelector('#summary-record-list')) return;
+    const dialog = doc.createElement('dialog');
+    dialog.id = 'summary-record-list';
+    dialog.className = 'summary-record-list';
+    dialog.setAttribute('aria-labelledby', 'summary-record-title');
+    dialog.innerHTML = '<header><div><h2 id="summary-record-title"></h2><p></p></div><button type="button" data-close aria-label="Fechar lista">×</button></header><div class="summary-record-table"><table><thead></thead><tbody></tbody></table></div><footer><div><button type="button" data-prev aria-label="Página anterior">‹</button><span aria-live="polite"></span><button type="button" data-next aria-label="Próxima página">›</button></div><button type="button" data-close>Fechar</button></footer>';
+    dialog.querySelector('h2').textContent = card.querySelector('.compact-card-label, .nc-progress-label')?.textContent || 'Registros';
+    dialog.querySelector('header p').textContent = `${data.rows.length} registro(s)`;
+    const head = doc.createElement('tr');
+    data.columns.forEach(([label]) => { const th = doc.createElement('th'); th.textContent = label; head.append(th); });
+    dialog.querySelector('thead').append(head);
+    let page = 0;
+    const pages = Math.max(1, Math.ceil(data.rows.length / 10));
+    function draw() {
+      const body = dialog.querySelector('tbody'); body.replaceChildren();
+      for (const row of data.rows.slice(page * 10, page * 10 + 10)) {
+        const tr = doc.createElement('tr');
+        data.columns.forEach(([, field]) => {
+          const td = doc.createElement('td');
+          const value = typeof field === 'function' ? field(row) : row[field];
+          td.textContent = value == null || value === '' ? '—' : String(value);
+          tr.append(td);
+        });
+        body.append(tr);
+      }
+      if (!data.rows.length) { const tr = doc.createElement('tr'), td = doc.createElement('td'); td.colSpan = data.columns.length; td.textContent = 'Nenhum registro nesta categoria.'; tr.append(td); body.append(tr); }
+      dialog.querySelector('footer span').textContent = `Página ${page + 1} de ${pages}`;
+      dialog.querySelector('[data-prev]').disabled = page === 0;
+      dialog.querySelector('[data-next]').disabled = page === pages - 1;
+    }
+    dialog.querySelectorAll('[data-close]').forEach(b => b.onclick = () => dialog.close());
+    let pressedOutside = false;
+    const outside = event => {
+      const bounds = dialog.getBoundingClientRect();
+      return event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom;
+    };
+    dialog.addEventListener('pointerdown', event => { pressedOutside = event.target === dialog && outside(event); });
+    dialog.addEventListener('click', event => { if (pressedOutside && event.target === dialog && outside(event)) dialog.close(); pressedOutside = false; });
+    dialog.querySelector('[data-prev]').onclick = () => { page--; draw(); };
+    dialog.querySelector('[data-next]').onclick = () => { page++; draw(); };
+    dialog.addEventListener('close', () => { dialog.remove(); if (card.isConnected) card.focus(); }, { once: true });
+    doc.body.append(dialog); draw(); dialog.showModal();
+  }
+
+  function bindLists() {
+    const equipmentList = document.querySelector('#modalCategoria');
+    if (equipmentList && !equipmentList.dataset.dismissBound) {
+      equipmentList.dataset.dismissBound = 'true';
+      let backdropPressed = false;
+      equipmentList.addEventListener('pointerdown', event => { backdropPressed = event.target === equipmentList; });
+      equipmentList.addEventListener('click', event => {
+        if (backdropPressed && event.target === equipmentList) closeModal('modalCategoria');
+        backdropPressed = false;
+      });
+      document.addEventListener('keydown', event => {
+        if (event.key === 'Escape' && equipmentList.classList.contains('show')) closeModal('modalCategoria');
+      });
+    }
+    document.querySelectorAll('.compact-summary-header .compact-module-card, .climate-summary-header .compact-module-card, .compact-summary-header .nc-progress-card, .equipment-summary-row > .dash-solid-card').forEach(card => {
+      const equipment = card.closest('.equipment-summary-row');
+      if (!equipment && !listFor(card)) return;
+      if (card.dataset.summaryListBound) return;
+      card.dataset.summaryListBound = 'true';
+      card.classList.add('summary-list-trigger');
+      card.tabIndex = 0; card.setAttribute('role', 'button'); card.setAttribute('aria-haspopup', 'dialog');
+      const label = card.querySelector('.compact-card-label, .nc-progress-label, .sc-label')?.textContent || 'Registros';
+      card.setAttribute('aria-label', `Ver lista: ${label}`);
+      if (!equipment) card.addEventListener('click', event => {
+        event.preventDefault(); event.stopImmediatePropagation();
+        const data = listFor(card); if (data) showList(card, data);
+      }, true);
+      card.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); card.click(); } });
+    });
+  }
   function alignSummary(header) {
     const heading = header.firstElementChild;
     const row = header.lastElementChild;
@@ -112,6 +238,7 @@
       card.classList.toggle('compact-text-value', !/^[\d.,/%+\s-]+$/.test(value));
       contrast(card);
     });
+    bindLists();
   }
   let queued = false;
   const observer = new MutationObserver(() => {
