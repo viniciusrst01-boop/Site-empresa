@@ -21,6 +21,8 @@ test('listas dos indicadores respeitam contagens, teclado e paginação', async 
       await card.press('Enter');
       const dialog = page.locator('#summary-record-list');
       await expect(dialog).toBeVisible();
+      await expect(dialog.locator('footer').getByRole('button', { name: 'Fechar' })).toHaveCount(0);
+      await expect.poll(async () => Math.round((await dialog.boundingBox()).y)).toBe(130);
       await expect(dialog.locator('header p')).toHaveText(`${value} registro(s)`);
       await expect(dialog.locator('tbody tr')).toHaveCount(Math.max(1, Math.min(value, 10)));
       if (value > 10) {
@@ -44,7 +46,7 @@ test('listas dos indicadores respeitam contagens, teclado e paginação', async 
   const dialog = page.locator('#summary-record-list');
   expect(await dialog.evaluate(el => el.getBoundingClientRect().right <= innerWidth)).toBe(true);
   await page.screenshot({ path: testInfo.outputPath('list-mobile.png'), animations: 'disabled' });
-  await dialog.getByRole('button', { name: 'Fechar', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Fechar lista', exact: true }).click();
   await expect(dialog).toHaveCount(0);
   await page.setViewportSize({ width: 1700, height: 950 });
   await page.evaluate(() => renderModuleDetail('equipamentos'));
@@ -53,6 +55,7 @@ test('listas dos indicadores respeitam contagens, teclado e paginação', async 
   await equipmentCard.click();
   const equipmentList = page.locator('#equipment-category-dialog');
   await expect(equipmentList).toBeVisible();
+  expect((await equipmentList.boundingBox()).y).toBe(130);
   expect(await equipmentList.evaluate(el => el.parentElement === document.body && el.matches(':modal'))).toBe(true);
   expect(await equipmentList.evaluate(el => getComputedStyle(el, '::backdrop').backdropFilter)).toBe('blur(3px)');
   await equipmentList.getByRole('button', { name: 'Próxima página' }).click();
@@ -75,6 +78,7 @@ test('listas dos indicadores respeitam contagens, teclado e paginação', async 
   expect(bounds.x + bounds.width).toBeLessThanOrEqual(390);
   expect(bounds.y + bounds.height).toBeLessThanOrEqual(844);
   await page.screenshot({ path: testInfo.outputPath('equipment-mobile.png'), animations: 'disabled' });
-  await equipmentList.locator('.category-footer').getByRole('button', { name: 'Fechar' }).click();
+  await expect(equipmentList.locator('.category-footer').getByRole('button', { name: 'Fechar' })).toHaveCount(0);
+  await equipmentList.getByRole('button', { name: 'Fechar', exact: true }).click();
   await expect(equipmentList).toHaveCount(0);
 });

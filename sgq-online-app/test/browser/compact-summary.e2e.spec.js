@@ -42,7 +42,12 @@ test('todos os módulos exibem resumos compactos e conteúdo acessível', async 
       return { textX: breadcrumb.x - rect.x, textY: breadcrumb.y - rect.y, subtitleY: eyebrow.y - rect.y, cardsX: el.lastElementChild.getBoundingClientRect().x - rect.x };
     }) });
     const heights = await cards.evaluateAll(nodes => nodes.map(node => node.getBoundingClientRect().height));
-    if (id === 'equipamentos') expect(heights).toEqual([52, 52, 52, 52]);
+    if (id === 'equipamentos') {
+      expect(heights).toEqual([52, 52, 52, 52]);
+      expect(await page.locator('.equipment-page-content').evaluate(el => getComputedStyle(el).paddingBottom)).toBe('6px');
+      expect(await surface.locator('.page-content').evaluate(el => getComputedStyle(el).paddingBottom)).toBe('0px');
+      expect(await surface.locator('#tabContent').evaluate(el => getComputedStyle(el).paddingBottom)).toBe('4px');
+    }
     expect(await header.evaluate(el => el.getBoundingClientRect().height), `${id}: altura do cabeçalho`).toBe(52);
     expect(Math.max(...heights), id).toBeLessThan(90);
     await page.screenshot({ path: testInfo.outputPath(`${id}-desktop.png`) });

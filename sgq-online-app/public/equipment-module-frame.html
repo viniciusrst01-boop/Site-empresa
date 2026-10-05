@@ -327,6 +327,8 @@
   body.embedded .sidebar, body.embedded .topbar, body.embedded .app-footer { display: none; }
   body.embedded .main-area { margin-left: 0; min-height: 0; }
   body.embedded .page-content { padding: 0 0 18px !important; }
+  html.fixed-workspace body.embedded .page-content { padding-bottom: 0 !important; }
+  html.fixed-workspace body.embedded .page-content > #tabContent { padding-bottom: 4px; }
   body.embedded .breadcrumb, body.embedded .welcome-eyebrow, body.embedded .welcome-sub { display: none; }
   body.embedded { background: transparent; }
   body.embedded .modal-overlay { position: fixed; inset: 0; height: 100vh; padding: 24px; align-items: center; justify-content: center; }
@@ -563,7 +565,6 @@
     <div id="catBody"></div>
     <div class="category-footer">
       <div id="catPagination" class="category-pagination" aria-label="Paginação da listagem"></div>
-      <div class="btn-ghost" onclick="closeModal('modalCategoria')">Fechar</div>
     </div>
   </div>
 </div>
@@ -1405,12 +1406,12 @@ function openCategoryAppDialog(){
   const wrapper = doc.createElement('div');
   wrapper.id = 'modalCategoria';
   const layout = doc.createElement('style');
-  layout.textContent = '#modalCategoria .modal-box { width:100%; max-height:calc(100dvh - 40px); display:flex; flex-direction:column; overflow:hidden; } #catBody { min-height:0; overflow:auto; } .modal-hd,.category-footer { flex-shrink:0; }';
+  layout.textContent = '#modalCategoria .modal-box { width:100%; max-height:var(--equipment-list-max-height, calc(100dvh - 40px)); display:flex; flex-direction:column; overflow:hidden; } #catBody { min-height:0; overflow:auto; } .modal-hd,.category-footer { flex-shrink:0; }';
   shadow.append(layout, wrapper);
   function draw(){
     wrapper.replaceChildren(source.firstElementChild.cloneNode(true));
     wrapper.querySelectorAll('[onclick]').forEach(el => el.removeAttribute('onclick'));
-    wrapper.querySelectorAll('.modal-close, .category-footer > .btn-ghost').forEach(el => {
+    wrapper.querySelectorAll('.modal-close').forEach(el => {
       el.tabIndex = 0;
       el.setAttribute('role', 'button');
       el.setAttribute('aria-label', 'Fechar');

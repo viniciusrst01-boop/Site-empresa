@@ -63,7 +63,7 @@
     dialog.id = 'summary-record-list';
     dialog.className = 'summary-record-list';
     dialog.setAttribute('aria-labelledby', 'summary-record-title');
-    dialog.innerHTML = '<header><div><h2 id="summary-record-title"></h2><p></p></div><button type="button" data-close aria-label="Fechar lista">×</button></header><div class="summary-record-table"><table><thead></thead><tbody></tbody></table></div><footer><div><button type="button" data-prev aria-label="Página anterior">‹</button><span aria-live="polite"></span><button type="button" data-next aria-label="Próxima página">›</button></div><button type="button" data-close>Fechar</button></footer>';
+    dialog.innerHTML = '<header><div><h2 id="summary-record-title"></h2><p></p></div><button type="button" data-close aria-label="Fechar lista">×</button></header><div class="summary-record-table"><table><thead></thead><tbody></tbody></table></div><footer><div><button type="button" data-prev aria-label="Página anterior">‹</button><span aria-live="polite"></span><button type="button" data-next aria-label="Próxima página">›</button></div></footer>';
     dialog.querySelector('h2').textContent = card.querySelector('.compact-card-label, .nc-progress-label')?.textContent || 'Registros';
     dialog.querySelector('header p').textContent = `${data.rows.length} registro(s)`;
     const head = doc.createElement('tr');

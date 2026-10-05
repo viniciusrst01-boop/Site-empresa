@@ -1,11 +1,13 @@
 /* Shared module summaries; existing grids retain their column widths. */
-.equipment-category-dialog { padding:0; border:0; background:transparent; width:min(860px, calc(100vw - 32px)); max-width:none; max-height:calc(100dvh - 40px); overflow:visible; }
+.equipment-category-dialog { --equipment-list-max-height:calc(100dvh - 150px); margin:130px auto 20px; padding:0; border:0; background:transparent; width:min(860px, calc(100vw - 32px)); max-width:none; max-height:var(--equipment-list-max-height); overflow:visible; }
 .equipment-category-dialog::backdrop { background:rgba(4,14,30,.72); backdrop-filter:blur(3px); }
 .summary-list-trigger { cursor: pointer; transition: transform .15s ease, box-shadow .15s ease; }
 .summary-list-trigger:hover { transform: translateY(-2px); box-shadow: 0 10px 28px rgba(0,0,0,.35) !important; }
 .summary-list-trigger:focus-visible { outline: 2px solid var(--accent-cyan, #46d9f5); outline-offset: 3px; }
 .summary-record-list { box-sizing: border-box; width: min(860px, calc(100vw - 32px)); max-height: calc(100dvh - 40px); padding: 20px; border: 1px solid var(--border-subtle, #245474); border-radius: 8px; background: var(--bg-panel, #0d2b4c); color: var(--text-primary, #eef5ff); overflow: auto; font-family: 'Plus Jakarta Sans', sans-serif; animation: summary-list-enter .15s ease-out; }
 .summary-record-list::backdrop { background: rgba(0, 10, 24, .7); backdrop-filter: blur(3px); }
+.summary-record-list, .equipment-category-dialog { --equipment-list-max-height:calc(100dvh - 150px); margin:130px auto 20px; max-height:var(--equipment-list-max-height); }
+@media (max-width:600px), (max-height:600px) { .summary-record-list, .equipment-category-dialog { --equipment-list-max-height:calc(100dvh - 40px); margin-top:20px; } }
 .summary-record-list[open] { display: flex; flex-direction: column; overflow: hidden; }
 .summary-record-list header, .summary-record-list footer { flex: 0 0 auto; }
 .summary-record-list .summary-record-table { min-height: 0; flex: 1 1 auto; }

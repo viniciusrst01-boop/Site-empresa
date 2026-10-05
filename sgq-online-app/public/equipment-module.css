@@ -11,6 +11,10 @@
 }
 
 @media (min-width: 981px) {
+  body.module-detail-view .equipment-page-content:has(> .equipment-module-shell) {
+    padding-bottom: 6px;
+  }
+
   .equipment-page-content .equipment-module-shell {
     display: flex;
     flex: 1 1 auto;
