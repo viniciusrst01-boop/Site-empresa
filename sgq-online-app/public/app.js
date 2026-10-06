@@ -4679,20 +4679,16 @@ function contextProcessArchitectureHtml(rows) {
   const operational = rows.filter((item) => item.categoria === "Operacional");
   const support = rows.filter((item) => item.categoria === "Suporte");
   return `
-    <section class="process-architecture process-architecture-neon process-swimlanes" aria-labelledby="processArchitectureTitle">
-      <div class="process-architecture-head">
-        <div><h3 id="processArchitectureTitle">Interação entre processos</h3><p>Sequência e interação dos processos que compõem o SGQ.</p></div>
-        <span class="process-architecture-ref">ISO 9001:2015 · 4.4.1(c)</span>
-      </div>
-      <div class="process-architecture-body">
-        ${contextProcessArchitectureLane("Estratégico", "Direciona a organização", strategic)}
-        <div class="process-architecture-connector strategic-to-operational" aria-hidden="true"><span>Direcionamento, objetivos e recursos</span></div>
-        <div class="process-customer-flow" aria-label="Fluxo de valor para o cliente">
-          <span>Necessidades do cliente</span><i aria-hidden="true"></i><span>Satisfação do cliente</span>
+    <section class="process-architecture process-architecture-neon process-swimlanes process-reference-map" aria-label="Mapa de processos">
+      <div class="process-reference-layout">
+        <aside class="process-reference-side process-reference-input">${moduleIcon("contexto")}<h4>Requisitos das partes interessadas</h4><ul><li>Clientes</li><li>Requisitos legais e regulamentares</li><li>Fornecedores</li><li>Colaboradores</li><li>Sociedade</li></ul></aside>
+        <div class="process-architecture-body">
+          ${contextProcessArchitectureLane("Estratégico", "Direcionamento, planejamento e tomada de decisão", strategic)}
+          ${contextProcessArchitectureLane("Operacional", "Entrega de valor ao cliente", operational, true)}
+          ${contextProcessArchitectureLane("Suporte", "Recursos e estrutura para os processos", support)}
         </div>
-        ${contextProcessArchitectureLane("Operacional", "Transforma requisitos em valor", operational, true)}
-        <div class="process-architecture-connector support-to-operational" aria-hidden="true"><span>Recursos, controles e melhoria</span></div>
-        ${contextProcessArchitectureLane("Suporte", "Sustenta todos os processos", support)}
+        <aside class="process-reference-side process-reference-output">${moduleIcon("riscos")}<h4>Satisfação das partes interessadas</h4><ul><li>Produtos</li><li>Serviços</li><li>Resultados</li><li>Conformidade</li><li>Melhoria contínua</li></ul></aside>
+        <div class="process-reference-improvement"><span aria-hidden="true">↑</span><strong>Melhoria contínua em todos os processos</strong><span aria-hidden="true">↑</span></div>
       </div>
     </section>`;
 }
@@ -4702,13 +4698,19 @@ function contextProcessArchitectureLane(category, description, rows, isFlow = fa
   const action = canEditModule("contexto") ? "edit-processo" : "view-processo";
   const actionLabel = canEditModule("contexto") ? "Editar processo" : "Ver detalhes do processo";
   const categoryIcon = { "Estratégico": "riscos", "Operacional": "gear", "Suporte": "database" }[category];
+  const categoryTitle = { "Estratégico": "Processos estratégicos", "Operacional": "Processos operacionais", "Suporte": "Processos de suporte" }[category];
+  const processIcon = (item) => {
+    const name = String(item.nome || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    const match = [[/risco/, "riscos"], [/qualidade/, "shield"], [/desempenho|resultado|estrateg/, "bar-chart"], [/pessoa|treinamento|capacit|comercial/, "users"], [/auditor/, "search"], [/financeir/, "database"], [/fornecedor/, "fornecedores"], [/tecnolog|digital/, "gear"], [/atendimento|comunica|marketing/, "mail"]].find(([pattern]) => pattern.test(name));
+    return moduleIcon(match?.[1] || "documentos");
+  };
   const cards = rows.length
-    ? rows.map((item) => `<button class="process-architecture-node${item.status === "Inativo" ? " is-inactive" : ""}" data-context-action="${action}" data-id="${escapeHtml(item.id)}" type="button" aria-label="${escapeHtml(actionLabel)}: ${escapeHtml(item.nome)}${item.status === "Inativo" ? " (Inativo)" : ""}"><span class="process-neon-icon" aria-hidden="true">${moduleIcon("documentos")}</span><span class="process-neon-copy"><span class="process-architecture-code">${escapeHtml(item.codigo || "-")}</span>${item.status === "Inativo" ? '<span class="process-inactive-label">Inativo</span>' : ""}<strong>${escapeHtml(item.nome)}</strong><small>${escapeHtml(item.saidas?.[0] || item.objetivo || "Processo mapeado")}</small></span></button>`).join("")
+    ? rows.map((item) => `<button class="process-architecture-node${item.status === "Inativo" ? " is-inactive" : ""}" data-context-action="${action}" data-id="${escapeHtml(item.id)}" type="button" aria-label="${escapeHtml(actionLabel)}: ${escapeHtml(item.nome)}${item.status === "Inativo" ? " (Inativo)" : ""}"><span class="process-neon-icon" aria-hidden="true">${processIcon(item)}</span><span class="process-neon-copy"><span class="process-architecture-code">${escapeHtml(item.codigo || "-")}</span>${item.status === "Inativo" ? '<span class="process-inactive-label">Inativo</span>' : ""}<strong>${escapeHtml(item.nome)}</strong></span><small>${escapeHtml(item.objetivo || item.saidas?.[0] || "Processo mapeado")}</small></button>`).join("")
     : `<div class="process-architecture-empty">Nenhum processo cadastrado nesta categoria.</div>`;
   return `
     <div class="process-architecture-lane ${className}${isFlow ? " operational-flow" : ""}">
-      <div class="process-architecture-lane-head"><div class="process-neon-icon" aria-hidden="true">${moduleIcon(categoryIcon)}</div><div class="process-neon-copy"><span>${escapeHtml(category)}</span><strong>${rows.length} processo${rows.length === 1 ? "" : "s"}</strong><small>${escapeHtml(description)}</small></div></div>
-      <div class="process-architecture-nodes">${cards}</div>
+      <div class="process-architecture-lane-head"><div class="process-neon-icon" aria-hidden="true">${moduleIcon(categoryIcon)}</div><div class="process-neon-copy"><span>${escapeHtml(categoryTitle)}</span><strong>${rows.length} processo${rows.length === 1 ? "" : "s"}</strong></div><small>${escapeHtml(description)}</small></div>
+      <div class="process-architecture-nodes" style="--lane-count:${Math.max(1, Math.min(rows.length, 7))}">${cards}</div>
     </div>`;
 }
 

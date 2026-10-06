@@ -4264,6 +4264,41 @@ table.ctxtbl {
 .process-swimlanes .is-inactive .process-neon-icon { color:#aab7c8; background:transparent; border-color:#68788d; }
 .process-swimlanes .process-inactive-label { display:inline-block; margin-left:8px; padding:1px 6px; border:1px solid #8291a5; border-radius:4px; color:#d6deea; font-size:10px; }
 @media (max-width:700px) { .process-swimlanes.process-architecture .process-architecture-lane { grid-template-columns:minmax(0,1fr); gap:10px; } }
+.process-reference-map .process-reference-layout { display:grid; grid-template-columns:128px minmax(0,1fr) 128px; gap:14px; padding:12px; }
+.process-reference-map.process-architecture .process-architecture-head { padding:18px 24px 10px; align-items:center; }
+.process-reference-map.process-architecture .process-architecture-head h3 { font-size:32px; font-weight:800; text-transform:uppercase; line-height:1.1; }
+.process-map-company { margin:7px 0 10px; font-size:16px; text-transform:uppercase; color:#e0eaf2; }
+.process-reference-map.process-architecture .process-architecture-head p { font-size:10px; text-transform:uppercase; padding-top:9px; border-top:2px solid #159bcb; width:fit-content; }
+.process-reference-map.process-architecture .process-architecture-body { padding:0; gap:22px; min-width:0; }
+.process-reference-map.process-swimlanes .process-architecture-lane { display:block; position:relative; padding:0; border:1px solid color-mix(in srgb,var(--process-neon) 55%,transparent); border-radius:8px; }
+.process-reference-map .process-architecture-lane:not(:last-child)::after { content:""; position:absolute; bottom:-16px; left:calc(50% - 16px); border-left:16px solid transparent; border-right:16px solid transparent; border-top:14px solid #2997ce; }
+.process-reference-map.process-swimlanes .process-architecture-lane-head { display:flex; position:relative; gap:10px; padding:10px 16px 10px 42px; min-height:44px; border-bottom:1px solid #28526e; border-radius:0; }
+.process-reference-map .process-architecture-lane-head::before { content:""; position:absolute; inset:0 auto 0 0; width:28px; background:#0da9ed; clip-path:polygon(0 0,65% 0,100% 50%,65% 100%,0 100%); }
+.process-reference-map .suporte .process-architecture-lane-head::before { background:#00c6ae; }
+.process-reference-map .process-architecture-lane-head > .process-neon-icon { display:none; }
+.process-reference-map.process-swimlanes .process-architecture-lane-head .process-neon-copy { display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+.process-reference-map .process-architecture-lane-head > small { margin-left:auto; max-width:45%; font-size:10px; text-transform:uppercase; text-align:right; color:#bed0df; }
+.process-reference-map.process-swimlanes .process-architecture-lane-head span { font-size:17px; font-weight:800; text-transform:uppercase; color:#f0f4ff; }
+.process-reference-map.process-swimlanes .process-architecture-lane-head strong { font-size:10px; font-weight:500; color:#bed0df; margin:3px 0 0; }
+.process-reference-map.process-swimlanes .process-architecture-nodes { grid-template-columns:repeat(var(--lane-count),minmax(0,1fr)); gap:7px; padding:10px; }
+.process-reference-map.process-architecture .process-architecture-node { display:grid; grid-template-columns:30px minmax(0,1fr); grid-template-rows:auto 1fr; align-content:start; align-items:start; min-height:128px; gap:8px; padding:10px; font-family:inherit; background:#041d31; }
+.process-reference-map.process-architecture .process-architecture-node > small { grid-column:1 / -1; margin:0; font-size:11px; line-height:1.45; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:4; overflow:hidden; }
+.process-reference-map.process-architecture .process-architecture-node strong { font-size:12px; line-height:1.35; margin-top:5px; }
+.process-reference-map.process-architecture .process-architecture-code { color:var(--process-neon); font-size:10px; }
+.process-reference-map .process-architecture-lane.estrategico { --process-neon:#f1c45b; }
+.process-reference-map.process-architecture .process-architecture-node .process-neon-icon { width:30px; height:30px; flex-basis:30px; border:0; background:transparent; }
+.process-reference-map.process-architecture .process-architecture-node small { display:block; overflow:visible; line-height:1.5; margin-top:10px; }
+.process-reference-map .process-reference-side { display:flex; flex-direction:column; justify-content:flex-start; gap:18px; padding:38px 12px 20px; border:1px solid #397495; border-radius:8px; min-width:0; color:#d8e4ee; position:relative; }
+.process-reference-side > .icon { width:38px; height:38px; color:#5dbdea; align-self:center; }
+.process-reference-side h4 { margin:0; font-size:11px; line-height:1.6; text-transform:uppercase; overflow-wrap:anywhere; }
+.process-reference-side ul { list-style:none; padding:16px 0 0; margin:0; border-top:2px solid #239ed2; font-size:11px; line-height:1.6; }
+.process-reference-side li + li { margin-top:16px; }
+.process-reference-input::after,.process-reference-output::before { content:""; position:absolute; top:50%; border-top:12px solid transparent; border-bottom:12px solid transparent; border-left:10px solid #5dbdea; }
+.process-reference-input::after { right:-11px; }.process-reference-output::before { left:-11px; }
+.process-reference-improvement { grid-column:1 / -1; display:flex; align-items:center; justify-content:space-between; gap:16px; border-bottom:2px solid #438fbe; border-radius:0 0 18px 18px; color:#b5e7ff; padding:0 24px 10px; }
+.process-reference-improvement strong { text-align:center; text-transform:uppercase; font-size:12px; padding:10px 30px; border:1px solid #438fbe; border-radius:22px; background:#06243c; }.process-reference-improvement > span { font-size:28px; }
+@media (max-width:1200px) { .process-reference-map.process-swimlanes .process-architecture-nodes { grid-template-columns:repeat(auto-fit,minmax(min(165px,100%),1fr)); } }
+@media (max-width:900px) { .process-reference-map .process-reference-layout { grid-template-columns:minmax(0,1fr); padding:12px; }.process-reference-map .process-reference-side { gap:8px; }.process-reference-side ul { display:flex; flex-wrap:wrap; gap:8px 20px; }.process-reference-side li + li { margin:0; }.process-reference-side > .icon { display:none; }.process-reference-input::after,.process-reference-output::before { display:none; }.process-reference-map .process-architecture-lane-head > small { display:none; } }
 .process-architecture-neon .process-architecture-head { border: 0; padding: 22px 26px 8px; }
 .process-architecture-neon .process-architecture-head h3 { font-size: 20px; }
 .process-architecture-neon .process-architecture-head p { color: #afc3e8; font-size: 13px; }
