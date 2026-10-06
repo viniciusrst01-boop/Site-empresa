@@ -4254,6 +4254,16 @@ table.ctxtbl {
 
 /* Category branches are generated from the registered processes. */
 .process-architecture-neon { background: #041c34; color: #eef3ff; border-color: #12486b; }
+.process-swimlanes.process-architecture .process-architecture-lane { display:grid; grid-template-columns:210px minmax(0,1fr); gap:16px; padding:16px 0; border-top:1px solid var(--process-neon); border-bottom:1px solid color-mix(in srgb,var(--process-neon) 30%,transparent); }
+.process-swimlanes.process-architecture .process-architecture-lane-head { align-self:start; width:100%; min-height:0; padding:12px; border:0; background:transparent; box-shadow:none; }
+.process-swimlanes.process-architecture .process-architecture-lane-head span { font-size:15px; }
+.process-swimlanes.process-architecture .process-architecture-lane-head strong { font-size:17px; }
+.process-swimlanes.process-architecture .process-architecture-nodes { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(210px,100%),1fr)); gap:12px; align-items:stretch; }
+.process-swimlanes.process-architecture .process-architecture-node::before { display:none; }
+.process-swimlanes.process-architecture .process-architecture-node.is-inactive { border-style:dashed; border-color:#8291a5; background:#182536; color:#c4ccd7; box-shadow:none; }
+.process-swimlanes .is-inactive .process-neon-icon { color:#aab7c8; background:transparent; border-color:#68788d; }
+.process-swimlanes .process-inactive-label { display:inline-block; margin-left:8px; padding:1px 6px; border:1px solid #8291a5; border-radius:4px; color:#d6deea; font-size:10px; }
+@media (max-width:700px) { .process-swimlanes.process-architecture .process-architecture-lane { grid-template-columns:minmax(0,1fr); gap:10px; } }
 .process-architecture-neon .process-architecture-head { border: 0; padding: 22px 26px 8px; }
 .process-architecture-neon .process-architecture-head h3 { font-size: 20px; }
 .process-architecture-neon .process-architecture-head p { color: #afc3e8; font-size: 13px; }

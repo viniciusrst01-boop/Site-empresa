@@ -4496,6 +4496,7 @@ function renderContextKpis() {
 
 function blankContextEscopo() {
   return {
+    escopoOficial: "",
     unidades: "",
     produtos: "",
     servicos: "",
@@ -4515,6 +4516,7 @@ function hasEscopoData(data) {
   return Boolean(
     data &&
     [
+      "escopoOficial",
       "unidades",
       "produtos",
       "servicos",
@@ -4594,6 +4596,7 @@ function contextEscopoHtml() {
     ? `Aprovado pela Alta Direção - ${formatDate(data.dataAprovacao)}`
     : data.statusAprovacao === "Reprovado" ? `Reprovado pela Alta Direção - ${formatDate(data.dataAprovacao)}` : "Pendente de aprovação";
   const fields = [
+    ["escopoOficial", "Escopo do SGQ"],
     ["unidades", "Unidades"],
     ["produtos", "Produtos"],
     ["servicos", "Serviços"],
@@ -4612,9 +4615,9 @@ function contextEscopoHtml() {
       </div>
       <div class="escopo-grid">
         ${fields.map(([key, label]) => `
-          <div class="escopo-card ${key === "servicos" || key === "justificativas" ? "full" : ""}">
+          <div class="escopo-card ${key === "escopoOficial" || key === "servicos" || key === "justificativas" ? "full" : ""}">
             <h4>${escapeHtml(label)}</h4>
-            <textarea id="ctxEscopo-${key}"${readonly}>${escapeHtml(data[key] || "")}</textarea>
+            <textarea id="ctxEscopo-${key}" aria-label="${escapeHtml(label)}"${key === "escopoOficial" ? ' rows="4"' : ""}${readonly}>${escapeHtml(data[key] || "")}</textarea>
           </div>`).join("")}
         <div class="escopo-card full">
           <h4>Aprovação pela Alta Direção</h4>
@@ -4676,7 +4679,7 @@ function contextProcessArchitectureHtml(rows) {
   const operational = rows.filter((item) => item.categoria === "Operacional");
   const support = rows.filter((item) => item.categoria === "Suporte");
   return `
-    <section class="process-architecture process-architecture-neon" aria-labelledby="processArchitectureTitle">
+    <section class="process-architecture process-architecture-neon process-swimlanes" aria-labelledby="processArchitectureTitle">
       <div class="process-architecture-head">
         <div><h3 id="processArchitectureTitle">Interação entre processos</h3><p>Sequência e interação dos processos que compõem o SGQ.</p></div>
         <span class="process-architecture-ref">ISO 9001:2015 · 4.4.1(c)</span>
@@ -4700,14 +4703,7 @@ function contextProcessArchitectureLane(category, description, rows, isFlow = fa
   const actionLabel = canEditModule("contexto") ? "Editar processo" : "Ver detalhes do processo";
   const categoryIcon = { "Estratégico": "riscos", "Operacional": "gear", "Suporte": "database" }[category];
   const cards = rows.length
-    ? Array.from({ length: Math.ceil(rows.length / 5) }, (_, groupIndex) => {
-      const group = rows.slice(groupIndex * 5, groupIndex * 5 + 5);
-      const connections = group.map((_, index) => {
-        const x = (index + 0.5) * 1000 / group.length;
-        return `<path d="M500 0 C500 28 ${x} 18 ${x} 48"/>`;
-      }).join("");
-      return `<div class="process-neon-row" style="--process-columns:${group.length}"><svg class="process-neon-branches" viewBox="0 0 1000 48" preserveAspectRatio="none" aria-hidden="true">${connections}</svg>${group.map((item) => `<button class="process-architecture-node" data-context-action="${action}" data-id="${escapeHtml(item.id)}" type="button" aria-label="${escapeHtml(actionLabel)}: ${escapeHtml(item.nome)}"><span class="process-neon-icon" aria-hidden="true">${moduleIcon("documentos")}</span><span class="process-neon-copy"><span class="process-architecture-code">${escapeHtml(item.codigo || "-")}</span><strong>${escapeHtml(item.nome)}</strong><small>${escapeHtml(item.saidas?.[0] || item.objetivo || "Processo mapeado")}</small></span></button>`).join("")}</div>`;
-    }).join("")
+    ? rows.map((item) => `<button class="process-architecture-node${item.status === "Inativo" ? " is-inactive" : ""}" data-context-action="${action}" data-id="${escapeHtml(item.id)}" type="button" aria-label="${escapeHtml(actionLabel)}: ${escapeHtml(item.nome)}${item.status === "Inativo" ? " (Inativo)" : ""}"><span class="process-neon-icon" aria-hidden="true">${moduleIcon("documentos")}</span><span class="process-neon-copy"><span class="process-architecture-code">${escapeHtml(item.codigo || "-")}</span>${item.status === "Inativo" ? '<span class="process-inactive-label">Inativo</span>' : ""}<strong>${escapeHtml(item.nome)}</strong><small>${escapeHtml(item.saidas?.[0] || item.objetivo || "Processo mapeado")}</small></span></button>`).join("")
     : `<div class="process-architecture-empty">Nenhum processo cadastrado nesta categoria.</div>`;
   return `
     <div class="process-architecture-lane ${className}${isFlow ? " operational-flow" : ""}">
@@ -4809,14 +4805,14 @@ function contextModalsHtml() {
         <input type="hidden" id="contextProcessoId">
         <div class="field-row2">
           <div class="field"><label>Código</label><input class="input-basic" id="contextProcessoCodigo"></div>
-          <div class="field"><label>Categoria</label><select class="input-basic" id="contextProcessoCategoria"><option>Estratégico</option><option>Operacional</option><option>Suporte</option></select></div>
+          <div class="field"><label>Categoria</label><select class="input-basic" id="contextProcessoCategoria"><option value="">Selecionar</option><option>Estratégico</option><option>Operacional</option><option>Suporte</option></select></div>
         </div>
         <div class="field"><label>Nome do processo</label><input class="input-basic" id="contextProcessoNome"></div>
         <div class="field-row2">
-          <div class="field"><label>Responsável</label><select class="input-basic" id="contextProcessoResponsavel">${peopleOptions()}</select></div>
+          <div class="field"><label>Responsável</label><select class="input-basic" id="contextProcessoResponsavel"><option value="">Selecionar</option>${peopleOptions("")}</select></div>
           <div class="field"><label>Cargo</label><input class="input-basic" id="contextProcessoCargo"></div>
         </div>
-        <div class="field"><label>Status</label><select class="input-basic" id="contextProcessoStatus"><option>Ativo</option><option>Inativo</option></select></div>
+        <div class="field"><label>Status</label><select class="input-basic" id="contextProcessoStatus"><option value="">Selecionar</option><option>Ativo</option><option>Inativo</option></select></div>
         <div class="field"><label>Objetivo</label><textarea class="input-basic" id="contextProcessoObjetivo"></textarea></div>
         <div class="field-row2">
           <div class="field"><label>Indicadores</label><textarea class="input-basic" id="contextProcessoIndicadores"></textarea></div>
@@ -5058,6 +5054,7 @@ function saveContextEscopo() {
   const dataAtualizacao = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
   const dataAprovacao = inputValue("ctxEscopo-dataAprovacao");
   const escopo = {
+    escopoOficial: inputValue("ctxEscopo-escopoOficial"),
     unidades: inputValue("ctxEscopo-unidades"),
     produtos: inputValue("ctxEscopo-produtos"),
     servicos: inputValue("ctxEscopo-servicos"),
@@ -5086,6 +5083,7 @@ function printContextEscopo() {
   const data = contextGet("escopo");
   const companyName = state.company?.name || "Organização";
   const fields = [
+    ["Escopo do SGQ", data.escopoOficial],
     ["Unidades", data.unidades],
     ["Produtos", data.produtos],
     ["Serviços", data.servicos],
@@ -5212,11 +5210,11 @@ function openContextProcesso(id = "") {
   setText("#contextProcessoTitle", item ? "Editar processo" : "Novo processo");
   setInputValue("contextProcessoId", item?.id || "");
   setInputValue("contextProcessoCodigo", item?.codigo || "");
-  setInputValue("contextProcessoCategoria", item?.categoria || "Operacional");
+  setInputValue("contextProcessoCategoria", item?.categoria || "");
   setInputValue("contextProcessoNome", item?.nome || "");
-  setInputValue("contextProcessoResponsavel", item?.responsavel || "Hugo Melo");
+  setInputValue("contextProcessoResponsavel", item?.responsavel || "");
   setInputValue("contextProcessoCargo", item?.cargo || "");
-  setInputValue("contextProcessoStatus", item?.status || "Ativo");
+  setInputValue("contextProcessoStatus", item?.status || "");
   setInputValue("contextProcessoObjetivo", item?.objetivo || "");
   setInputValue("contextProcessoIndicadores", (item?.indicadores || []).join("\n"));
   setInputValue("contextProcessoRiscos", (item?.riscos || []).join("\n"));
@@ -5224,9 +5222,15 @@ function openContextProcesso(id = "") {
   setInputValue("contextProcessoSaidas", (item?.saidas || []).join("\n"));
   openContextModal("contextProcessoModal");
   bindAutomaticCargo("#contextProcessoResponsavel", "#contextProcessoCargo");
+  for (const id of ["contextProcessoCategoria", "contextProcessoResponsavel", "contextProcessoStatus"]) {
+    document.getElementById(id).dispatchEvent(new Event("change", { bubbles: true }));
+  }
 }
 
 function saveContextProcesso() {
+  for (const [id, label] of [["contextProcessoCategoria", "a categoria"], ["contextProcessoResponsavel", "o responsável"], ["contextProcessoStatus", "o status"]]) {
+    if (!inputValue(id)) { toast(`Selecione ${label} do processo.`); return; }
+  }
   const rows = contextGet("processos");
   const id = inputValue("contextProcessoId");
   const record = {
