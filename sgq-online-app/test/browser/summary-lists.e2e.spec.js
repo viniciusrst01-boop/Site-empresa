@@ -24,8 +24,19 @@ test('listas dos indicadores respeitam contagens, teclado e paginação', async 
       await expect(dialog.locator('footer').getByRole('button', { name: 'Fechar' })).toHaveCount(0);
       await expect.poll(async () => Math.round((await dialog.boundingBox()).y)).toBe(130);
       await expect(dialog.locator('header p')).toHaveText(`${value} registro(s)`);
-      await expect(dialog.locator('tbody tr')).toHaveCount(Math.max(1, Math.min(value, 10)));
-      if (value > 10) {
+      const isSwot = await card.locator('#ctxKpiSwot').count();
+      if (isSwot) {
+        await expect(dialog.locator('.summary-swot-quadrant')).toHaveCount(4);
+        await expect(dialog.locator('.summary-swot-item')).toHaveCount(value);
+        const groups = await page.evaluate(() => ['Força','Fraqueza','Oportunidade','Ameaça'].map(key => ({ key, rows: contextGet('swot').filter(row => row.quadrante === key) })));
+        for (const group of groups) {
+          const quadrant = dialog.locator(`[data-quadrant="${group.key}"]`);
+          await expect(quadrant.locator('.summary-swot-item')).toHaveCount(group.rows.length);
+          for (const row of group.rows) await expect(quadrant).toContainText(row.descricao);
+        }
+        await page.screenshot({ path: testInfo.outputPath('swot-map-desktop.png'), animations: 'disabled' });
+      } else await expect(dialog.locator('tbody tr')).toHaveCount(Math.max(1, Math.min(value, 10)));
+      if (!isSwot && value > 10) {
         await dialog.getByRole('button', { name: 'Próxima página' }).click();
         await expect(dialog.locator('footer span')).toContainText('Página 2');
       }

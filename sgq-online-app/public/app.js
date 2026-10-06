@@ -4511,8 +4511,9 @@ function hasEscopoData(data) {
 
 function contextSwotHtml() {
   const rows = contextGet("swot");
-  const body = rows.length ? rows.map((item) => `
+  const body = rows.length ? rows.map((item, index) => `
     <tr>
+      <td class="mono">${String(index + 1).padStart(4, "0")}</td>
       <td>${quadranteChip(item.quadrante)}</td>
       <td class="desc-cell">${escapeHtml(item.descricao)}</td>
       <td>${priorityChip(item.prioridade)}</td>
@@ -4520,7 +4521,7 @@ function contextSwotHtml() {
       <td>${escapeHtml(item.responsavel)}</td>
       <td><span class="status-pill ${statusClass(item.status)}"><span class="status-dot2"></span>${escapeHtml(item.status)}</span></td>
       <td>${contextRowActions("swot", item.id, false)}</td>
-    </tr>`).join("") : `<tr><td colspan="7"><div class="empty-state">Nenhum item cadastrado.</div></td></tr>`;
+    </tr>`).join("") : `<tr><td colspan="8"><div class="empty-state">Nenhum item cadastrado.</div></td></tr>`;
   return `
     <section class="dcc">
       <div class="dcc-hd">
@@ -4529,8 +4530,8 @@ function contextSwotHtml() {
       </div>
       <div class="risk-table-wrap">
         <table class="ctxtbl">
-          <colgroup><col style="width:9%"><col style="width:27%"><col style="width:8%"><col style="width:22%"><col style="width:12%"><col style="width:12%"><col style="width:10%"></colgroup>
-          <thead><tr><th>Quadrante</th><th>Descrição</th><th>Prioridade</th><th>Plano de ação</th><th>Responsável</th><th>Status</th><th>Ações</th></tr></thead>
+          <colgroup><col style="width:4%"><col style="width:9%"><col style="width:25%"><col style="width:8%"><col style="width:20%"><col style="width:12%"><col style="width:12%"><col style="width:10%"></colgroup>
+          <thead><tr><th>Nº</th><th>Quadrante</th><th>Descrição</th><th>Prioridade</th><th>Plano de ação</th><th>Responsável</th><th>Status</th><th>Ações</th></tr></thead>
           <tbody>${body}</tbody>
         </table>
       </div>
@@ -4733,8 +4734,8 @@ function contextModalsHtml() {
         </div>
         <input type="hidden" id="contextSwotId">
         <div class="field-row2">
-          <div class="field"><label>Quadrante</label><select class="input-basic" id="contextSwotQuadrante"><option>Força</option><option>Fraqueza</option><option>Oportunidade</option><option>Ameaça</option></select></div>
-          <div class="field"><label>Prioridade</label><select class="input-basic" id="contextSwotPrioridade"><option>Alta</option><option>Média</option><option>Baixa</option></select></div>
+          <div class="field"><label>Quadrante</label><select class="input-basic" id="contextSwotQuadrante"><option value="">Selecione…</option><option>Força</option><option>Fraqueza</option><option>Oportunidade</option><option>Ameaça</option></select></div>
+          <div class="field"><label>Prioridade</label><select class="input-basic" id="contextSwotPrioridade"><option value="">Selecione…</option><option>Alta</option><option>Média</option><option>Baixa</option></select></div>
         </div>
         <div class="field"><label>Descrição</label><textarea class="input-basic" id="contextSwotDescricao"></textarea></div>
         <div class="field-row2">
@@ -4925,17 +4926,33 @@ function openContextSwot(id = "") {
   const item = rows.find((row) => row.id === id);
   setText("#contextSwotTitle", item ? "Editar item SWOT" : "Novo item SWOT");
   setInputValue("contextSwotId", item?.id || "");
-  setInputValue("contextSwotQuadrante", item?.quadrante || "Força");
-  setInputValue("contextSwotPrioridade", item?.prioridade || "Média");
+  setInputValue("contextSwotQuadrante", item?.quadrante || "");
+  setInputValue("contextSwotPrioridade", item?.prioridade || "");
   setInputValue("contextSwotDescricao", item?.descricao || "");
   setInputValue("contextSwotPlanoNecessario", item?.planoNecessario || "Não");
   setInputValue("contextSwotResponsavel", item?.responsavel || "Hugo Melo");
   setInputValue("contextSwotPlanoAcao", item?.planoAcao || "");
   setInputValue("contextSwotStatus", item?.status || "Não iniciado");
+  document.getElementById("contextSwotPlanoNecessario").onchange = syncContextSwotPlan;
+  syncContextSwotPlan();
+  document.querySelectorAll('#contextSwotModal select').forEach(select => select.dispatchEvent(new Event('change', { bubbles: true })));
   openContextModal("contextSwotModal");
 }
 
+function syncContextSwotPlan() {
+  const show = inputValue("contextSwotPlanoNecessario") === "Sim";
+  for (const id of ["contextSwotPlanoAcao", "contextSwotStatus"]) {
+    const input = document.getElementById(id);
+    input.closest(".field").style.display = show ? "" : "none";
+    input.disabled = !show;
+  }
+}
+
 function saveContextSwot() {
+  if (!inputValue("contextSwotQuadrante") || !inputValue("contextSwotPrioridade")) {
+    toast("Selecione o quadrante e a prioridade.");
+    return;
+  }
   const rows = contextGet("swot");
   const id = inputValue("contextSwotId");
   const record = {

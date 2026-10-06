@@ -29,7 +29,7 @@
       return null;
     }
     if (card.closest('.context-kpi-row') && document.querySelector('.context-page-content')) {
-      if (index === 0) return pick(contextGet('swot'), [['Código','id'], ['Descrição','descricao'], ['Categoria','quadrante'], ['Prioridade','prioridade'], ['Situação','status']]);
+      if (index === 0) return pick(contextGet('swot').map((row, i) => ({ ...row, numero: String(i + 1).padStart(4, '0') })), [['Nº','numero'], ['Descrição','descricao'], ['Categoria','quadrante'], ['Prioridade','prioridade'], ['Situação','status']]);
       if (index === 1) return pick(contextGet('partes').filter(r => r.monitoramento?.trim()), [['Código','id'], ['Parte interessada','parte'], ['Monitoramento','monitoramento'], ['Frequência','frequencia']]);
       if (index === 3) return pick(contextGet('processos'), [['Código',r => r.codigo || r.id], ['Processo','nome'], ['Categoria','categoria'], ['Responsável','responsavel'], ['Situação','status']]);
     }
@@ -99,7 +99,51 @@
     dialog.querySelector('[data-prev]').onclick = () => { page--; draw(); };
     dialog.querySelector('[data-next]').onclick = () => { page++; draw(); };
     dialog.addEventListener('close', () => { dialog.remove(); if (card.isConnected) card.focus(); }, { once: true });
-    doc.body.append(dialog); draw(); dialog.showModal();
+    doc.body.append(dialog);
+    if (card.querySelector('#ctxKpiSwot')) {
+      dialog.classList.add('summary-swot-map');
+      dialog.querySelector('h2').textContent = 'Itens da SWOT';
+      dialog.querySelector('footer').remove();
+      const grid = dialog.querySelector('.summary-record-table');
+      grid.className = 'summary-swot-grid';
+      grid.replaceChildren();
+      for (const [key, title, color] of [['Força','Forças','strength'], ['Fraqueza','Fraquezas','weakness'], ['Oportunidade','Oportunidades','opportunity'], ['Ameaça','Ameaças','threat']]) {
+        const section = doc.createElement('section');
+        section.className = `summary-swot-quadrant ${color}`;
+        section.dataset.quadrant = key;
+        const heading = doc.createElement('h3');
+        heading.textContent = title;
+        const rows = data.rows.filter(row => row.quadrante === key);
+        const count = doc.createElement('span');
+        count.textContent = `${rows.length} ${rows.length === 1 ? 'item' : 'itens'}`;
+        heading.append(count); section.append(heading);
+        if (!rows.length) {
+          const empty = doc.createElement('p'); empty.className = 'summary-swot-empty';
+          empty.textContent = 'Nenhum item cadastrado.'; section.append(empty);
+        }
+        for (const row of rows) {
+          const item = doc.createElement('article'); item.className = 'summary-swot-item';
+          const meta = doc.createElement('div'); meta.className = 'summary-swot-meta';
+          const code = doc.createElement('span'); code.textContent = row.id || '';
+          const priority = doc.createElement('span'); priority.className = 'summary-swot-priority';
+          priority.textContent = `Prioridade: ${row.prioridade || '—'}`;
+          meta.append(code, priority); item.append(meta);
+          const description = doc.createElement('p'); description.className = 'summary-swot-description';
+          description.textContent = row.descricao || '—'; item.append(description);
+          const owner = doc.createElement('p'); owner.textContent = `Responsável: ${row.responsavel || '—'}`;
+          item.append(owner);
+          if (row.planoNecessario === 'Sim') {
+            const plan = doc.createElement('p'); plan.textContent = `Plano de ação: ${row.planoAcao || 'Não informado'}`;
+            const status = doc.createElement('p'); status.className = 'summary-swot-status';
+            status.textContent = row.status || 'Não iniciado';
+            item.append(plan, status);
+          }
+          section.append(item);
+        }
+        grid.append(section);
+      }
+    } else draw();
+    dialog.showModal();
   }
 
   function bindLists() {
