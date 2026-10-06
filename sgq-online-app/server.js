@@ -3237,10 +3237,13 @@ async function handleApiRequest(req, res, url, session) {
     sendJson(res, 405, { error: "method_not_allowed" }); return;
   }
 
-  if (url.pathname === "/api/leadership-attachments") {
+  if (["/api/leadership-attachments", "/api/context-attachments"].includes(url.pathname)) {
+    const contextAttachment = url.pathname === "/api/context-attachments";
+    const attachmentModule = contextAttachment ? "contexto" : "lideranca";
+    const attachmentPrefix = contextAttachment ? "contextAttachment" : "leadershipAttachment";
     const permissions = await getSessionPermissions(session);
     const editing = req.method !== "GET";
-    if (!(editing ? canEditModule(permissions, "lideranca") : canViewModule(permissions, "lideranca"))) {
+    if (!(editing ? canEditModule(permissions, attachmentModule) : canViewModule(permissions, attachmentModule))) {
       sendJson(res, 403, { error: "forbidden" }); return;
     }
     if (req.method === "POST") {
@@ -3257,23 +3260,25 @@ async function handleApiRequest(req, res, url, session) {
       }
       const type = isPdf ? "application/pdf" : isPng ? "image/png" : isJpeg ? "image/jpeg" : "image/webp";
       const file = { id: crypto.randomUUID(), name, size: bytes.length, type };
-      await setCompanyData(companyId, `leadershipAttachment:${file.id}`, { ...file, base64 });
+      await setCompanyData(companyId, `${attachmentPrefix}:${file.id}`, { ...file, base64 });
       sendJson(res, 201, file); return;
     }
     const id = url.searchParams.get("id") || "";
     if (!/^[a-f0-9-]{36}$/.test(id)) { sendJson(res, 400, { error: "invalid_attachment" }); return; }
     if (req.method === "DELETE") {
-      const file = await getCompanyData(companyId, `leadershipAttachment:${id}`);
+      const file = await getCompanyData(companyId, `${attachmentPrefix}:${id}`);
       if (!file) { sendJson(res, 404, { error: "attachment_not_found" }); return; }
-      await setCompanyData(companyId, `leadershipAttachment:${id}`, null);
-      await auditRequest(req, session, "leadership_attachment_deleted", "success", { attachmentId: id });
+      await setCompanyData(companyId, `${attachmentPrefix}:${id}`, null);
+      await auditRequest(req, session, `${attachmentModule}_attachment_deleted`, "success", { attachmentId: id });
       sendJson(res, 200, { ok: true }); return;
     }
-    const leadership = await getCompanyData(companyId, "leadership");
-    const culture = leadership?.posicionamento?.culturaQualidade;
-    const referenced = culture?.documento?.id === id || (culture?.revisoes || []).some((revision) => revision.documento?.id === id) || ["acoes", "comunicacao"].some((collection) => (leadership?.[collection] || []).some((record) => record?.evidenciaArquivo?.id === id || (record.evidenciaArquivos || []).some((file) => file.id === id)));
+    const moduleData = await getCompanyData(companyId, contextAttachment ? "context" : "leadership");
+    const culture = moduleData?.posicionamento?.culturaQualidade;
+    const referenced = contextAttachment
+      ? (moduleData?.partes || []).some((record) => (record.evidencias || []).some((file) => file.id === id))
+      : culture?.documento?.id === id || (culture?.revisoes || []).some((revision) => revision.documento?.id === id) || ["acoes", "comunicacao"].some((collection) => (moduleData?.[collection] || []).some((record) => record?.evidenciaArquivo?.id === id || (record.evidenciaArquivos || []).some((file) => file.id === id)));
     if (req.method === "GET") {
-      const file = referenced && await getCompanyData(companyId, `leadershipAttachment:${id}`);
+      const file = referenced && await getCompanyData(companyId, `${attachmentPrefix}:${id}`);
       if (!file?.base64) { sendJson(res, 404, { error: "attachment_not_found" }); return; }
       send(res, 200, Buffer.from(file.base64, "base64"), {
         "Content-Type": file.type,

@@ -30,7 +30,7 @@
     }
     if (card.closest('.context-kpi-row') && document.querySelector('.context-page-content')) {
       if (index === 0) return pick(contextGet('swot').map((row, i) => ({ ...row, numero: String(i + 1).padStart(4, '0') })), [['Nº','numero'], ['Descrição','descricao'], ['Categoria','quadrante'], ['Prioridade','prioridade'], ['Situação','status']]);
-      if (index === 1) return pick(contextGet('partes').filter(r => r.monitoramento?.trim()), [['Código','id'], ['Parte interessada','parte'], ['Monitoramento','monitoramento'], ['Frequência','frequencia']]);
+      if (index === 1) return pick(contextGet('partes').filter(r => r.monitoramento?.trim()), [['Parte interessada','parte'], ['Monitoramento','monitoramento'], ['Frequência','frequencia']]);
       if (index === 3) return pick(contextGet('processos'), [['Código',r => r.codigo || r.id], ['Processo','nome'], ['Categoria','categoria'], ['Responsável','responsavel'], ['Situação','status']]);
     }
     if (card.closest('#leadershipKpis')) {
@@ -62,6 +62,7 @@
     const dialog = doc.createElement('dialog');
     dialog.id = 'summary-record-list';
     dialog.className = 'summary-record-list';
+    if (card.querySelector('#ctxKpiPartes')) dialog.classList.add('summary-parties-list');
     dialog.setAttribute('aria-labelledby', 'summary-record-title');
     dialog.innerHTML = '<header><div><h2 id="summary-record-title"></h2><p></p></div><button type="button" data-close aria-label="Fechar lista">×</button></header><div class="summary-record-table"><table><thead></thead><tbody></tbody></table></div><footer><div><button type="button" data-prev aria-label="Página anterior">‹</button><span aria-live="polite"></span><button type="button" data-next aria-label="Próxima página">›</button></div></footer>';
     dialog.querySelector('h2').textContent = card.querySelector('.compact-card-label, .nc-progress-label')?.textContent || 'Registros';

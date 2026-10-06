@@ -3973,6 +3973,14 @@ async function persistLeadershipRecord() {
 }
 
 async function uploadLeadershipAttachment(file) {
+  return uploadModuleAttachment(file, "/api/leadership-attachments");
+}
+
+async function uploadContextAttachment(file) {
+  return uploadModuleAttachment(file, "/api/context-attachments");
+}
+
+async function uploadModuleAttachment(file, endpoint) {
   if (!file || !file.size || file.size > 2 * 1024 * 1024) throw new Error("A evidência deve ter conteúdo e no máximo 2 MB.");
   const accepted = /\.(pdf|png|jpe?g|webp)$/i.test(file.name);
   if (!accepted) throw new Error("Anexe um arquivo PDF ou uma imagem PNG, JPG ou WEBP.");
@@ -3982,7 +3990,7 @@ async function uploadLeadershipAttachment(file) {
     reader.onerror = () => reject(new Error("Não foi possível ler a evidência."));
     reader.readAsDataURL(file);
   });
-  const response = await fetch("/api/leadership-attachments", {
+  const response = await fetch(endpoint, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ name: file.name, base64 }),
@@ -3992,8 +4000,16 @@ async function uploadLeadershipAttachment(file) {
 }
 
 async function deleteLeadershipAttachment(id) {
+  return deleteModuleAttachment(id, "/api/leadership-attachments");
+}
+
+async function deleteContextAttachment(id) {
+  return deleteModuleAttachment(id, "/api/context-attachments");
+}
+
+async function deleteModuleAttachment(id, endpoint) {
   if (!id) return;
-  const response = await fetch(`/api/leadership-attachments?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+  const response = await fetch(`${endpoint}?id=${encodeURIComponent(id)}`, { method: "DELETE" });
   if (!response.ok && response.status !== 404) throw new Error("Não foi possível remover o anexo armazenado.");
 }
 
@@ -4469,8 +4485,10 @@ function renderContextKpis() {
   setText("#ctxKpiPartesCaption", `de ${partes.length} monitoradas`);
   document.querySelector('#ctxKpiPartes')?.closest('.kpi-card')?.setAttribute('data-kpi-progress', partes.length ? monitoredPartes / partes.length : 0);
   setText("#ctxKpiEscopo", escopoFilled ? escopo.statusAprovacao || "-" : "-");
-  setText("#ctxKpiEscopoCaption", escopoFilled ? formatDate(escopo.dataAtualizacao) : "Não cadastrado");
-  document.querySelector("#ctxKpiEscopoCaption")?.setAttribute("title", escopoFilled ? `Atualizado em ${formatDate(escopo.dataAtualizacao)}` : "Sem escopo cadastrado");
+  const scopeApprovalDate = escopo.statusAprovacao === "Aprovado" && escopo.dataAprovacao;
+  const scopeCardDate = scopeApprovalDate || escopo.dataAtualizacao;
+  setText("#ctxKpiEscopoCaption", escopoFilled ? formatDate(scopeCardDate) : "Não cadastrado");
+  document.querySelector("#ctxKpiEscopoCaption")?.setAttribute("title", escopoFilled ? `${scopeApprovalDate ? "Aprovado" : "Atualizado"} em ${formatDate(scopeCardDate)}` : "Sem escopo cadastrado");
   setText("#ctxKpiProcessos", processos.length);
   setText("#ctxKpiProcessosCaption", `${strategicProcesses} est. · ${operationalProcesses} op. · ${supportProcesses} sup.`);
   document.querySelector("#ctxKpiProcessosCaption")?.setAttribute("title", `${strategicProcesses} estratégicos · ${operationalProcesses} operacionais · ${supportProcesses} suporte`);
@@ -4763,6 +4781,7 @@ function contextModalsHtml() {
         <div class="field"><label>Expectativa</label><textarea class="input-basic" id="contextParteExpectativa"></textarea></div>
         <div class="field"><label>Forma de monitoramento</label><input class="input-basic" id="contextParteMonitoramento"></div>
         <div class="field"><label>Frequência de monitoramento</label><select class="input-basic" id="contextParteFrequencia"><option>Mensal</option><option>Trimestral</option><option>Semestral</option><option>Anual</option></select></div>
+        <div class="field"><label for="contextParteEvidencias">Anexar evidências</label><input class="input-basic" id="contextParteEvidencias" type="file" accept="application/pdf,image/png,image/jpeg,image/webp,.pdf,.png,.jpg,.jpeg,.webp" multiple><small id="contextParteEvidenciasLista">Nenhum arquivo selecionado</small></div>
         <div class="modal-actions">
           <button class="btn-ghost" data-context-close="contextParteModal" type="button">Cancelar</button>
           <button class="btn-primary" data-context-action="save-parte" type="button">Salvar</button>
@@ -4988,12 +5007,24 @@ function openContextParte(id = "") {
   setInputValue("contextParteExpectativa", item?.expectativa || "");
   setInputValue("contextParteMonitoramento", item?.monitoramento || "");
   setInputValue("contextParteFrequencia", item?.frequencia || "Trimestral");
+  bindNcAttachmentEditor(document.getElementById("contextParteEvidencias"), document.getElementById("contextParteEvidenciasLista"), Array.isArray(item?.evidencias) ? item.evidencias : [], false, "contexto");
   openContextModal("contextParteModal");
 }
 
-function saveContextParte() {
+async function saveContextParte() {
   const rows = contextGet("partes");
   const id = inputValue("contextParteId");
+  const index = rows.findIndex((item) => item.id === id);
+  const previousAttachments = index >= 0 && Array.isArray(rows[index].evidencias) ? rows[index].evidencias : [];
+  const evidenceInput = document.getElementById("contextParteEvidencias");
+  try {
+    for (const entry of evidenceInput?.ncFiles || []) {
+      if (entry.file && !entry.id) Object.assign(entry, await uploadContextAttachment(entry.file));
+    }
+  } catch (error) {
+    toast(error.message || "Não foi possível enviar as evidências.");
+    return;
+  }
   const record = {
     id: id || nextId("PI", rows),
     parte: inputValue("contextParteNome"),
@@ -5001,24 +5032,31 @@ function saveContextParte() {
     expectativa: inputValue("contextParteExpectativa"),
     monitoramento: inputValue("contextParteMonitoramento"),
     frequencia: inputValue("contextParteFrequencia"),
+    evidencias: (evidenceInput?.ncFiles || []).map(({ file, ...metadata }) => metadata),
   };
-  const index = rows.findIndex((item) => item.id === id);
   if (index >= 0) rows[index] = record;
   else rows.push(record);
   contextSet("partes", rows);
+  for (const previous of previousAttachments) {
+    if (!record.evidencias.some((file) => file.id === previous.id)) deleteContextAttachment(previous.id).catch(console.warn);
+  }
   closeContextModal("contextParteModal");
   refreshContextScreen("Parte interessada salva.");
 }
 
 function deleteContextParte(id) {
-  contextSet("partes", contextGet("partes").filter((item) => item.id !== id));
+  const rows = contextGet("partes");
+  const item = rows.find((row) => row.id === id);
+  contextSet("partes", rows.filter((row) => row.id !== id));
+  for (const file of Array.isArray(item?.evidencias) ? item.evidencias : []) deleteContextAttachment(file.id).catch(console.warn);
   refreshContextScreen("Parte interessada excluída.");
 }
 
 function saveContextEscopo() {
   const previous = contextGet("escopo");
   const nextRevision = String(Number.parseInt(previous.revisao || "00", 10) + 1).padStart(2, "0");
-  const dataAtualizacao = new Date().toISOString().slice(0, 10);
+  const dataAtualizacao = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+  const dataAprovacao = inputValue("ctxEscopo-dataAprovacao");
   const escopo = {
     unidades: inputValue("ctxEscopo-unidades"),
     produtos: inputValue("ctxEscopo-produtos"),
@@ -5028,10 +5066,10 @@ function saveContextEscopo() {
     statusAprovacao: inputValue("ctxEscopo-statusAprovacao"),
     aprovador: inputValue("ctxEscopo-aprovador"),
     aprovadorCargo: inputValue("ctxEscopo-aprovadorCargo"),
-    dataAprovacao: inputValue("ctxEscopo-dataAprovacao"),
+    dataAprovacao,
     dataAtualizacao,
     revisao: nextRevision,
-    historico: [...(Array.isArray(previous.historico) ? previous.historico : []), { revisao: nextRevision, data: dataAtualizacao, aprovador: inputValue("ctxEscopo-aprovador"), descricao: "Atualização do escopo." }],
+    historico: [...(Array.isArray(previous.historico) ? previous.historico : []), { revisao: nextRevision, data: dataAprovacao || dataAtualizacao, aprovador: inputValue("ctxEscopo-aprovador"), descricao: "Atualização do escopo." }],
   };
   contextSet("escopo", escopo);
   renderContextTab();
