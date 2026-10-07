@@ -4688,7 +4688,7 @@ function contextProcessArchitectureHtml(rows) {
           ${contextProcessArchitectureLane("Suporte", "Recursos e estrutura para os processos", support)}
         </div>
         <aside class="process-reference-side process-reference-output">${moduleIcon("riscos")}<h4>Satisfação das partes interessadas</h4><ul><li>Produtos</li><li>Serviços</li><li>Resultados</li><li>Conformidade</li><li>Melhoria contínua</li></ul></aside>
-        <div class="process-reference-improvement"><span aria-hidden="true">↑</span><strong>Melhoria contínua em todos os processos</strong><span aria-hidden="true">↑</span></div>
+        <div class="process-reference-improvement"><span class="process-return-arrow" aria-hidden="true"></span><strong>Melhoria contínua em todos os processos</strong><span class="process-return-arrow" aria-hidden="true"></span></div>
       </div>
     </section>`;
 }
