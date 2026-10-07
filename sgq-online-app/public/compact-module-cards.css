@@ -43,6 +43,10 @@
 .summary-parties-list th:first-child { width:30%; }
 .summary-parties-list th:nth-child(2) { width:50%; }
 .summary-parties-list td:first-child { font-family:inherit; font-size:inherit; }
+.summary-record-list .summary-status-complete { color:#34d399; font-weight:700; }
+.summary-record-list .summary-status-monitoring { color:#facc15; font-weight:700; }
+.summary-record-list .summary-status-pending { color:#f87171; font-weight:700; }
+.summary-record-list .summary-status-ongoing { color:#fb923c; font-weight:700; }
 .summary-record-list button { min-width: 34px; min-height: 34px; padding: 6px 12px; border: 1px solid var(--border-subtle, #245474); border-radius: 6px; color: inherit; background: transparent; cursor: pointer; font: 700 12px 'Plus Jakarta Sans', sans-serif; }
 .summary-record-list button:disabled { opacity: .4; cursor: default; }
 .summary-record-list button:focus-visible { outline: 2px solid var(--accent-cyan, #46d9f5); outline-offset: 2px; }

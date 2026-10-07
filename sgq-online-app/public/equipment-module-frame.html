@@ -1334,6 +1334,13 @@ function renderCategoryPage(){
         </tr>`).join('')}</tbody>
     </table>` : `<div class="empty-state">Nenhum equipamento nesta categoria.</div>`;
   document.getElementById('catBody').innerHTML = body;
+  document.querySelectorAll('#catBody .status-pill').forEach(pill => {
+    if (pill.textContent.trim() === 'Em calibração') {
+      pill.style.color = '#fb923c';
+      const dot = pill.querySelector('.status-dot2');
+      if (dot) { dot.style.background = '#fb923c'; dot.style.boxShadow = 'none'; }
+    }
+  });
   document.getElementById('catPagination').innerHTML = `
     <button type="button" class="category-page-btn" aria-label="Página anterior" onclick="changeCategoryPage(-1)" ${categoryListPage===1?'disabled':''}>
       <svg class="icon" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg>

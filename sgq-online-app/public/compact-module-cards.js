@@ -6,6 +6,17 @@
   const selector = '.module-detail-view .context-kpi-row > .kpi-card, .module-detail-view .risk-kpi-row > .kpi-card, .module-detail-view .climate-kpis > .kpi-card, .module-detail-view .documents-kpis > .documents-kpi, #kpiRow > .kpi-card, #kpiRow > .kpi-solid, #kpiRow > .dash-solid-card';
   const resize = new ResizeObserver(entries => entries.forEach(({ target }) => target.matches('.compact-summary-header, .climate-summary-header') ? alignSummary(target) : contrast(target)));
   const observed = new Set();
+  function listStatusClass(value) {
+    const status = String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
+    const groups = {
+      complete: ['concluida', 'concluido', 'encerrada', 'encerrado', 'ativo', 'ativa', 'vigente', 'homologado', 'aprovado', 'aprovada', 'atingido', 'atingida', 'respondida', 'respondido', 'em uso'],
+      monitoring: ['monitorando', 'em monitoramento', 'agendada', 'agendado', 'programada', 'programado', 'aguardando aprovacao', 'pendente', 'enviada', 'enviado'],
+      pending: ['nao iniciada', 'nao iniciado', 'aberta', 'aberto', 'em aberto', 'atrasada', 'atrasado', 'vencida', 'vencido', 'reprovado', 'reprovada'],
+      ongoing: ['em andamento', 'em execucao', 'em revisao', 'em analise', 'em tratamento', 'em calibracao'],
+    };
+    const group = Object.keys(groups).find(key => groups[key].includes(status));
+    return group ? `summary-status-${group}` : '';
+  }
   // Each provider uses the same records and predicates as its summary counter.
   function listFor(card) {
     let index = [...card.parentElement.children].indexOf(card);
@@ -76,10 +87,12 @@
       const body = dialog.querySelector('tbody'); body.replaceChildren();
       for (const row of data.rows.slice(page * 10, page * 10 + 10)) {
         const tr = doc.createElement('tr');
-        data.columns.forEach(([, field]) => {
+        data.columns.forEach(([label, field]) => {
           const td = doc.createElement('td');
           const value = typeof field === 'function' ? field(row) : row[field];
           td.textContent = value == null || value === '' ? '—' : String(value);
+          const statusClass = label === 'Situação' ? listStatusClass(value) : '';
+          if (statusClass) td.classList.add(statusClass);
           tr.append(td);
         });
         body.append(tr);
@@ -137,6 +150,8 @@
             const plan = doc.createElement('p'); plan.textContent = `Plano de ação: ${row.planoAcao || 'Não informado'}`;
             const status = doc.createElement('p'); status.className = 'summary-swot-status';
             status.textContent = row.status || 'Não iniciado';
+            const statusClass = listStatusClass(status.textContent);
+            if (statusClass) status.classList.add(statusClass);
             item.append(plan, status);
           }
           section.append(item);
