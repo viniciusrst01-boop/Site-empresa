@@ -260,6 +260,7 @@ let currentRiskTab = "riscos";
 let riskFilter = "todos";
 
 const contextStorageKeys = {
+  mapa: "qps_ctx_mapa",
   swot: "qps_ctx_swot",
   partes: "qps_ctx_partes",
   escopo: "qps_ctx_escopo",
@@ -268,6 +269,10 @@ const contextStorageKeys = {
 const contextClearBackupKey = "qps_ctx_last_clear_backup";
 
 const contextSeeds = {
+  mapa: {
+    requisitos: ["Clientes", "Requisitos legais e regulamentares", "Fornecedores", "Colaboradores", "Sociedade"],
+    satisfacao: ["Produtos", "Serviços", "Resultados", "Conformidade", "Melhoria contínua"],
+  },
   swot: [
     { id: "SWOT-0001", quadrante: "Força", descricao: "Equipe com auditores líderes certificados ISO 9001 e Lean Six Sigma.", prioridade: "Alta", planoNecessario: "Não", planoAcao: "", responsavel: "Hugo Melo", status: "Concluído" },
     { id: "SWOT-0002", quadrante: "Força", descricao: "Metodologia própria de diagnóstico validada em projetos reais.", prioridade: "Média", planoNecessario: "Não", planoAcao: "", responsavel: "Hugo Melo", status: "Concluído" },
@@ -4681,16 +4686,40 @@ function contextProcessArchitectureHtml(rows) {
   return `
     <section class="process-architecture process-architecture-neon process-swimlanes process-reference-map" aria-label="Mapa de processos">
       <div class="process-reference-layout">
-        <aside class="process-reference-side process-reference-input">${moduleIcon("contexto")}<h4>Requisitos das partes interessadas</h4><ul><li>Clientes</li><li>Requisitos legais e regulamentares</li><li>Fornecedores</li><li>Colaboradores</li><li>Sociedade</li></ul></aside>
+        ${contextMapSideHtml("requisitos", "Requisitos das partes interessadas", "input", "contexto")}
         <div class="process-architecture-body">
           ${contextProcessArchitectureLane("Estratégico", "Direcionamento, planejamento e tomada de decisão", strategic)}
           ${contextProcessArchitectureLane("Operacional", "Entrega de valor ao cliente", operational, true)}
           ${contextProcessArchitectureLane("Suporte", "Recursos e estrutura para os processos", support)}
         </div>
-        <aside class="process-reference-side process-reference-output">${moduleIcon("riscos")}<h4>Satisfação das partes interessadas</h4><ul><li>Produtos</li><li>Serviços</li><li>Resultados</li><li>Conformidade</li><li>Melhoria contínua</li></ul></aside>
+        ${contextMapSideHtml("satisfacao", "Satisfação das partes interessadas", "output", "riscos")}
         <div class="process-reference-improvement"><span class="process-return-arrow" aria-hidden="true"></span><strong>Melhoria contínua em todos os processos</strong><span class="process-return-arrow" aria-hidden="true"></span></div>
       </div>
     </section>`;
+}
+
+function contextMapSideHtml(key, title, side, icon) {
+  const items = contextGet("mapa")[key] ?? contextSeeds.mapa[key];
+  return `<aside class="process-reference-side process-reference-${side}">
+    ${moduleIcon(icon)}<h4>${title}</h4>
+    ${canEditModule("contexto") ? `<button class="abtn process-side-edit" type="button" data-context-action="edit-map-side" data-id="${key}" title="Editar ${title}" aria-label="Editar ${title}">${moduleIcon("edit")}</button>` : ""}
+    <ul>${items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul></aside>`;
+}
+
+function openContextMapSide(key) {
+  if (!Object.hasOwn(contextSeeds.mapa, key)) return;
+  setInputValue("contextMapSideKey", key);
+  setInputValue("contextMapSideText", (contextGet("mapa")[key] ?? contextSeeds.mapa[key]).join("\n"));
+  document.querySelector("#contextMapSideTitle").textContent = key === "requisitos" ? "Requisitos das partes interessadas" : "Satisfação das partes interessadas";
+  openContextModal("contextMapSideModal");
+}
+
+function saveContextMapSide() {
+  const key = inputValue("contextMapSideKey");
+  if (!Object.hasOwn(contextSeeds.mapa, key)) return;
+  contextSet("mapa", { ...contextGet("mapa"), [key]: linesToArray(inputValue("contextMapSideText")) });
+  closeContextModal("contextMapSideModal");
+  refreshContextScreen("Mapa de processos atualizado.");
 }
 
 function contextProcessArchitectureLane(category, description, rows, isFlow = false) {
@@ -4705,7 +4734,7 @@ function contextProcessArchitectureLane(category, description, rows, isFlow = fa
     return moduleIcon(match?.[1] || "documentos");
   };
   const cards = rows.length
-    ? rows.map((item) => `<button class="process-architecture-node${item.status === "Inativo" ? " is-inactive" : ""}" data-context-action="${action}" data-id="${escapeHtml(item.id)}" type="button" aria-label="${escapeHtml(actionLabel)}: ${escapeHtml(item.nome)}${item.status === "Inativo" ? " (Inativo)" : ""}"><span class="process-neon-icon" aria-hidden="true">${processIcon(item)}</span><span class="process-neon-copy"><span class="process-architecture-code">${escapeHtml(item.codigo || "-")}</span>${item.status === "Inativo" ? '<span class="process-inactive-label">Inativo</span>' : ""}<strong>${escapeHtml(item.nome)}</strong></span><small>${escapeHtml(item.objetivo || item.saidas?.[0] || "Processo mapeado")}</small></button>`).join("")
+? rows.map((item) => `<button class="process-architecture-node${item.status === "Inativo" ? " is-inactive" : ""}" data-context-action="${action}" data-id="${escapeHtml(item.id)}" type="button" aria-label="${escapeHtml(actionLabel)}: ${escapeHtml(item.nome)}${item.status === "Inativo" ? " (Inativo)" : ""}"><span class="process-neon-icon" aria-hidden="true">${processIcon(item)}</span><span class="process-neon-copy"><span class="process-architecture-code">${escapeHtml(item.codigo || "-")}</span>${item.status === "Inativo" ? '<span class="process-inactive-label">Inativo</span>' : ""}<strong>${escapeHtml(item.nome)}</strong></span></button>`).join("")
     : `<div class="process-architecture-empty">Nenhum processo cadastrado nesta categoria.</div>`;
   return `
     <div class="process-architecture-lane ${className}${isFlow ? " operational-flow" : ""}">
@@ -4742,6 +4771,14 @@ function contextRowActions(type, id, canView) {
 
 function contextModalsHtml() {
   return `
+    <div class="modal-overlay" id="contextMapSideModal">
+      <div class="modal-box">
+        <div class="modal-hd"><h3 id="contextMapSideTitle"></h3><button class="modal-close" data-context-close="contextMapSideModal" type="button" aria-label="Fechar">${moduleIcon("close")}</button></div>
+        <input type="hidden" id="contextMapSideKey">
+        <div class="field"><label for="contextMapSideText">Itens</label><textarea class="input-basic" id="contextMapSideText" rows="8"></textarea></div>
+        <div class="modal-actions"><button class="btn-ghost" data-context-close="contextMapSideModal" type="button">Cancelar</button><button class="btn-primary" data-context-action="save-map-side" type="button">Salvar</button></div>
+      </div>
+    </div>
     <div class="modal-overlay" id="contextSwotModal">
       <div class="modal-box">
         <div class="modal-hd">
@@ -4865,6 +4902,8 @@ function handleContextAction(action, id) {
   }
 
   const actions = {
+    "edit-map-side": () => openContextMapSide(id),
+    "save-map-side": () => saveContextMapSide(),
     "new-swot": () => openContextSwot(),
     "edit-swot": () => openContextSwot(id),
     "delete-swot": () => deleteContextSwot(id),
@@ -4893,6 +4932,7 @@ function clearContextModule() {
   contextSet("partes", []);
   contextSet("escopo", blankContextEscopo());
   contextSet("processos", []);
+  contextSet("mapa", { requisitos: [], satisfacao: [] });
   refreshContextScreen("Módulo Contexto limpo.");
 }
 
@@ -4902,6 +4942,7 @@ function saveContextClearBackup() {
     partes: contextGet("partes"),
     escopo: contextGet("escopo"),
     processos: contextGet("processos"),
+    mapa: contextGet("mapa"),
     createdAt: new Date().toISOString(),
   };
   localStorage.setItem(contextClearBackupKey, JSON.stringify(backup));
@@ -4918,6 +4959,7 @@ function undoClearContextModule() {
   contextSet("partes", backup.partes || []);
   contextSet("escopo", backup.escopo || blankContextEscopo());
   contextSet("processos", backup.processos || []);
+  contextSet("mapa", backup.mapa ?? contextSeeds.mapa);
   localStorage.removeItem(contextClearBackupKey);
   refreshContextScreen("Limpeza desfeita.");
 }

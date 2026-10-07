@@ -4282,11 +4282,12 @@ table.ctxtbl {
 .process-reference-map.process-swimlanes .process-architecture-lane-head span { font-size:17px; font-weight:800; text-transform:uppercase; color:#f0f4ff; }
 .process-reference-map.process-swimlanes .process-architecture-lane-head strong { font-size:10px; font-weight:500; color:#bed0df; margin:3px 0 0; }
 .process-reference-map.process-swimlanes .process-architecture-nodes { grid-template-columns:repeat(var(--lane-count),minmax(0,1fr)); gap:7px; padding:10px; }
-.process-reference-map.process-architecture .process-architecture-node { display:grid; grid-template-columns:30px minmax(0,1fr); grid-template-rows:auto 1fr; align-content:start; align-items:start; min-height:128px; gap:8px; padding:10px; font-family:inherit; background:#041d31; }
+.process-reference-map.process-architecture .process-architecture-node { display:grid; grid-template-columns:30px minmax(0,1fr); grid-template-rows:auto; align-content:start; align-items:start; min-height:80px; gap:8px; padding:10px; font-family:inherit; background:#041d31; }
 .process-reference-map.process-architecture .process-architecture-node > small { grid-column:1 / -1; margin:0; font-size:11px; line-height:1.45; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:4; overflow:hidden; }
 .process-reference-map.process-architecture .process-architecture-node strong { font-size:12px; line-height:1.35; margin-top:5px; }
 .process-reference-map.process-architecture .process-architecture-code { color:var(--process-neon); font-size:10px; }
-.process-reference-map .process-architecture-lane.estrategico { --process-neon:#f1c45b; }
+.process-reference-map .process-architecture-lane.estrategico { --process-neon:#a78bfa; }
+.process-reference-map .process-side-edit { position:absolute; top:6px; right:6px; }
 .process-reference-map.process-architecture .process-architecture-node .process-neon-icon { width:30px; height:30px; flex-basis:30px; border:0; background:transparent; }
 .process-reference-map.process-architecture .process-architecture-node small { display:block; overflow:visible; line-height:1.5; margin-top:10px; }
 .process-reference-map .process-reference-side { display:flex; flex-direction:column; justify-content:flex-start; gap:18px; padding:38px 12px 20px; border:1px solid #397495; border-radius:8px; min-width:0; color:#d8e4ee; position:relative; }

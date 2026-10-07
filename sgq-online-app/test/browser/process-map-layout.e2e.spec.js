@@ -16,7 +16,22 @@ test('mapa organiza 17 processos em faixas e identifica inativos', async ({ page
     const map = page.locator('.process-reference-map');
     await expect(map.locator('.process-architecture-node')).toHaveCount(17);
     await expect(map.locator('.process-inactive-label')).toHaveCount(3);
+    await expect(map.locator('.process-architecture-node > small')).toHaveCount(0);
     expect(await map.evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
     await map.screenshot({ path: testInfo.outputPath(`map-${width}.png`) });
   }
+  await page.setViewportSize({ width: 1700, height: 1000 });
+  for (const [key, side] of [['requisitos', 'input'], ['satisfacao', 'output']]) {
+    await page.locator(`[data-context-action="edit-map-side"][data-id="${key}"]`).click();
+    await page.locator('#contextMapSideText').fill('Primeiro item\nSegundo <item>');
+    await page.locator('[data-context-action="save-map-side"]').click();
+    await expect(page.locator(`.process-reference-${side} li`)).toHaveText(['Primeiro item', 'Segundo <item>']);
+    await page.locator(`[data-context-action="edit-map-side"][data-id="${key}"]`).click();
+    await expect(page.locator('#contextMapSideText')).toHaveValue('Primeiro item\nSegundo <item>');
+    await page.locator('#contextMapSideModal .modal-close').click();
+  }
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('qps_ctx_mapa')))).toEqual({
+    requisitos: ['Primeiro item', 'Segundo <item>'],
+    satisfacao: ['Primeiro item', 'Segundo <item>'],
+  });
 });
