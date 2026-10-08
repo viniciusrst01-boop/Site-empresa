@@ -7893,6 +7893,52 @@ body.theme-white .home-v2-alerts > button {
   }
 }
 
+body.theme-white .process-reference-map.process-architecture {
+  background: #fff;
+  border-color: #cbd5e1;
+  color: #172b46;
+}
+body.theme-white .process-reference-map .process-architecture-lane.estrategico { --process-neon: #7c3aed; }
+body.theme-white .process-reference-map .process-architecture-lane.operacional { --process-neon: #007fa8; }
+body.theme-white .process-reference-map .process-architecture-lane.suporte { --process-neon: #008575; }
+body.theme-white .process-reference-map .process-architecture-lane-head,
+body.theme-white .process-reference-map .process-architecture-node {
+  background: #fff;
+  color: #172b46;
+  box-shadow: none;
+}
+body.theme-white .process-reference-map .process-architecture-lane-head {
+  background: color-mix(in srgb, var(--process-neon) 6%, white);
+  border-bottom-color: #cbd5e1;
+}
+body.theme-white .process-reference-map .process-architecture-lane-head span { color: #172b46; }
+body.theme-white .process-reference-map .process-architecture-lane-head strong,
+body.theme-white .process-reference-map .process-architecture-lane-head > small,
+body.theme-white .process-reference-map .process-architecture-empty { color: #475569; }
+body.theme-white .process-reference-map .process-architecture-node:hover {
+  background: color-mix(in srgb, var(--process-neon) 7%, white);
+}
+body.theme-white .process-reference-map .process-architecture-node.is-inactive {
+  background: #f1f3f5;
+  border-color: #94a3b8;
+  color: #475569;
+}
+body.theme-white .process-reference-map .is-inactive .process-architecture-code,
+body.theme-white .process-reference-map .is-inactive .process-neon-icon,
+body.theme-white .process-reference-map .process-inactive-label { color: #64748b; }
+body.theme-white .process-reference-map .process-reference-side {
+  background: #f8fafc;
+  border-color: #b9cbdc;
+  color: #172b46;
+}
+body.theme-white .process-reference-map .process-reference-side > .icon,
+body.theme-white .process-reference-map .process-side-edit { color: #087fa8; }
+body.theme-white .process-reference-map .process-reference-improvement strong {
+  background: #eef7fc;
+  border-color: #81b1cf;
+  color: #174f70;
+}
+
 body.theme-white .module-card:hover,
 body.theme-white .mymod-card:hover {
   background: #f8fbff;

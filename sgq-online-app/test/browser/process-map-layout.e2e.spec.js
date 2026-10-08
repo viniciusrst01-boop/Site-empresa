@@ -19,6 +19,12 @@ test('mapa organiza 17 processos em faixas e identifica inativos', async ({ page
     await expect(map.locator('.process-architecture-node > small')).toHaveCount(0);
     expect(await map.evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
     await map.screenshot({ path: testInfo.outputPath(`map-${width}.png`) });
+    await page.evaluate(() => document.body.classList.add('theme-white'));
+    await expect(map).toHaveCSS('background-color', 'rgb(255, 255, 255)');
+    await expect(map.locator('.process-architecture-node:not(.is-inactive)').first()).toHaveCSS('background-color', 'rgb(255, 255, 255)');
+    await expect(map.locator('.process-architecture-node.is-inactive').first()).toHaveCSS('background-color', 'rgb(241, 243, 245)');
+    await map.screenshot({ path: testInfo.outputPath(`map-white-${width}.png`) });
+    await page.evaluate(() => document.body.classList.remove('theme-white'));
   }
   await page.setViewportSize({ width: 1700, height: 1000 });
   for (const [key, side] of [['requisitos', 'input'], ['satisfacao', 'output']]) {
