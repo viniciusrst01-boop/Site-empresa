@@ -4273,7 +4273,7 @@ table.ctxtbl {
 .process-reference-map.process-architecture .process-architecture-body { padding:0; gap:22px; min-width:0; }
 .process-reference-map.process-swimlanes .process-architecture-lane { display:block; position:relative; padding:0; border:1px solid color-mix(in srgb,var(--process-neon) 55%,transparent); border-radius:8px; }
 .process-reference-map .process-architecture-lane:not(:last-child)::after { content:""; position:absolute; bottom:-16px; left:calc(50% - 16px); border-left:16px solid transparent; border-right:16px solid transparent; border-top:14px solid #2997ce; }
-.process-reference-map.process-swimlanes .process-architecture-lane-head { display:flex; position:relative; gap:10px; padding:10px 16px 10px 42px; min-height:44px; border-bottom:1px solid #28526e; border-radius:0; }
+.process-reference-map.process-swimlanes .process-architecture-lane-head { display:flex; position:relative; gap:10px; padding:10px 16px 10px 42px; min-height:44px; border-bottom:1px solid #28526e; border-radius:7px 7px 0 0; overflow:hidden; }
 .process-reference-map .process-architecture-lane-head::before { content:""; position:absolute; inset:0 auto 0 0; width:28px; background:#0da9ed; clip-path:polygon(0 0,65% 0,100% 50%,65% 100%,0 100%); }
 .process-reference-map .suporte .process-architecture-lane-head::before { background:#00c6ae; }
 .process-reference-map .process-architecture-lane-head > .process-neon-icon { display:none; }
