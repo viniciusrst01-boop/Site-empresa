@@ -1,6 +1,6 @@
 const { test, expect } = require('@playwright/test');
 
-test('escopo preserva a data de aprovacao apos a virada UTC', async ({ page }) => {
+test('escopo preserva a data de aprovacao apos a virada UTC', async ({ page }, testInfo) => {
   await page.goto('/login');
   await page.getByLabel('Usuário').fill('browser.owner@example.com');
   await page.getByLabel('Senha').fill('Browser-Teste-123');
@@ -21,4 +21,13 @@ test('escopo preserva a data de aprovacao apos a virada UTC', async ({ page }) =
   expect(saved.historico.at(-1).data).toBe('2026-10-05');
   await expect(page.locator('#ctxKpiEscopoCaption')).toHaveText('05/10/2026');
   await expect(page.locator('.escopo-pill.approved')).toContainText('05/10/2026');
+  for (const width of [1700, 390]) {
+    await page.setViewportSize({ width, height: 1100 });
+    for (const theme of ['dark', 'white']) {
+      await page.evaluate(value => document.body.classList.toggle('theme-white', value === 'white'), theme);
+      const scope = page.locator('.context-scope-card');
+      expect(await scope.evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+      await scope.screenshot({ path: testInfo.outputPath(`scope-${theme}-${width}.png`) });
+    }
+  }
 });

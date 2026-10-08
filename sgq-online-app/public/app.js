@@ -4620,27 +4620,27 @@ function contextEscopoHtml() {
       </div>
       <div class="escopo-grid">
         ${fields.map(([key, label]) => `
-          <div class="escopo-card ${key === "escopoOficial" || key === "servicos" || key === "justificativas" ? "full" : ""}">
+          <div class="escopo-card ${key === "escopoOficial" || key === "servicos" ? "full" : ""}">
             <h4>${escapeHtml(label)}</h4>
-            <textarea id="ctxEscopo-${key}" aria-label="${escapeHtml(label)}"${key === "escopoOficial" ? ' rows="4"' : ""}${readonly}>${escapeHtml(data[key] || "")}</textarea>
+            <textarea id="ctxEscopo-${key}" aria-label="${escapeHtml(label)}" rows="2"${readonly}>${escapeHtml(data[key] || "")}</textarea>
           </div>`).join("")}
         <div class="escopo-card full">
           <h4>Aprovação pela Alta Direção</h4>
-          <div class="field-row3">
+          <div class="field-row3 escopo-approval-grid">
             <div class="field"><label>Revisão</label><input class="input-basic" id="ctxEscopo-revisao" value="${escapeHtml(data.revisao || "00")}" readonly></div>
             <div class="field"><label>Status de aprovação</label><select class="input-basic" id="ctxEscopo-statusAprovacao"${disabled}>${["Pendente", "Aprovado", "Reprovado"].map((status) => `<option value="${status}" ${data.statusAprovacao === status ? "selected" : ""}>${status}</option>`).join("")}</select></div>
             <div class="field"><label>Aprovador</label><input class="input-basic" id="ctxEscopo-aprovador" type="text" value="${escapeHtml(data.aprovador || "")}"${readonly}></div>
             <div class="field"><label>Cargo</label><input class="input-basic" id="ctxEscopo-aprovadorCargo" type="text" value="${escapeHtml(data.aprovadorCargo || "")}"${readonly}></div>
             <div class="field"><label>Data de aprovação</label><input class="input-basic" id="ctxEscopo-dataAprovacao" type="date" value="${escapeHtml(data.dataAprovacao || "")}"${readonly}></div>
-          </div>
-        </div>
-      </div>
       <div class="escopo-save-row">
-        <div class="escopo-saved-msg" id="ctxEscopoSavedMsg" ${canEditModule("contexto") ? "" : "hidden"}>Alterações salvas</div>
         <button class="btn-ghost btn-clear" data-context-action="print-escopo" type="button">${moduleIcon("download")} Gerar PDF</button>
         ${canEditModule("contexto") ? `<button class="btn-ghost danger-text" data-context-action="clear-escopo" type="button">Limpar escopo</button>
         <button class="btn-primary" data-context-action="save-escopo" type="button">Salvar alterações</button>` : ""}
       </div>
+          </div>
+        </div>
+      </div>
+      <div class="escopo-saved-msg" id="ctxEscopoSavedMsg" ${canEditModule("contexto") ? "" : "hidden"}>Alterações salvas</div>
       <div class="context-revision-history">
         <h4>Histórico de revisões</h4>
         ${(Array.isArray(data.historico) && data.historico.length) ? data.historico.slice().reverse().map((item) => `<div><strong>Rev. ${escapeHtml(item.revisao)}</strong> · ${formatDate(item.data)} · ${escapeHtml(item.aprovador || "Sem aprovador")} · ${escapeHtml(item.descricao || "Atualização do escopo.")}</div>`).join("") : "<div class=\"empty-state\">Nenhuma revisão registrada.</div>"}
