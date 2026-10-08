@@ -21,12 +21,19 @@ test('escopo preserva a data de aprovacao apos a virada UTC', async ({ page }, t
   expect(saved.historico.at(-1).data).toBe('2026-10-05');
   await expect(page.locator('#ctxKpiEscopoCaption')).toHaveText('05/10/2026');
   await expect(page.locator('.escopo-pill.approved')).toContainText('05/10/2026');
+  const exclusions = page.locator('#ctxEscopo-exclusoes');
+  await exclusions.fill('Os requisitos aplicáveis são considerados no planejamento, execução, monitoramento e melhoria dos serviços e produtos fornecidos. '.repeat(12));
+  await expect.poll(() => exclusions.evaluate(el => el.scrollHeight <= el.clientHeight + 1)).toBe(true);
+  const expandedHeight = await exclusions.evaluate(el => el.clientHeight);
+  await exclusions.fill('Nenhuma exclusão.');
+  expect(await exclusions.evaluate(el => el.clientHeight)).toBeLessThan(expandedHeight);
   for (const width of [1700, 390]) {
     await page.setViewportSize({ width, height: 1100 });
     for (const theme of ['dark', 'white']) {
       await page.evaluate(value => document.body.classList.toggle('theme-white', value === 'white'), theme);
       const scope = page.locator('.context-scope-card');
       expect(await scope.evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+      await expect.poll(() => scope.locator('textarea').evaluateAll(fields => fields.every(el => el.scrollHeight <= el.clientHeight + 1))).toBe(true);
       await scope.screenshot({ path: testInfo.outputPath(`scope-${theme}-${width}.png`) });
     }
   }

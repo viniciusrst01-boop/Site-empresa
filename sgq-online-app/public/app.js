@@ -4458,7 +4458,36 @@ function bindContextTabs() {
   });
 }
 
+let scopeTextObserver;
+
+function bindScopeTextSizing(target) {
+  const resize = (field) => {
+    field.style.height = "auto";
+    const style = getComputedStyle(field);
+    field.style.height = `${field.scrollHeight + parseFloat(style.borderTopWidth) + parseFloat(style.borderBottomWidth)}px`;
+  };
+  const widths = new WeakMap();
+  scopeTextObserver = new ResizeObserver((entries) => {
+    if (!target.isConnected) {
+      scopeTextObserver.disconnect();
+      return;
+    }
+    entries.forEach(({ target: field, contentRect }) => {
+      if (widths.get(field) !== contentRect.width) {
+        widths.set(field, contentRect.width);
+        resize(field);
+      }
+    });
+  });
+  target.querySelectorAll(".escopo-card textarea").forEach((field) => {
+    resize(field);
+    field.addEventListener("input", () => resize(field));
+    scopeTextObserver.observe(field);
+  });
+}
+
 function renderContextTab() {
+  scopeTextObserver?.disconnect();
   saveModuleTabs("contexto");
   const target = document.querySelector("#contextTabContent");
   if (!target) return;
@@ -4468,7 +4497,10 @@ function renderContextTab() {
   else if (currentContextTab === "mapa-processos") target.innerHTML = contextMapaProcessosHtml();
   else target.innerHTML = contextSwotHtml();
   bindContextActions();
-  if (currentContextTab === "escopo") bindAutomaticCargo("#ctxEscopo-aprovador", "#ctxEscopo-aprovadorCargo");
+  if (currentContextTab === "escopo") {
+    bindAutomaticCargo("#ctxEscopo-aprovador", "#ctxEscopo-aprovadorCargo");
+    bindScopeTextSizing(target);
+  }
 }
 
 function renderContextKpis() {
