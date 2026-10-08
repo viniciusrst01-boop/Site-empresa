@@ -69,8 +69,8 @@ html body :is(#leadershipKpis, .context-kpi-row, .risk-kpi-row, .climate-kpis, .
 html body :is(#leadershipKpis, .context-kpi-row, .risk-kpi-row, .climate-kpis, .documents-kpis, #kpiRow) > .compact-module-card[data-compact-ratio] { background: color-mix(in srgb, var(--compact-color) 38%, white) !important; }
 body .compact-module-card.compact-module-card::before { content: ''; position: absolute; inset: 0 auto 0 0; width: var(--compact-progress, 100%); height: 100%; background: var(--compact-color); border-radius: inherit; z-index: -1; }
 body .compact-module-card::after { display: none !important; }
-body .compact-module-card .compact-card-label { padding-right: 28px; margin: 0; font: 700 10px/1.4 'JetBrains Mono', monospace; text-transform: uppercase; letter-spacing: 0; color: #06101f !important; opacity: 1; }
-body .compact-module-card .compact-card-line { display: flex; align-items: baseline; gap: 6px; padding-right: 28px; min-width: 0; }
+body .compact-module-card .compact-card-label { padding-right: 22px; margin: 0; font: 700 10px/1.4 'JetBrains Mono', monospace; text-transform: uppercase; letter-spacing: 0; color: #06101f !important; opacity: 1; }
+body .compact-module-card .compact-card-line { display: flex; align-items: baseline; gap: 6px; padding-right: 22px; min-width: 0; }
 body .compact-module-card .compact-card-value { flex-shrink: 0; margin: 0; font: 800 24px/1 'JetBrains Mono', monospace !important; color: #06101f !important; }
 body .compact-module-card.compact-text-value .compact-card-value { flex-shrink: 1; font-size: 17px !important; overflow-wrap: anywhere; }
 @media (min-width: 761px) {
@@ -82,7 +82,7 @@ body .compact-module-card .compact-card-caption .ks-dot { display: none; }
 html body .compact-module-card .compact-card-caption { min-height: 0 !important; margin: 0 !important; padding: 0 !important; border: 0 !important; }
 html body .compact-module-card .compact-card-label { margin: 0 !important; }
 html body .compact-module-card .compact-card-line { align-items: center; }
-body .compact-module-card .compact-card-icon { position: absolute; top: 50%; transform: translateY(-50%); right: 10px; width: 26px; height: 26px; margin: 0; padding: 0; border: 0 !important; background: transparent !important; box-shadow: none; color: color-mix(in srgb, var(--compact-color) 70%, #06101f) !important; opacity: 1; }
+body .compact-module-card .compact-card-icon { position: absolute; top: 50%; transform: translateY(-50%); right: 4px; width: 26px; height: 26px; margin: 0; padding: 0; border: 0 !important; background: transparent !important; box-shadow: none; color: color-mix(in srgb, var(--compact-color) 70%, #06101f) !important; opacity: 1; }
 body .compact-module-card .compact-card-icon .icon { width: 26px !important; height: 26px !important; stroke: currentColor; }
 body .compact-module-card.compact-icon-covered .compact-card-icon { color: #06101f !important; }
 
@@ -113,9 +113,9 @@ html body .compact-summary-header #ncKpis { display: block !important; }
 html body .compact-summary-header .nc-progress-card,
 html body #kpiRow.equipment-summary-row .dash-solid-card { min-height: 52px !important; height: auto; padding: 6px 12px !important; border-radius: 8px; }
 html body .compact-summary-header .nc-progress-label,
-html body #kpiRow.equipment-summary-row .sc-label { font-size: 10px; line-height: 1.4; padding-right: 28px; letter-spacing: 0; }
+html body #kpiRow.equipment-summary-row .sc-label { font-size: 10px; line-height: 1.4; padding-right: 22px; letter-spacing: 0; }
 html body .compact-summary-header .nc-progress-line,
-html body #kpiRow.equipment-summary-row .sc-progress-line { gap: 6px; padding-right: 28px; margin-top: 2px; }
+html body #kpiRow.equipment-summary-row .sc-progress-line { gap: 6px; padding-right: 22px; margin-top: 2px; }
 html body .compact-summary-header .nc-progress-line strong,
 html body #kpiRow.equipment-summary-row .sc-value { font-size: 24px; }
 html body #kpiRow.equipment-summary-row .sc-ver { display: none; }
@@ -124,7 +124,7 @@ html body #kpiRow.equipment-summary-row .sc-progress-line { align-items: center;
 html body .compact-summary-header .nc-progress-line span,
 html body #kpiRow.equipment-summary-row .sc-progress-line .sc-caption { font-size: 12px; line-height: 1.3; overflow-wrap: anywhere; }
 html body .compact-summary-header .nc-progress-icon,
-html body #kpiRow.equipment-summary-row .sc-icon { top: 50%; transform: translateY(-50%); right: 10px; }
+html body #kpiRow.equipment-summary-row .sc-icon { top: 50%; transform: translateY(-50%); right: 4px; }
 html body .compact-summary-header .nc-progress-icon .icon,
 html body #kpiRow.equipment-summary-row .sc-icon .icon { width: 26px; height: 26px; }
 @media (max-width: 1399px) {
@@ -145,12 +145,13 @@ html body #kpiRow.equipment-summary-row .sc-icon .icon { width: 26px; height: 26
 .climate-page-content .climate-summary-heading .module-summary-toolbar { margin: 0; padding: 0; }
 html body.module-detail-view .climate-page-content .climate-summary-header .climate-kpis { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; gap: 12px !important; margin: 0 !important; }
 html body.module-detail-view .climate-page-content :is(#leadershipKpis, .climate-kpis) > .compact-module-card { min-height: 52px !important; padding: 6px 12px !important; gap: 2px !important; border-radius: 8px !important; }
-.climate-page-content .climate-kpis .compact-card-label { font-size: 10px; padding-right: 28px; }
-.climate-page-content .climate-kpis .compact-card-line { gap: 6px; padding-right: 28px; }
+.climate-page-content .climate-kpis .compact-card-label { font-size: 10px; padding-right: 22px; }
+.climate-page-content .climate-kpis .compact-card-line { gap: 6px; padding-right: 22px; }
 .climate-page-content .climate-kpis .compact-card-value { font-size: 24px !important; }
 .climate-page-content .climate-kpis .compact-text-value .compact-card-value { font-size: 17px !important; }
 .climate-page-content .climate-kpis .compact-card-caption { font-size: 12px; line-height: 1.3; }
-.climate-page-content .climate-kpis .compact-card-icon { top: 50%; transform: translateY(-50%); right: 10px; width: 26px; height: 26px; }
+.climate-page-content .climate-kpis .compact-card-icon { top: 50%; transform: translateY(-50%); right: 4px; width: 26px; height: 26px; }
+.climate-page-content .climate-kpis > .compact-module-card:last-child .compact-card-icon { right: 6px; }
 .climate-page-content .climate-kpis .compact-card-icon .icon { width: 26px !important; height: 26px !important; }
 @media (max-width: 1399px) {
   .climate-page-content .climate-summary-header { grid-template-columns: minmax(0, 1fr); gap: 12px; }
