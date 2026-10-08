@@ -25,6 +25,13 @@ test('calendario compartilhado preserva datas e funciona em campos dinamicos e i
     await expect(popup).not.toBeVisible();
   }
   await field.click();
+  await popup.getByRole('button', { name: 'Selecionar m\u00eas' }).click();
+  await expect(popup.getByRole('listbox', { name: 'Meses' })).toBeVisible();
+  await popup.screenshot({ path: testInfo.outputPath('month-menu.png') });
+  await popup.getByRole('option', { name: 'Julho', exact: true }).click();
+  await expect(popup.locator('.cur-month')).toHaveText('Julho');
+  await popup.getByRole('button', { name: 'Selecionar m\u00eas' }).click();
+  await popup.getByRole('option', { name: 'Outubro', exact: true }).click();
   await popup.locator('.flatpickr-day:not(.prevMonthDay):not(.nextMonthDay)').filter({ hasText: /^15$/ }).click();
   await expect(field).toHaveValue('2026-10-15');
   await field.click();
