@@ -1,4 +1,7 @@
 (() => {
+  const calendarScript = document.createElement('script');
+  calendarScript.src = '/assets/modern-calendar.js';
+  document.head.append(calendarScript);
   const stylesheet = document.createElement('link');
   stylesheet.rel = 'stylesheet';
   stylesheet.href = '/compact-module-cards.css?v=20260928';

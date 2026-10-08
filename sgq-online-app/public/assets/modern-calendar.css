@@ -1,0 +1,33 @@
+.qp-calendar {
+  --cal-bg: var(--bg-panel, #0d2b4c);
+  --cal-text: var(--text-primary, #eff6ff);
+  position: fixed; inset: auto; margin: 0; padding: 12px 10px 0;
+  box-sizing: border-box; width: 328px; max-width: calc(100vw - 16px);
+  max-height: calc(100dvh - 16px); overflow: auto;
+  border: 1px solid #28608a; border-radius: 12px;
+  background: var(--cal-bg); color: var(--cal-text);
+  box-shadow: 0 16px 40px #0006; font: 13px 'Plus Jakarta Sans', sans-serif;
+}
+.qp-calendar .qp-calendar-proxy { display: none; }
+.qp-calendar .flatpickr-calendar { width: 100%; background: transparent; box-shadow: none; color: inherit; top: auto; padding: 0; }
+.qp-calendar .flatpickr-calendar::before, .qp-calendar .flatpickr-calendar::after { display: none; }
+.qp-calendar .flatpickr-months { position: relative; margin-bottom: 12px; }
+.qp-calendar .flatpickr-months .flatpickr-month { height: 40px; background: transparent; color: inherit; }
+.qp-calendar .flatpickr-current-month { left: 0; width: calc(100% - 76px); padding: 7px 0 0; text-align: left; font-size: 15px; }
+.qp-calendar .flatpickr-current-month .flatpickr-monthDropdown-months { max-width: 125px; margin: 0; padding: 0; font: inherit; font-weight: 700; color: inherit; background: var(--cal-bg); }
+.qp-calendar .flatpickr-current-month input.cur-year { font: inherit; font-weight: 700; color: inherit; }
+.qp-calendar .flatpickr-months :is(.flatpickr-prev-month, .flatpickr-next-month) { top: 0; left: auto; right: 0; width: 32px; height: 34px; padding: 9px; border: 1px solid #28608a; border-radius: 7px; color: inherit; fill: currentColor; }
+.qp-calendar .flatpickr-months .flatpickr-prev-month { right: 38px; }
+.qp-calendar .flatpickr-innerContainer, .qp-calendar .flatpickr-rContainer, .qp-calendar .flatpickr-days { width: 100%; }
+.qp-calendar .dayContainer { width: 100%; min-width: 0; max-width: none; }
+.qp-calendar span.flatpickr-weekday { color: #9dbbd4; font-weight: 600; }
+.qp-calendar .flatpickr-day { max-width: none; flex-basis: 14.2857%; height: 39px; line-height: 37px; border-radius: 7px; color: var(--cal-text); }
+.qp-calendar .flatpickr-day:is(.prevMonthDay, .nextMonthDay, .flatpickr-disabled) { color: #6a829b; }
+.qp-calendar .flatpickr-day.today { border-color: #438bb7; }
+.qp-calendar .flatpickr-day:is(:hover, :focus) { background: #19466b; border-color: #28608a; color: #fff; }
+.qp-calendar .flatpickr-day.selected { background: #1685f5; border-color: #1685f5; color: #fff; }
+.qp-calendar-footer { display: flex; justify-content: space-between; margin-top: 12px; padding: 10px 0; border-top: 1px solid #28608a; }
+.qp-calendar-footer button { border: 0; background: transparent; color: #71c7ff; font: 600 13px 'Plus Jakarta Sans', sans-serif; padding: 8px 14px; cursor: pointer; }
+.qp-calendar-footer button:disabled { opacity: .4; cursor: default; }
+.qp-calendar :focus-visible { outline: 2px solid #71c7ff; outline-offset: -2px; }
+.qp-calendar-ready input[type="date"]::-webkit-calendar-picker-indicator { cursor: pointer; }
