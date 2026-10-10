@@ -21,7 +21,17 @@ test('mapa organiza 17 processos em faixas e identifica inativos', async ({ page
     await map.screenshot({ path: testInfo.outputPath(`map-${width}.png`) });
     await page.evaluate(() => document.body.classList.add('theme-white'));
     await expect(map).toHaveCSS('background-color', 'rgb(255, 255, 255)');
-    await expect(map.locator('.process-architecture-node:not(.is-inactive)').first()).toHaveCSS('background-color', 'rgb(255, 255, 255)');
+    for (const [category, lane, head, node] of [
+      ['estrategico', 'rgb(237, 227, 251)', 'rgb(217, 195, 245)', 'rgb(243, 236, 252)'],
+      ['operacional', 'rgb(222, 241, 252)', 'rgb(184, 225, 247)', 'rgb(237, 248, 255)'],
+      ['suporte', 'rgb(222, 245, 227)', 'rgb(187, 235, 198)', 'rgb(238, 250, 240)'],
+    ]) {
+      const band = map.locator(`.process-architecture-lane.${category}`);
+      await expect(band).toHaveCSS('background-color', lane);
+      await expect(band.locator('.process-architecture-lane-head')).toHaveCSS('background-color', head);
+      await expect(band.locator('.process-architecture-node:not(.is-inactive)').first()).toHaveCSS('background-color', node);
+      await expect(band).toHaveCSS('background-image', 'none');
+    }
     await expect(map.locator('.process-architecture-node.is-inactive').first()).toHaveCSS('background-color', 'rgb(241, 243, 245)');
     await map.screenshot({ path: testInfo.outputPath(`map-white-${width}.png`) });
     await page.evaluate(() => document.body.classList.remove('theme-white'));

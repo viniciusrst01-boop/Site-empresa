@@ -4585,7 +4585,7 @@ function contextSwotHtml() {
         <div><div class="dcc-title">SWOT - Forças, Fraquezas, Oportunidades e Ameaças</div><div class="dcc-sub">Análise estratégica do contexto interno e externo · cláusula 4.1</div></div>
         ${canEditModule("contexto") ? `<button class="btn-grad" data-context-action="new-swot" type="button">${moduleIcon("plus")}Novo item</button>` : ""}
       </div>
-      <div class="risk-table-wrap">
+      <div class="risk-table-wrap context-swot-table-wrap">
         <table class="ctxtbl">
           <colgroup><col style="width:4%"><col style="width:9%"><col style="width:25%"><col style="width:8%"><col style="width:20%"><col style="width:12%"><col style="width:12%"><col style="width:10%"></colgroup>
           <thead><tr><th>Nº</th><th>Quadrante</th><th>Descrição</th><th>Prioridade</th><th>Plano de ação</th><th>Responsável</th><th>Status</th><th>Ações</th></tr></thead>
@@ -4645,6 +4645,7 @@ function contextEscopoHtml() {
       <div class="context-scope-head">
         <div><div class="dcc-title">Escopo do Sistema de Gestão da Qualidade</div><div class="dcc-sub">Abrangência do SGQ · cláusula 4.3</div></div>
         <div class="escopo-topbar">
+          <button class="btn-ghost" data-context-action="view-escopo-history" type="button">Histórico</button>
           ${canEditModule("contexto") ? `<button class="btn-ghost" data-context-action="edit-escopo" type="button">${moduleIcon("edit")} Editar controle</button>` : ""}
           <div class="escopo-pill">Última atualização: <strong>${data.dataAtualizacao ? formatDate(data.dataAtualizacao) : "-"}</strong></div>
           <div class="escopo-pill ${data.statusAprovacao === "Aprovado" ? "approved" : ""}">${escapeHtml(statusText)}</div>
@@ -4664,6 +4665,7 @@ function contextEscopoHtml() {
             <div class="field"><label>Aprovador</label><input class="input-basic" id="ctxEscopo-aprovador" type="text" value="${escapeHtml(data.aprovador || "")}"${readonly}></div>
             <div class="field"><label>Cargo</label><input class="input-basic" id="ctxEscopo-aprovadorCargo" type="text" value="${escapeHtml(data.aprovadorCargo || "")}"${readonly}></div>
             <div class="field"><label>Data de aprovação</label><input class="input-basic" id="ctxEscopo-dataAprovacao" type="date" value="${escapeHtml(data.dataAprovacao || "")}"${readonly}></div>
+            <div class="field escopo-change-description"><label for="ctxEscopo-descricaoAlteracao">Descrição do que foi alterado</label><textarea id="ctxEscopo-descricaoAlteracao" rows="2"${readonly}></textarea></div>
       <div class="escopo-save-row">
         <button class="btn-ghost btn-clear" data-context-action="print-escopo" type="button">${moduleIcon("download")} Gerar PDF</button>
         ${canEditModule("contexto") ? `<button class="btn-ghost danger-text" data-context-action="clear-escopo" type="button">Limpar escopo</button>
@@ -4673,10 +4675,6 @@ function contextEscopoHtml() {
         </div>
       </div>
       <div class="escopo-saved-msg" id="ctxEscopoSavedMsg" ${canEditModule("contexto") ? "" : "hidden"}>Alterações salvas</div>
-      <div class="context-revision-history">
-        <h4>Histórico de revisões</h4>
-        ${(Array.isArray(data.historico) && data.historico.length) ? data.historico.slice().reverse().map((item) => `<div><strong>Rev. ${escapeHtml(item.revisao)}</strong> · ${formatDate(item.data)} · ${escapeHtml(item.aprovador || "Sem aprovador")} · ${escapeHtml(item.descricao || "Atualização do escopo.")}</div>`).join("") : "<div class=\"empty-state\">Nenhuma revisão registrada.</div>"}
-      </div>
     </section>`;
 }
 
@@ -4718,14 +4716,14 @@ function contextProcessArchitectureHtml(rows) {
   return `
     <section class="process-architecture process-architecture-neon process-swimlanes process-reference-map" aria-label="Mapa de processos">
       <div class="process-reference-layout">
-        ${contextMapSideHtml("requisitos", "Requisitos das partes interessadas", "input", "contexto")}
+        ${contextMapSideHtml("requisitos", "Entradas", "input", "contexto")}
         <div class="process-architecture-body">
           ${contextProcessArchitectureLane("Estratégico", "Direcionamento, planejamento e tomada de decisão", strategic)}
           ${contextProcessArchitectureLane("Operacional", "Entrega de valor ao cliente", operational, true)}
           ${contextProcessArchitectureLane("Suporte", "Recursos e estrutura para os processos", support)}
         </div>
-        ${contextMapSideHtml("satisfacao", "Satisfação das partes interessadas", "output", "riscos")}
-        <div class="process-reference-improvement"><span class="process-return-arrow" aria-hidden="true"></span><strong>Melhoria contínua em todos os processos</strong><span class="process-return-arrow" aria-hidden="true"></span></div>
+        ${contextMapSideHtml("satisfacao", "Saídas", "output", "riscos")}
+        <div class="process-reference-improvement"><span class="process-return-arrow" aria-hidden="true"></span><strong>Melhoria contínua em todos os processos</strong></div>
       </div>
     </section>`;
 }
@@ -4742,7 +4740,7 @@ function openContextMapSide(key) {
   if (!Object.hasOwn(contextSeeds.mapa, key)) return;
   setInputValue("contextMapSideKey", key);
   setInputValue("contextMapSideText", (contextGet("mapa")[key] ?? contextSeeds.mapa[key]).join("\n"));
-  document.querySelector("#contextMapSideTitle").textContent = key === "requisitos" ? "Requisitos das partes interessadas" : "Satisfação das partes interessadas";
+  document.querySelector("#contextMapSideTitle").textContent = key === "requisitos" ? "Entradas" : "Saídas";
   openContextModal("contextMapSideModal");
 }
 
@@ -4803,6 +4801,12 @@ function contextRowActions(type, id, canView) {
 
 function contextModalsHtml() {
   return `
+    <div class="modal-overlay" id="contextScopeHistoryModal">
+      <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="contextScopeHistoryTitle">
+        <div class="modal-hd"><h3 id="contextScopeHistoryTitle">Histórico de revisões do escopo</h3><button class="modal-close" data-context-close="contextScopeHistoryModal" type="button" aria-label="Fechar histórico">${moduleIcon("close")}</button></div>
+        <div id="contextScopeHistoryBody" class="context-revision-history"></div>
+      </div>
+    </div>
     <div class="modal-overlay" id="contextMapSideModal">
       <div class="modal-box">
         <div class="modal-hd"><h3 id="contextMapSideTitle"></h3><button class="modal-close" data-context-close="contextMapSideModal" type="button" aria-label="Fechar">${moduleIcon("close")}</button></div>
@@ -4920,7 +4924,7 @@ function bindContextStaticActions() {
 }
 
 function bindContextOverlayClose() {
-  document.querySelectorAll("#contextSwotModal, #contextParteModal, #contextProcessoViewModal, #contextProcessoModal").forEach((overlay) => {
+  document.querySelectorAll("#contextScopeHistoryModal, #contextSwotModal, #contextParteModal, #contextProcessoViewModal, #contextProcessoModal").forEach((overlay) => {
     overlay.addEventListener("click", (event) => {
       if (event.target === overlay) overlay.classList.remove("show");
     });
@@ -4945,6 +4949,7 @@ function handleContextAction(action, id) {
     "delete-parte": () => deleteContextParte(id),
     "save-parte": () => saveContextParte(),
     "print-escopo": () => printContextEscopo(),
+    "view-escopo-history": () => openContextScopeHistory(),
     "save-escopo": () => saveContextEscopo(),
     "edit-escopo": () => document.querySelector("#ctxEscopo-aprovador")?.focus(),
     "clear-escopo": () => clearContextEscopo(),
@@ -5142,8 +5147,13 @@ function saveContextEscopo() {
     dataAprovacao,
     dataAtualizacao,
     revisao: nextRevision,
-    historico: [...(Array.isArray(previous.historico) ? previous.historico : []), { revisao: nextRevision, data: dataAprovacao || dataAtualizacao, aprovador: inputValue("ctxEscopo-aprovador"), descricao: "Atualização do escopo." }],
   };
+  escopo.historico = [...(Array.isArray(previous.historico) ? previous.historico : []), {
+    revisao: nextRevision, data: dataAprovacao || dataAtualizacao,
+    registradoEm: new Date().toISOString(), autor: currentUser?.name || "Usuário",
+    aprovador: escopo.aprovador, descricao: inputValue("ctxEscopo-descricaoAlteracao") || "Atualização do escopo.",
+    acao: "atualizacao", dados: structuredClone(escopo),
+  }];
   contextSet("escopo", escopo);
   renderContextTab();
   renderContextKpis();
@@ -5247,10 +5257,34 @@ function printContextEscopo() {
 
 function clearContextEscopo() {
   if (!window.confirm("Limpar os dados do escopo?")) return;
-  contextSet("escopo", blankContextEscopo());
+  const previous = contextGet("escopo");
+  const { historico, ...dados } = previous;
+  const cleared = blankContextEscopo();
+  cleared.revisao = String(Number.parseInt(previous.revisao || "00", 10) + 1).padStart(2, "0");
+  cleared.historico = [...(Array.isArray(historico) ? historico : []), {
+    revisao: cleared.revisao,
+    data: new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" }),
+    registradoEm: new Date().toISOString(), autor: currentUser?.name || "Usuário",
+    descricao: "Escopo limpo." + (inputValue("ctxEscopo-descricaoAlteracao") ? ` ${inputValue("ctxEscopo-descricaoAlteracao")}` : ""),
+    acao: "limpeza", dados,
+  }];
+  contextSet("escopo", cleared);
   renderContextTab();
   renderContextKpis();
   toast("Escopo limpo.");
+}
+
+function openContextScopeHistory() {
+  const history = contextGet("escopo").historico;
+  const fields = [["escopoOficial", "Escopo do SGQ"], ["unidades", "Unidades"], ["produtos", "Produtos"], ["servicos", "Serviços"], ["exclusoes", "Exclusões"], ["justificativas", "Justificativas"], ["statusAprovacao", "Status de aprovação"], ["aprovador", "Aprovador"], ["aprovadorCargo", "Cargo"], ["dataAprovacao", "Data de aprovação"]];
+  document.getElementById("contextScopeHistoryBody").innerHTML = Array.isArray(history) && history.length ? history.slice().reverse().map(item => `
+    <section class="detail-block">
+      <h4>Rev. ${escapeHtml(item.revisao)} · ${escapeHtml(formatDate(item.data))}</h4>
+      <p>${escapeHtml(item.autor || item.aprovador || "Sem responsável informado")}</p>
+      <p class="scope-history-description">${escapeHtml(item.descricao || "Atualização do escopo.")}</p>
+      ${item.dados ? `<details><summary>${item.acao === "limpeza" ? "Dados preservados antes da limpeza" : "Dados desta revisão"}</summary>${fields.map(([key, label]) => `<h5>${label}</h5><p class="scope-history-description">${escapeHtml(key === "dataAprovacao" ? formatDate(item.dados[key]) : item.dados[key] || "Não informado")}</p>`).join("")}</details>` : ""}
+    </section>`).join("") : '<div class="empty-state">Nenhuma revisão registrada.</div>';
+  openContextModal("contextScopeHistoryModal");
 }
 
 function viewContextProcesso(id) {
