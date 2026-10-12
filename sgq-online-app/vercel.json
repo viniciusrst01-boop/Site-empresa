@@ -26,6 +26,10 @@
       "dest": "/public/module-table-scroll.css"
     },
     {
+      "src": "/white-tabs.css",
+      "dest": "/public/white-tabs.css"
+    },
+    {
       "src": "/frame-workspace.js",
       "dest": "/public/frame-workspace.js"
     },
