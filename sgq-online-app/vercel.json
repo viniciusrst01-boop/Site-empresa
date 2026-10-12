@@ -22,6 +22,14 @@
   ],
   "routes": [
     {
+      "src": "/module-table-scroll.css",
+      "dest": "/public/module-table-scroll.css"
+    },
+    {
+      "src": "/frame-workspace.js",
+      "dest": "/public/frame-workspace.js"
+    },
+    {
       "src": "/compact-module-cards\\.(css|js)",
       "dest": "/public/compact-module-cards.$1"
     },

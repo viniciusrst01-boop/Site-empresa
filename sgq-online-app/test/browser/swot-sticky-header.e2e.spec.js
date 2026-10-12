@@ -17,9 +17,10 @@ test('SWOT keeps a contrasting header visible while scrolling', async ({ page })
   const wrap = page.locator('.context-swot-table-wrap');
   const header = wrap.locator('th').first();
   await expect(header).toHaveCSS('background-color', 'rgb(213, 228, 242)');
-  const before = await header.boundingBox();
-  await wrap.evaluate(el => { el.scrollTop = 450; });
-  expect(await wrap.evaluate(el => el.scrollTop)).toBeGreaterThan(0);
+  const scroller = page.locator('#contextTabContent');
+  await scroller.evaluate(el => { el.scrollTop = 450; });
+  expect(await scroller.evaluate(el => el.scrollTop)).toBeGreaterThan(0);
   const after = await header.boundingBox();
-  expect(Math.abs(before.y - after.y)).toBeLessThan(2);
+  const container = await scroller.boundingBox();
+  expect(Math.abs(container.y - after.y)).toBeLessThan(2);
 });

@@ -4695,7 +4695,7 @@ function contextProcessosHtml() {
         <div><div class="dcc-title">Processos</div><div class="dcc-sub">Cadastre e mantenha os processos estratégicos, operacionais e de suporte · cláusula 4.4</div></div>
         ${canEditModule("contexto") ? `<button class="btn-grad" data-context-action="new-processo" type="button">${moduleIcon("plus")}Novo processo</button>` : ""}
       </div>
-      <div class="risk-table-wrap">
+      <div class="risk-table-wrap context-process-table-wrap">
         <table class="ctxtbl">
           <colgroup><col style="width:8%"><col style="width:23%"><col style="width:13%"><col style="width:24%"><col style="width:12%"><col style="width:20%"></colgroup>
           <thead><tr><th>Código</th><th>Processo</th><th>Categoria</th><th>Responsável</th><th>Status</th><th>Ações</th></tr></thead>
@@ -4723,7 +4723,7 @@ function contextProcessArchitectureHtml(rows) {
           ${contextProcessArchitectureLane("Suporte", "Recursos e estrutura para os processos", support)}
         </div>
         ${contextMapSideHtml("satisfacao", "Saídas", "output", "riscos")}
-        <div class="process-reference-improvement"><span class="process-return-arrow" aria-hidden="true"></span><strong>Melhoria contínua em todos os processos</strong></div>
+        <div class="process-reference-improvement"><span class="process-return-arrow" aria-hidden="true"></span><strong>Melhoria contínua em todos os processos</strong><span class="process-return-arrow process-output-return" aria-hidden="true"></span></div>
       </div>
     </section>`;
 }

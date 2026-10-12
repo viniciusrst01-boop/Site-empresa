@@ -25,4 +25,8 @@
     }
   `;
   document.head.append(style);
+  const tableStyles = document.createElement('link');
+  tableStyles.rel = 'stylesheet';
+  tableStyles.href = '/module-table-scroll.css?v=20261012';
+  document.head.append(tableStyles);
 })();

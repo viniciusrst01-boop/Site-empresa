@@ -1,0 +1,37 @@
+/* Only tabbed record lists participate; dashboards and dialogs keep their layout. */
+@media (min-width:981px) {
+  html.fixed-workspace #tabContent:not(:has(canvas)) div:has(> table > thead) {
+    overflow:visible !important;
+    max-height:none !important;
+  }
+  :is(#contextTabContent, #riskTabContent, #climateTabContent, #ncTabContent, .leadership-scroll-region, [data-doc-content], html.fixed-workspace #tabContent):has(table thead):not(:has(canvas, .process-reference-map, .nc-dashboard-embed)) {
+    display:block !important;
+    overflow:auto !important;
+    min-height:0;
+    border-radius:var(--radius, 12px);
+    clip-path:inset(0 round var(--radius, 12px));
+    overscroll-behavior:contain;
+  }
+  :is(#contextTabContent, #riskTabContent, #climateTabContent, #ncTabContent, .leadership-scroll-region, [data-doc-content], html.fixed-workspace #tabContent):has(table thead):not(:has(canvas, .process-reference-map, .nc-dashboard-embed)) :is(.dcc, .documents-panel, .risk-table-wrap, .nc-table-wrap, .qp-table-wrap, .documents-table-wrap):has(table thead) {
+    display:block;
+    overflow:visible !important;
+    max-height:none !important;
+    clip-path:none;
+  }
+  :is(#contextTabContent, #riskTabContent, #climateTabContent, #ncTabContent, .leadership-scroll-region, [data-doc-content], html.fixed-workspace #tabContent):not(:has(canvas, .process-reference-map, .nc-dashboard-embed)) table:has(thead) {
+    border-collapse:separate;
+    border-spacing:0;
+  }
+  :is(#contextTabContent, #riskTabContent, #climateTabContent, #ncTabContent, .leadership-scroll-region, [data-doc-content], html.fixed-workspace #tabContent):not(:has(canvas, .process-reference-map, .nc-dashboard-embed)) table thead th {
+    position:sticky;
+    top:0;
+    z-index:2;
+    background:var(--bg-panel, #0d2b4d);
+    box-shadow:0 1px 0 var(--border-subtle, #345572);
+  }
+  body.theme-white :is(#contextTabContent, #riskTabContent, #climateTabContent, #ncTabContent, .leadership-scroll-region, [data-doc-content], #tabContent):not(:has(canvas, .process-reference-map, .nc-dashboard-embed)) table thead th {
+    background:#d5e4f2;
+    color:#163552;
+    box-shadow:0 1px 0 #789cbb;
+  }
+}
