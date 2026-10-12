@@ -8192,14 +8192,38 @@ body.theme-white .subtab-pill {
 }
 
 body.theme-white .context-page-content > .ctx-tabs > .ctx-tab:hover {
-  color:#07549b;
+  color:#008fbd;
+}
+body.theme-white .context-page-content > .ctx-tabs > .ctx-tab {
+  position:relative;
+  transition:color 220ms ease;
+}
+body.theme-white .context-page-content > .ctx-tabs > .ctx-tab::after {
+  content:"";
+  position:absolute;
+  left:0;
+  right:0;
+  bottom:-2px;
+  height:2px;
+  background:#008fbd;
+  transform:scaleX(0);
+  opacity:0;
+  transition:transform 220ms ease, opacity 220ms ease;
+}
+body.theme-white .context-page-content > .ctx-tabs > .ctx-tab.active::after {
+  transform:scaleX(1);
+  opacity:1;
+}
+@media (prefers-reduced-motion:reduce) {
+  body.theme-white .context-page-content > .ctx-tabs > .ctx-tab,
+  body.theme-white .context-page-content > .ctx-tabs > .ctx-tab::after { transition:none; }
 }
 body.theme-white .context-page-content > .ctx-tabs {
   border-bottom-color:#829bb3;
 }
 body.theme-white .context-page-content > .ctx-tabs > .ctx-tab.active {
-  border-bottom-color:#1265b1;
-  color:#1265b1;
+  border-bottom-color:transparent;
+  color:#008fbd;
 }
 body.theme-white .context-page-content > .ctx-tabs > .ctx-tab:focus-visible {
   outline:2px solid #074783;

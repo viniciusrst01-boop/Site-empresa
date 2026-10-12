@@ -13,6 +13,10 @@
 .summary-swot-quadrant.weakness { --quadrant-color:#fb7185; }
 .summary-swot-quadrant.opportunity { --quadrant-color:#38bdf8; }
 .summary-swot-quadrant.threat { --quadrant-color:#eab308; }
+body.theme-white .summary-swot-quadrant.strength { background:#e6f7ef; }
+body.theme-white .summary-swot-quadrant.weakness { background:#fce9ee; }
+body.theme-white .summary-swot-quadrant.opportunity { background:#e5f3fd; }
+body.theme-white .summary-swot-quadrant.threat { background:#fff5d6; }
 .summary-swot-quadrant h3 { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin:0; padding:14px; font-size:15px; color:var(--quadrant-color); border-bottom:1px solid var(--quadrant-color); background:color-mix(in srgb,var(--quadrant-color) 10%,transparent); }
 .summary-swot-quadrant h3 span { font-size:11px; }
 .summary-swot-item { padding:14px; font-size:12px; line-height:1.6; overflow-wrap:anywhere; }

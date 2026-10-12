@@ -29,4 +29,8 @@
   tableStyles.rel = 'stylesheet';
   tableStyles.href = '/module-table-scroll.css?v=20261012';
   document.head.append(tableStyles);
+  const tabStyles = document.createElement('link');
+  tabStyles.rel = 'stylesheet';
+  tabStyles.href = '/white-tabs.css?v=20261012';
+  document.head.append(tabStyles);
 })();

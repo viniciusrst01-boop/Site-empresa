@@ -1,0 +1,30 @@
+/* Shared white-theme navigation, including embedded modules. */
+body.theme-white :is(.ctx-tabs, .documents-tabs) { border-bottom-color:#829bb3; }
+body.theme-white :is(.ctx-tab, .documents-tab) {
+  position:relative;
+  transition:color 220ms ease, border-color 220ms ease;
+}
+body.theme-white :is(.ctx-tab, .documents-tab):hover,
+body.theme-white :is(.ctx-tab, .documents-tab).active { color:#008fbd; }
+body.theme-white :is(.ctx-tab, .documents-tab).active { border-bottom-color:transparent; }
+body.theme-white :is(.ctx-tab, .documents-tab)::after {
+  content:"";
+  position:absolute;
+  left:0;
+  right:0;
+  bottom:-2px;
+  height:2px;
+  background:#008fbd;
+  transform:scaleX(0);
+  opacity:0;
+  pointer-events:none;
+  transition:transform 220ms ease, opacity 220ms ease;
+}
+body.theme-white :is(.ctx-tab, .documents-tab).active::after { transform:scaleX(1); opacity:1; }
+body.theme-white :is(.subtab-pill, .subfilter-pill) { transition:color 220ms ease, border-color 220ms ease, background-color 220ms ease; }
+body.theme-white :is(.subtab-pill, .subfilter-pill):is(:hover, .active) { color:#008fbd; border-color:#008fbd; background:#eaf7fc; }
+body.theme-white :is(.ctx-tab, .documents-tab, .subtab-pill, .subfilter-pill):focus-visible { outline:2px solid #008fbd; outline-offset:2px; }
+@media (prefers-reduced-motion:reduce) {
+  body.theme-white :is(.ctx-tab, .documents-tab, .subtab-pill, .subfilter-pill),
+  body.theme-white :is(.ctx-tab, .documents-tab)::after { transition:none; }
+}
