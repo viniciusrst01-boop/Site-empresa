@@ -3961,6 +3961,28 @@ table.utbl {
   color: var(--accent-cyan);
 }
 
+.context-list-filters { display:flex; flex-wrap:wrap; align-items:end; gap:10px; padding:12px 18px; border-bottom:1px solid var(--border-subtle); }
+.context-list-filters label { display:grid; gap:5px; font-size:11px; flex:1 1 150px; min-width:0; }
+.context-list-filters label:first-child { flex:2 1 200px; }
+.context-list-filters .input-basic { width:100%; min-width:0; }
+.context-list-filters > span { align-self:center; font-size:11px; color:var(--text-secondary); }
+.context-map-export { grid-column:1/-1; display:flex; justify-content:flex-end; align-items:center; gap:8px; flex-wrap:wrap; margin:0; padding:0 4px 2px; color:var(--text-secondary); }
+.process-reference-map:fullscreen { width:100vw; height:100dvh; overflow:auto; margin:0; border-radius:0; padding:16px; box-sizing:border-box; }
+.process-reference-map:fullscreen .context-map-export { position:sticky; bottom:0; padding:8px; background:var(--bg-panel); z-index:3; }
+.context-map-export button.btn-ghost { display:inline-flex; align-items:center; justify-content:center; gap:5px; height:28px; min-height:28px; padding:3px 8px; font-size:11px; line-height:18px; border-radius:5px; box-shadow:none; }
+.context-map-export button .icon { width:13px; height:13px; }
+.context-swot-table-wrap .ctxtbl th:first-child,
+.context-swot-table-wrap .ctxtbl td.mono:first-child {
+  padding-inline:6px;
+  white-space:nowrap;
+  overflow-wrap:normal;
+  word-break:normal;
+}
+.context-swot-table-wrap .ctxtbl td.mono:first-child {
+  font-size:11px;
+  letter-spacing:0;
+}
+
 .risk-table-wrap {
   overflow-x: auto;
   margin-top: 16px;

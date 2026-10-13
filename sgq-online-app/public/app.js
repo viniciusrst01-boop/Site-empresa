@@ -319,6 +319,7 @@ const contextSeeds = {
 };
 
 let currentContextTab = "swot";
+const contextListFilters = new Map();
 const leadershipStorageKey = "qps_lc_data";
 let leadershipParticipants = [];
 const leadershipSeeds = {
@@ -4497,6 +4498,7 @@ function renderContextTab() {
   else if (currentContextTab === "mapa-processos") target.innerHTML = contextMapaProcessosHtml();
   else target.innerHTML = contextSwotHtml();
   bindContextActions();
+  bindContextListFilters();
   if (currentContextTab === "escopo") {
     bindAutomaticCargo("#ctxEscopo-aprovador", "#ctxEscopo-aprovadorCargo");
     bindScopeTextSizing(target);
@@ -4566,11 +4568,68 @@ function hasEscopoData(data) {
   );
 }
 
+function contextFilterState(tab) {
+  const key = `${state.company?.id || state.company?.name || ""}:${currentUser?.id || currentUser?.email || ""}:${tab}`;
+  if (!contextListFilters.has(key)) contextListFilters.set(key, {});
+  return contextListFilters.get(key);
+}
+
+function contextFilterFields(tab) {
+  return tab === "partes" ? [["frequencia", "Frequência"], ["monitored", "Monitoramento"]]
+    : [["responsavel", "Responsável"], [tab === "swot" ? "quadrante" : "categoria", tab === "swot" ? "Quadrante" : "Categoria"], ["status", "Situação"]];
+}
+
+function filteredContextRows(tab) {
+  const filters = contextFilterState(tab);
+  const normalize = value => String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  return contextGet(tab).filter(row => {
+    const textMatch = !filters.query || Object.values(row).filter(value => typeof value === "string").some(value => normalize(value).includes(normalize(filters.query)));
+    return textMatch && contextFilterFields(tab).every(([key]) => !filters[key] || (key === "monitored" ? (row.monitoramento?.trim() ? "Sim" : "Não") : row[key]) === filters[key]);
+  });
+}
+
+function contextListFiltersHtml(tab) {
+  const filters = contextFilterState(tab);
+  const rows = contextGet(tab);
+  return `<div class="context-list-filters" data-context-filters="${tab}">
+    <label>Buscar<input class="input-basic" type="search" data-context-filter="query" value="${escapeHtml(filters.query || "")}" placeholder="Buscar registros"></label>
+    ${contextFilterFields(tab).map(([key, label]) => {
+      const values = key === "monitored" ? ["Sim", "Não"] : [...new Set([...rows.map(row => row[key]), filters[key]].filter(Boolean))].sort((a,b) => a.localeCompare(b, "pt-BR"));
+      return `<label>${label}<select class="input-basic" data-context-filter="${key}"><option value="">Todos</option>${values.map(value => `<option value="${escapeHtml(value)}"${filters[key] === value ? " selected" : ""}>${escapeHtml(value)}</option>`).join("")}</select></label>`;
+    }).join("")}
+    <button class="btn-ghost" type="button" data-context-clear-filters title="Limpar filtros" aria-label="Limpar filtros">${moduleIcon("close")}</button>
+    <span aria-live="polite">${filteredContextRows(tab).length} de ${rows.length} registros</span>
+  </div>`;
+}
+
+function bindContextListFilters() {
+  const bar = document.querySelector('[data-context-filters]');
+  if (!bar) return;
+  const filters = contextFilterState(bar.dataset.contextFilters);
+  bar.querySelectorAll('[data-context-filter]').forEach(input => {
+    input.addEventListener(input.type === "search" ? "input" : "change", () => {
+      const key = input.dataset.contextFilter;
+      const cursor = input.selectionStart;
+      filters[key] = input.value;
+      renderContextTab();
+      const replacement = document.querySelector(`[data-context-filter="${key}"]`);
+      replacement?.focus();
+      if (input.type === "search" && cursor !== null) replacement?.setSelectionRange(cursor, cursor);
+    });
+  });
+  bar.querySelector('[data-context-clear-filters]').addEventListener('click', () => {
+    Object.keys(filters).forEach(key => delete filters[key]);
+    renderContextTab();
+    document.querySelector('[data-context-filter="query"]')?.focus();
+  });
+}
+
 function contextSwotHtml() {
-  const rows = contextGet("swot");
-  const body = rows.length ? rows.map((item, index) => `
+  const numbersById = new Map(contextGet("swot").map((item, index) => [item.id, index + 1]));
+  const rows = filteredContextRows("swot");
+  const body = rows.length ? rows.map((item) => `
     <tr>
-      <td class="mono">${String(index + 1).padStart(4, "0")}</td>
+      <td class="mono">${String(numbersById.get(item.id)).padStart(4, "0")}</td>
       <td>${quadranteChip(item.quadrante)}</td>
       <td class="desc-cell">${escapeHtml(item.descricao)}</td>
       <td>${priorityChip(item.prioridade)}</td>
@@ -4585,6 +4644,7 @@ function contextSwotHtml() {
         <div><div class="dcc-title">SWOT - Forças, Fraquezas, Oportunidades e Ameaças</div><div class="dcc-sub">Análise estratégica do contexto interno e externo · cláusula 4.1</div></div>
         ${canEditModule("contexto") ? `<button class="btn-grad" data-context-action="new-swot" type="button">${moduleIcon("plus")}Novo item</button>` : ""}
       </div>
+      ${contextListFiltersHtml("swot")}
       <div class="risk-table-wrap context-swot-table-wrap">
         <table class="ctxtbl">
           <colgroup><col style="width:4%"><col style="width:9%"><col style="width:25%"><col style="width:8%"><col style="width:20%"><col style="width:12%"><col style="width:12%"><col style="width:10%"></colgroup>
@@ -4596,7 +4656,7 @@ function contextSwotHtml() {
 }
 
 function contextPartesHtml() {
-  const rows = contextGet("partes");
+  const rows = filteredContextRows("partes");
   const body = rows.length ? rows.map((item) => `
     <tr>
       <td>${personCell(item.parte)}</td>
@@ -4612,6 +4672,7 @@ function contextPartesHtml() {
         <div><div class="dcc-title">Partes Interessadas</div><div class="dcc-sub">Necessidades, expectativas e forma de monitoramento · cláusula 4.2</div></div>
         ${canEditModule("contexto") ? `<button class="btn-grad" data-context-action="new-parte" type="button">${moduleIcon("plus")}Nova parte interessada</button>` : ""}
       </div>
+      ${contextListFiltersHtml("partes")}
       <div class="risk-table-wrap">
         <table class="ctxtbl">
           <colgroup><col style="width:15%"><col style="width:23%"><col style="width:23%"><col style="width:20%"><col style="width:9%"><col style="width:10%"></colgroup>
@@ -4679,7 +4740,7 @@ function contextEscopoHtml() {
 }
 
 function contextProcessosHtml() {
-  const rows = contextGet("processos");
+  const rows = filteredContextRows("processos");
   const body = rows.length ? rows.map((item) => `
     <tr>
       <td class="mono muted-cell">${escapeHtml(item.codigo)}</td>
@@ -4695,6 +4756,7 @@ function contextProcessosHtml() {
         <div><div class="dcc-title">Processos</div><div class="dcc-sub">Cadastre e mantenha os processos estratégicos, operacionais e de suporte · cláusula 4.4</div></div>
         ${canEditModule("contexto") ? `<button class="btn-grad" data-context-action="new-processo" type="button">${moduleIcon("plus")}Novo processo</button>` : ""}
       </div>
+      ${contextListFiltersHtml("processos")}
       <div class="risk-table-wrap context-process-table-wrap">
         <table class="ctxtbl">
           <colgroup><col style="width:8%"><col style="width:23%"><col style="width:13%"><col style="width:24%"><col style="width:12%"><col style="width:20%"></colgroup>
@@ -4706,10 +4768,32 @@ function contextProcessosHtml() {
 }
 
 function contextMapaProcessosHtml() {
-  return contextProcessArchitectureHtml(contextGet("processos"));
+  const footer = `<div class="context-map-export"><button class="btn-ghost" type="button" data-context-action="view-map-fullscreen" title="Ampliar mapa em tela cheia" aria-label="Ampliar mapa em tela cheia">${moduleIcon("search")}<span>Tela cheia</span></button><button class="btn-ghost" type="button" data-context-action="print-mapa">${moduleIcon("download")} Gerar PDF</button></div>`;
+  return contextProcessArchitectureHtml(contextGet("processos"), footer);
 }
 
-function contextProcessArchitectureHtml(rows) {
+async function toggleContextMapFullscreen() {
+  const map = document.querySelector('#contextTabContent .process-reference-map');
+  if (!map) return;
+  const sync = () => {
+    const button = map.querySelector('[data-context-action="view-map-fullscreen"]');
+    if (!button) return;
+    const full = document.fullscreenElement === map;
+    button.querySelector('span').textContent = full ? "Sair da tela cheia" : "Tela cheia";
+    button.setAttribute('aria-label', full ? "Sair da tela cheia" : "Ampliar mapa em tela cheia");
+    button.title = button.getAttribute('aria-label');
+  };
+  map.onfullscreenchange = sync;
+  try {
+    if (document.fullscreenElement === map) await document.exitFullscreen();
+    else await map.requestFullscreen();
+    sync();
+  } catch {
+    toast("Não foi possível abrir a tela cheia neste navegador.");
+  }
+}
+
+function contextProcessArchitectureHtml(rows, footer = "") {
   const strategic = rows.filter((item) => item.categoria === "Estratégico");
   const operational = rows.filter((item) => item.categoria === "Operacional");
   const support = rows.filter((item) => item.categoria === "Suporte");
@@ -4724,6 +4808,7 @@ function contextProcessArchitectureHtml(rows) {
         </div>
         ${contextMapSideHtml("satisfacao", "Saídas", "output", "riscos")}
         <div class="process-reference-improvement"><span class="process-return-arrow" aria-hidden="true"></span><strong>Melhoria contínua em todos os processos</strong><span class="process-return-arrow process-output-return" aria-hidden="true"></span></div>
+        ${footer}
       </div>
     </section>`;
 }
@@ -4932,7 +5017,7 @@ function bindContextOverlayClose() {
 }
 
 function handleContextAction(action, id) {
-  if (!canEditModule("contexto") && !action.startsWith("view-") && action !== "print-escopo") {
+  if (!canEditModule("contexto") && !action.startsWith("view-") && action !== "print-escopo" && action !== "print-mapa") {
     toast("Você tem acesso somente para visualizar.");
     return;
   }
@@ -4949,6 +5034,8 @@ function handleContextAction(action, id) {
     "delete-parte": () => deleteContextParte(id),
     "save-parte": () => saveContextParte(),
     "print-escopo": () => printContextEscopo(),
+    "print-mapa": () => printContextMapa(),
+    "view-map-fullscreen": () => toggleContextMapFullscreen(),
     "view-escopo-history": () => openContextScopeHistory(),
     "save-escopo": () => saveContextEscopo(),
     "edit-escopo": () => document.querySelector("#ctxEscopo-aprovador")?.focus(),
@@ -5163,6 +5250,41 @@ function saveContextEscopo() {
     window.setTimeout(() => message.classList.remove("show"), 2200);
   }
   toast("Escopo salvo.");
+}
+
+function printContextMapa() {
+  const popup = window.open("", "_blank", "width=1200,height=800");
+  if (!popup) { toast("Permita abrir a janela de impressão para gerar o PDF."); return; }
+  const company = state.company?.name || "Organização";
+  const revision = "Não informada";
+  const date = new Intl.DateTimeFormat("pt-BR", { timeZone:"America/Sao_Paulo" }).format(new Date());
+  const rows = contextGet("processos");
+  const sides = contextGet("mapa");
+  const side = (key, title) => `<section class="side"><h2>${title}</h2><ul>${(sides[key] ?? contextSeeds.mapa[key]).map(item => `<li>${escapeHtml(item)}</li>`).join("")}</ul></section>`;
+  const lanes = [["Estratégico", "Processos estratégicos", "strategic"], ["Operacional", "Processos operacionais", "operational"], ["Suporte", "Processos de suporte", "support"]].map(([category,title,cls]) => {
+    const items = rows.filter(row => row.categoria === category);
+    return `<section class="lane ${cls}"><h2>${title} <small>${items.length} processo(s)</small></h2><div class="cards">${items.length ? items.map(row => `<article class="${row.status === "Inativo" ? "inactive" : ""}"><span>${escapeHtml(row.codigo || "-")}</span><h3>${escapeHtml(row.nome || "Sem título")}</h3>${row.status === "Inativo" ? "<small>Inativo</small>" : ""}</article>`).join("") : "<p>Nenhum processo cadastrado.</p>"}</div></section>`;
+  }).join("");
+  const uncategorized = rows.filter(row => !["Estratégico", "Operacional", "Suporte"].includes(row.categoria));
+  popup.addEventListener("load", () => { popup.focus(); popup.print(); }, { once:true });
+  popup.document.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Mapa de processos - ${escapeHtml(company)}</title><style>
+    @page { size:A4 landscape; margin:12mm; }
+    * { box-sizing:border-box; }
+    body { margin:0; font:10pt Arial,sans-serif; color:#18324b; background:white; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    header { border-bottom:2px solid #1265b1; padding-bottom:10px; margin-bottom:14px; }
+    h1 { font-size:20pt; margin:0 0 6px; } header p { margin:4px 0; } .meta { font-size:9pt; }
+    .sides { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:14px; }
+    .side { padding:10px; background:#edf5fa; border:1px solid #9ebbd0; border-radius:6px; }
+    ul { margin:6px 0; padding-left:18px; } li { overflow-wrap:anywhere; }
+    h2 { font-size:12pt; margin:0; padding:8px 10px; break-after:avoid; } h2 small { font-size:9pt; font-weight:normal; }
+    .lane { margin-bottom:12px; border:1px solid var(--edge); border-radius:6px; background:var(--fill); }
+    .strategic { --edge:#9c77ca; --fill:#efe6fb; } .operational { --edge:#60aaca; --fill:#e5f4fc; } .support { --edge:#75b689; --fill:#e5f7e9; }
+    .cards { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; padding:10px; }
+    article { break-inside:avoid; border:1px solid var(--edge); background:white; border-radius:4px; padding:10px; overflow-wrap:anywhere; }
+    article span { font:8pt monospace; } h3 { margin:6px 0; font-size:10pt; } .inactive { background:#edf0f2; border:1px dashed #718096; color:#526171; }
+    footer { text-align:center; border-top:1px solid #9ebbd0; padding:10px; margin-top:12px; font-size:9pt; }
+  </style></head><body><header><h1>Mapa de processos</h1><p>${escapeHtml(company)}</p><p class="meta">Revisão do mapa: ${escapeHtml(revision)} · Emitido em ${escapeHtml(date)} · ${rows.length} processo(s)</p></header><div class="sides">${side("requisitos", "Entradas")}${side("satisfacao", "Saídas")}</div>${lanes}${uncategorized.length ? `<section><h2>Processos sem categoria definida</h2><ul>${uncategorized.map(row => `<li>${escapeHtml(row.codigo || "-")} · ${escapeHtml(row.nome || "Sem título")}</li>`).join("")}</ul></section>` : ""}<footer>Melhoria contínua em todos os processos</footer></body></html>`);
+  popup.document.close();
 }
 
 function printContextEscopo() {
