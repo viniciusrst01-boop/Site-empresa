@@ -39,11 +39,53 @@ test('context filters persist across tabs and map export includes all processes'
   await page.getByRole('button',{name:'Gerar PDF',exact:true}).click();
   const popup=await opened;
   await expect(popup.locator('header')).toContainText('Mapa de processos');
-  await expect(popup.locator('article')).toHaveCount(2);
-  await expect(popup.locator('article.inactive')).toContainText('Atendimento <Cliente>');
+  await expect(popup.locator('body')).toHaveAttribute('data-print-ready','true');
+  await expect(popup.locator('.process-architecture-node')).toHaveCount(2);
+  await expect(popup.locator('.process-architecture-node.is-inactive')).toContainText('Atendimento <Cliente>');
+  await expect(popup.locator('.process-side-edit')).toHaveCount(0);
+  const input = await popup.locator('.process-reference-input').boundingBox();
+  const middle = await popup.locator('.process-architecture-body').boundingBox();
+  const output = await popup.locator('.process-reference-output').boundingBox();
+  expect(input.x + input.width).toBeLessThan(middle.x);
+  expect(middle.x + middle.width).toBeLessThan(output.x);
+  await expect(popup.locator('.process-reference-improvement')).toBeVisible();
   await popup.pdf({path:testInfo.outputPath('map.pdf'),preferCSSPageSize:true,printBackground:true});
   await popup.screenshot({path:testInfo.outputPath('map-print.png'),fullPage:true});
   await popup.close();
+  await page.evaluate(() => {
+    document.body.classList.add('theme-white');
+    contextData.processos = ['Estratégico','Operacional','Suporte'].flatMap((categoria, group) =>
+      Array.from({length:[4,7,6][group]}, (_, i) => ({
+        id:group+'-'+i, codigo:['EST','OPE','SUP'][group]+'-00'+i,
+        nome:['Gestão Estratégica e Planejamento','Desenvolvimento de Soluções Digitais','Gestão de Documentos e Registros'][group],
+        categoria, status:i ? 'Ativo':'Inativo',
+      })));
+    renderContextTab();
+  });
+  const lightOpened = page.waitForEvent('popup');
+  await page.getByRole('button',{name:'Gerar PDF',exact:true}).click();
+  const light = await lightOpened;
+  await expect(light.locator('body')).toHaveAttribute('data-print-ready','true');
+  await expect(light.locator('.process-architecture-node')).toHaveCount(17);
+  await light.emulateMedia({media:'print'});
+  await expect(light.locator('.process-reference-map')).toBeVisible();
+  await expect(light.locator('.process-architecture-node').first()).toBeVisible();
+  await light.setViewportSize({width:1123,height:794});
+  const geometry = await light.evaluate(() => {
+    const map = document.querySelector('.process-reference-map');
+    const input = document.querySelector('.process-reference-input').getBoundingClientRect();
+    const output = document.querySelector('.process-reference-output').getBoundingClientRect();
+    const middle = document.querySelector('.process-architecture-body').getBoundingClientRect();
+    return {left:input.right < middle.left, right:middle.right < output.left,
+      bottom:map.getBoundingClientRect().bottom,
+      clipped:[...document.querySelectorAll('.process-architecture-node')].some(node => node.scrollWidth > node.clientWidth + 1)};
+  });
+  expect(geometry.left && geometry.right).toBe(true);
+  expect(geometry.bottom).toBeLessThan(719);
+  expect(geometry.clipped).toBe(false);
+  await light.pdf({path:testInfo.outputPath('map-light.pdf'),preferCSSPageSize:true,printBackground:true});
+  await light.screenshot({path:testInfo.outputPath('map-light.png'),fullPage:true});
+  await light.close();
   await page.setViewportSize({width:390,height:844});
   await page.locator('[data-context-tab="processos"]').click();
   await expect(page.locator('[data-context-filter="query"]')).toBeVisible();

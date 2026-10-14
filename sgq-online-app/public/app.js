@@ -5253,37 +5253,53 @@ function saveContextEscopo() {
 }
 
 function printContextMapa() {
-  const popup = window.open("", "_blank", "width=1200,height=800");
+  const popup = window.open("", "_blank", "width=1600,height=900");
   if (!popup) { toast("Permita abrir a janela de impressão para gerar o PDF."); return; }
   const company = state.company?.name || "Organização";
-  const revision = "Não informada";
   const date = new Intl.DateTimeFormat("pt-BR", { timeZone:"America/Sao_Paulo" }).format(new Date());
   const rows = contextGet("processos");
-  const sides = contextGet("mapa");
-  const side = (key, title) => `<section class="side"><h2>${title}</h2><ul>${(sides[key] ?? contextSeeds.mapa[key]).map(item => `<li>${escapeHtml(item)}</li>`).join("")}</ul></section>`;
-  const lanes = [["Estratégico", "Processos estratégicos", "strategic"], ["Operacional", "Processos operacionais", "operational"], ["Suporte", "Processos de suporte", "support"]].map(([category,title,cls]) => {
-    const items = rows.filter(row => row.categoria === category);
-    return `<section class="lane ${cls}"><h2>${title} <small>${items.length} processo(s)</small></h2><div class="cards">${items.length ? items.map(row => `<article class="${row.status === "Inativo" ? "inactive" : ""}"><span>${escapeHtml(row.codigo || "-")}</span><h3>${escapeHtml(row.nome || "Sem título")}</h3>${row.status === "Inativo" ? "<small>Inativo</small>" : ""}</article>`).join("") : "<p>Nenhum processo cadastrado.</p>"}</div></section>`;
-  }).join("");
-  const uncategorized = rows.filter(row => !["Estratégico", "Operacional", "Suporte"].includes(row.categoria));
-  popup.addEventListener("load", () => { popup.focus(); popup.print(); }, { once:true });
-  popup.document.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Mapa de processos - ${escapeHtml(company)}</title><style>
-    @page { size:A4 landscape; margin:12mm; }
-    * { box-sizing:border-box; }
-    body { margin:0; font:10pt Arial,sans-serif; color:#18324b; background:white; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
-    header { border-bottom:2px solid #1265b1; padding-bottom:10px; margin-bottom:14px; }
-    h1 { font-size:20pt; margin:0 0 6px; } header p { margin:4px 0; } .meta { font-size:9pt; }
-    .sides { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:14px; }
-    .side { padding:10px; background:#edf5fa; border:1px solid #9ebbd0; border-radius:6px; }
-    ul { margin:6px 0; padding-left:18px; } li { overflow-wrap:anywhere; }
-    h2 { font-size:12pt; margin:0; padding:8px 10px; break-after:avoid; } h2 small { font-size:9pt; font-weight:normal; }
-    .lane { margin-bottom:12px; border:1px solid var(--edge); border-radius:6px; background:var(--fill); }
-    .strategic { --edge:#9c77ca; --fill:#efe6fb; } .operational { --edge:#60aaca; --fill:#e5f4fc; } .support { --edge:#75b689; --fill:#e5f7e9; }
-    .cards { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; padding:10px; }
-    article { break-inside:avoid; border:1px solid var(--edge); background:white; border-radius:4px; padding:10px; overflow-wrap:anywhere; }
-    article span { font:8pt monospace; } h3 { margin:6px 0; font-size:10pt; } .inactive { background:#edf0f2; border:1px dashed #718096; color:#526171; }
-    footer { text-align:center; border-top:1px solid #9ebbd0; padding:10px; margin-top:12px; font-size:9pt; }
-  </style></head><body><header><h1>Mapa de processos</h1><p>${escapeHtml(company)}</p><p class="meta">Revisão do mapa: ${escapeHtml(revision)} · Emitido em ${escapeHtml(date)} · ${rows.length} processo(s)</p></header><div class="sides">${side("requisitos", "Entradas")}${side("satisfacao", "Saídas")}</div>${lanes}${uncategorized.length ? `<section><h2>Processos sem categoria definida</h2><ul>${uncategorized.map(row => `<li>${escapeHtml(row.codigo || "-")} · ${escapeHtml(row.nome || "Sem título")}</li>`).join("")}</ul></section>` : ""}<footer>Melhoria contínua em todos os processos</footer></body></html>`);
+  const theme = [...document.body.classList].filter(name => name.startsWith("theme-")).join(" ");
+  const styles = [...document.querySelectorAll('link[rel="stylesheet"]')]
+    .map(link => `<link rel="stylesheet" href="${escapeHtml(link.href)}">`).join("");
+  const map = document.createElement("div");
+  map.innerHTML = contextProcessArchitectureHtml(rows);
+  map.querySelectorAll(".process-side-edit, .context-map-export").forEach(node => node.remove());
+
+  const preparePrint = async () => {
+    await popup.document.fonts.ready;
+    if (popup.closed) return;
+    const sheet = popup.document.querySelector(".map-print-sheet");
+    // Fit the desktop drawing to the printable landscape area without reflowing it.
+    const scale = Math.min(1054 / sheet.scrollWidth, 718 / sheet.scrollHeight, 1);
+    sheet.style.zoom = String(scale);
+    popup.document.body.dataset.printReady = "true";
+    popup.focus();
+    popup.print();
+  };
+  popup.document.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Mapa de processos - ${escapeHtml(company)}</title>${styles}<style>
+    @page { size:A4 landscape; margin:9mm; }
+    html, body { display:block!important; width:auto!important; height:auto!important; min-height:0!important; margin:0!important; padding:0!important; overflow:visible!important; background:white!important; }
+    * { -webkit-print-color-adjust:exact!important; print-color-adjust:exact!important; }
+    .map-print-sheet { width:1600px; margin:0; padding:0; }
+    .map-print-sheet, .map-print-sheet * { visibility:visible!important; }
+    .map-print-heading { color:#18324b; border-bottom:2px solid #1265b1; padding:0 0 12px; margin-bottom:16px; }
+    .map-print-heading h1 { font:700 26px Arial,sans-serif; margin:0 0 6px; }
+    .map-print-heading p { font:14px Arial,sans-serif; margin:4px 0; }
+    .process-reference-map { width:100%; margin:0!important; break-inside:avoid; }
+    .process-reference-map .process-reference-layout { grid-template-columns:128px minmax(0,1fr) 128px!important; }
+    .process-reference-map.process-swimlanes .process-architecture-nodes { grid-template-columns:repeat(var(--lane-count),minmax(0,1fr))!important; overflow:visible; }
+    .process-reference-map .process-reference-side { gap:18px!important; }
+    .process-reference-side ul { display:block!important; }
+    .process-reference-side li + li { margin-top:16px!important; }
+    .process-reference-side > .icon { display:block!important; }
+    .process-reference-input::after,.process-reference-output::before { display:block!important; }
+    .process-reference-map .process-architecture-lane-head > small { display:block!important; }
+    .process-reference-improvement { padding:0 64px 4px!important; grid-template-columns:minmax(0,1fr) minmax(0,2fr) minmax(0,1fr)!important; }
+    .process-reference-improvement strong { font-size:12px!important; padding:10px 20px!important; }
+    .process-return-arrow { height:64px!important; }
+    .process-architecture-node { pointer-events:none; }
+  </style></head><body class="${escapeHtml(theme)}"><main class="map-print-sheet"><header class="map-print-heading"><h1>Mapa de processos</h1><p>${escapeHtml(company)}</p><p>Emitido em ${escapeHtml(date)} · ${rows.length} processo(s)</p></header>${map.innerHTML}</main></body></html>`);
+  popup.addEventListener("load", preparePrint, { once:true });
   popup.document.close();
 }
 
