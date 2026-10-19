@@ -495,6 +495,7 @@ test("módulo de mudanças climáticas registra questões e exibe indicadores", 
   await page.evaluate(() => renderModuleDetail("mudancas-climaticas"));
   await expect(page.locator(".topbar-title")).toHaveText("Mudanças Climáticas");
   await expect(page.getByText("Determinação da empresa quanto a condições climáticas")).toBeVisible();
+  await expect(page.locator(".climate-notice")).toHaveCount(0);
   await page.getByRole("button", { name: "Questões climáticas" }).click();
   await page.getByRole("button", { name: "Nova questão" }).click();
   await page.locator("#climateIssueDescription").fill("Risco climático de teste");
@@ -503,6 +504,57 @@ test("módulo de mudanças climáticas registra questões e exibe indicadores", 
   await expect(page.locator(".climate-table")).toContainText("Risco climático de teste");
   await page.getByRole("button", { name: "Indicadores" }).click();
   await expect(page.locator("#climateStatusChart")).toBeVisible();
+});
+
+test("módulo de mudanças climáticas permite desfazer e refazer exclusões", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await login(page);
+  await page.evaluate(() => {
+    state.climate = structuredClone(climateSeed);
+    renderModuleDetail("mudancas-climaticas");
+  });
+  await page.getByRole("button", { name: "Questões climáticas" }).click();
+  const rows = page.locator(".climate-table tbody tr");
+  const expectedCount = await page.evaluate(() => state.climate.issues.length);
+  await expect(rows).toHaveCount(expectedCount);
+  const initialCount = await rows.count();
+  const undo = page.getByRole("button", { name: "Voltar ação" });
+  const redo = page.getByRole("button", { name: "Avançar ação" });
+
+  await expect(undo).toBeDisabled();
+  await expect(redo).toBeDisabled();
+  await page.locator('[data-climate-action="delete-issue"]').first().click();
+  await expect(rows).toHaveCount(initialCount - 1);
+  await expect(undo).toBeEnabled();
+
+  await undo.click();
+  await expect(rows).toHaveCount(initialCount);
+  await expect(redo).toBeEnabled();
+
+  await redo.click();
+  await expect(rows).toHaveCount(initialCount - 1);
+  await expect(undo).toBeEnabled();
+});
+
+test("módulo de mudanças climáticas permite desfazer e refazer a determinação", async ({ page }) => {
+  await login(page);
+  await page.evaluate(() => {
+    state.climate = structuredClone(climateSeed);
+    renderModuleDetail("mudancas-climaticas");
+  });
+  const undo = page.getByRole("button", { name: "Voltar ação" });
+  const redo = page.getByRole("button", { name: "Avançar ação" });
+  await page.locator("#climateRelevant").selectOption("Não");
+  await page.getByRole("button", { name: "Salvar determinação" }).click();
+  await expect(page.locator("#climateRelevant")).toHaveValue("Não");
+  await expect(undo).toBeEnabled();
+
+  await undo.click();
+  await expect(page.locator("#climateRelevant")).toHaveValue("Sim");
+  await expect(redo).toBeEnabled();
+
+  await redo.click();
+  await expect(page.locator("#climateRelevant")).toHaveValue("Não");
 });
 
 test("planejamento de mudanças registra as etapas da cláusula 6.3", async ({ page }, testInfo) => {

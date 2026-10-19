@@ -2679,6 +2679,9 @@ function getModuleSnapshot(moduleId) {
       equipmentDistributions: structuredClone(state.equipmentDistributions || []),
     };
   }
+  if (moduleId === "mudancas-climaticas") {
+    return structuredClone(state.climate || null);
+  }
   return null;
 }
 
@@ -2707,6 +2710,10 @@ function applyModuleSnapshot(moduleId, snapshot) {
       state.equipmentDistributions = structuredClone(snapshot.equipmentDistributions || []);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
       saveRemoteData("state", state, "equipamentos");
+  } else if (moduleId === "mudancas-climaticas") {
+    state.climate = structuredClone(snapshot);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    saveRemoteData("state", state, "mudancas-climaticas");
     }
   } finally {
     moduleHistoryApplying = false;
@@ -2744,6 +2751,7 @@ function rerenderModuleAfterHistory(moduleId, message) {
     if (frame?.contentWindow) hydrateEquipmentFrame(frame);
     else renderEquipmentModule();
   }
+  else if (moduleId === "mudancas-climaticas") renderClimateModule();
   toast(message);
 }
 
