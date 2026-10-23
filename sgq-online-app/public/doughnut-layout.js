@@ -46,7 +46,8 @@
       ctx.stroke();
       ctx.restore();
     },
-    afterDraw(chart, _args, options) {
+    // Draw the center before Chart.js paints the tooltip overlay.
+    afterDatasetsDraw(chart, _args, options) {
       if (!options?.display || chart.config.type !== "doughnut") return;
       const arc = chart.getDatasetMeta(0).data[0];
       if (!arc?.innerRadius) return;

@@ -1366,7 +1366,7 @@ function dashboardCompanyKpi(companyName) {
 }
 
 function dashboardKpi(icon, label, value, caption, accent, progress) {
-  return `<article class="home-v2-kpi" style="--home-accent:${accent}; --home-progress:${Math.max(0, Math.min(100, progress))}%">
+  return `<article class="home-v2-kpi" role="button" tabindex="0" data-dashboard-detail="${icon}" aria-haspopup="dialog" style="--home-accent:${accent}; --home-progress:${Math.max(0, Math.min(100, progress))}%">
     <div class="home-v2-kpi-top"><span>${moduleIcon(icon)}</span><div><small>${escapeHtml(label)}</small><strong>${escapeHtml(value)}</strong></div></div>
     <p>${escapeHtml(caption)}</p><i><b></b></i>
   </article>`;
@@ -1377,7 +1377,7 @@ function dashboardStatusKpi(openActions) {
   const accent = needsAttention ? "#ff9738" : "#27c99f";
   const status = needsAttention ? "Atenção" : "Em dia";
   const caption = needsAttention ? "Existem pontos que requerem acompanhamento." : "Nenhuma pendência crítica identificada.";
-  return `<article class="home-v2-kpi home-v2-status-kpi" style="--home-accent:${accent}; --home-progress:100%">
+  return `<article class="home-v2-kpi home-v2-status-kpi" role="button" tabindex="0" data-dashboard-detail="status" aria-haspopup="dialog" style="--home-accent:${accent}; --home-progress:100%">
     <div class="home-v2-kpi-top"><span>${moduleIcon(needsAttention ? "nao-conformidades" : "check-circle")}</span><div><small>Status do SGQ</small><strong>${status}</strong></div></div>
     <p>${caption}</p><i><b></b></i>
   </article>`;
@@ -10523,7 +10523,69 @@ function fitDashboardModuleTitles() {
   });
 }
 
+function openDashboardDetail(kind, trigger) {
+  document.getElementById("dashboardDetailDialog")?.remove();
+  const titles = { modulos: "Registros do SGQ", auditorias: "Auditorias", "nao-conformidades": "Não conformidades", "check-circle": "Certificação", status: "Status do SGQ" };
+  if (!titles[kind]) return;
+  let rows = [];
+  let headers = ["Registro", "Responsável", "Prazo", "Status"];
+  if (kind === "status") {
+    rows = getFollowUpItems().map(item => ({ cells: [item.title, item.responsible, item.dueDate ? formatDate(item.dueDate) : "Não informado", item.status], module: item.module, followUp: item.id }));
+  } else if (kind === "modulos") {
+    headers = ["Módulo", "Registros", "Resumo"];
+    const summary = dashboardSummary();
+    rows = accessibleModules().filter(module => !module.future).map(module => ({ cells: [module.title, summary.modules[module.id]?.value || "—", summary.modules[module.id]?.caption || "Sem resumo disponível"], module: module.id }));
+  } else if (kind === "check-circle") {
+    headers = ["Informação", "Dados cadastrados"];
+    rows = [
+      { cells: ["Certificação", state.company.certification || "Não informada"] },
+      { cells: ["Escopo", state.company.scope || "Não informado"] },
+    ];
+  } else if (canViewModule(kind)) {
+    const records = kind === "auditorias" ? state.audits || [] : (state.ncs || []).filter(item => !isClosedStatus(item.status));
+    rows = records.map(item => ({ cells: [item.title || item.descricao || item.description || item.id || "Registro", item.owner || item.responsavel || "Não informado", item.date || item.data || item.prazo ? formatDate(item.date || item.data || item.prazo) : "Não informado", item.status || "Não informado"], module: kind }));
+  }
+  const dialog = document.createElement("dialog");
+  dialog.id = "dashboardDetailDialog";
+  dialog.className = "dashboard-detail-dialog";
+  dialog.setAttribute("aria-labelledby", "dashboardDetailTitle");
+  dialog.innerHTML = `<header><h2 id="dashboardDetailTitle">${titles[kind]}</h2><button type="button" data-close aria-label="Fechar">${moduleIcon("close")}</button></header>
+    <label class="dashboard-detail-search">Buscar<input type="search" placeholder="Buscar nos registros" /></label>
+    <p role="status" data-count></p><div class="dashboard-detail-table"><table><thead><tr>${headers.map(label => `<th scope="col">${label}</th>`).join("")}<th scope="col">Acompanhamento</th></tr></thead><tbody></tbody></table></div>`;
+  function draw(query = "") {
+    const filtered = rows.map((row, index) => ({ ...row, index })).filter(row => row.cells.join(" ").toLocaleLowerCase("pt-BR").includes(query.toLocaleLowerCase("pt-BR")));
+    dialog.querySelector("[data-count]").textContent = `${filtered.length} resultado(s)`;
+    dialog.querySelector("tbody").innerHTML = filtered.length ? filtered.map(row => `<tr>${row.cells.map(cell => `<td>${escapeHtml(cell)}</td>`).join("")}<td>${row.module ? `<button type="button" data-row="${row.index}">Abrir módulo ${moduleIcon("arrow")}</button>` : "—"}</td></tr>`).join("") : `<tr><td colspan="${headers.length + 1}">Nenhum registro disponível para acompanhamento.</td></tr>`;
+  }
+  dialog.querySelector("input").addEventListener("input", event => draw(event.target.value));
+  dialog.addEventListener("click", event => {
+    if (event.target.closest("[data-close]") || event.target === dialog) dialog.close();
+    const button = event.target.closest("[data-row]");
+    if (!button) return;
+    const row = rows[Number(button.dataset.row)];
+    if (!row?.module || !canViewModule(row.module)) return;
+    dialog.close();
+    if (row.followUp) openFollowUpItem(row.followUp);
+    else {
+      if (row.module === "nao-conformidades") ncMainTab = "controle";
+      renderModuleDetail(row.module, { restoreTabs: false });
+    }
+  });
+  dialog.addEventListener("close", () => { dialog.remove(); if (trigger?.isConnected) trigger.focus(); }, { once: true });
+  document.body.append(dialog);
+  draw();
+  dialog.showModal();
+}
+
 function bindDashboardActions() {
+  document.querySelectorAll("[data-dashboard-detail]").forEach(card => {
+    card.addEventListener("click", () => openDashboardDetail(card.dataset.dashboardDetail, card));
+    card.addEventListener("keydown", event => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      openDashboardDetail(card.dataset.dashboardDetail, card);
+    });
+  });
   dashboardTitleObserver?.disconnect();
   dashboardTitleObserver = new ResizeObserver(fitDashboardModuleTitles);
   document.querySelectorAll(".home-v2-module-copy").forEach((copy) => dashboardTitleObserver.observe(copy));

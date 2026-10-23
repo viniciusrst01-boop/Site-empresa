@@ -503,7 +503,65 @@ test("módulo de mudanças climáticas registra questões e exibe indicadores", 
   await page.getByRole("button", { name: "Salvar", exact: true }).click();
   await expect(page.locator(".climate-table")).toContainText("Risco climático de teste");
   await page.getByRole("button", { name: "Indicadores" }).click();
-  await expect(page.locator("#climateStatusChart")).toBeVisible();
+  const indicators = page.frameLocator("#climateIndicatorsFrame");
+  await expect(indicators.locator("#dStatus")).toBeVisible();
+  await indicators.getByRole("button", { name: /Questões avaliadas/ }).click();
+  await expect(indicators.locator("#mBody")).toContainText("Risco climático de teste");
+});
+
+test("indicadores climáticos usam dados atuais, exportam e preservam lista vazia", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await login(page);
+  await page.evaluate(() => {
+    state.climate = { determination: { relevant: "Não", owner: "Responsável teste" }, issues: [
+      { id: "TEST-1", description: "Questão real", relevant: "Parcial", owner: "__proto__", status: "Concluída", due: "2026-01-01", evidence: "evidencia.pdf" },
+      { id: "TEST-2", description: "Questão pendente", relevant: "Sim", owner: "Equipe", status: "Em andamento", due: "2020-01-01" }
+    ] };
+    renderModuleDetail("mudancas-climaticas");
+  });
+  await page.getByRole("button", { name: "Indicadores", exact: true }).click();
+  const frame = page.frameLocator("#climateIndicatorsFrame");
+  const expand = frame.locator("#fullscreenButton");
+  await expand.click();
+  await expect(expand).toHaveAttribute("aria-pressed", "true");
+  await expect.poll(() => frame.locator("body").evaluate(() => Boolean(document.fullscreenElement))).toBe(true);
+  await expand.click();
+  await expect(expand).toHaveAttribute("aria-pressed", "false");
+  for (const width of [1024, 1280, 1440, 1920]) {
+    await page.setViewportSize({ width, height: 900 });
+    await expect.poll(() => frame.locator(".hdr").evaluate(header => {
+      const actions = header.querySelector(".hdr-actions").getBoundingClientRect();
+      const title = header.querySelector(".hdr-left").getBoundingClientRect();
+      return actions.right <= window.innerWidth && (actions.left >= title.right || actions.top >= title.bottom);
+    })).toBe(true);
+  }
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await expect(frame.locator("#cards")).toContainText("50%");
+  await expect(frame.locator(".card-treatment")).toHaveCSS("--treatment-progress", "50%");
+  await expect(frame.locator("#cards")).toContainText("Não relevante");
+  await expect.poll(() => frame.locator("body").evaluate(() => Object.keys(charts).length)).toBe(7);
+  await expect.poll(() => frame.locator("body").evaluate(() => computeAgg().total)).toBe(2);
+  await expect(frame.locator(".qualitypro-doughnut-body")).toHaveCount(4);
+  expect(await frame.locator("#dStatus").evaluate(canvas => {
+    const chart = Chart.getChart(canvas);
+    return { radius: chart.options.radius, color: chart.options.plugins.datalabels.color, total: chart.options.plugins.qualityproDoughnutCenter.value };
+  })).toEqual({ radius: "88%", color: "#f5f7fa", total: 2 });
+  await frame.locator("#dStatus").scrollIntoViewIfNeeded();
+  await frame.locator("#dStatus").locator("xpath=../..").screenshot({ path: "test-results/climate-donut-style.png" });
+  const download = page.waitForEvent("download");
+  await frame.getByRole("button", { name: "Exportar", exact: true }).click();
+  expect((await download).suggestedFilename()).toMatch(/^indicadores_mudancas_climaticas_/);
+  await page.locator("#climateIndicatorsFrame").screenshot({ path: "test-results/climate-indicators-desktop.png" });
+  await page.evaluate(() => { state.settings.theme = "white"; applyTheme(); });
+  await expect(frame.locator("body")).toHaveClass(/theme-white/);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect.poll(() => frame.locator("body").evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
+  await page.locator("#climateIndicatorsFrame").screenshot({ path: "test-results/climate-indicators-mobile.png" });
+  await page.evaluate(() => { state.climate.issues = []; renderClimateModule(); });
+  await expect(frame.locator("#cards")).toContainText("0 de 0 concluídas");
+  await expect(frame.locator(".card-treatment")).toHaveCSS("--treatment-progress", "0%");
+  await expect(frame.locator("#vencList")).toContainText("Nenhuma questão");
+  await expect.poll(() => frame.locator("body").evaluate(() => computeAgg().total)).toBe(0);
 });
 
 test("módulo de mudanças climáticas permite desfazer e refazer exclusões", async ({ page }) => {

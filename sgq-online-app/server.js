@@ -1786,6 +1786,18 @@ async function handleRequest(req, res) {
     return;
   }
 
+  if (url.pathname === "/climate-indicators-frame.html") {
+    if (!session) {
+      send(res, 302, "", { Location: "/login", "Set-Cookie": sessionCookie(req, "", 0) });
+      return;
+    }
+    serveFile(res, path.join(publicDir, "climate-indicators-frame.html"), {
+      "X-Frame-Options": "SAMEORIGIN",
+      "Content-Security-Policy": "frame-ancestors 'self'",
+    });
+    return;
+  }
+
   if (url.pathname === "/audits-module-frame.html") {
     if (!session) {
       send(res, 302, "", { Location: "/login", "Set-Cookie": sessionCookie(req, "", 0) });

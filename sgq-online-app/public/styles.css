@@ -9184,3 +9184,19 @@ body .home-v2-activity-list::-webkit-scrollbar-thumb { min-height: 42px; border:
 .scope-history-description { white-space: pre-wrap; overflow-wrap: anywhere; }
 #contextScopeHistoryBody details { margin-top: 10px; }
 #contextScopeHistoryBody summary { cursor: pointer; }
+.home-v2-kpi[data-dashboard-detail] { cursor: pointer; }
+.home-v2-kpi[data-dashboard-detail]:focus-visible { outline: 2px solid var(--accent-cyan); outline-offset: 3px; }
+.dashboard-detail-dialog { width: min(1000px, calc(100vw - 48px)); max-height: calc(100vh - 64px); margin: auto; padding: 24px; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--bg-panel); color: var(--text-primary); overflow: auto; }
+.dashboard-detail-dialog::backdrop { background: rgb(0 0 0 / 65%); }
+.dashboard-detail-dialog header { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:20px; }
+.dashboard-detail-dialog h2 { font-size:20px; margin:0; }
+.dashboard-detail-dialog button { display:inline-flex; align-items:center; gap:8px; padding:8px 12px; border:1px solid var(--border-strong); border-radius:6px; background:var(--bg-panel-hover); color:var(--text-primary); cursor:pointer; }
+.dashboard-detail-dialog [data-close] { width:36px; height:36px; padding:8px; }
+.dashboard-detail-search { display:grid; gap:8px; max-width:400px; }
+.dashboard-detail-search input { padding:10px 12px; border:1px solid var(--border-strong); border-radius:6px; color:var(--text-primary); background:var(--bg-deep); }
+.dashboard-detail-dialog [data-count] { margin:12px 0; color:var(--text-secondary); }
+.dashboard-detail-table { overflow:auto; }
+.dashboard-detail-table table { width:100%; min-width:720px; border-collapse:collapse; font-size:14px; }
+.dashboard-detail-table td:nth-child(3),.dashboard-detail-table button { white-space:nowrap; }
+.dashboard-detail-table th,.dashboard-detail-table td { text-align:left; padding:12px; border-bottom:1px solid var(--border-subtle); overflow-wrap:anywhere; }
+.dashboard-detail-table th { color:var(--text-secondary); font-size:12px; }
