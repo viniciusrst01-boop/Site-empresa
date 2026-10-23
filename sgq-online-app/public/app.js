@@ -1385,9 +1385,18 @@ function dashboardStatusKpi(openActions) {
 
 function dashboardCompactModuleCard(module, info) {
   const meta = info || { value: "0 registros", caption: "Aguardando dados cadastrados" };
+  const descriptions = {
+    "mudancas-climaticas": "Relevância, ações e indicadores climáticos.",
+    contexto: "Contexto, partes interessadas e escopo.",
+    lideranca: "Política, responsabilidades e direção.",
+    riscos: "Avaliação de riscos e oportunidades.",
+    documentos: "Versões, aprovações e distribuição.",
+    auditorias: "Planejamento e controle de auditorias.",
+    "nao-conformidades": "Registros, ações corretivas e eficácia.",
+  };
   return `<article class="home-v2-module" data-module-card="${module.id}" role="button" tabindex="0" style="--home-accent:${module.accent};">
     <div class="home-v2-module-icon">${moduleIcon(module.id)}</div>
-    <div class="home-v2-module-copy"><h3>${escapeHtml(module.title)}</h3><p>${escapeHtml(module.desc)}</p></div>
+    <div class="home-v2-module-copy"><h3>${escapeHtml(module.title)}</h3><p>${escapeHtml(descriptions[module.id] || module.desc)}</p></div>
     <div class="home-v2-module-foot"><span>${escapeHtml(meta.value)}</span><em>Ativo</em>${moduleIcon("arrow")}</div>
   </article>`;
 }
@@ -4862,7 +4871,7 @@ function contextProcessArchitectureLane(category, description, rows, isFlow = fa
   return `
     <div class="process-architecture-lane ${className}${isFlow ? " operational-flow" : ""}">
       <div class="process-architecture-lane-head"><div class="process-neon-icon" aria-hidden="true">${moduleIcon(categoryIcon)}</div><div class="process-neon-copy"><span>${escapeHtml(categoryTitle)}</span><strong>${rows.length} processo${rows.length === 1 ? "" : "s"}</strong></div><small>${escapeHtml(description)}</small></div>
-      <div class="process-architecture-nodes" style="--lane-count:${Math.max(1, Math.min(rows.length, 7))}">${cards}</div>
+      <div class="process-architecture-nodes" style="--lane-count:${Math.max(1, Math.min(rows.length, 6))}">${cards}</div>
     </div>`;
 }
 
@@ -10549,8 +10558,7 @@ function openDashboardDetail(kind, trigger) {
   dialog.id = "dashboardDetailDialog";
   dialog.className = "dashboard-detail-dialog";
   dialog.setAttribute("aria-labelledby", "dashboardDetailTitle");
-  dialog.innerHTML = `<header><h2 id="dashboardDetailTitle">${titles[kind]}</h2><button type="button" data-close aria-label="Fechar">${moduleIcon("close")}</button></header>
-    <label class="dashboard-detail-search">Buscar<input type="search" placeholder="Buscar nos registros" /></label>
+  dialog.innerHTML = `<header><h2 id="dashboardDetailTitle">${titles[kind]}</h2><label class="dashboard-detail-search">Buscar<input type="search" placeholder="Buscar nos registros" /></label><button type="button" data-close aria-label="Fechar">${moduleIcon("close")}</button></header>
     <p role="status" data-count></p><div class="dashboard-detail-table"><table><thead><tr>${headers.map(label => `<th scope="col">${label}</th>`).join("")}<th scope="col">Acompanhamento</th></tr></thead><tbody></tbody></table></div>`;
   function draw(query = "") {
     const filtered = rows.map((row, index) => ({ ...row, index })).filter(row => row.cells.join(" ").toLocaleLowerCase("pt-BR").includes(query.toLocaleLowerCase("pt-BR")));
@@ -10574,7 +10582,11 @@ function openDashboardDetail(kind, trigger) {
   dialog.addEventListener("close", () => { dialog.remove(); if (trigger?.isConnected) trigger.focus(); }, { once: true });
   document.body.append(dialog);
   draw();
+  const heading = dialog.querySelector("h2");
+  heading.tabIndex = -1;
+  heading.setAttribute("autofocus", "");
   dialog.showModal();
+  heading.focus({ preventScroll: true });
 }
 
 function bindDashboardActions() {

@@ -4369,6 +4369,8 @@ table.ctxtbl {
 .process-reference-map.process-architecture .process-architecture-node strong { font-size:12px; line-height:1.35; margin-top:5px; }
 .process-reference-map.process-architecture .process-architecture-code { color:var(--process-neon); font-size:10px; }
 .process-reference-map .process-architecture-lane.estrategico { --process-neon:#a78bfa; }
+.process-reference-map.process-swimlanes .process-architecture-nodes { display:flex; flex-wrap:wrap; justify-content:center; }
+.process-reference-map.process-architecture .process-architecture-node { flex:0 0 calc((100% - (var(--lane-count) - 1)*7px)/var(--lane-count)); min-width:0; overflow-wrap:anywhere; }
 .process-reference-map .process-side-edit { position:absolute; top:6px; right:6px; }
 .process-reference-map.process-architecture .process-architecture-node .process-neon-icon { width:30px; height:30px; flex-basis:30px; border:0; background:transparent; }
 .process-reference-map.process-architecture .process-architecture-node small { display:block; overflow:visible; line-height:1.5; margin-top:10px; }
@@ -9192,7 +9194,9 @@ body .home-v2-activity-list::-webkit-scrollbar-thumb { min-height: 42px; border:
 .dashboard-detail-dialog h2 { font-size:20px; margin:0; }
 .dashboard-detail-dialog button { display:inline-flex; align-items:center; gap:8px; padding:8px 12px; border:1px solid var(--border-strong); border-radius:6px; background:var(--bg-panel-hover); color:var(--text-primary); cursor:pointer; }
 .dashboard-detail-dialog [data-close] { width:36px; height:36px; padding:8px; }
-.dashboard-detail-search { display:grid; gap:8px; max-width:400px; }
+.dashboard-detail-search { display:flex; align-items:center; gap:8px; margin-left:auto; min-width:0; flex-shrink:0; }
+.dashboard-detail-search input { min-width:0; width:400px; max-width:40vw; }
+.dashboard-detail-dialog [data-close] { flex-shrink:0; }
 .dashboard-detail-search input { padding:10px 12px; border:1px solid var(--border-strong); border-radius:6px; color:var(--text-primary); background:var(--bg-deep); }
 .dashboard-detail-dialog [data-count] { margin:12px 0; color:var(--text-secondary); }
 .dashboard-detail-table { overflow:auto; }
