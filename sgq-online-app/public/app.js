@@ -693,7 +693,7 @@ function updateAdminNav() {
   const nav = document.querySelector(".sb-nav");
   if (!nav) return;
   document.querySelector(".sb-section-label").textContent = "ADMINISTRAÇÃO";
-  nav.innerHTML = [
+  const items = [
     ["gerenciamento", "modulos", "Visão geral"],
     ["admin-empresas", "building", "Empresas"],
     ["admin-usuarios", "users", "Usuários"],
@@ -703,7 +703,9 @@ function updateAdminNav() {
     ["admin-logs", "scroll-text", "Logs e auditoria"],
     ["admin-suporte", "info", "Suporte"],
     ["configuracoes", "configuracoes", "Configurações"],
-  ].map(([view, icon, label]) => `<div class="nav-item" data-view="${view}">${moduleIcon(icon)} ${label}</div>`).join("");
+  ];
+  if (canViewStoreReport()) items.splice(items.length - 2, 0, ["loja-relatorios", "bar-chart", "Relatório da loja"]);
+  nav.innerHTML = items.map(([view, icon, label]) => `<div class="nav-item" data-view="${view}">${moduleIcon(icon)} ${label}</div>`).join("");
   nav.querySelectorAll(".nav-item").forEach((item) => item.addEventListener("click", () => render(item.dataset.view)));
 }
 
@@ -1127,10 +1129,18 @@ function setActiveNav(view) {
   });
 }
 
+function canViewStoreReport() {
+  return Boolean(currentUser?.isAdmin && String(currentUser?.username || "").toLowerCase() === "viniciusrst");
+}
+
 function render(view = "inicio") {
-  const adminAllowedViews = ["inicio", "gerenciamento", "admin-empresas", "admin-usuarios", "admin-planos", "admin-seguranca", "admin-backups", "admin-logs", "configuracoes", "perfil"];
+  const adminAllowedViews = ["inicio", "gerenciamento", "admin-empresas", "admin-usuarios", "admin-planos", "admin-seguranca", "admin-backups", "admin-logs", "configuracoes", "perfil", ...(canViewStoreReport() ? ["loja-relatorios"] : [])];
   if (currentUser?.isAdmin && !adminAllowedViews.includes(view)) {
     view = "gerenciamento";
+  }
+  if (view === "loja-relatorios" && !canViewStoreReport()) {
+    toast("Acesso restrito ao administrador master.");
+    view = currentUser?.isAdmin ? "gerenciamento" : "inicio";
   }
   activeView = view;
   localStorage.setItem(LAST_VIEW_STORAGE_KEY, view);
@@ -1181,6 +1191,7 @@ function render(view = "inicio") {
     "admin-seguranca": () => renderAdminLegacySection("admin-seguranca"),
     "admin-backups": () => renderAdminLegacySection("admin-backups"),
     "admin-logs": () => renderAdminLegacySection("admin-logs"),
+    "loja-relatorios": renderAdminStoreReport,
     "admin-suporte": renderAdminSupport,
     configuracoes: renderConfiguracoes,
     ajuda: renderAjuda,
@@ -8374,6 +8385,155 @@ async function loadAdminDashboardData() {
   const data = await response.json();
   data.operations = operationsResponse.ok ? await operationsResponse.json() : null;
   return data;
+}
+
+async function renderAdminStoreReport() {
+  const currentMonth = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit",
+  }).format(new Date());
+  setTopbar("Relatório da loja", "Acessos, vendas e entrega de materiais digitais.");
+  pageContent.classList.add("admin-overview-page");
+  pageContent.innerHTML = `
+    <main class="admin-overview store-report-page" aria-label="Relatório mensal da loja">
+      <header class="store-report-header">
+        <div><h1>Relatório mensal da loja</h1><p>Dados agregados da QualityPro Solutions.</p></div>
+        <div class="store-report-controls">
+          <label for="storeReportMonth">Mês</label>
+          <input id="storeReportMonth" type="month" value="${currentMonth}" />
+          <button class="store-report-export" type="button" id="storeReportExport" title="Exportar relatório CSV" aria-label="Exportar relatório CSV">${moduleIcon("download")}<span>Exportar CSV</span></button>
+        </div>
+      </header>
+      <p class="store-report-status" id="storeReportStatus" role="status">Carregando relatório...</p>
+      <div id="storeReportContent"></div>
+    </main>
+  `;
+
+  let report = null;
+  const load = async (month) => {
+    const status = document.querySelector("#storeReportStatus");
+    const content = document.querySelector("#storeReportContent");
+    if (!status || !content) return;
+    status.textContent = "Carregando relatório...";
+    let response;
+    try {
+      response = await fetch(`/api/admin/store-report?month=${encodeURIComponent(month)}`, {
+        headers: { Accept: "application/json" }, cache: "no-store",
+      });
+    } catch {
+      report = null;
+      status.textContent = "Não foi possível conectar ao servidor do relatório.";
+      content.innerHTML = "";
+      return;
+    }
+    if (!response.ok) {
+      report = null;
+      status.textContent = response.status === 403 ? "Acesso restrito ao administrador master." : "Não foi possível carregar este relatório.";
+      content.innerHTML = "";
+      return;
+    }
+    try {
+      report = await response.json();
+    } catch {
+      report = null;
+      status.textContent = "O servidor retornou um relatório inválido.";
+      content.innerHTML = "";
+      return;
+    }
+    status.textContent = "";
+    content.innerHTML = adminStoreReportHtml(report);
+  };
+
+  document.querySelector("#storeReportMonth")?.addEventListener("change", (event) => {
+    const month = event.currentTarget.value;
+    if (/^20\d{2}-(0[1-9]|1[0-2])$/.test(month)) load(month);
+  });
+  document.querySelector("#storeReportExport")?.addEventListener("click", () => {
+    if (report) exportAdminStoreReport(report);
+  });
+  await load(currentMonth);
+}
+
+function adminStoreReportHtml(report) {
+  const commerce = report.commerce || {};
+  const traffic = report.traffic || {};
+  const money = (cents) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format((Number(cents) || 0) / 100);
+  const number = (value) => new Intl.NumberFormat("pt-BR").format(Number(value) || 0);
+  const purchaseCount = commerce.available ? Number(commerce.purchases) || 0 : null;
+  const visitorDays = traffic.available ? Number(traffic.visitorDays) || 0 : null;
+  const conversion = purchaseCount !== null && visitorDays ? `${(purchaseCount / visitorDays * 100).toFixed(2).replace(".", ",")}%` : "—";
+  const products = Array.isArray(commerce.products) ? commerce.products : [];
+  const pages = Array.isArray(traffic.topPages) ? traffic.topPages : [];
+  const days = Array.isArray(traffic.days) ? traffic.days : [];
+  const maxViews = Math.max(1, ...days.map((day) => Number(day.pageviews) || 0));
+  const review = commerce.reviews || {};
+  const ratingDistribution = Array.isArray(review.distribution) ? review.distribution : [];
+  const setupNotices = [
+    !traffic.available ? `Acessos: ${traffic.reason === "not_configured" ? "configure a Web Analytics API da Vercel no servidor do SGQ." : "a Vercel não retornou os dados deste período."}` : "",
+    !commerce.available ? `Vendas: ${commerce.reason === "not_configured" ? "configure a chave privada de leitura nos dois projetos." : "a loja não retornou os dados deste período."}` : "",
+  ].filter(Boolean);
+
+  return `
+    ${setupNotices.length ? `<div class="store-report-notice">${setupNotices.map((message) => `<p>${escapeHtml(message)}</p>`).join("")}</div>` : ""}
+    <section class="store-report-kpis" aria-label="Indicadores do mês">
+      ${storeReportMetric("Visualizações", traffic.available ? number(traffic.pageviews) : "—", "Páginas carregadas", "bar-chart", "blue")}
+      ${storeReportMetric("Visitantes-dia", visitorDays === null ? "—" : number(visitorDays), "Soma de visitantes únicos por dia", "users", "cyan")}
+      ${storeReportMetric("Compras aprovadas", purchaseCount === null ? "—" : number(purchaseCount), "Pedidos confirmados pelo Mercado Pago", "credit-card", "green")}
+      ${storeReportMetric("Receita registrada", commerce.available ? money(commerce.revenueCents) : "—", commerce.available && Number(commerce.purchasesWithoutAmount) ? `${number(commerce.purchasesWithoutAmount)} pedidos antigos sem valor salvo` : "Valores confirmados no pagamento", "database", "purple")}
+      ${storeReportMetric("Conversão estimada", conversion, "Compras por visitante-dia", "bar-chart", "amber")}
+    </section>
+    <section class="store-report-grid">
+      <article class="admin-overview-panel store-report-panel">
+        <div class="admin-panel-heading"><div><h2>Vendas por material</h2><p>Sem dados pessoais dos compradores.</p></div></div>
+        <div class="store-report-table-wrap"><table class="admin-activity-table store-report-table">
+          <thead><tr><th>Material</th><th>Compras</th><th>Receita registrada</th><th>E-mail aceito</th><th>Download iniciado</th><th>Convites</th></tr></thead>
+          <tbody>${products.length ? products.map((product) => `<tr><td>${escapeHtml(product.name)}</td><td>${number(product.purchases)}</td><td>${money(product.revenueCents)}${Number(product.purchasesWithoutAmount) ? ` <small>(${number(product.purchasesWithoutAmount)} sem valor)</small>` : ""}</td><td>${number(product.emailAccepted)}</td><td>${number(product.downloadStarted)}</td><td>${number(product.invitePurchases)}</td></tr>`).join("") : `<tr><td colspan="6"><div class="admin-empty-state">${commerce.available ? "Nenhuma compra aprovada neste mês." : "Dados de vendas indisponíveis."}</div></td></tr>`}</tbody>
+        </table></div>
+      </article>
+      <article class="admin-overview-panel store-report-panel">
+        <div class="admin-panel-heading"><div><h2>Páginas mais acessadas</h2><p>Rotas públicas agrupadas, sem URLs de pagamento ou download.</p></div></div>
+        <div class="store-report-page-list">${pages.length ? pages.map((page) => `<div class="store-report-page-row"><span>${escapeHtml(page.path)}</span><strong>${number(page.pageviews)}</strong></div>`).join("") : `<div class="admin-empty-state">${traffic.available ? "Sem páginas registradas." : "Dados de tráfego indisponíveis."}</div>`}</div>
+      </article>
+      <article class="admin-overview-panel store-report-panel">
+        <div class="admin-panel-heading"><div><h2>Tráfego diário</h2><p>Visualizações e visitantes-dia no período.</p></div></div>
+        <div class="store-report-days">${days.length ? days.map((day) => `<div class="store-report-day"><time>${escapeHtml(day.date.slice(8, 10))}</time><span><i style="width:${Math.max(2, Math.round((Number(day.pageviews) || 0) / maxViews * 100))}%"></i></span><strong>${number(day.pageviews)}</strong></div>`).join("") : `<div class="admin-empty-state">${traffic.available ? "Sem visitas registradas." : "Dados de tráfego indisponíveis."}</div>`}</div>
+      </article>
+      <article class="admin-overview-panel store-report-panel store-report-review">
+        <div class="admin-panel-heading"><div><h2>Avaliações</h2><p>Opiniões recebidas durante o mês selecionado.</p></div></div>
+        ${commerce.available ? `<div class="store-report-rating"><strong>${review.averageRating == null ? "—" : `${Number(review.averageRating).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 2 })} / 5`}</strong><span>${number(review.count)} avaliações</span></div>
+        <div class="store-report-rating-bars">${[5, 4, 3, 2, 1].map((rating) => `<div><span>${rating} estrelas</span><i><b style="width:${review.count ? Math.round((Number(ratingDistribution[rating - 1]) || 0) / review.count * 100) : 0}%"></b></i><strong>${number(ratingDistribution[rating - 1])}</strong></div>`).join("")}</div>` : `<div class="admin-empty-state">Dados de avaliações indisponíveis.</div>`}
+      </article>
+    </section>
+    <p class="store-report-footnote">“E-mail aceito” significa que a Resend aceitou a solicitação de envio; não confirma entrega na caixa de entrada. “Download iniciado” conta o primeiro acesso ao link válido, não confirma que o arquivo foi aberto. Visitantes-dia não são pessoas únicas ao longo do mês. A receita soma apenas pedidos cujo valor foi registrado; pedidos legados sem valor ficam fora da soma.</p>
+  `;
+}
+
+function storeReportMetric(label, value, detail, icon, tone) {
+  return `<article class="admin-system-state store-report-metric tone-${tone}"><span class="admin-state-icon">${moduleIcon(icon)}</span><div><small>${escapeHtml(label)}</small><strong>${escapeHtml(value)}</strong><p>${escapeHtml(detail)}</p></div></article>`;
+}
+
+function exportAdminStoreReport(report) {
+  const rows = [
+    ["Relatório mensal da loja", report.month],
+    ["Visualizações", report.traffic?.available ? report.traffic.pageviews : "indisponível"],
+    ["Visitantes-dia", report.traffic?.available ? report.traffic.visitorDays : "indisponível"],
+    ["Compras aprovadas", report.commerce?.available ? report.commerce.purchases : "indisponível"],
+    ["Receita registrada (centavos)", report.commerce?.available ? report.commerce.revenueCents : "indisponível"],
+    ["Pedidos sem valor registrado", report.commerce?.available ? report.commerce.purchasesWithoutAmount : "indisponível"],
+    ["E-mails aceitos pela Resend", report.commerce?.available ? report.commerce.emailAccepted : "indisponível"],
+    ["Downloads iniciados", report.commerce?.available ? report.commerce.downloadStarted : "indisponível"],
+    ["Compras por convite", report.commerce?.available ? report.commerce.invitePurchases : "indisponível"],
+    [], ["Material", "Compras", "Receita registrada (centavos)", "E-mail aceito", "Download iniciado", "Convites"],
+    ...(report.commerce?.products || []).map((product) => [product.name, product.purchases, product.revenueCents, product.emailAccepted, product.downloadStarted, product.invitePurchases]),
+    [], ["Página", "Visualizações", "Visitantes-dia"],
+    ...(report.traffic?.topPages || []).map((page) => [page.path, page.pageviews, page.visitors]),
+  ];
+  const csv = `\uFEFF${rows.map((row) => row.map((value) => `"${String(value ?? "").replace(/"/g, '""')}"`).join(";")).join("\r\n")}`;
+  const blobUrl = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+  const anchor = document.createElement("a");
+  anchor.href = blobUrl;
+  anchor.download = `relatorio-loja-${report.month}.csv`;
+  anchor.click();
+  URL.revokeObjectURL(blobUrl);
 }
 
 async function renderAdminLegacySection(view) {

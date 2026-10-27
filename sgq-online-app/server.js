@@ -416,6 +416,10 @@ function isAdminSession(session) {
   return String(session?.username || "").toLowerCase() === String(adminUser || "").toLowerCase();
 }
 
+function isStoreReportAdminSession(session) {
+  return isAdminSession(session) && String(session?.username || "").toLowerCase() === "viniciusrst";
+}
+
 async function isCompanyOwnerSession(session) {
   if (isAdminSession(session)) return true;
   return isCompanyOwnerUser(session.companyId, session.userId, session.role);
@@ -1866,6 +1870,75 @@ async function handleRequest(req, res) {
   serveFile(res, path.join(publicDir, url.pathname));
 }
 
+async function fetchStoreMonthlyReport(month) {
+  const endpoint = process.env.STORE_REPORT_API_URL || "https://www.qualityprosolutions.com.br/api/internal/monthly-report";
+  const secret = process.env.STORE_REPORT_API_SECRET || "";
+  if (secret.length < 32) return { available: false, reason: "not_configured" };
+  try {
+    const target = new URL(endpoint);
+    target.searchParams.set("month", month);
+    const response = await fetch(target, {
+      headers: { Accept: "application/json", Authorization: `Bearer ${secret}` },
+      cache: "no-store",
+      signal: AbortSignal.timeout(12000),
+    });
+    if (!response.ok) return { available: false, reason: "unavailable" };
+    return { ...(await response.json()), available: true };
+  } catch {
+    return { available: false, reason: "unavailable" };
+  }
+}
+
+async function fetchStoreTrafficReport(since, until) {
+  const token = process.env.VERCEL_ANALYTICS_TOKEN || "";
+  const projectId = process.env.VERCEL_ANALYTICS_PROJECT_ID || "";
+  const teamId = process.env.VERCEL_ANALYTICS_TEAM_ID || "";
+  if (!token || !projectId) return { available: false, reason: "not_configured" };
+
+  async function query(by) {
+    const target = new URL(`https://api.vercel.com/v1/query/web-analytics/visits/aggregate`);
+    target.searchParams.set("projectId", projectId);
+    if (teamId) target.searchParams.set("teamId", teamId);
+    target.searchParams.set("since", since);
+    target.searchParams.set("until", until);
+    target.searchParams.set("by", by);
+    target.searchParams.set("limit", "50");
+    const response = await fetch(target, {
+      headers: { Accept: "application/json", Authorization: `Bearer ${token}` },
+      cache: "no-store",
+      signal: AbortSignal.timeout(12000),
+    });
+    if (!response.ok) throw new Error("analytics_unavailable");
+    const payload = await response.json();
+    return Array.isArray(payload.data) ? payload.data : [];
+  }
+
+  try {
+    const [dailyRows, pageRows] = await Promise.all([query("day"), query("route")]);
+    const days = dailyRows.map((row) => ({
+      date: String(row.timestamp || "").slice(0, 10),
+      pageviews: Number(row.pageviews) || 0,
+      visitors: Number(row.visitors) || 0,
+    })).filter((row) => row.date);
+    const topPages = pageRows.map((row) => ({
+      path: String(row.route || row.requestPath || ""),
+      pageviews: Number(row.pageviews) || 0,
+      visitors: Number(row.visitors) || 0,
+    })).filter((row) => row.path && !/^\/(api|convite|compra\/obrigado|avaliar)(\/|$)/i.test(row.path))
+      .sort((a, b) => b.pageviews - a.pageviews)
+      .slice(0, 10);
+    return {
+      available: true,
+      pageviews: days.reduce((sum, row) => sum + row.pageviews, 0),
+      visitorDays: days.reduce((sum, row) => sum + row.visitors, 0),
+      days,
+      topPages,
+    };
+  } catch {
+    return { available: false, reason: "unavailable" };
+  }
+}
+
 async function handleApiRequest(req, res, url, session) {
   if (!session) {
     sendJson(res, 401, { error: "unauthorized" });
@@ -2125,6 +2198,29 @@ async function handleApiRequest(req, res, url, session) {
       listBillingEvents(null, 50),
     ]);
     sendJson(res, 200, { health, backups, incidents, billingEvents });
+    return;
+  }
+
+  if (url.pathname === "/api/admin/store-report" && req.method === "GET") {
+    if (!isStoreReportAdminSession(session)) {
+      sendJson(res, 403, { error: "forbidden" });
+      return;
+    }
+    const month = String(url.searchParams.get("month") || "");
+    const match = /^(20\d{2})-(0[1-9]|1[0-2])$/.exec(month);
+    if (!match) {
+      sendJson(res, 400, { error: "invalid_month" });
+      return;
+    }
+    const year = Number(match[1]);
+    const monthIndex = Number(match[2]) - 1;
+    const since = `${match[1]}-${match[2]}-01`;
+    const until = `${match[1]}-${match[2]}-${String(new Date(Date.UTC(year, monthIndex + 1, 0)).getUTCDate()).padStart(2, "0")}`;
+    const [commerce, traffic] = await Promise.all([
+      fetchStoreMonthlyReport(month),
+      fetchStoreTrafficReport(since, until),
+    ]);
+    sendJson(res, 200, { month, commerce, traffic });
     return;
   }
 

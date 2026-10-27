@@ -189,6 +189,9 @@ test("admin, exportações, backup e revogação de sessão funcionam", async (t
   assert.ok(overview.logs.some((log) => log.eventType === "login_success"));
   const companyId = overview.companies[0].id;
 
+  const nonMasterStoreReport = await api(baseUrl, "/api/admin/store-report?month=2026-10", adminCookie);
+  assert.equal(nonMasterStoreReport.status, 403);
+
   const ownerBootstrapResponse = await api(baseUrl, "/api/bootstrap", adminCookie);
   const ownerBootstrap = await ownerBootstrapResponse.json();
   const ncState = {
@@ -865,4 +868,45 @@ test("token de recuperação expira após um uso e troca a senha", async (t) => 
   assert.equal(await db.findUser("recuperacao.teste", "Senha-Antiga-123"), null);
   assert.ok(await db.findUser("recuperacao.teste", "Senha-Nova-456"));
   assert.equal(await db.consumePasswordResetToken(request.token, "Outra-Senha-789"), null);
+});
+
+test("relatório mensal da loja só libera dados ao master viniciusrst", async (t) => {
+  const port = await freePort();
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "sgq-store-report-test-"));
+  const baseUrl = `http://127.0.0.1:${port}`;
+  const child = spawn(process.execPath, [path.join(__dirname, "..", "server.js")], {
+    cwd: path.join(__dirname, ".."),
+    env: {
+      ...process.env,
+      PORT: String(port),
+      HOST: "127.0.0.1",
+      SGQ_DATABASE_MODE: "local",
+      SGQ_DATA_DIR: dataDir,
+      SGQ_LOGIN_USER: "viniciusrst",
+      SGQ_USER_PASSWORD: "Admin-Teste-123",
+      SGQ_COMPANY_NAME: "Empresa de Teste",
+      SGQ_ADMIN_USER: "viniciusrst",
+      SGQ_EXTRA_LOGINS: "",
+      STORE_REPORT_API_SECRET: "",
+      VERCEL_ANALYTICS_TOKEN: "",
+      VERCEL_ANALYTICS_PROJECT_ID: "",
+      VERCEL_ANALYTICS_TEAM_ID: "",
+      SESSION_SECRET: "segredo-de-teste-com-tamanho-suficiente-123456",
+    },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  t.after(() => {
+    if (child.exitCode === null) child.kill();
+    fs.rmSync(dataDir, { recursive: true, force: true });
+  });
+
+  await waitForServer(baseUrl, child);
+  assert.equal((await fetch(`${baseUrl}/api/admin/store-report?month=2026-10`)).status, 401);
+  const masterCookie = await login(baseUrl, "viniciusrst", "Admin-Teste-123");
+  assert.equal((await api(baseUrl, "/api/admin/store-report?month=2026-13", masterCookie)).status, 400);
+  const response = await api(baseUrl, "/api/admin/store-report?month=2026-10", masterCookie);
+  assert.equal(response.status, 200);
+  const report = await response.json();
+  assert.deepEqual(report.commerce, { available: false, reason: "not_configured" });
+  assert.deepEqual(report.traffic, { available: false, reason: "not_configured" });
 });

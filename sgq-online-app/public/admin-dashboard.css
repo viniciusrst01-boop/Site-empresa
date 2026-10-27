@@ -152,6 +152,54 @@ body.admin-mode .page-content.admin-overview-page > .page-decor { display: none;
   gap: 12px;
 }
 
+.store-report-page { gap: 12px; }
+.store-report-header { display: flex; align-items: end; justify-content: space-between; gap: 16px; }
+.store-report-header h1 { margin: 0; font-size: 23px; }
+.store-report-header p { margin: 4px 0 0; color: var(--admin-muted); font-size: 11px; }
+.store-report-controls { display: flex; align-items: center; gap: 8px; color: #d8e6f4; font-size: 10px; }
+.store-report-controls input { height: 36px; padding: 0 10px; border: 1px solid var(--admin-line); border-radius: 7px; background: #06213b; color: #f5faff; font: inherit; color-scheme: dark; }
+.store-report-export { display: inline-flex; height: 36px; align-items: center; gap: 7px; padding: 0 11px; border: 1px solid rgba(49,159,239,.42); border-radius: 7px; background: rgba(8,125,240,.18); color: #eaf6ff; font: inherit; font-weight: 700; cursor: pointer; }
+.store-report-export:hover { background: rgba(8,125,240,.34); }
+.store-report-export .icon { width: 15px; height: 15px; }
+.store-report-status:empty { display: none; }
+.store-report-status { margin: 0; color: var(--admin-muted); font-size: 11px; }
+.store-report-notice { padding: 9px 12px; border: 1px solid rgba(251,191,36,.34); border-radius: 7px; background: rgba(120,82,9,.18); color: #ffe5a3; font-size: 10px; }
+.store-report-notice p { margin: 3px 0; }
+.store-report-kpis { display: grid; grid-template-columns: repeat(5, minmax(0,1fr)); gap: 9px; }
+.store-report-metric { min-width: 0; min-height: 79px; padding: 10px; }
+.store-report-metric .admin-state-icon { width: 36px; height: 36px; }
+.store-report-metric .admin-state-icon .icon { width: 18px; height: 18px; }
+.store-report-metric strong { color: #f2f8ff; font-size: 17px; }
+.store-report-metric p { overflow-wrap: anywhere; font-size: 8px; }
+.store-report-metric.tone-green .admin-state-icon { color: #34d399; }
+.store-report-metric.tone-purple .admin-state-icon { color: #a78bfa; }
+.store-report-metric.tone-amber .admin-state-icon { color: #fbbf24; }
+.store-report-grid { display: grid; grid-template-columns: minmax(0,1.6fr) minmax(300px,1fr); gap: 10px; }
+.store-report-panel { min-width: 0; }
+.store-report-table-wrap { overflow-x: auto; padding: 0 12px 11px; }
+.store-report-table { min-width: 690px; }
+.store-report-table td small { color: var(--admin-muted); }
+.store-report-page-list { display: grid; gap: 0; padding: 0 14px 12px; }
+.store-report-page-row { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--admin-line-soft); color: #cfdeed; font-size: 10px; }
+.store-report-page-row:last-child { border-bottom: 0; }
+.store-report-page-row span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.store-report-page-row strong { color: #f5faff; }
+.store-report-days { display: grid; max-height: 250px; gap: 5px; overflow: auto; padding: 0 14px 12px; }
+.store-report-day { display: grid; grid-template-columns: 25px minmax(0,1fr) 36px; align-items: center; gap: 8px; color: var(--admin-muted); font-size: 9px; }
+.store-report-day > span,.store-report-rating-bars i { display: block; height: 7px; overflow: hidden; border-radius: 5px; background: rgba(255,255,255,.08); }
+.store-report-day > span i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg,#0789f5,#35d7ec); }
+.store-report-day strong { color: #edf7ff; text-align: right; font-size: 9px; }
+.store-report-review { grid-column: 2; grid-row: 2; }
+.store-report-rating { display: flex; align-items: baseline; gap: 8px; padding: 0 14px 7px; }
+.store-report-rating strong { color: #fff; font-size: 24px; }
+.store-report-rating span { color: var(--admin-muted); font-size: 10px; }
+.store-report-rating-bars { display: grid; gap: 6px; padding: 0 14px 12px; }
+.store-report-rating-bars > div { display: grid; grid-template-columns: 56px minmax(0,1fr) 20px; align-items: center; gap: 7px; color: #c7d9ea; font-size: 9px; }
+.store-report-rating-bars i { height: 6px; }
+.store-report-rating-bars b { display: block; height: 100%; border-radius: inherit; background: #fbbf24; }
+.store-report-rating-bars strong { color: #edf7ff; text-align: right; }
+.store-report-footnote { margin: 0; color: var(--admin-muted); font-size: 9px; line-height: 1.5; }
+
 .admin-metric-card,
 .admin-service-card,
 .admin-featured-company {
@@ -688,6 +736,8 @@ body.admin-mode .page-content.admin-overview-page > .page-decor { display: none;
   .admin-overview-middle,
   .admin-overview-bottom { grid-template-columns: 1fr; }
   .admin-company-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .store-report-kpis { grid-template-columns: repeat(3, minmax(0,1fr)); }
+  .store-report-grid { grid-template-columns: minmax(0,1fr) minmax(0,1fr); }
 }
 
 @media (max-height: 820px) and (min-width: 1251px) {
@@ -716,6 +766,10 @@ body.admin-mode .page-content.admin-overview-page > .page-decor { display: none;
   .admin-overview-middle,
   .admin-overview-bottom,
   .admin-company-metrics { grid-template-columns: 1fr; }
+  .store-report-header { align-items: stretch; flex-direction: column; }
+  .store-report-controls { flex-wrap: wrap; }
+  .store-report-kpis,.store-report-grid { grid-template-columns: 1fr; }
+  .store-report-review { grid-column: auto; grid-row: auto; }
   .admin-system-state { min-width: 0; }
   .admin-metric-card { min-height: 90px; }
   .admin-companies-heading { align-items: stretch; flex-direction: column; }
