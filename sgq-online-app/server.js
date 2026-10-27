@@ -70,7 +70,7 @@ const {
   verifyUserPassword,
 } = require("./db");
 const { getSGQHealthHistory, HEALTH_PREFIX } = require("./sgq-health");
-const { createExcelReport, createPdfReport } = require("./exporters");
+const { createExcelReport, createPdfReport, createStoreReportPdf } = require("./exporters");
 const {
   changeSubscriptionPlan,
   constructWebhookEvent,
@@ -1914,14 +1914,14 @@ async function fetchStoreTrafficReport(since, until) {
   }
 
   try {
-    const [dailyRows, pageRows] = await Promise.all([query("day"), query("route")]);
+    const [dailyRows, pageRows] = await Promise.all([query("day"), query("requestPath")]);
     const days = dailyRows.map((row) => ({
-      date: String(row.timestamp || "").slice(0, 10),
+      date: String(row.timestamp || row.date || "").slice(0, 10),
       pageviews: Number(row.pageviews) || 0,
       visitors: Number(row.visitors) || 0,
     })).filter((row) => row.date);
     const topPages = pageRows.map((row) => ({
-      path: String(row.route || row.requestPath || ""),
+      path: String(row.requestPath || row.route || row.path || ""),
       pageviews: Number(row.pageviews) || 0,
       visitors: Number(row.visitors) || 0,
     })).filter((row) => row.path && !/^\/(api|convite|compra\/obrigado|avaliar)(\/|$)/i.test(row.path))
@@ -2220,7 +2220,14 @@ async function handleApiRequest(req, res, url, session) {
       fetchStoreMonthlyReport(month),
       fetchStoreTrafficReport(since, until),
     ]);
-    sendJson(res, 200, { month, commerce, traffic });
+    const report = { month, commerce, traffic };
+    if (String(url.searchParams.get("format") || "json").toLowerCase() === "pdf") {
+      const buffer = await createStoreReportPdf(report);
+      await auditRequest(req, session, "store_report_export", "success", { month, format: "pdf" });
+      sendDownload(res, "application/pdf", `relatorio-loja-${month}.pdf`, buffer);
+      return;
+    }
+    sendJson(res, 200, report);
     return;
   }
 

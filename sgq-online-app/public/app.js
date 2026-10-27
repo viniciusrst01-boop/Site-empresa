@@ -8400,7 +8400,7 @@ async function renderAdminStoreReport() {
         <div class="store-report-controls">
           <label for="storeReportMonth">Mês</label>
           <input id="storeReportMonth" type="month" value="${currentMonth}" />
-          <button class="store-report-export" type="button" id="storeReportExport" title="Exportar relatório CSV" aria-label="Exportar relatório CSV">${moduleIcon("download")}<span>Exportar CSV</span></button>
+          <button class="store-report-export" type="button" id="storeReportExport" title="Baixar relatório em PDF" aria-label="Baixar relatório em PDF">${moduleIcon("download")}<span>Exportar PDF</span></button>
         </div>
       </header>
       <p class="store-report-status" id="storeReportStatus" role="status">Carregando relatório...</p>
@@ -8448,7 +8448,7 @@ async function renderAdminStoreReport() {
     if (/^20\d{2}-(0[1-9]|1[0-2])$/.test(month)) load(month);
   });
   document.querySelector("#storeReportExport")?.addEventListener("click", () => {
-    if (report) exportAdminStoreReport(report);
+    if (report) exportAdminStoreReportPdf(report.month);
   });
   await load(currentMonth);
 }
@@ -8511,29 +8511,34 @@ function storeReportMetric(label, value, detail, icon, tone) {
   return `<article class="admin-system-state store-report-metric tone-${tone}"><span class="admin-state-icon">${moduleIcon(icon)}</span><div><small>${escapeHtml(label)}</small><strong>${escapeHtml(value)}</strong><p>${escapeHtml(detail)}</p></div></article>`;
 }
 
-function exportAdminStoreReport(report) {
-  const rows = [
-    ["Relatório mensal da loja", report.month],
-    ["Visualizações", report.traffic?.available ? report.traffic.pageviews : "indisponível"],
-    ["Visitantes-dia", report.traffic?.available ? report.traffic.visitorDays : "indisponível"],
-    ["Compras aprovadas", report.commerce?.available ? report.commerce.purchases : "indisponível"],
-    ["Receita registrada (centavos)", report.commerce?.available ? report.commerce.revenueCents : "indisponível"],
-    ["Pedidos sem valor registrado", report.commerce?.available ? report.commerce.purchasesWithoutAmount : "indisponível"],
-    ["E-mails aceitos pela Resend", report.commerce?.available ? report.commerce.emailAccepted : "indisponível"],
-    ["Downloads iniciados", report.commerce?.available ? report.commerce.downloadStarted : "indisponível"],
-    ["Compras por convite", report.commerce?.available ? report.commerce.invitePurchases : "indisponível"],
-    [], ["Material", "Compras", "Receita registrada (centavos)", "E-mail aceito", "Download iniciado", "Convites"],
-    ...(report.commerce?.products || []).map((product) => [product.name, product.purchases, product.revenueCents, product.emailAccepted, product.downloadStarted, product.invitePurchases]),
-    [], ["Página", "Visualizações", "Visitantes-dia"],
-    ...(report.traffic?.topPages || []).map((page) => [page.path, page.pageviews, page.visitors]),
-  ];
-  const csv = `\uFEFF${rows.map((row) => row.map((value) => `"${String(value ?? "").replace(/"/g, '""')}"`).join(";")).join("\r\n")}`;
-  const blobUrl = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
-  const anchor = document.createElement("a");
-  anchor.href = blobUrl;
-  anchor.download = `relatorio-loja-${report.month}.csv`;
-  anchor.click();
-  URL.revokeObjectURL(blobUrl);
+async function exportAdminStoreReportPdf(month) {
+  const button = document.querySelector("#storeReportExport");
+  const status = document.querySelector("#storeReportStatus");
+  if (!button || !status) return;
+  button.disabled = true;
+  status.textContent = "Preparando o PDF...";
+  try {
+    const response = await fetch(`/api/admin/store-report?month=${encodeURIComponent(month)}&format=pdf`, {
+      headers: { Accept: "application/pdf" },
+      cache: "no-store",
+    });
+    if (!response.ok) throw new Error("pdf_unavailable");
+    const blob = await response.blob();
+    if (!blob.size || !blob.type.includes("application/pdf")) throw new Error("invalid_pdf");
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `relatorio-loja-${month}.pdf`;
+    document.body.append(anchor);
+    anchor.click();
+    anchor.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    status.textContent = "PDF baixado.";
+  } catch {
+    status.textContent = "Não foi possível gerar o PDF. Tente novamente.";
+  } finally {
+    button.disabled = false;
+  }
 }
 
 async function renderAdminLegacySection(view) {

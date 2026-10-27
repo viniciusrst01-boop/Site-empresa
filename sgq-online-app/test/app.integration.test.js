@@ -909,4 +909,15 @@ test("relatório mensal da loja só libera dados ao master viniciusrst", async (
   const report = await response.json();
   assert.deepEqual(report.commerce, { available: false, reason: "not_configured" });
   assert.deepEqual(report.traffic, { available: false, reason: "not_configured" });
+
+  const pdfResponse = await api(baseUrl, "/api/admin/store-report?month=2026-10&format=pdf", masterCookie, {
+    headers: { Accept: "application/pdf" },
+  });
+  assert.equal(pdfResponse.status, 200);
+  assert.match(pdfResponse.headers.get("content-type"), /application\/pdf/);
+  assert.match(pdfResponse.headers.get("content-disposition"), /relatorio-loja-2026-10\.pdf/);
+  const pdf = Buffer.from(await pdfResponse.arrayBuffer());
+  assert.equal(pdf.subarray(0, 5).toString("ascii"), "%PDF-");
+  assert.ok(pdf.length > 1000);
+  assert.equal((pdf.toString("latin1").match(/\/Type\s*\/Page\b/g) || []).length, 3);
 });
