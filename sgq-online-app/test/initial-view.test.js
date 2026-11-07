@@ -35,4 +35,35 @@ test("master home navigation is redirected before saving the active view", () =>
   vm.runInContext(`${prefix}\nreturn view;\n}`, context);
   assert.equal(context.render("inicio"), "gerenciamento");
   assert.equal(context.render("admin-empresas"), "admin-empresas");
+  assert.equal(context.render("notificacoes"), "notificacoes");
+  assert.equal(context.render("admin-suporte"), "admin-suporte");
+});
+
+test("master badge counts unread events and updates after reading", async () => {
+  const button = { setAttribute() {} };
+  const badge = { closest: () => button };
+  const ctx = vm.createContext({
+    document: { querySelector: () => badge }, currentUser: { isAdmin: true },
+    state: { notifications: ["unrelated"] },
+    localStorage: { getItem: () => "{}" },
+    fetch: async () => ({ ok: true, json: async () => ({ notifications: [
+      { id: 1, metadata: { status: "open" } }, { id: 2, metadata: { status: "in_progress" } },
+    ] }) }),
+  });
+  vm.runInContext(source.slice(source.indexOf("async function updateNotificationBadge()"), source.indexOf("function leadershipRoleForPerson(")), ctx);
+  vm.runInContext(source.slice(source.indexOf("function adminNotificationReadState()"), source.indexOf("async function renderMasterNotifications()")), ctx);
+  await ctx.updateNotificationBadge();
+  assert.equal(badge.textContent, "2");
+  assert.equal(badge.hidden, false);
+  const item = { id: 1, metadata: { status: "open" } };
+  ctx.localStorage.getItem = () => JSON.stringify({ 1: ctx.adminNotificationVersion(item) });
+  ctx.updateAdminNotificationCount([item]);
+  assert.equal(badge.hidden, true);
+  item.metadata.status = "in_progress";
+  ctx.localStorage.getItem = () => JSON.stringify({ 1: "old-version" });
+  ctx.updateAdminNotificationCount([item]);
+  assert.equal(badge.textContent, "1");
+  ctx.currentUser.isAdmin = false;
+  await ctx.updateNotificationBadge();
+  assert.equal(badge.textContent, "1");
 });

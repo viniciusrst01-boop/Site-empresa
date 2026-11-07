@@ -1138,7 +1138,7 @@ function canViewStoreReport() {
 function render(view = "inicio") {
   if (currentUser?.isAdmin && view === "inicio") view = "gerenciamento";
   const adminAllowedViews = ["inicio", "gerenciamento", "admin-empresas", "admin-usuarios", "admin-planos", "admin-seguranca", "admin-backups", "admin-logs", "configuracoes", "perfil", ...(canViewStoreReport() ? ["loja-relatorios"] : [])];
-  if (currentUser?.isAdmin && !adminAllowedViews.includes(view)) {
+  if (currentUser?.isAdmin && !["admin-suporte", "notificacoes"].includes(view) && !adminAllowedViews.includes(view)) {
     view = "gerenciamento";
   }
   if (view === "loja-relatorios" && !canViewStoreReport()) {
@@ -3709,12 +3709,35 @@ function activeLeadershipRoles() {
   return leadershipGet("cargos").filter((role) => role.status !== "Inativo" && role.nome && role.cargo);
 }
 
-function updateNotificationBadge() {
+async function updateNotificationBadge() {
   const badge = document.querySelector("[data-notification-badge]");
   if (!badge) return;
+  if (currentUser?.isAdmin) {
+    badge.hidden = true;
+    try {
+      const response = await fetch("/api/admin/notifications", { headers: { Accept: "application/json" }, cache: "no-store" });
+      if (!response.ok) return;
+      const payload = await response.json();
+      updateAdminNotificationCount(payload.notifications || []);
+    } catch {}
+    return;
+  }
   const count = Array.isArray(state.notifications) ? state.notifications.length : 0;
   badge.textContent = count > 10 ? "+10" : String(count);
   badge.hidden = count === 0;
+}
+
+function updateSupportBadge(requests) {
+  const badge = document.querySelector("[data-notification-badge]");
+  if (!badge) return;
+  const count = requests.filter(request => ["open", "in_progress"].includes(request.metadata?.status || "open")).length;
+  badge.textContent = count > 99 ? "99+" : String(count);
+  badge.hidden = count === 0;
+  const button = badge.closest("button");
+  if (button) {
+    button.title = `Chamados de clientes: ${count} em aberto ou atendimento`;
+    button.setAttribute("aria-label", button.title);
+  }
 }
 
 function leadershipRoleForPerson(name) {
@@ -8169,7 +8192,66 @@ async function deleteCompanyUser(user) {
   await loadCompanyUsers();
 }
 
+function adminNotificationReadState() {
+  try { return JSON.parse(localStorage.getItem(`sgq-notifications-read:${currentUser.id}`) || "{}"); } catch { return {}; }
+}
+
+function adminNotificationVersion(item) {
+  return JSON.stringify([item.createdAt, item.message, item.metadata]);
+}
+
+function updateAdminNotificationCount(items) {
+  const read = adminNotificationReadState() || {};
+  const count = items.filter(item => read[item.id] !== adminNotificationVersion(item)).length;
+  const badge = document.querySelector("[data-notification-badge]");
+  if (!badge) return;
+  badge.textContent = count > 99 ? "99+" : String(count);
+  badge.hidden = !count;
+  badge.closest("button")?.setAttribute("aria-label", `Notificações: ${count} não lidas`);
+}
+
+async function renderMasterNotifications() {
+  setTopbar("Notificações", "Chamados, segurança e falhas de envio do SGQ");
+  pageContent.innerHTML = `${viewHeader("Notificações", "Chamados e alertas do SGQ. Leitura salva neste navegador.")}<p role="status">Carregando...</p>`;
+  try {
+    const response = await fetch("/api/admin/notifications", { cache: "no-store" });
+    if (!response.ok) throw new Error("notifications_failed");
+    const { notifications: items } = await response.json();
+    if (activeView !== "notificacoes") return;
+    const draw = () => {
+      const read = adminNotificationReadState() || {};
+      updateAdminNotificationCount(items);
+      pageContent.innerHTML = `${viewHeader("Notificações", "Chamados, segurança e falhas de envio do SGQ.")}<section class="support-admin-list">${items.map(item => {
+        const meta = item.metadata || {};
+        const support = item.eventType === "support_request";
+        const pending = support && (meta.status || "open") !== "closed";
+        const unread = read[item.id] !== adminNotificationVersion(item);
+        return `<article class="qp-card support-ticket"><div class="support-ticket-head"><div><h3>${support ? "Chamado de atendimento" : item.component === "security" ? "Alerta de segurança" : "Falha de envio de e-mail"}</h3><p>${escapeHtml(meta.companyName || "Plataforma")} · ${unread ? "Não lida" : "Lida"}${pending ? " · Atendimento pendente" : ""}</p></div><time>${escapeHtml(formatDateTime(item.createdAt))}</time></div><p>${escapeHtml(meta.description || item.message || "")}</p><div class="support-ticket-actions"><button class="btn-secondary" data-notification-open="${escapeHtml(item.id)}">${support ? "Abrir conversa" : "Ver detalhes"}</button><button class="btn-secondary" data-notification-read="${escapeHtml(item.id)}">${unread ? "Marcar como lida" : "Marcar como não lida"}</button></div></article>`;
+      }).join("") || '<article class="qp-card">Nenhuma notificação.</article>'}</section>`;
+      const mark = (item, unread = false) => {
+        if (unread) delete read[item.id]; else read[item.id] = adminNotificationVersion(item);
+        try { localStorage.setItem(`sgq-notifications-read:${currentUser.id}`, JSON.stringify(read)); } catch { toast("Não foi possível salvar a leitura neste navegador."); }
+      };
+      pageContent.querySelectorAll("[data-notification-read]").forEach(button => button.onclick = () => {
+        const item = items.find(item => String(item.id) === button.dataset.notificationRead);
+        mark(item, read[item.id] === adminNotificationVersion(item)); draw();
+      });
+      pageContent.querySelectorAll("[data-notification-open]").forEach(button => button.onclick = () => {
+        const item = items.find(item => String(item.id) === button.dataset.notificationOpen);
+        mark(item); updateAdminNotificationCount(items);
+        if (item.eventType === "support_request") openSupportChat(item, renderMasterNotifications);
+        else render(item.component === "security" ? "admin-seguranca" : "admin-logs");
+      });
+    };
+    draw();
+  } catch {
+    if (activeView === "notificacoes") pageContent.innerHTML = `${viewHeader("Notificações", "Não foi possível carregar os alertas.")}<button class="btn-secondary" id="retryNotifications">Tentar novamente</button>`;
+    document.querySelector("#retryNotifications")?.addEventListener("click", renderMasterNotifications);
+  }
+}
+
 function renderNotificacoes() {
+  if (currentUser?.isAdmin) { renderMasterNotifications(); return; }
   setTopbar("Notificações", "Pendências e alertas do SGQ");
   pageContent.innerHTML = `
     ${viewHeader("Notificações", "Acompanhe alertas importantes do sistema.")}
@@ -10472,9 +10554,19 @@ const supportStatusLabel = { open: "Aberto", in_progress: "Em atendimento", clos
 async function renderAdminSupport() {
   setTopbar("Suporte", "Solicitações enviadas pelos usuários da plataforma");
   pageContent.innerHTML = `${viewHeader("Suporte", "Acompanhe e trate os chamados recebidos pelas empresas.")}<article class="qp-card admin-loading">Carregando solicitações...</article>`;
-  const response = await fetch("/api/admin/support", { headers: { Accept: "application/json" }, cache: "no-store" });
+  let response;
+  try {
+    response = await fetch("/api/admin/support", { headers: { Accept: "application/json" }, cache: "no-store" });
+  } catch {
+    if (activeView === "admin-suporte") pageContent.innerHTML = `${viewHeader("Suporte", "Solicitações enviadas pelos usuários da plataforma.")}<article class="qp-card">Não foi possível conectar ao suporte. Tente abrir novamente pelo sino.</article>`;
+    return;
+  }
+  if (activeView !== "admin-suporte") return;
   if (!response.ok) { pageContent.innerHTML = `${viewHeader("Suporte", "Solicitações enviadas pelos usuários da plataforma.")}<article class="qp-card"><h3>Não foi possível carregar</h3></article>`; return; }
   const requests = (await response.json()).requests || [];
+  if (activeView !== "admin-suporte") return;
+  updateNotificationBadge();
+  requests.sort((a, b) => Number(a.metadata?.status === "closed") - Number(b.metadata?.status === "closed"));
   pageContent.innerHTML = `${viewHeader("Suporte", "Solicitações enviadas pelos usuários da plataforma.")}<section class="support-admin-list">${requests.length ? requests.map((request) => {
     const meta = request.metadata || {}; const status = meta.status || "open";
     return `<article class="qp-card support-ticket"><div class="support-ticket-head"><div><span class="support-status ${escapeHtml(status)}">${escapeHtml(supportStatusLabel[status] || "Aberto")}</span><h3>${escapeHtml(meta.companyName || "Empresa não informada")}</h3><p>${escapeHtml(meta.requesterName || "Usuário")} · ${escapeHtml(meta.category || "outro")}</p></div><time>${escapeHtml(formatDateTime(request.createdAt))}</time></div><p class="support-ticket-description">${escapeHtml(meta.description || request.message)}</p><div class="support-ticket-actions"><button class="btn-secondary" type="button" data-support-admin-chat="${request.id}">Conversa</button><select class="input-basic" data-support-status="${request.id}">${Object.entries(supportStatusLabel).map(([value, label]) => `<option value="${value}" ${value === status ? "selected" : ""}>${label}</option>`).join("")}</select><button class="btn-secondary" type="button" data-support-update="${request.id}">Atualizar</button></div></article>`;

@@ -2363,6 +2363,14 @@ async function handleApiRequest(req, res, url, session) {
     return;
   }
 
+  if (url.pathname === "/api/admin/notifications" && req.method === "GET") {
+    if (!isAdminSession(session)) { sendJson(res, 403, { error: "forbidden" }); return; }
+    const events = await listSystemEvents(200);
+    const notifications = events.filter(event => event.eventType === "support_request" || event.component === "security" || (event.component === "email" && ["warning", "error"].includes(event.severity)));
+    sendJson(res, 200, { notifications });
+    return;
+  }
+
   if (url.pathname === "/api/admin/support" && req.method === "POST") {
     if (!isAdminSession(session)) {
       sendJson(res, 403, { error: "forbidden" });
