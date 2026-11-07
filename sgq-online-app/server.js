@@ -2367,7 +2367,22 @@ async function handleApiRequest(req, res, url, session) {
     if (!isAdminSession(session)) { sendJson(res, 403, { error: "forbidden" }); return; }
     const events = await listSystemEvents(200);
     const notifications = events.filter(event => event.eventType === "support_request" || event.component === "security" || (event.component === "email" && ["warning", "error"].includes(event.severity)));
-    sendJson(res, 200, { notifications });
+    let storeAvailable = null;
+    if (isStoreReportAdminSession(session)) {
+      storeAvailable = false;
+      const secret = process.env.STORE_REPORT_API_SECRET || "";
+      if (secret.length >= 32) {
+        try {
+          const target = new URL("/api/internal/delivery-alerts", process.env.STORE_REPORT_API_URL || "https://www.qualityprosolutions.com.br");
+          const response = await fetch(target, { headers: { Authorization: `Bearer ${secret}` }, cache: "no-store", signal: AbortSignal.timeout(12000) });
+          if (response.ok) {
+            const payload = await response.json();
+            if (Array.isArray(payload.notifications)) { notifications.push(...payload.notifications); storeAvailable = true; }
+          }
+        } catch {}
+      }
+    }
+    sendJson(res, 200, { notifications, storeAvailable });
     return;
   }
 

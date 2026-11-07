@@ -8216,12 +8216,12 @@ async function renderMasterNotifications() {
   try {
     const response = await fetch("/api/admin/notifications", { cache: "no-store" });
     if (!response.ok) throw new Error("notifications_failed");
-    const { notifications: items } = await response.json();
+    const { notifications: items, storeAvailable } = await response.json();
     if (activeView !== "notificacoes") return;
     const draw = () => {
       const read = adminNotificationReadState() || {};
       updateAdminNotificationCount(items);
-      pageContent.innerHTML = `${viewHeader("Notificações", "Chamados, segurança e falhas de envio do SGQ.")}<section class="support-admin-list">${items.map(item => {
+      pageContent.innerHTML = `${viewHeader("Notificações", "Chamados, segurança e falhas de envio.")}${storeAvailable === false ? '<p role="status">Alertas da loja indisponíveis. Isso não significa ausência de falhas.</p>' : ""}<section class="support-admin-list">${items.map(item => {
         const meta = item.metadata || {};
         const support = item.eventType === "support_request";
         const pending = support && (meta.status || "open") !== "closed";
@@ -8240,7 +8240,16 @@ async function renderMasterNotifications() {
         const item = items.find(item => String(item.id) === button.dataset.notificationOpen);
         mark(item); updateAdminNotificationCount(items);
         if (item.eventType === "support_request") openSupportChat(item, renderMasterNotifications);
-        else render(item.component === "security" ? "admin-seguranca" : "admin-logs");
+        else if (item.component === "store") {
+          const overlay = document.createElement("div");
+          overlay.className = "modal-overlay show";
+          overlay.innerHTML = `<section class="modal-box" role="dialog" aria-modal="true" aria-label="Entrega do material"><h2>Entrega do material</h2><p>${escapeHtml(item.metadata?.productName || "")}</p><p>E-mail: ${escapeHtml(item.metadata?.recipientEmail || "Não informado")}</p><p style="overflow-wrap:anywhere">Pedido: ${escapeHtml(item.metadata?.orderId || "")}</p><p>${escapeHtml(item.message)}</p><p>Confira o envio no Resend antes de reenviar. Aceite pelo provedor não confirma recebimento na caixa de entrada.</p><button class="btn-secondary" type="button">Fechar</button></section>`;
+          document.body.append(overlay);
+          const close = () => { overlay.remove(); draw(); };
+          overlay.querySelector("button").onclick = close;
+          overlay.onkeydown = event => { if (event.key === "Escape") close(); };
+          overlay.querySelector("button").focus();
+        } else render(item.component === "security" ? "admin-seguranca" : "admin-logs");
       });
     };
     draw();
@@ -10995,8 +11004,11 @@ function resolveModuleId(element) {
 }
 
 function bindViewTargetButtons() {
-  document.querySelectorAll("[data-view-target]").forEach((button) => {
-    button.addEventListener("click", () => render(button.dataset.viewTarget));
+  if (bindViewTargetButtons.bound) return;
+  bindViewTargetButtons.bound = true;
+  document.addEventListener("click", event => {
+    const button = event.target.closest("[data-view-target]");
+    if (button && !button.disabled) render(button.dataset.viewTarget);
   });
 }
 
@@ -11090,6 +11102,7 @@ document.addEventListener("click", (event) => {
 });
 
 syncDashboardFooterDate();
+bindViewTargetButtons();
 observeStandardActionButtons();
 observeAppSelects();
 initializeApp();
