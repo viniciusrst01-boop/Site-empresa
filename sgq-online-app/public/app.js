@@ -502,7 +502,9 @@ async function initializeApp() {
     const needsOnboarding = await loadRemoteData();
     const justLoggedIn = new URLSearchParams(window.location.search).get("entry") === "login";
     const currentUrl = justLoggedIn ? window.location.pathname : `${window.location.pathname}${window.location.search}`;
-    const initialView = justLoggedIn ? "inicio" : (localStorage.getItem(LAST_VIEW_STORAGE_KEY) || (currentUser?.isAdmin ? "gerenciamento" : "inicio"));
+    const defaultView = currentUser?.isAdmin ? "gerenciamento" : "inicio";
+    const savedView = localStorage.getItem(LAST_VIEW_STORAGE_KEY);
+    const initialView = justLoggedIn || (currentUser?.isAdmin && savedView === "inicio") ? defaultView : (savedView || defaultView);
     window.history.replaceState({ sgqView: initialView }, "", currentUrl);
     window.addEventListener("popstate", (event) => {
       const previousView = event.state?.sgqView;
@@ -1134,6 +1136,7 @@ function canViewStoreReport() {
 }
 
 function render(view = "inicio") {
+  if (currentUser?.isAdmin && view === "inicio") view = "gerenciamento";
   const adminAllowedViews = ["inicio", "gerenciamento", "admin-empresas", "admin-usuarios", "admin-planos", "admin-seguranca", "admin-backups", "admin-logs", "configuracoes", "perfil", ...(canViewStoreReport() ? ["loja-relatorios"] : [])];
   if (currentUser?.isAdmin && !adminAllowedViews.includes(view)) {
     view = "gerenciamento";
@@ -8409,7 +8412,9 @@ async function renderAdminStoreReport() {
   `;
 
   let report = null;
+  let loadVersion = 0;
   const load = async (month) => {
+    const version = ++loadVersion;
     const status = document.querySelector("#storeReportStatus");
     const content = document.querySelector("#storeReportContent");
     if (!status || !content) return;
@@ -8432,7 +8437,9 @@ async function renderAdminStoreReport() {
       return;
     }
     try {
-      report = await response.json();
+      const loaded = await response.json();
+      if (version !== loadVersion || !content.isConnected) return;
+      report = loaded;
     } catch {
       report = null;
       status.textContent = "O servidor retornou um relatório inválido.";
@@ -8440,7 +8447,7 @@ async function renderAdminStoreReport() {
       return;
     }
     status.textContent = "";
-    content.innerHTML = adminStoreReportHtml(report);
+    content.innerHTML = adminStoreReportHtml(report, storeReportComparison(report, currentUser?.id));
   };
 
   document.querySelector("#storeReportMonth")?.addEventListener("change", (event) => {
@@ -8453,7 +8460,47 @@ async function renderAdminStoreReport() {
   await load(currentMonth);
 }
 
-function adminStoreReportHtml(report) {
+function storeReportComparison(report, userId) {
+  const key = `qualitypro-store-check-v1:${userId}:${report.month}`;
+  let previous = {};
+  try { previous = JSON.parse(localStorage.getItem(key) || "{}"); } catch {}
+  if (!previous || typeof previous !== "object") previous = {};
+  const commerce = report.commerce || {};
+  const traffic = report.traffic || {};
+  const values = {
+    "Visualizações": traffic.available ? Number(traffic.pageviews) : null,
+    "Visitantes-dia": traffic.available ? Number(traffic.visitorDays) : null,
+    "Compras aprovadas": commerce.available ? Number(commerce.purchases) : null,
+    "Receita registrada": commerce.available ? Number(commerce.revenueCents) : null,
+    "Conversão estimada": commerce.available && traffic.available && Number(traffic.visitorDays) > 0 ? Number(commerce.purchases) / Number(traffic.visitorDays) * 100 : null,
+  };
+  const changes = {};
+  const now = new Date().toISOString();
+  for (const [label, value] of Object.entries(values)) {
+    if (value === null || !Number.isFinite(value)) continue;
+    const old = previous[label];
+    let text = "Sem comparação anterior";
+    let direction = "neutral";
+    let title = "Primeira consulta deste mês neste navegador";
+    if (old && Number.isFinite(old.value) && Number.isFinite(Date.parse(old.at))) {
+      const delta = value - old.value;
+      direction = delta > 0 ? "up" : delta < 0 ? "down" : "neutral";
+      const formatted = label === "Receita registrada"
+        ? (Math.abs(delta) / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+        : Math.abs(delta).toLocaleString("pt-BR", { maximumFractionDigits: 2 });
+      const percent = old.value > 0 && label !== "Conversão estimada" ? ` (${(Math.abs(delta) / old.value * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%)` : "";
+      text = delta === 0 ? "Sem alteração" : `${delta > 0 ? "↑ +" : "↓ −"}${formatted}${label === "Conversão estimada" ? " p.p." : percent}`;
+      title = `Desde ${new Date(old.at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}, neste navegador`;
+    }
+    changes[label] = `<p class="store-report-change change-${direction}" title="${escapeHtml(title)}">${escapeHtml(text)}<span>Desde a última consulta</span></p>`;
+    previous[label] = { value, at: now };
+  }
+  try { localStorage.setItem(key, JSON.stringify(previous)); } catch {}
+  return changes;
+}
+
+function adminStoreReportHtml(report, changes = {}) {
+  const storeReportMetric = (label, value, detail, icon, tone) => renderStoreReportMetric(label, value, detail, icon, tone, changes[label]);
   const commerce = report.commerce || {};
   const traffic = report.traffic || {};
   const money = (cents) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format((Number(cents) || 0) / 100);
@@ -8507,8 +8554,8 @@ function adminStoreReportHtml(report) {
   `;
 }
 
-function storeReportMetric(label, value, detail, icon, tone) {
-  return `<article class="admin-system-state store-report-metric tone-${tone}"><span class="admin-state-icon">${moduleIcon(icon)}</span><div><small>${escapeHtml(label)}</small><strong>${escapeHtml(value)}</strong><p>${escapeHtml(detail)}</p></div></article>`;
+function renderStoreReportMetric(label, value, detail, icon, tone, change) {
+  return `<article class="admin-system-state store-report-metric tone-${tone}"><span class="admin-state-icon">${moduleIcon(icon)}</span><div><small>${escapeHtml(label)}</small><strong>${escapeHtml(value)}</strong><p>${escapeHtml(detail)}</p>${change || ""}</div></article>`;
 }
 
 async function exportAdminStoreReportPdf(month) {

@@ -1,0 +1,5 @@
+auditoria-app/
+.agents/
+.codex/
+sgq-online-app/tmp/
+sgq-online-app/data/

@@ -1,0 +1,24 @@
+const test = require("node:test");
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const vm = require("node:vm");
+const path = require("node:path");
+const source = fs.readFileSync(path.join(__dirname, "../public/app.js"), "utf8");
+test("report comparisons isolate months and users and preserve unavailable metrics", () => {
+  const storage = new Map();
+  const ctx = vm.createContext({ localStorage: { getItem: k => storage.get(k), setItem: (k,v) => storage.set(k,v) }, escapeHtml: String });
+  vm.runInContext(source.slice(source.indexOf("function storeReportComparison("), source.indexOf("function adminStoreReportHtml(")), ctx);
+  const report = { month: "2026-11", traffic: { available: true, pageviews: 0, visitorDays: 10 }, commerce: { available: true, purchases: 1, revenueCents: 80 } };
+  assert.match(ctx.storeReportComparison(report, 1)["Visualizações"], /Sem comparação/);
+  report.traffic.pageviews = 12;
+  assert.match(ctx.storeReportComparison(report, 1)["Visualizações"], /↑ \+12/);
+  assert.match(ctx.storeReportComparison(report, 2)["Visualizações"], /Sem comparação/);
+  report.traffic.available = false;
+  assert.equal(ctx.storeReportComparison(report, 1)["Visualizações"], undefined);
+  report.traffic.available = true;
+  report.traffic.pageviews = 10;
+  assert.match(ctx.storeReportComparison(report, 1)["Visualizações"], /↓ −2/);
+  assert.match(ctx.storeReportComparison(report, 1)["Visualizações"], /Sem alteração/);
+  report.month = "2026-10";
+  assert.match(ctx.storeReportComparison(report, 1)["Visualizações"], /Sem comparação/);
+});

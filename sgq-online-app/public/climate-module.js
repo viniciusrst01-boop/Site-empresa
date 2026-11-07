@@ -45,7 +45,7 @@ async function climateSave(message) {
 function climateIsLate(item) { return item.status !== "Concluída" && item.due && item.due < new Date().toISOString().slice(0, 10); }
 function climateStatus(item) { const text = item.status || "Não iniciada"; return `<span class="status-pill ${text === "Concluída" ? "s-done" : text === "Atrasada" ? "s-late" : text === "Em andamento" ? "s-prog" : text === "Monitorando" ? "s-info" : "s-pend"}"><span class="status-dot2"></span>${escapeHtml(text)}</span>`; }
 function climateRelevant(value) { return `<span class="climate-relevance ${value === "Sim" ? "yes" : value === "Parcial" ? "partial" : "no"}">${escapeHtml(value)}</span>`; }
-function climatePeopleOptions(selected = "") { return peopleOptions().replace(`>${escapeHtml(selected || "Hugo Melo")}<`, ` selected>${escapeHtml(selected || "Hugo Melo")}<`); }
+function climatePeopleOptions(selected = "") { return `<option value=""${selected ? "" : " selected"}>Selecione um responsável</option>${peopleOptions(selected)}`; }
 
 function renderClimateModule() {
   pageContent.classList.add("climate-page-content");
@@ -100,11 +100,11 @@ function climateDeterminationHtml() {
         </div>
       </header>
       <div class="climate-determination-grid">
-        <div class="field"><label>Relevante para o SGQ? ${climateRequiredHint("relevance")}</label><select class="input-basic" id="climateRelevant"><option${item.relevant === "Sim" ? " selected" : ""}>Sim</option><option${item.relevant === "Não" ? " selected" : ""}>Não</option></select></div>
-        <div class="field"><label>Partes interessadas exigem? ${climateRequiredHint("stakeholders")}</label><select class="input-basic" id="climateStakeholder"><option${item.stakeholderRequirement === "Sim" ? " selected" : ""}>Sim</option><option${item.stakeholderRequirement === "Não" ? " selected" : ""}>Não</option></select></div>
+        <div class="field"><label>Relevante para o SGQ? ${climateRequiredHint("relevance")}</label><select class="input-basic" id="climateRelevant"><option value=""${item.relevant ? "" : " selected"}>Selecione...</option><option value="Sim"${item.relevant === "Sim" ? " selected" : ""}>Sim</option><option value="Não"${item.relevant === "Não" ? " selected" : ""}>Não</option></select></div>
+        <div class="field"><label>Partes interessadas exigem? ${climateRequiredHint("stakeholders")}</label><select class="input-basic" id="climateStakeholder"><option value=""${item.stakeholderRequirement ? "" : " selected"}>Selecione...</option><option value="Sim"${item.stakeholderRequirement === "Sim" ? " selected" : ""}>Sim</option><option value="Não"${item.stakeholderRequirement === "Não" ? " selected" : ""}>Não</option></select></div>
         <div class="field full"><label>Justificativa da determinação ${climateRequiredHint("justification")}</label><textarea class="input-basic" id="climateJustification">${escapeHtml(item.justification)}</textarea></div>
         <div class="field full"><label>Detalhe das necessidades das partes interessadas ${climateRequiredHint("stakeholderDetail")}</label><textarea class="input-basic" id="climateStakeholderDetail">${escapeHtml(item.stakeholderDetail)}</textarea></div>
-        <div class="field"><label>Status ${climateRequiredHint("status")}</label><select class="input-basic" id="climateStatus"><option${item.status === "Pendente" ? " selected" : ""}>Pendente</option><option${item.status === "Aprovado" ? " selected" : ""}>Aprovado</option><option${item.status === "Em revisão" ? " selected" : ""}>Em revisão</option></select></div>
+        <div class="field"><label>Status ${climateRequiredHint("status")}</label><select class="input-basic" id="climateStatus"><option value=""${item.status ? "" : " selected"}>Selecione...</option><option value="Pendente"${item.status === "Pendente" ? " selected" : ""}>Pendente</option><option value="Aprovado"${item.status === "Aprovado" ? " selected" : ""}>Aprovado</option><option value="Em revisão"${item.status === "Em revisão" ? " selected" : ""}>Em revisão</option></select></div>
         <div class="field"><label>Responsável ${climateRequiredHint("owner")}</label><select class="input-basic" id="climateOwner">${climatePeopleOptions(item.owner)}</select></div>
         <div class="field"><label>Próxima revisão ${climateRequiredHint("nextReview")}</label><input class="input-basic" type="date" id="climateNextReview" value="${escapeHtml(item.nextReview)}"></div>
       </div>
