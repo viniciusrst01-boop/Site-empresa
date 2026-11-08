@@ -16,9 +16,15 @@ test("master bell opens notifications directly after login", async ({ page }) =>
   await page.getByRole("button", { name: "Entrar no sistema" }).click();
   await expect(page.locator("body")).not.toHaveClass(/app-loading/);
   await page.locator('.topbar [data-view-target="notificacoes"]').click();
+  await expect(page.locator('#masterNotificationPopover')).toBeVisible();
   await expect(page.getByText("Falha no envio", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Ver detalhes", exact: true }).click();
+  await page.locator('[data-preview-id]').click();
   await expect(page.getByRole("dialog")).toContainText("teste@example.com");
-  await page.getByRole("button", { name: "Fechar", exact: true }).click();
+  await page.getByRole("button", { name: "Voltar", exact: true }).click();
   await expect(page.locator("[data-notification-badge]")).toBeHidden();
+  await page.getByRole('button', { name: 'Ver todas as notificações' }).click();
+  await expect(page.locator('#masterNotificationPopover')).toBeVisible();
+  await page.screenshot({ path: 'test-results/notification-popover.png' });
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#masterNotificationPopover')).toHaveCount(0);
 });

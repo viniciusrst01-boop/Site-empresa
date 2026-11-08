@@ -8210,6 +8210,80 @@ function updateAdminNotificationCount(items) {
   badge.closest("button")?.setAttribute("aria-label", `Notificações: ${count} não lidas`);
 }
 
+let selectedNotificationId = null;
+async function toggleMasterNotificationPopover(trigger) {
+  const existing = document.querySelector("#masterNotificationPopover");
+  if (existing) { existing.dispatchEvent(new Event("dismiss")); return; }
+  const panel = document.createElement("section");
+  panel.id = "masterNotificationPopover";
+  panel.className = "notification-popover";
+  panel.setAttribute("role", "dialog");
+  panel.setAttribute("aria-label", "Notificações");
+  panel.addEventListener("click", event => event.stopPropagation());
+  trigger.setAttribute("aria-expanded", "true");
+  trigger.setAttribute("aria-controls", panel.id);
+  trigger.setAttribute("aria-haspopup", "dialog");
+  const close = () => {
+    panel.remove(); trigger.setAttribute("aria-expanded", "false");
+    document.removeEventListener("click", outside);
+    document.removeEventListener("keydown", keyboard);
+    window.removeEventListener("resize", position);
+  };
+  const outside = event => { if (!panel.contains(event.target) && !trigger.contains(event.target)) close(); };
+  const keyboard = event => { if (event.key === "Escape") { close(); trigger.focus(); } };
+  const position = () => {
+    const box = trigger.getBoundingClientRect();
+    const left = Math.max(12, Math.min(box.right - 390, window.innerWidth - 402));
+    panel.style.left = `${left}px`;
+    panel.style.top = `${box.bottom + 14}px`;
+    panel.style.setProperty("--pointer", `${box.left + box.width / 2 - left}px`);
+  };
+  panel.addEventListener("dismiss", close);
+  document.addEventListener("click", outside);
+  document.addEventListener("keydown", keyboard);
+  window.addEventListener("resize", position);
+  document.body.append(panel); position();
+  panel.innerHTML = '<p role="status">Carregando notificações...</p>';
+  try {
+    const response = await fetch("/api/admin/notifications", { cache: "no-store" });
+    if (!response.ok) throw new Error("notifications_failed");
+    const { notifications: items, storeAvailable } = await response.json();
+    if (!panel.isConnected) return;
+    items.sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
+    let showAll = false;
+    const draw = () => {
+      const read = adminNotificationReadState() || {};
+      updateAdminNotificationCount(items);
+      panel.innerHTML = `<header>${moduleIcon("notificacoes")}<h2>Notificações</h2><button type="button" data-read-all ${items.length ? "" : "disabled"}>Marcar todas como lidas</button></header>${storeAvailable === false ? '<p role="status">Alertas da loja indisponíveis.</p>' : ""}<div class="notification-popover-list">${items.slice(0, showAll ? items.length : 4).map(item => `<button type="button" class="notification-preview ${read[item.id] !== adminNotificationVersion(item) ? "unread" : ""}" data-preview-id="${escapeHtml(item.id)}"><i aria-hidden="true"></i><div><div class="notification-preview-heading"><strong>${item.eventType === "support_request" ? "Chamado de atendimento" : item.component === "security" ? "Alerta de segurança" : "Falha de envio de e-mail"}</strong><time>${escapeHtml(formatDateTime(item.createdAt))}</time></div><p>${escapeHtml(item.metadata?.description || item.message || "")}</p></div></button>`).join("") || '<p>Nenhuma notificação.</p>'}</div><footer><button type="button" data-see-all>Ver todas as notificações ${moduleIcon("arrow")}</button></footer>`;
+      panel.querySelector("[data-read-all]").onclick = () => {
+        items.forEach(item => { read[item.id] = adminNotificationVersion(item); });
+        try { localStorage.setItem(`sgq-notifications-read:${currentUser.id}`, JSON.stringify(read)); } catch { toast("Não foi possível salvar a leitura."); }
+        draw(); panel.querySelector("[data-read-all]").focus();
+      };
+      panel.querySelector("[data-see-all]").onclick = () => { showAll = !showAll; draw(); panel.querySelector("[data-see-all]").focus(); };
+      if (showAll) panel.querySelector("[data-see-all]").textContent = "Ver menos notificações";
+      panel.querySelectorAll("[data-preview-id]").forEach(button => button.onclick = () => {
+        const item = items.find(item => String(item.id) === button.dataset.previewId);
+        read[item.id] = adminNotificationVersion(item);
+        try { localStorage.setItem(`sgq-notifications-read:${currentUser.id}`, JSON.stringify(read)); } catch { toast("Não foi possível salvar a leitura."); }
+        updateAdminNotificationCount(items);
+        if (item.eventType === "support_request") {
+          close(); openSupportChat(item, () => toggleMasterNotificationPopover(trigger));
+        } else {
+          panel.innerHTML = `<header><h2>Detalhes da notificação</h2><button type="button" data-back>Voltar</button></header><div class="notification-popover-detail"><strong>${escapeHtml(item.metadata?.productName || "Alerta do sistema")}</strong>${item.metadata?.recipientEmail ? `<p>E-mail: ${escapeHtml(item.metadata.recipientEmail)}</p>` : ""}${item.metadata?.orderId ? `<p>Pedido: ${escapeHtml(item.metadata.orderId)}</p>` : ""}<p>${escapeHtml(item.message || "")}</p><time>${escapeHtml(formatDateTime(item.createdAt))}</time></div>`;
+          panel.querySelector("[data-back]").onclick = draw;
+          panel.querySelector("[data-back]").focus();
+        }
+      });
+    };
+    draw(); panel.querySelector("[data-see-all]").focus();
+  } catch {
+    if (!panel.isConnected) return;
+    panel.innerHTML = '<p role="status">Não foi possível carregar as notificações.</p><button type="button">Tentar novamente</button>';
+    panel.querySelector("button").onclick = () => { close(); toggleMasterNotificationPopover(trigger); };
+  }
+}
+
 async function renderMasterNotifications() {
   setTopbar("Notificações", "Chamados, segurança e falhas de envio do SGQ");
   pageContent.innerHTML = `${viewHeader("Notificações", "Chamados e alertas do SGQ. Leitura salva neste navegador.")}<p role="status">Carregando...</p>`;
@@ -8253,6 +8327,11 @@ async function renderMasterNotifications() {
       });
     };
     draw();
+    if (selectedNotificationId) {
+      const id = selectedNotificationId;
+      selectedNotificationId = null;
+      [...pageContent.querySelectorAll("[data-notification-open]")].find(button => button.dataset.notificationOpen === id)?.click();
+    }
   } catch {
     if (activeView === "notificacoes") pageContent.innerHTML = `${viewHeader("Notificações", "Não foi possível carregar os alertas.")}<button class="btn-secondary" id="retryNotifications">Tentar novamente</button>`;
     document.querySelector("#retryNotifications")?.addEventListener("click", renderMasterNotifications);
@@ -11008,7 +11087,10 @@ function bindViewTargetButtons() {
   bindViewTargetButtons.bound = true;
   document.addEventListener("click", event => {
     const button = event.target.closest("[data-view-target]");
-    if (button && !button.disabled) render(button.dataset.viewTarget);
+    if (button && !button.disabled) {
+      if (currentUser?.isAdmin && button.dataset.viewTarget === "notificacoes" && button.closest(".topbar")) toggleMasterNotificationPopover(button);
+      else render(button.dataset.viewTarget);
+    }
   });
 }
 

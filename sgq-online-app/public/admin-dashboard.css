@@ -789,3 +789,24 @@ body.admin-mode .page-content.admin-overview-page > .page-decor { display: none;
   .admin-companies-filters { grid-template-columns: 1fr; padding-inline: 12px; }
   .admin-companies-table-wrap { padding-inline: 12px; }
 }
+.notification-popover { position:fixed; z-index:1200; width:390px; max-width:calc(100vw - 24px); background:#061b2c; color:#edf7ff; border:1px solid #31769a; border-radius:10px; padding:10px; box-shadow:0 16px 40px #0009; }
+.notification-popover::before { content:""; position:absolute; top:-8px; left:calc(var(--pointer) - 8px); width:14px; height:14px; background:#061b2c; border-top:1px solid #31769a; border-left:1px solid #31769a; transform:rotate(45deg); }
+.notification-popover header { display:flex; align-items:center; gap:9px; padding:4px 6px 14px; border-bottom:1px solid #25465e; }
+.notification-popover header .icon { width:17px; height:17px; }
+.notification-popover h2 { font-size:15px; margin:0; flex:1; }
+.notification-popover header button,.notification-popover footer button { background:none; border:0; color:#38d4ff; cursor:pointer; font-size:11px; }
+.notification-popover-list { max-height:min(420px,60vh); overflow:auto; scrollbar-width:thin; scrollbar-color:#387b9c transparent; padding-top:8px; }
+.notification-preview { display:flex; gap:12px; width:100%; border:0; border-bottom:1px solid #173a50; background:transparent; text-align:left; color:inherit; padding:12px 10px; cursor:pointer; border-radius:6px; }
+.notification-preview.unread { background:#0a3550; margin-bottom:5px; }
+.notification-preview:hover { background:#11405b; }
+.notification-preview>i { flex:none; width:8px; height:8px; border-radius:50%; background:#708398; margin-top:4px; }
+.notification-preview.unread>i { background:#12d9f2; }
+.notification-preview>div { min-width:0; flex:1; }
+.notification-preview-heading { display:flex; justify-content:space-between; align-items:start; gap:8px; }
+.notification-preview strong { font-size:12px; }
+.notification-preview time { font-size:10px; white-space:nowrap; color:#c1d4e6; }
+.notification-preview p { font-size:11px; line-height:1.4; margin:5px 0 0; overflow-wrap:anywhere; }
+.notification-popover footer { border-top:1px solid #25465e; padding:12px 0 3px; text-align:center; }
+.notification-popover footer .icon { width:14px; height:14px; vertical-align:middle; }
+.notification-popover-detail { padding:14px 8px; overflow-wrap:anywhere; font-size:13px; }
+.notification-popover button:focus-visible { outline:2px solid #38d4ff; outline-offset:1px; }
