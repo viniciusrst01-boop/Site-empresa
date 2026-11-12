@@ -11,6 +11,7 @@ const context = vm.createContext({
   moduleIcon: () => "",
   formatDate: () => "",
   peopleOptions: (selected = "") => ["Hugo Melo", "Marina Souza"].map((name) => `<option ${name === selected ? "selected" : ""}>${name}</option>`).join(""),
+  canEditModule: () => true,
 });
 vm.runInContext(fs.readFileSync(path.join(__dirname, "../public/climate-module.js"), "utf8"), context);
 
@@ -27,10 +28,46 @@ test("climate table preserves every editable status even with an overdue deadlin
 
 test("overdue counting remains independent of the selected status", () => {
   for (const status of ["Não iniciada", "Em andamento", "Monitorando"]) {
-    assert.equal(context.climateIsLate({ status, due: "2000-01-01" }), true);
-    assert.equal(context.climateIsLate({ status, due: "2999-01-01" }), false);
+    assert.equal(context.climateIsLate({ relevant: "Sim", status, due: "2000-01-01" }), true);
+    assert.equal(context.climateIsLate({ relevant: "Parcial", status, due: "2999-01-01" }), false);
   }
-  assert.equal(context.climateIsLate({ status: "Concluída", due: "2000-01-01" }), false);
+  assert.equal(context.climateIsLate({ relevant: "Sim", status: "Concluída", due: "2000-01-01" }), false);
+  assert.equal(context.climateIsLate({ relevant: "Não", status: "Em andamento", due: "2000-01-01" }), false);
+});
+
+test("missing data stays empty instead of resurrecting demo records", () => {
+  for (const climate of [undefined, {}, { issues: [], determination: {} }]) {
+    context.state = { climate };
+    const data = context.climateData();
+    assert.equal(data.issues.length, 0);
+    assert.ok(Object.values(data.determination).every((value) => value === ""));
+  }
+});
+
+test("question availability requires both answers and at least one yes", () => {
+  for (const relevant of ["", "Sim", "Não"]) {
+    for (const stakeholderRequirement of ["", "Sim", "Não"]) {
+      context.state = { climate: { determination: { relevant, stakeholderRequirement } } };
+      assert.equal(context.climateCanAssessIssues(), Boolean(relevant && stakeholderRequirement && (relevant === "Sim" || stakeholderRequirement === "Sim")));
+      const html = context.climateDeterminationHtml();
+      assert.equal(html.includes('id="climateStakeholderDetailField" hidden'), stakeholderRequirement !== "Sim");
+    }
+  }
+});
+
+test("issue ids remain unique after deletions and use a monotonic counter", () => {
+  const data = { issues: [{ id: "CLI-0001" }, { id: "CLI-0003" }] };
+  assert.equal(context.climateNextIssueId(data), "CLI-0004");
+  data.issues = [];
+  assert.equal(context.climateNextIssueId(data), "CLI-0005");
+});
+
+test("responsible options use company users and preserve previous assignees", () => {
+  context.state = { users: [{ name: "Pessoa da empresa" }] };
+  const html = context.climatePeopleOptions("Responsável anterior");
+  assert.match(html, /Pessoa da empresa/);
+  assert.match(html, /value="Responsável anterior" selected/);
+  assert.doesNotMatch(html, /Hugo Melo|Marina Souza/);
 });
 
 test("missing status defaults to the same value as the editing dialog", () => {

@@ -8808,6 +8808,12 @@ body.theme-white .modules-page-content .mymods-reference-grid .mymod-card {
   border-radius: 8px;
 }
 
+#climateModal { z-index: 1400; }
+body:has(#climateModal.show) .qp-toast { z-index: 1500; pointer-events: none; }
+body .climate-kpis > .climate-kpi.compact-text-value .compact-card-line { flex-wrap: wrap; gap: 3px; }
+body .climate-kpis > .climate-kpi.compact-text-value .compact-card-caption { flex-basis: 100%; overflow-wrap: normal; }
+body .climate-kpis > .climate-kpi.compact-text-value .compact-card-value { white-space: normal; overflow-wrap: normal; }
+
 .climate-page-content .climate-determination-head {
   align-items: center;
   min-height: 72px;
@@ -8887,6 +8893,7 @@ body.theme-white .modules-page-content .mymods-reference-grid .mymod-card {
 }
 
 .climate-page-content .required-hint::after {
+  display: none;
   position: absolute;
   z-index: 20;
   bottom: calc(100% + 7px);
@@ -8913,6 +8920,7 @@ body.theme-white .modules-page-content .mymods-reference-grid .mymod-card {
 
 .climate-page-content .required-hint:hover::after,
 .climate-page-content .required-hint:focus-visible::after {
+  display: block;
   opacity: 1;
   transform: translate(0, 0);
 }
@@ -8966,6 +8974,15 @@ body .climate-page-content .climate-determination-grid .field:nth-child(4) texta
 }
 
 @media (max-width: 720px) {
+  .climate-page-content .required-hint:hover::after,
+  .climate-page-content .required-hint:focus-visible::after {
+    position: fixed;
+    left: 50%;
+    bottom: 100px;
+    max-width: min(250px, calc(100% - 32px));
+    transform: translateX(-50%);
+  }
+
   .climate-page-content .climate-notice,
   .climate-page-content .climate-determination-head {
     align-items: flex-start;

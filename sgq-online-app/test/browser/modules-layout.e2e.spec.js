@@ -492,13 +492,15 @@ test("status escolhido no documento externo substitui o alerta automático de re
 test("módulo de mudanças climáticas registra questões e exibe indicadores", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await login(page);
-  await page.evaluate(() => renderModuleDetail("mudancas-climaticas"));
+  await page.evaluate(() => { state.climate = structuredClone(climateSeed); renderModuleDetail("mudancas-climaticas"); });
   await expect(page.locator(".topbar-title")).toHaveText("Mudanças Climáticas");
   await expect(page.getByText("Determinação da empresa quanto a condições climáticas")).toBeVisible();
   await expect(page.locator(".climate-notice")).toHaveCount(0);
   await page.getByRole("button", { name: "Questões climáticas" }).click();
   await page.getByRole("button", { name: "Nova questão" }).click();
   await page.locator("#climateIssueDescription").fill("Risco climático de teste");
+  await page.locator("#climateIssueRelevant").selectOption("Sim");
+  await page.locator("#climateIssueStatus").selectOption("Não iniciada");
   await page.locator("#climateIssueImpact").fill("Pode afetar a continuidade da operação.");
   await page.getByRole("button", { name: "Salvar", exact: true }).click();
   await expect(page.locator(".climate-table")).toContainText("Risco climático de teste");
@@ -521,6 +523,8 @@ test("indicadores climáticos usam dados atuais, exportam e preservam lista vazi
   });
   await page.getByRole("button", { name: "Indicadores", exact: true }).click();
   const frame = page.frameLocator("#climateIndicatorsFrame");
+  await expect(page.locator("#climateIndicatorsFrame")).toHaveCSS("border-radius", "8px");
+  await expect(page.locator("#climateIndicatorsFrame")).toHaveCSS("overflow", /hidden|clip/);
   const expand = frame.locator("#fullscreenButton");
   await expand.click();
   await expect(expand).toHaveAttribute("aria-pressed", "true");
@@ -557,6 +561,7 @@ test("indicadores climáticos usam dados atuais, exportam e preservam lista vazi
   await page.setViewportSize({ width: 390, height: 844 });
   await expect.poll(() => frame.locator("body").evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
   await page.locator("#climateIndicatorsFrame").screenshot({ path: "test-results/climate-indicators-mobile.png" });
+  await expect(page.locator("#climateIndicatorsFrame")).toHaveCSS("border-radius", "8px");
   await page.evaluate(() => { state.climate.issues = []; renderClimateModule(); });
   await expect(frame.locator("#cards")).toContainText("0 de 0 concluídas");
   await expect(frame.locator(".card-treatment")).toHaveCSS("--treatment-progress", "0%");

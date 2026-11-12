@@ -112,6 +112,55 @@ async function loginWithMfa(baseUrl, username, password, secret) {
   return sessionCookie;
 }
 
+test("climate records and evidence stay isolated between companies", async (t) => {
+  const port = await freePort();
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "sgq-climate-access-"));
+  const baseUrl = `http://127.0.0.1:${port}`;
+  const child = spawn(process.execPath, [path.join(__dirname, "..", "server.js")], {
+    cwd: path.join(__dirname, ".."),
+    env: {
+      ...process.env, PORT: String(port), HOST: "127.0.0.1", SGQ_DATABASE_MODE: "local", SGQ_DATA_DIR: dataDir,
+      SGQ_LOGIN_USER: "climate-one@example.com", SGQ_USER_PASSWORD: "Climate-Company-123", SGQ_COMPANY_NAME: "Climate One",
+      SGQ_EXTRA_LOGINS: "climate-two@example.com:Climate-Company-123:Climate Two", SGQ_ADMIN_USER: "unused-platform-admin",
+      SESSION_SECRET: "climate-test-isolated-session-secret-123456", RESEND_API_KEY: "", EMAIL_FROM: "",
+    },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  child.stdout.resume();
+  child.stderr.resume();
+  t.after(async () => {
+    if (child.exitCode === null) {
+      const closed = new Promise(resolve => child.once("exit", resolve));
+      child.kill();
+      await closed;
+    }
+    assert.equal(path.dirname(dataDir), path.resolve(os.tmpdir()));
+    fs.rmSync(dataDir, { recursive: true, force: true });
+  });
+  await waitForServer(baseUrl, child);
+  const one = await login(baseUrl, "climate-one@example.com", "Climate-Company-123");
+  const two = await login(baseUrl, "climate-two@example.com", "Climate-Company-123");
+  const bytes = Buffer.from("%PDF-1.4\nprivate climate evidence\n%%EOF");
+  const upload = await api(baseUrl, "/api/climate-attachments", one, { method: "POST", body: JSON.stringify({ name: "private.pdf", base64: bytes.toString("base64") }) });
+  assert.equal(upload.status, 201);
+  const file = await upload.json();
+  const url = `/api/climate-attachments?id=${file.id}`;
+  const value = { climate: { determination: { relevant: "Sim", stakeholderRequirement: "Não" }, issues: [{ id: "CLI-0001", description: "Company one only", relevant: "Sim", evidence: file.name, evidenceFile: file }] } };
+  assert.equal((await api(baseUrl, "/api/data", one, { method: "POST", body: JSON.stringify({ key: "state", moduleId: "mudancas-climaticas", value }) })).status, 200);
+  const ownDownload = await api(baseUrl, url, one);
+  assert.equal(ownDownload.status, 200);
+  assert.deepEqual(Buffer.from(await ownDownload.arrayBuffer()), bytes);
+  const second = await (await api(baseUrl, "/api/bootstrap", two)).json();
+  assert.equal((second.state?.climate?.issues || []).length, 0);
+  assert.equal((await api(baseUrl, url, two)).status, 404);
+  assert.equal((await api(baseUrl, url, two, { method: "DELETE" })).status, 404);
+  assert.equal((await api(baseUrl, url, "")).status, 401);
+  // A forged reference in the other tenant must not grant access to the stored bytes.
+  assert.equal((await api(baseUrl, "/api/data", two, { method: "POST", body: JSON.stringify({ key: "state", moduleId: "mudancas-climaticas", value }) })).status, 200);
+  assert.equal((await api(baseUrl, url, two)).status, 404);
+  assert.equal((await api(baseUrl, url, one)).status, 200);
+});
+
 test("Vercel publica os estilos específicos dos dashboards como arquivos estáticos", () => {
   const config = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "vercel.json"), "utf8"));
   const routes = new Map(config.routes.map((route) => [route.src, route.dest]));

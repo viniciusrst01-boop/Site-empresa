@@ -3375,10 +3375,11 @@ async function handleApiRequest(req, res, url, session) {
     sendJson(res, 405, { error: "method_not_allowed" }); return;
   }
 
-  if (["/api/leadership-attachments", "/api/context-attachments"].includes(url.pathname)) {
+  if (["/api/leadership-attachments", "/api/context-attachments", "/api/climate-attachments"].includes(url.pathname)) {
     const contextAttachment = url.pathname === "/api/context-attachments";
-    const attachmentModule = contextAttachment ? "contexto" : "lideranca";
-    const attachmentPrefix = contextAttachment ? "contextAttachment" : "leadershipAttachment";
+    const climateAttachment = url.pathname === "/api/climate-attachments";
+    const attachmentModule = climateAttachment ? "mudancas-climaticas" : contextAttachment ? "contexto" : "lideranca";
+    const attachmentPrefix = climateAttachment ? "climateAttachment" : contextAttachment ? "contextAttachment" : "leadershipAttachment";
     const permissions = await getSessionPermissions(session);
     const editing = req.method !== "GET";
     if (!(editing ? canEditModule(permissions, attachmentModule) : canViewModule(permissions, attachmentModule))) {
@@ -3404,15 +3405,23 @@ async function handleApiRequest(req, res, url, session) {
     const id = url.searchParams.get("id") || "";
     if (!/^[a-f0-9-]{36}$/.test(id)) { sendJson(res, 400, { error: "invalid_attachment" }); return; }
     if (req.method === "DELETE") {
+      if (climateAttachment) {
+        const state = await getCompanyData(companyId, "state");
+        if ((state?.climate?.issues || []).some((row) => row.evidenceFile?.id === id)) {
+          sendJson(res, 409, { error: "attachment_in_use" }); return;
+        }
+      }
       const file = await getCompanyData(companyId, `${attachmentPrefix}:${id}`);
       if (!file) { sendJson(res, 404, { error: "attachment_not_found" }); return; }
       await setCompanyData(companyId, `${attachmentPrefix}:${id}`, null);
       await auditRequest(req, session, `${attachmentModule}_attachment_deleted`, "success", { attachmentId: id });
       sendJson(res, 200, { ok: true }); return;
     }
-    const moduleData = await getCompanyData(companyId, contextAttachment ? "context" : "leadership");
+    const moduleData = await getCompanyData(companyId, climateAttachment ? "state" : contextAttachment ? "context" : "leadership");
     const culture = moduleData?.posicionamento?.culturaQualidade;
-    const referenced = contextAttachment
+    const referenced = climateAttachment
+      ? (moduleData?.climate?.issues || []).some((row) => row.evidenceFile?.id === id)
+      : contextAttachment
       ? (moduleData?.partes || []).some((record) => (record.evidencias || []).some((file) => file.id === id))
       : culture?.documento?.id === id || (culture?.revisoes || []).some((revision) => revision.documento?.id === id) || ["acoes", "comunicacao"].some((collection) => (moduleData?.[collection] || []).some((record) => record?.evidenciaArquivo?.id === id || (record.evidenciaArquivos || []).some((file) => file.id === id)));
     if (req.method === "GET") {
@@ -3523,7 +3532,7 @@ async function handleApiRequest(req, res, url, session) {
     if (body.key === "state") {
       try {
         await mutateSupplierData(companyId, (data) => {
-          const value = !ownsCompany ? { ...(data.state || {}), ...Object.fromEntries(({
+          const value = !ownsCompany || requestedModule === "mudancas-climaticas" ? { ...(data.state || {}), ...Object.fromEntries(({
             documentos: ["documents"], auditorias: ["audits"], "nao-conformidades": ["ncs", "ncCatalogs", "supplierStateVersion"], equipamentos: ["equipment"], "satisfacao-clientes": ["satisfaction"], "mudancas-climaticas": ["climate"],
           }[requestedModule] || []).filter((key) => Object.hasOwn(body.value, key)).map((key) => [key, body.value[key]])) } : body.value;
           supplierRnc.prepareState(data, value, requestedModule === "nao-conformidades");

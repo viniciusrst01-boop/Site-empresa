@@ -166,7 +166,7 @@ html::-webkit-scrollbar-thumb:hover,body::-webkit-scrollbar-thumb:hover,body *::
 .screen{height:auto;padding:0;grid-template-rows:auto auto auto auto auto}
 .row{grid-auto-rows:270px}
 .hdr-div{display:none}
-.hdr{flex-wrap:wrap;padding:4px 12px 12px 0}
+.hdr{flex-wrap:wrap;padding:4px 12px 12px 4px}
 .hdr-right{margin-left:auto;gap:12px;flex-wrap:wrap;justify-content:flex-end}
 .hdr-actions{display:flex;align-items:center;gap:8px}
 .hdr-actions .btn{height:36px;border-radius:8px}
@@ -288,11 +288,12 @@ function diasAte(iso){ const a=new Date(todayISO()+'T00:00:00'), b=new Date(iso+
 
 // Read only the current company state owned by the application.
 function climateState(){ return window.parent !== window && typeof window.parent.climateData === 'function' ? window.parent.climateData() : {issues:[], determination:{}}; }
-function getQuestoes(){ return climateState().issues.map(q=>({
- id:q.id, descricao:q.description, relevante:q.relevant, acao:q.action,
- responsavel:q.owner, responsavelCargo:q.role, prazo:q.due,
- status:q.status, evidencia:q.evidence
-})); }
+function getQuestoes(){ return climateState().issues.map(q=>{
+ const aplicavel = q.relevant==='Sim' || q.relevant==='Parcial';
+ return { id:q.id, descricao:q.description, relevante:q.relevant, aplicavel,
+ acao:aplicavel?q.action:'', responsavel:aplicavel?q.owner:'', responsavelCargo:aplicavel?q.role:'', prazo:aplicavel?q.due:'',
+ status:aplicavel?q.status:'Não aplicável', evidencia:q.evidenceFile?.id?q.evidenceFile.name:'' };
+}); }
 function getDet(){ const d=climateState().determination; return {
  relevanteParaSGQ:d.relevant, justificativa:d.justification,
  partesInteressadasExigem:d.stakeholderRequirement, partesInteressadasDetalhe:d.stakeholderDetail,
@@ -300,39 +301,40 @@ function getDet(){ const d=climateState().determination; return {
 }; }
 
 /* ===================== REGRAS ===================== */
-function atrasada(q){ return q.status!=='Concluída' && !!q.prazo && q.prazo < todayISO(); }
+function atrasada(q){ return q.aplicavel && q.status!=='Concluída' && !!q.prazo && q.prazo < todayISO(); }
 function sitGrupo(q){ if(q.status==='Concluída') return 'concl'; if(atrasada(q)) return 'atras'; return 'aberto'; }
-function prazoGrupo(q){ if(q.status==='Concluída') return 'concl'; if(!q.prazo) return 'semprazo'; const d=diasAte(q.prazo); if(d<0) return 'atras'; if(d<=30) return 'vence30'; return 'noprazo'; }
+function prazoGrupo(q){ if(!q.aplicavel) return 'na'; if(q.status==='Concluída') return 'concl'; if(!q.prazo) return 'semprazo'; const d=diasAte(q.prazo); if(d<0) return 'atras'; if(d<=30) return 'vence30'; return 'noprazo'; }
 
 function computeAgg(){
   const qs = getQuestoes();
   const total = qs.length;
   const cnt = fn => qs.filter(fn).length;
   const a = {
-    qs, total,
+    qs, total, aplicaveis:cnt(q=>q.aplicavel), naoAplicaveis:cnt(q=>!q.aplicavel),
     relevantes: cnt(q=>q.relevante==='Sim'), parciais: cnt(q=>q.relevante==='Parcial'), naoRel: cnt(q=>q.relevante==='Não'),
     concl: cnt(q=>q.status==='Concluída'),
     atrasadas: cnt(atrasada),
     andamento: cnt(q=>q.status==='Em andamento' && !atrasada(q)),
     monitorando: cnt(q=>q.status==='Monitorando' && !atrasada(q)),
     naoIni: cnt(q=>(!q.status || q.status==='Não iniciada') && !atrasada(q)),
-    abertas: cnt(q=>q.status!=='Concluída'),
+    abertas: cnt(q=>q.aplicavel && q.status!=='Concluída'),
     noPrazo: cnt(q=>prazoGrupo(q)==='noprazo'), vence30: cnt(q=>prazoGrupo(q)==='vence30'), semPrazo: cnt(q=>prazoGrupo(q)==='semprazo'),
     comEvid: cnt(q=>(q.evidencia||'').trim()),
   };
   a.semEvid = total - a.comEvid;
-  a.taxa = total ? Math.round(a.concl/total*100) : 0;
+  a.taxa = a.aplicaveis ? Math.round(a.concl/a.aplicaveis*100) : 0;
   const pct = n => total ? Math.round(n/total*100) : 0;
+  const pctApplicable = n => a.aplicaveis ? Math.round(n/a.aplicaveis*100) : 0;
   a.completude = [
     ['Relevância', pct(cnt(q=>q.relevante))],
-    ['Ação definida', pct(cnt(q=>(q.acao||'').trim()))],
-    ['Responsável', pct(cnt(q=>(q.responsavel||'').trim()))],
-    ['Prazo definido', pct(cnt(q=>q.prazo))],
+    ['Ação definida', pctApplicable(cnt(q=>(q.acao||'').trim()))],
+    ['Responsável', pctApplicable(cnt(q=>(q.responsavel||'').trim()))],
+    ['Prazo definido', pctApplicable(cnt(q=>q.prazo))],
     ['Evidência', pct(a.comEvid)],
-    ['Concluída', pct(a.concl)]
+    ['Concluída', pctApplicable(a.concl)]
   ];
   const pr = Object.create(null);
-  qs.forEach(q=>{ const n=q.responsavel||'—'; pr[n]=pr[n]||{concl:0,aberto:0,atras:0,t:0}; pr[n][sitGrupo(q)]++; pr[n].t++; });
+  qs.filter(q=>q.aplicavel).forEach(q=>{ const n=q.responsavel||'—'; pr[n]=pr[n]||{concl:0,aberto:0,atras:0,t:0}; pr[n][sitGrupo(q)]++; pr[n].t++; });
   a.porResp = pr;
   return a;
 }
@@ -352,7 +354,7 @@ function renderCards(a){
     {cat:'todas', l:'Questões avaliadas', v:a.total, c:`${a.relevantes} relevantes · ${a.parciais} parcial(is)`, color:'#4fa3ff', icon:ICN.grid},
     {cat:'abertas', l:'Em aberto', v:a.abertas, c:`${a.vence30} vencem em até 30 dias`, color:'#FBBF24', icon:ICN.clock},
     {cat:'atrasadas', l:'Atrasadas', v:a.atrasadas, c:'prazo vencido · ação imediata', color:'#F87171', icon:ICN.alert},
-    {cat:'tratadas', l:'Taxa de tratamento', v:a.taxa+'%', c:`${a.concl} de ${a.total} concluídas`, color:'#34D399', icon:ICN.check}
+    {cat:'tratadas', l:'Taxa de tratamento', v:a.taxa+'%', c:`${a.concl} de ${a.aplicaveis} concluídas`, color:'#34D399', icon:ICN.check}
   ];
   document.getElementById('cards').innerHTML = cards.map(c=>`
     <button type="button" class="card${c.cat==='tratadas'?' card-treatment':''}" style="--c:${c.color}${c.cat==='tratadas'?`;--treatment-progress:${Math.max(0,Math.min(100,a.taxa))}%`:''}" onclick="verCategoria('${c.cat}')" title="Ver detalhes">
@@ -453,7 +455,7 @@ function renderCharts(a){
   /* Roscas */
   donut('dStatus', [
     {l:'Concluídas', v:a.concl, c:C.green}, {l:'Em andamento', v:a.andamento, c:C.amber},
-    {l:'Monitorando', v:a.monitorando, c:C.cyan}, {l:'Não iniciadas', v:a.naoIni, c:C.gray}, {l:'Atrasadas', v:a.atrasadas, c:C.red}
+    {l:'Monitorando', v:a.monitorando, c:C.cyan}, {l:'Não iniciadas', v:a.naoIni, c:C.gray}, {l:'Atrasadas', v:a.atrasadas, c:C.red}, {l:'Não aplicáveis', v:a.naoAplicaveis, c:C.blue}
   ], hasDL);
   donut('dRel', [ {l:'Relevante (sim)', v:a.relevantes, c:C.green}, {l:'Parcial', v:a.parciais, c:C.amber}, {l:'Não relevante', v:a.naoRel, c:C.gray} ], hasDL);
   donut('dPrazo', [ {l:'No prazo', v:a.noPrazo, c:C.blue}, {l:'Vence em 30 dias', v:a.vence30, c:C.orange}, {l:'Atrasadas', v:a.atrasadas, c:C.red}, {l:'Sem prazo', v:a.semPrazo, c:C.gray} ], hasDL);
@@ -508,6 +510,7 @@ function fitVenc(){
 /* ===================== MODAL ===================== */
 function relChip(v){ const m={'Sim':'rel-sim','Não':'rel-nao','Parcial':'rel-parcial'}; return `<span class="rel-chip ${m[v]||'rel-nao'}">${esc(v||'—')}</span>`; }
 function statusPill(q){
+  if(!q.aplicavel) return `<span class="pill" style="color:${C.gray}">Não aplicável</span>`;
   if(q.status==='Concluída') return `<span class="pill" style="color:${C.green}"><i></i>Concluída</span>`;
   if(atrasada(q)) return `<span class="pill" style="color:${C.red}"><i></i>Atrasada</span>`;
   if(q.status==='Em andamento') return `<span class="pill" style="color:${C.amber}"><i></i>Em andamento</span>`;
@@ -526,12 +529,12 @@ function verCategoria(cat){
       <div class="det-item"><div class="k">Status · responsável</div><div class="val">${esc(d.status)} · ${esc(d.responsavel)}</div></div>
       <div class="det-item"><div class="k">Avaliado em · próxima revisão</div><div class="val">${fmtDate(d.dataAvaliacao)} · ${fmtDate(d.proximaRevisao)}</div></div>
       <div class="det-item full"><div class="k">Justificativa</div><div class="val txt">${esc(d.justificativa)}</div></div>
-      <div class="det-item full"><div class="k">Necessidades das partes interessadas</div><div class="val txt">${esc(d.partesInteressadasDetalhe)}</div></div>
+      ${d.partesInteressadasExigem==='Sim'?`<div class="det-item full"><div class="k">Necessidades das partes interessadas</div><div class="val txt">${esc(d.partesInteressadasDetalhe)}</div></div>`:''}
     </div>`;
     openModal(); return;
   }
   let list = a.qs.slice(), title='Questões avaliadas', sub='Todas as questões climáticas';
-  if(cat==='abertas'){ list=list.filter(q=>q.status!=='Concluída'); title='Questões em aberto'; sub='Não concluídas'; }
+  if(cat==='abertas'){ list=list.filter(q=>q.aplicavel && q.status!=='Concluída'); title='Questões em aberto'; sub='Não concluídas'; }
   else if(cat==='atrasadas'){ list=list.filter(atrasada); title='Questões atrasadas'; sub='Prazo vencido e não concluídas'; }
   else if(cat==='tratadas'){ list=list.filter(q=>q.status==='Concluída'); title='Questões tratadas'; sub='Concluídas'; }
   document.getElementById('mTitle').textContent = title;
@@ -578,6 +581,7 @@ function exportarResumo(){
   const linhas = [['Indicador','Valor'],
     ['Determinação (relevante para o SGQ)', d.relevanteParaSGQ], ['Status da determinação', d.status], ['Próxima revisão', fmtDate(d.proximaRevisao)],
     ['Questões avaliadas', a.total], ['Relevantes', a.relevantes], ['Parciais', a.parciais], ['Não relevantes', a.naoRel],
+    ['Questões aplicáveis ao tratamento', a.aplicaveis], ['Não aplicáveis ao tratamento', a.naoAplicaveis],
     ['Concluídas', a.concl], ['Em andamento', a.andamento], ['Monitorando', a.monitorando], ['Não iniciadas', a.naoIni], ['Atrasadas', a.atrasadas],
     ['Em aberto', a.abertas], ['Vencem em até 30 dias', a.vence30], ['Sem prazo definido', a.semPrazo],
     ['Com evidência', a.comEvid], ['Sem evidência', a.semEvid], ['Taxa de tratamento (%)', a.taxa]

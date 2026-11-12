@@ -1880,7 +1880,7 @@ function dashboardSummary() {
     modules: {
       "mudancas-climaticas": {
         value: `${state.climate?.issues?.length || 0} registros`,
-        caption: `${(state.climate?.issues || []).filter(item => item.status === "Concluída").length} questões concluídas`,
+        caption: `${(state.climate?.issues || []).filter(item => climateIssueNeedsTreatment(item) && item.status === "Concluída").length} questões concluídas`,
       },
       contexto: {
         value: `${swot.length + partes.length + processos.length} registros`,
@@ -1961,7 +1961,7 @@ function getFollowUpItems() {
   }
 
   if (canRead("mudancas-climaticas")) {
-    (state.climate?.issues || []).filter((item) => !isClosedStatus(item.status)).forEach((item) => add({ id: `climate:${item.id}`, module: "mudancas-climaticas", origin: "Mudanças climáticas", title: item.description || "Questão climática", responsible: item.owner, dueDate: item.due || "", status: item.status, priority: followUpPriority(item.due), color: "#22d3ee" }));
+    (state.climate?.issues || []).filter((item) => climateIssueNeedsTreatment(item) && !isClosedStatus(item.status)).forEach((item) => add({ id: `climate:${item.id}`, module: "mudancas-climaticas", origin: "Mudanças climáticas", title: item.description || "Questão climática", responsible: item.owner, dueDate: item.due || "", status: item.status, priority: followUpPriority(item.due), color: "#22d3ee" }));
   }
 
   if (canRead("documentos")) {
@@ -2744,6 +2744,7 @@ function applyModuleSnapshot(moduleId, snapshot) {
 }
 
 function undoModuleAction(moduleId) {
+  if (moduleId === "mudancas-climaticas") return climateRestoreHistory("undo");
   const history = moduleHistoryState(moduleId);
   const previous = history.undo.pop();
   if (!previous) return;
@@ -2754,6 +2755,7 @@ function undoModuleAction(moduleId) {
 }
 
 function redoModuleAction(moduleId) {
+  if (moduleId === "mudancas-climaticas") return climateRestoreHistory("redo");
   const history = moduleHistoryState(moduleId);
   const next = history.redo.pop();
   if (!next) return;
