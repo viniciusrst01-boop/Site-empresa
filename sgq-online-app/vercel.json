@@ -16,6 +16,10 @@
       "schedule": "0 12 * * *"
     },
     {
+      "path": "/api/cron/store-traffic",
+      "schedule": "30 12 * * *"
+    },
+    {
       "path": "/api/cron/backups",
       "schedule": "0 3 * * *"
     }

@@ -945,6 +945,7 @@ test("relatório mensal da loja só libera dados ao master viniciusrst", async (
       VERCEL_ANALYTICS_TOKEN: "",
       VERCEL_ANALYTICS_PROJECT_ID: "",
       VERCEL_ANALYTICS_TEAM_ID: "",
+      CRON_SECRET: "cron-store-traffic-test-secret-123456",
       SESSION_SECRET: "segredo-de-teste-com-tamanho-suficiente-123456",
     },
     stdio: ["ignore", "pipe", "pipe"],
@@ -962,7 +963,21 @@ test("relatório mensal da loja só libera dados ao master viniciusrst", async (
   assert.equal(response.status, 200);
   const report = await response.json();
   assert.deepEqual(report.commerce, { available: false, reason: "not_configured" });
-  assert.deepEqual(report.traffic, { available: false, reason: "not_configured" });
+  assert.deepEqual(report.traffic, {
+    available: false,
+    reason: "not_configured",
+    pageviews: 0,
+    visitorDays: 0,
+    days: [],
+    topPages: [],
+    source: "unavailable",
+  });
+  assert.equal((await fetch(`${baseUrl}/api/cron/store-traffic`)).status, 401);
+  const cronResponse = await fetch(`${baseUrl}/api/cron/store-traffic`, {
+    headers: { Authorization: "Bearer cron-store-traffic-test-secret-123456" },
+  });
+  assert.equal(cronResponse.status, 200);
+  assert.deepEqual(await cronResponse.json(), { ok: true, captured: 0, configured: false });
 
   const pdfResponse = await api(baseUrl, "/api/admin/store-report?month=2026-10&format=pdf", masterCookie, {
     headers: { Accept: "application/pdf" },

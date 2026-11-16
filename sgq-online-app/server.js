@@ -44,8 +44,10 @@ const {
   listNotificationTargets,
   listUserSessions,
   listSystemEvents,
+  listStoreTrafficDays,
   recordBillingEvent,
   recordSystemEvent,
+  saveStoreTrafficDay,
   recordAuditLog,
   registerUserSession,
   resetUserPassword,
@@ -1465,6 +1467,20 @@ async function handleRequest(req, res) {
     return;
   }
 
+  if (url.pathname === "/api/cron/store-traffic" && req.method === "GET") {
+    const cronSecret = process.env.CRON_SECRET || "";
+    if (!cronSecret || req.headers.authorization !== `Bearer ${cronSecret}`) {
+      sendJson(res, 401, { error: "invalid_cron_secret" });
+      return;
+    }
+    try {
+      sendJson(res, 200, { ok: true, ...(await captureRecentStoreTraffic()) });
+    } catch {
+      sendJson(res, 500, { error: "store_traffic_capture_failed" });
+    }
+    return;
+  }
+
   if (url.pathname === "/api/cron/notifications" && req.method === "GET") {
     const cronSecret = process.env.CRON_SECRET || "";
     if (!cronSecret || req.headers.authorization !== `Bearer ${cronSecret}`) {
@@ -1939,6 +1955,61 @@ async function fetchStoreTrafficReport(since, until) {
   }
 }
 
+async function captureRecentStoreTraffic() {
+  if (!process.env.VERCEL_ANALYTICS_TOKEN || !process.env.VERCEL_ANALYTICS_PROJECT_ID) {
+    return { captured: 0, configured: false };
+  }
+  const dates = Array.from({ length: 3 }, (_, index) => {
+    const date = new Date();
+    date.setUTCDate(date.getUTCDate() - index - 1);
+    return date.toISOString().slice(0, 10);
+  });
+  const results = await Promise.all(dates.map(async (date) => {
+    const report = await fetchStoreTrafficReport(date, date);
+    if (!report.available) return false;
+    const daily = report.days.find((item) => item.date === date);
+    if (!daily) return false;
+    await saveStoreTrafficDay({
+      date,
+      pageviews: daily.pageviews,
+      visitors: daily.visitors,
+      topPages: report.topPages,
+    });
+    return true;
+  }));
+  return { captured: results.filter(Boolean).length, configured: true };
+}
+
+function mergeStoreTraffic(liveTraffic, savedDays) {
+  const byDate = new Map(savedDays.map((day) => [day.date, day]));
+  for (const day of liveTraffic.days || []) {
+    byDate.set(day.date, day);
+  }
+  const days = [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
+  const pageTotals = new Map();
+  for (const day of savedDays) {
+    for (const page of day.topPages || []) {
+      const current = pageTotals.get(page.path) || { path: page.path, pageviews: 0, visitors: 0 };
+      current.pageviews += Number(page.pageviews) || 0;
+      current.visitors += Number(page.visitors) || 0;
+      pageTotals.set(page.path, current);
+    }
+  }
+  const hasSavedTraffic = savedDays.length > 0;
+  const topPages = liveTraffic.available
+    ? liveTraffic.topPages || []
+    : [...pageTotals.values()].sort((a, b) => b.pageviews - a.pageviews).slice(0, 10);
+  return {
+    available: liveTraffic.available || hasSavedTraffic,
+    reason: liveTraffic.available || hasSavedTraffic ? undefined : liveTraffic.reason,
+    pageviews: days.reduce((sum, day) => sum + (Number(day.pageviews) || 0), 0),
+    visitorDays: days.reduce((sum, day) => sum + (Number(day.visitors) || 0), 0),
+    days,
+    topPages,
+    source: liveTraffic.available ? "live" : hasSavedTraffic ? "saved" : "unavailable",
+  };
+}
+
 async function handleApiRequest(req, res, url, session) {
   if (!session) {
     sendJson(res, 401, { error: "unauthorized" });
@@ -2216,10 +2287,12 @@ async function handleApiRequest(req, res, url, session) {
     const monthIndex = Number(match[2]) - 1;
     const since = `${match[1]}-${match[2]}-01`;
     const until = `${match[1]}-${match[2]}-${String(new Date(Date.UTC(year, monthIndex + 1, 0)).getUTCDate()).padStart(2, "0")}`;
-    const [commerce, traffic] = await Promise.all([
+    const [commerce, liveTraffic, savedDays] = await Promise.all([
       fetchStoreMonthlyReport(month),
       fetchStoreTrafficReport(since, until),
+      listStoreTrafficDays(month),
     ]);
+    const traffic = mergeStoreTraffic(liveTraffic, savedDays);
     const report = { month, commerce, traffic };
     if (String(url.searchParams.get("format") || "json").toLowerCase() === "pdf") {
       const buffer = await createStoreReportPdf(report);

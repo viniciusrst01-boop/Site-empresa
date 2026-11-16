@@ -59,6 +59,7 @@ function getStore() {
       billingEvents: [],
       backupSnapshots: [],
       systemEvents: [],
+      storeTrafficDaily: [],
     };
     saveStore();
   }
@@ -76,6 +77,7 @@ function getStore() {
   store.billingEvents = Array.isArray(store.billingEvents) ? store.billingEvents : [];
   store.backupSnapshots = Array.isArray(store.backupSnapshots) ? store.backupSnapshots : [];
   store.systemEvents = Array.isArray(store.systemEvents) ? store.systemEvents : [];
+  store.storeTrafficDaily = Array.isArray(store.storeTrafficDaily) ? store.storeTrafficDaily : [];
   store.companies = Array.isArray(store.companies) ? store.companies : [];
   store.users = Array.isArray(store.users) ? store.users : [];
   store.companyData = Array.isArray(store.companyData) ? store.companyData : [];
@@ -288,6 +290,14 @@ async function initializeDatabase() {
 
     CREATE INDEX IF NOT EXISTS system_events_created_idx
       ON system_events (created_at DESC);
+
+    CREATE TABLE IF NOT EXISTS store_traffic_daily (
+      traffic_date DATE PRIMARY KEY,
+      pageviews INTEGER NOT NULL DEFAULT 0,
+      visitors INTEGER NOT NULL DEFAULT 0,
+      top_pages JSONB NOT NULL DEFAULT '[]'::jsonb,
+      captured_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
   `);
 }
 
@@ -2427,6 +2437,59 @@ async function listSystemEvents(limit = 50) {
   return getStore().systemEvents.sort(sortNewestFirst).slice(0, safeLimit).map(mapSystemEvent);
 }
 
+async function saveStoreTrafficDay(values = {}) {
+  await ensureInitialized();
+  const date = String(values.date || "");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error("invalid_traffic_date");
+  const row = {
+    date,
+    pageviews: Math.max(0, Math.trunc(Number(values.pageviews) || 0)),
+    visitors: Math.max(0, Math.trunc(Number(values.visitors) || 0)),
+    topPages: Array.isArray(values.topPages) ? values.topPages.slice(0, 50).map((page) => ({
+      path: normalizeText(page.path).slice(0, 500),
+      pageviews: Math.max(0, Math.trunc(Number(page.pageviews) || 0)),
+      visitors: Math.max(0, Math.trunc(Number(page.visitors) || 0)),
+    })).filter((page) => page.path) : [],
+    capturedAt: timestamp(),
+  };
+  if (usePostgres) {
+    const result = await getPool().query(
+      `INSERT INTO store_traffic_daily (traffic_date, pageviews, visitors, top_pages, captured_at)
+       VALUES ($1::date, $2, $3, $4::jsonb, NOW())
+       ON CONFLICT (traffic_date) DO UPDATE SET
+         pageviews = EXCLUDED.pageviews,
+         visitors = EXCLUDED.visitors,
+         top_pages = EXCLUDED.top_pages,
+         captured_at = NOW()
+       RETURNING traffic_date::text AS date, pageviews, visitors, top_pages AS "topPages", captured_at AS "capturedAt"`,
+      [row.date, row.pageviews, row.visitors, JSON.stringify(row.topPages)],
+    );
+    return result.rows[0];
+  }
+  const database = getStore();
+  const index = database.storeTrafficDaily.findIndex((item) => item.date === row.date);
+  if (index === -1) database.storeTrafficDaily.push(row);
+  else database.storeTrafficDaily[index] = row;
+  saveStore();
+  return row;
+}
+
+async function listStoreTrafficDays(month) {
+  await ensureInitialized();
+  if (!/^20\d{2}-(0[1-9]|1[0-2])$/.test(String(month || ""))) return [];
+  if (usePostgres) {
+    const result = await getPool().query(
+      `SELECT traffic_date::text AS date, pageviews, visitors, top_pages AS "topPages", captured_at AS "capturedAt"
+       FROM store_traffic_daily WHERE to_char(traffic_date, 'YYYY-MM') = $1 ORDER BY traffic_date`,
+      [month],
+    );
+    return result.rows;
+  }
+  return getStore().storeTrafficDaily
+    .filter((item) => item.date.startsWith(`${month}-`))
+    .sort((a, b) => a.date.localeCompare(b.date));
+}
+
 async function updateSupportRequest(id, status) {
   await ensureInitialized();
   const statuses = new Set(["open", "in_progress", "closed"]);
@@ -2785,11 +2848,13 @@ module.exports = {
   listAdminOverview,
   listUserSessions,
   listSystemEvents,
+  listStoreTrafficDays,
   updateSupportRequest,
   appendSupportMessage,
   markSupportMessagesRead,
   recordBillingEvent,
   recordSystemEvent,
+  saveStoreTrafficDay,
   recordAuditLog,
   registerUserSession,
   revokeOtherUserSessions,
